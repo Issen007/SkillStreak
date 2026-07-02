@@ -4,7 +4,7 @@
 
 Välkommen till **SkillStreak** (arbetstitel)! Detta är ett open-source-initiativ skapat av en innebandytränare för att vända ungdomars skärmtid (TikTok, Snapchat, Instagram) till aktiv rörelse, fysträning och innebandyutveckling på egentid.
 
-Idag har många ungdomslag (t.ex. tjejer födda 2013 och killar födda 2015) endast runt 2 timmars halltid i veckan plus match. Resten av tiden stjäl mobilen ofta uppmärksamheten. Den här appen vill förändra detta genom att använda samma psykologiska drivkrafter som gör apparna beroendeframkallande, men med målet att få barnen att plocka upp klubban eller köra ett fyspass i vardagen.
+Idag har många ungdomslag endast runt 1-3 timmars halltid i veckan plus match. Resten av tiden stjäl mobilen ofta uppmärksamheten. Den här appen vill förändra detta genom att använda samma psykologiska drivkrafter som gör apparna beroendeframkallande, men med målet att få barnen att plocka upp klubban eller köra ett fyspass i vardagen.
 
 ---
 
