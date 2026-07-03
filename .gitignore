@@ -149,6 +149,8 @@ activemq-data/
 
 # Environments
 .env
+.env.*
+!.env.example
 .envrc
 .venv
 env/
@@ -156,6 +158,19 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Node.js / NestJS (backend/) and Expo/React Native (frontend/, once it exists)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+coverage/
+.eslintcache
+*.tsbuildinfo
+.expo/
+.expo-shared/
 
 # Spyder project settings
 .spyderproject
