@@ -69,28 +69,34 @@ to prove the toolchain works end-to-end and lock a visual identity *before*
 any real screen gets built on top of it. Nothing here is functional; it's a
 walking skeleton plus one mockup.
 
-- [ ] **ux-designer**: propose a small style guide — color palette + font
+- [x] propose a small style guide — color palette + font
       pairing for the brand (energetic/kid-friendly, works with the
       streak/fire and team-gold themes, high contrast for accessibility).
-      Record it in `docs/design/style-guide.md`.
-- [ ] **ux-designer**: build one mockup of the app's first screen (splash or
-      home) applying that palette/fonts, as an HTML artifact — this is the
-      "first slide" the rest of the app's look will be judged against.
-- [ ] **frontend-developer**: scaffold the Expo app and get a literal
-      hello-world screen running in a simulator/Expo Go — confirms the
-      Expo/TypeScript toolchain actually works on this machine. Once the
-      ux-designer's mockup is approved, reskin that one screen to match it
-      (real colors/fonts, still no real functionality).
-- [ ] **backend-developer**: scaffold the API service with a single health
-      check endpoint (e.g. `GET /ping`) wired into `docker-compose.yml` with
-      Postgres + Redis — confirms all three containers actually start and
-      talk to each other, before any real schema exists.
+      → `docs/design/style-guide.md` (flame/gold/ink/paper/success tokens,
+      Baloo 2 + Nunito).
+- [x] build one mockup of the app's first screen (home) applying that
+      palette/fonts → `docs/design/home-screen-mockup.html` (Artifact
+      hosting was unreachable — DNS failures to `api.anthropic.com` — so
+      this is a self-contained local HTML file instead of a hosted link;
+      retry hosting it later if useful, not blocking).
+- [x] **frontend-developer**: scaffold the Expo app and get a literal
+      hello-world screen running, styled with the approved palette/fonts.
+      → `mobile/` (Expo, TypeScript). Confirmed working on a physical phone
+      via Expo Go after a real snag: the project's initial SDK 57 didn't
+      match the phone's installed Expo Go build (SDK 54) — Expo Go only
+      supports one SDK per app-store release, updating the app doesn't
+      change that. Downgraded `mobile/` to SDK 54 (react-native 0.81.5,
+      react 19.1.0) via `expo install --fix`; typecheck, `expo-doctor`
+      (18/18), and iOS+Android bundle all verified before handing back.
+- [x] **backend-developer**: scaffold the API service with a single health
+      check endpoint wired into `docker-compose.yml` with Postgres + Redis.
+      → done in Phase 0 already (`/health`), nothing further needed here.
 
-**Definition of done:** `expo start` shows the on-brand first screen on a
-device/simulator; `docker-compose up` brings up API+Postgres+Redis and
-`/ping` responds; palette/fonts are written down in
+**Definition of done:** met — Expo Go on a real device shows the on-brand
+home screen; `docker-compose up` brings up API+Postgres+Redis and
+`/health` responds (Phase 0); palette/fonts are written down in
 `docs/design/style-guide.md` for reuse in Phase 1. No streak logic, no
-auth, no real data yet — that's Phase 1.
+auth, no real data yet — that's Phase 1, starting now.
 
 ## Phase 1 — MVP (README's "Fas 1")
 
