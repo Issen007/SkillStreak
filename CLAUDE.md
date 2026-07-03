@@ -63,6 +63,11 @@ adding geolocation for "nearby teams", etc.).
   real-time leaderboards).
 - **Infra:** Docker/docker-compose now; Kubernetes (Helm charts) is a
   Fas 4 goal, not needed for MVP.
+- **Package managers:** pnpm for all Node/TypeScript code (current
+  `backend/`, future Expo app); uv for any future Python service (e.g. a
+  Fas 3+ video-tagging service) — decided in
+  [`docs/adr/0003-package-managers.md`](docs/adr/0003-package-managers.md).
+  Don't reintroduce npm/yarn or pip/poetry lockfiles alongside these.
 
 ## Roadmap (from README)
 
@@ -113,6 +118,14 @@ i18n rather than hardcoded Swedish or English text.
 applies to Claude Code and to every subagent in `.claude/agents/`. All work
 happens on a branch (e.g. `phase0`, `phase1`); push the branch and leave
 reviewing/merging to the project owner.
+
+`.github/workflows/ci.yml` runs backend lint/build/test, a Dockerfile build
+check, and a docker-compose smoke test on every PR into `main`. The workflow
+file only runs the checks — making them a *required* status check that
+blocks merging is a GitHub branch-protection setting on the repo itself,
+not something version-controlled here. That still needs to be turned on
+(Settings → Branches → branch protection rule for `main`) for "always
+tested before merge" to actually be enforced, not just advisory.
 
 ## Open decisions to surface, not silently pick
 

@@ -52,6 +52,16 @@ focus baked in.
 
 **Phase 0 is done** except the app name, which isn't a technical blocker.
 
+**Follow-up (2026-07-03):** package-manager standard set in
+`docs/adr/0003-package-managers.md` — pnpm for Node/TS (now: `backend/`;
+later: the Expo app), uv for any future Python service. `backend/` migrated
+from npm to pnpm (Dockerfile, lockfile); rebuilt and smoke-tested via both
+`docker build` and a full `docker compose up` + `/health` check. Added
+`.github/workflows/ci.yml`: backend lint/build/unit/e2e tests, a Dockerfile
+build check, and a docker-compose smoke test, on every PR into `main` and
+push to `main`. Making that check *required* before merge is a GitHub
+branch-protection setting, not a repo file — see CLAUDE.md.
+
 ## Phase 0.5 — Hello World & Visual Identity
 
 Not part of the README's Fas numbering — a small, deliberately narrow phase
@@ -123,7 +133,9 @@ This phase is the highest privacy risk (video, a feed, tagging teammates) —
 treat `security-reviewer` involvement as blocking, not a final check.
 
 - [ ] **architect**: ADR for video storage/serving (where clips live, how
-      access is scoped to a single team, retention/deletion).
+      access is scoped to a single team, retention/deletion), and — if the
+      validity/tagging feature actually needs local ML — the new Python
+      service's shape, built with uv per `docs/adr/0003-package-managers.md`.
 - [ ] **security-reviewer**: sign off on the storage/access design *before*
       backend-developer builds it, not after.
 - [ ] **ux-designer**: design the safe feed and the "tag a teammate to
