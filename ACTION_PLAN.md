@@ -40,15 +40,24 @@ focus baked in.
       now bound to `127.0.0.1` in `docker-compose.yml`. Three PLAUSIBLE
       data-model gaps flagged for Phase 1, before ADR-0002 becomes real
       schema:
-      - [ ] Isolate `real_name` as structurally as `ParentalConsentRecord`
+      - [x] Isolate `real_name` as structurally as `ParentalConsentRecord`
             is isolated (currently just a nullable column with a
-            visibility *convention*, not an enforced boundary).
-      - [ ] Reconsider whether `parental_consent_status` should gate
+            visibility *convention*, not an enforced boundary). Resolved:
+            new `PlayerPrivateInfo` table (also absorbs `parent_contact`
+            for the same reason) — see ADR-0002's 2026-07-03 addendum.
+      - [x] Reconsider whether `parental_consent_status` should gate
             account creation itself for the youngest players, not only
-            media upload.
-      - [ ] Constrain `BadgeAward.context` (currently freeform text/JSON)
+            media upload. Resolved: gates the first `TrainingLogEntry`
+            (real gameplay/data processing), not the onboarding shell
+            (team join + profile) — see ADR-0002's addendum §2. Age-band
+            nuance (13+ self-consent under Swedish GDPR Art. 8) flagged
+            for security-reviewer to confirm before Fas 1 ships.
+      - [x] Constrain `BadgeAward.context` (currently freeform text/JSON)
             so it can't become a backdoor for location/PII the rest of
-            the model deliberately excludes.
+            the model deliberately excludes. Resolved: fixed
+            `trigger_reason` enum + a small allow-listed field set per
+            reason, enforced at the API/DTO boundary — see ADR-0002's
+            addendum §3.
 
 **Phase 0 is done** except the app name, which isn't a technical blocker.
 
@@ -61,6 +70,15 @@ from npm to pnpm (Dockerfile, lockfile); rebuilt and smoke-tested via both
 build check, and a docker-compose smoke test, on every PR into `main` and
 push to `main`. Making that check *required* before merge is a GitHub
 branch-protection setting, not a repo file — see CLAUDE.md.
+
+**Follow-up (2026-07-03):** **architect** closed the three Phase 0 data-model
+gaps above and defined the Phase 1 API contract ahead of real migrations →
+`docs/adr/0002-data-model.md`'s addendum (real_name/parent_contact
+isolation, consent gating point, BadgeAward.context shape) and
+`docs/api/phase1-contract.md` (onboarding sequence, "Jag har tränat"
+endpoint, home-screen fetch) — for backend-developer/frontend-developer/
+ux-designer to build against directly rather than re-deriving from
+ADR-0002 alone.
 
 ## Phase 0.5 — Hello World & Visual Identity
 
@@ -104,19 +122,28 @@ Goal: a player can tap "Jag har tränat", see their personal streak
 increment, and see the team's shared point pool increment.
 
 - [ ] **backend-developer**: implement the Team/Player/Coach schema as
-      migrations; implement streak logic (Redis) and team pool logic
-      (Postgres) as separate modules per the architect's ADR.
-- [ ] **ux-designer**: design the onboarding + parental-consent flow, and
-      the core "Jag har tränat" screen (streak view + team meter).
+      migrations (including the `PlayerPrivateInfo` split and the
+      constrained `BadgeAward.context` shape from ADR-0002's addendum);
+      implement streak logic (Redis) and team pool logic (Postgres) as
+      separate modules per the architect's ADR; implement the endpoints in
+      `docs/api/phase1-contract.md`, including the consent gate on
+      `TrainingLogEntry` creation.
+- [ ] **ux-designer**: design the onboarding + parental-consent flow
+      (including the "waiting for parent approval" home-screen state), and
+      the core "Jag har tränat" screen (streak view + team meter) — against
+      `docs/api/phase1-contract.md`.
 - [ ] **frontend-developer**: scaffold the Expo app; build the onboarding
-      and core screen against the UX spec and the backend API contract.
+      and core screen against the UX spec and `docs/api/phase1-contract.md`.
 - [ ] **security-reviewer**: review the parental-consent flow and the
       player identity model (screen names) before this phase is
       considered done — this is the first phase that touches real child
-      accounts.
+      accounts. Specifically confirm the age-band nuance flagged in
+      ADR-0002's addendum §2 (13+ self-consent under Swedish GDPR Art. 8).
 - [ ] **code-critic**: review the streak/team-pool logic and the core
       screen's client code before merge (edge cases: first-ever streak
-      day, midnight rollover, missed day, concurrent team-pool writes).
+      day, midnight rollover, missed day, concurrent team-pool writes; the
+      same-day-logging rule is now fixed in `docs/api/phase1-contract.md`,
+      check the implementation actually matches it).
 
 **Definition of done:** `docker-compose up` brings up the full stack; a
 player can complete the core loop end-to-end; the schema and consent flow
