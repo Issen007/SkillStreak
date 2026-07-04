@@ -291,18 +291,19 @@ that step are the minimum needed to run the consent request itself.
 Gating the first real write instead protects the same thing more precisely
 without adding friction to a step that was never the risky one.
 
-**Age-band nuance, flagged not resolved:** Sweden set the GDPR Art. 8
-self-consent age for "information society services" at 13. For players
-who are 13+ (derivable from `birth_year`), it's plausible the consent
-request should go to the player rather than strictly a parent — the schema
-already anticipates this via `ParentalConsentRecord.method`'s
-`in_app_by_parent_account` vs `email_link` split. The gate mechanism
-(block writes until `approved`) is identical either way; only *who* is
-allowed to click approve differs. That's a legal/policy call for
-security-reviewer to confirm with real guidance before Fas 1 ships, not a
-schema change — no new column is needed for this decision, only a change
-in enforcement point (service-layer check on `TrainingLogEntry` creation)
-and in what the home screen surfaces.
+**Age-band nuance — resolved 2026-07-04 by security-reviewer:** Sweden set
+the GDPR Art. 8 self-consent age for "information society services" at 13,
+so a 13+ player could legally self-consent rather than a parent. **Decision:
+parent/guardian consent for every player in Phase 1, regardless of
+`birth_year`.** This is a coach-mediated youth-sports app where parental
+involvement is the expected norm independent of the legal floor;
+`birth_year` alone can't reliably distinguish "13 now" from "turns 13
+mid-season," and a second consent-collection UX for an age-derived subset
+of players would add real implementation/legal risk for a small MVP with no
+corresponding benefit. `onboarding.service.ts` always uses
+`ConsentMethod.EMAIL_LINK` — this is the deliberate Phase 1 answer, not a
+placeholder. Revisit only with real legal sign-off specific to this
+product, not preemptively.
 
 ### 3. `BadgeAward.context` becomes a constrained, discriminated shape
 
