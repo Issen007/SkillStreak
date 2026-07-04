@@ -26,7 +26,13 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 
 COPY --from=build /app/dist ./dist
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
 
 EXPOSE 3000
 
+# Runs pending migrations against the compose Postgres before starting the
+# API — see docs/adr/0002-data-model.md ("schema changes go through
+# migrations, never manual edits to a running schema").
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "dist/main.js"]
