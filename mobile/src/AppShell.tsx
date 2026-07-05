@@ -26,6 +26,24 @@ interface AppShellProps {
  * - Screen G3's "catch-up" bonus-banner check, which has to run on every
  *   app open/foreground regardless of which tab happens to be open (the
  *   flow doc: "most likely Home"), so it can't live inside GoalScreen.
+ *
+ * The G2/G3 bonus-celebration split, end to end (read this if
+ * `suppressNextCatchUp` below is confusing): when a team's weekly goal is
+ * first crossed, exactly one training-log request is the one that crossed
+ * it — the backend flags *that* response's `goalBonus` field, and nobody
+ * else's. `HomeScreen` shows that one player the big `GoalBonusTakeover`
+ * (Screen G2) locally, from the response it already has in hand — no
+ * extra fetch. Every other teammate finds out passively: `checkForCatchUp`
+ * below runs on every app open/foreground, and shows everyone (once each,
+ * tracked per-device via `localFlags`) the smaller `CatchUpBanner` (Screen
+ * G3) the first time it notices the goal now has a `bonusAwardedAt`.
+ * Without `suppressNextCatchUp`, the *triggering* player would see both:
+ * G2 immediately (from their own response), then G3 on their very next
+ * foreground check (since the goal now looks "newly bonused" to
+ * `checkForCatchUp` too, which has no way to know it was this same device
+ * that caused it). `handleGoalBonusTriggered` — called by `HomeScreen`
+ * right when it shows G2 — sets this one-shot flag so the *next*
+ * `checkForCatchUp` run suppresses G3 once, then clears itself.
  */
 export function AppShell({ onSessionInvalid }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('home');

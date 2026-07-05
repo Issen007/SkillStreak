@@ -9,6 +9,11 @@ interface AppHeaderProps {
   avatarId: string;
 }
 
+/** Home tab's top banner: wordmark + working-title note, the player's own
+ * avatar (looked up from the shared `AVATAR_CATALOG` by id — the API only
+ * ever sends `avatarId`, never the emoji itself), and a screen-name-only
+ * greeting (never the real name, per the "screen names in any player-facing
+ * UI" rule). Purely presentational — no fetch, no state. */
 export function AppHeader({ screenName, avatarId }: AppHeaderProps) {
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
 

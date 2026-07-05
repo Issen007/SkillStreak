@@ -10,9 +10,12 @@ interface PrimaryButtonProps {
   loading?: boolean;
 }
 
-/** Solid `ink`-filled CTA — used for every primary onboarding action.
- * (The home screen's flame-filled "Jag har tränat" button is its own
- * component since its disabled/restyled states are more specific.) */
+/** Solid `ink`-filled CTA — originally "every primary onboarding action",
+ * now also reused as-is for Phase 2's captain actions (e.g. GoalScreen's
+ * "Aktivera nu"/"+ Sätt veckans mål", KB4Review's "Aktivera nu") since
+ * those needed the exact same visual weight, not a new variant. (The home
+ * screen's flame-filled "Jag har tränat" button is its own component since
+ * its disabled/restyled states are more specific — see `TrainedButton`.) */
 export function PrimaryButton({
   label,
   onPress,
