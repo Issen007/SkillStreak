@@ -1,4 +1,4 @@
-# Phase 2 API Contract — coach dashboard, challenges, session reissue
+# Phase 2 API Contract — Kapten, weekly team goal, session reissue
 
 ## Status
 
@@ -6,117 +6,92 @@ Draft for Phase 2 build — architect-owned, for backend-developer/
 frontend-developer to build against. Same rigor as
 `docs/api/phase1-contract.md`: endpoint list + request/response shapes +
 the sequencing/state-machine rules that matter, not a full OpenAPI spec.
-Formalizes the informal sketches in `docs/design/phase2-flows.md`'s
-"Notes for architect/backend-developer" section, and the two auth
-decisions in `docs/adr/0004-coach-auth-and-session-reissue.md` (read that
-ADR first — this doc assumes its schema/guard decisions).
+
+**This replaces the previous coach-dashboard version of this document
+wholesale**, following the project owner's pivot away from a separate adult
+"Coach" concept to a player-captain ("Kapten") who uses their existing
+player account. See
+[`docs/adr/0005-kapten-and-weekly-team-goal.md`](../adr/0005-kapten-and-weekly-team-goal.md)
+(read first — this doc assumes its schema/decisions) and
+[`docs/adr/0004-coach-auth-and-session-reissue.md`](../adr/0004-coach-auth-and-session-reissue.md)'s
+2026-07-05 addendum for why the old coach-auth endpoints below no longer
+exist. Part 3 of ADR-0004 (player `token_version` + session-reissue code)
+is unaffected and still governs the session-reissue endpoint's mechanism —
+only its caller changes (captain, not coach).
 
 Builds on `phase1-contract.md`, doesn't replace it — Phase 1's four
 endpoints (`GET /teams/invite/:inviteCode`, `POST /players`,
-`POST /training-logs`, `GET /players/me`) are unchanged except where noted
-below (`POST /training-logs`'s `challengeId` validation).
+`POST /training-logs`, `GET /players/me`) are unchanged, **including
+`POST /training-logs`'s request shape** — see that endpoint's section below
+for the one *response* addition it gets in Phase 2.
 
 ## Conventions
 
 - Base path: `/api/v1` (unchanged).
-- **Two independent auth universes, per ADR-0004 — never mixed:**
-  - **Player routes** (existing + new player-facing ones below):
-    `Authorization: Bearer <playerSessionToken>`, verified by the existing
-    `JwtAuthGuard` against `JWT_SECRET`, now also checking
-    `Player.token_version` (ADR-0004 Part 3). Populates `request.playerId`.
-  - **Coach routes** (everything under `/api/v1/coach/*`):
-    `Authorization: Bearer <coachSessionToken>`, verified by the new
-    `CoachAuthGuard` against `COACH_JWT_SECRET`. Populates
-    `request.coachId`. A player token on a coach route (or vice versa)
-    fails signature verification outright — there is no shared secret to
-    accidentally satisfy both.
-  - Any endpoint under `/api/v1/coach/teams/:teamId/...` or that otherwise
-    scopes to a team additionally runs `CoachTeamAccessGuard`, which
-    confirms a `TeamCoach` row exists for `(request.coachId, teamId)` —
-    `403 team_access_forbidden` otherwise. Endpoints scoped by a resource
-    id instead of a team id directly (e.g. a challenge id) do the
-    equivalent check in the service layer (look up the resource's
-    `teamId`, then check `TeamCoach`) rather than in a route-level guard.
+- **One auth universe, not two.** Every endpoint below uses the existing
+  `Authorization: Bearer <playerSessionToken>`, verified by the existing
+  `JwtAuthGuard` against `JWT_SECRET`, including ADR-0004 Part 3's
+  `token_version` check. There is no coach token, no `COACH_JWT_SECRET`, no
+  `CoachAuthGuard`. Every endpoint populates `request.playerId` exactly as
+  Phase 1 already does.
+- **Team-scoped endpoints** (path has a `:teamId`) additionally require
+  `request.playerId`'s own `player.teamId === :teamId` — `403
+  team_mismatch` otherwise. This is the same closed-team-bubble rule Phase
+  1 already applies everywhere; it is *not new machinery*, just restated
+  here because these are the first team-scoped-by-path-param endpoints.
+- **Captain-gated endpoints** (creating/editing the weekly goal, the roster
+  view, consent-reminder resend, session reissue) additionally require the
+  requesting player's own `is_captain = true` — `403 not_team_captain`
+  otherwise. This is a **service-layer check, not a new guard class** (see
+  ADR-0005, Decision 1): load the requester's `Player` row (already
+  necessary for the `team_mismatch` check above), verify the flag, done.
+  No `CaptainGuard` decorator/class exists or is needed.
 - Error envelope unchanged from Phase 1:
   ```json
   { "error": { "code": "some_code", "message": "Human-readable, dev-facing" } }
   ```
 - "Day"/date rules (Europe/Stockholm, server-computed) and the
   no-location-field rule carry over unchanged from Phase 1's conventions.
-- Coach-facing response shapes never include `real_name` (still isolated in
-  `PlayerPrivateInfo`, per ADR-0002's addendum) or `parent_contact` — a
-  coach dashboard has no legitimate need for either, and `phase2-flows.md`
-  deliberately designs every coach screen around `screenName`.
-
-## Endpoints
-
-### Coach authentication (ADR-0004 Part 1)
-
-#### 1. `POST /api/v1/coach/auth/login`
-
-No auth (a coach doesn't have a session yet).
-
-Request:
-```ts
-{ email: string; password: string }
-```
-
-Response `200`:
-```json
-{ "coachId": "uuid", "displayName": "Coach Anna", "sessionToken": "eyJ..." }
-```
-
-Error `401 invalid_credentials` — deliberately identical for "no such
-email" and "wrong password":
-```json
-{ "error": { "code": "invalid_credentials", "message": "..." } }
-```
-
-Rate-limited (`@Throttle`, same convention as `ConsentController`) —
-credential-stuffing surface, not just a formality.
-
-#### 2. `POST /api/v1/coach/auth/password-reset/request`
-
-No auth.
-
-Request: `{ email: string }`
-
-Response `200` always, regardless of match (no account-enumeration tell):
-```json
-{ "message": "If an account exists for this email, a reset link was sent." }
-```
-
-Side effect (only if `email` matches a `Coach`): generates a reset token
-(same shape as `consent-token.util.ts`'s generator, a sibling utility, not
-literal reuse — see ADR-0004), stores it on `Coach`, emails a reset link via
-the existing `MailService`.
-
-#### 3. `POST /api/v1/coach/auth/password-reset/confirm`
-
-No auth (the token in the body is the credential, same posture as the
-consent-approval endpoint).
-
-Request: `{ token: string; newPassword: string }`
-
-Response `200`: `{ "message": "Password updated. Log in with your new password." }`
-
-Errors: `400 invalid_or_expired_token` (generic — doesn't distinguish
-expired vs. already-used vs. never-existed), `400` validation on
-`newPassword` (minimum length — exact policy is backend-developer's
-implementation call, not fixed here).
+- Every response shape below shows `screenName`, never `realName` or
+  `parentContact` (still isolated in `PlayerPrivateInfo`, per ADR-0002's
+  addendum). This was true of the old coach-only screens too, and remains
+  true now that a captain — who has **no elevated data access beyond any
+  other player** — can see them: nothing about being captain grants access
+  to `PlayerPrivateInfo`. There is no coach-specific concern to relax here;
+  the boundary was always structural (module-level), not a coach-vs-player
+  distinction, so it needs no new enforcement for this pivot.
 
 ---
 
-### Coach dashboard & roster
+## Endpoints removed from this contract (superseded)
 
-#### 4. `GET /api/v1/coach/teams/:teamId/dashboard`
+The following, from the previous version of this document, are **removed,
+not deprecated** — nothing below exists to build:
 
-Coach auth + `CoachTeamAccessGuard`. One call for Screen C1, per Phase 1's
-"no extra round-trip" principle.
+- `POST /api/v1/coach/auth/login`
+- `POST /api/v1/coach/auth/password-reset/request`
+- `POST /api/v1/coach/auth/password-reset/confirm`
+- `CoachAuthGuard`, `CoachTeamAccessGuard`, `CurrentCoachId` decorator
+- The `coach-auth` module and the `COACH_JWT_SECRET` env var
+
+See ADR-0004's 2026-07-05 addendum for the full reasoning.
+
+---
+
+## Endpoints
+
+### 1. `GET /api/v1/teams/:teamId/dashboard`
+
+Player auth; `team_mismatch` check (any player on the team can view their
+own team's dashboard — not captain-gated, since nothing here is
+sensitive beyond what the roster view separately protects). One call,
+per Phase 1's "no extra round-trip" principle — replaces the old coach-only
+dashboard endpoint with a version any team member can load.
 
 Response `200`:
 ```json
 {
+  "viewerIsCaptain": true,
   "roster": {
     "totalCount": 16,
     "approvedCount": 12,
@@ -132,32 +107,43 @@ Response `200`:
     "status": "active",
     "last7DaysLoggedCount": 11
   },
-  "challenges": {
-    "activeCount": 2,
-    "draftCount": 1,
-    "completedCount": 4,
-    "recent": [
-      {
-        "id": "uuid",
-        "title": "Zorro-finter-utmaningen",
-        "status": "active",
-        "endDate": "2026-07-11",
-        "completedCount": 5,
-        "rosterCount": 16
-      }
-    ]
+  "weeklyGoal": {
+    "current": {
+      "id": "uuid",
+      "title": "Zorro-finter-veckan",
+      "description": "Gör så många zorro-finter du kan innan fredag!",
+      "targetMetric": "drill-minuter",
+      "targetValue": 600,
+      "startDate": "2026-07-06",
+      "endDate": "2026-07-12",
+      "status": "active",
+      "progressMinutes": 420,
+      "percentComplete": 70.0,
+      "goalMet": false,
+      "bonusAwardedAt": null
+    },
+    "pastCount": { "completed": 3, "cancelled": 1 }
   }
 }
 ```
 
-`challenges.recent` is capped at 3 entries (active first, then draft, then
-most-recently-completed), matching C1's layout — the full list lives at
-endpoint 7 below (`GET /api/v1/coach/teams/:teamId/challenges`), not a
-separate shape here.
+`weeklyGoal.current` is `null` if the team has no `active` goal and no
+unpublished `draft` either. If there's no `active` goal but a `draft`
+exists (a captain mid-way through building next week's goal), `current`
+returns that draft instead (so a captain resuming the builder doesn't need
+a second call) — `status: "draft"` distinguishes it; a non-captain viewer
+simply sees "no goal yet" copy for a draft, per the flows doc's judgment
+call to make (ux-designer follow-up, not fixed here).
 
-#### 5. `GET /api/v1/coach/teams/:teamId/roster`
+`roster.*Count` fields: unchanged from the old dashboard shape (Phase 1's
+`ParentalConsentStatus` breakdown). `teamPool.*`: unchanged shape from
+`GET /players/me`'s existing `teamPool` block.
 
-Coach auth + `CoachTeamAccessGuard`. Backs Screen C2.
+### 2. `GET /api/v1/teams/:teamId/roster`
+
+Player auth + captain check (`403 not_team_captain` for a non-captain).
+Same shape as the old coach-only roster endpoint — reused verbatim, since
+nothing about the *data* was ever coach-specific, only who could see it.
 
 Response `200`:
 ```json
@@ -174,17 +160,20 @@ Response `200`:
 }
 ```
 
-`lastTrainedDate` is `null` if the player has never logged. No `realName`,
-no `parentContact` — see Conventions above.
+`lastTrainedDate` is `null` if the player has never logged. Remains
+captain-gated rather than opened to every teammate: consent status is
+about *other kids'* families and is a reasonable thing to keep restricted
+to the one player-role with a legitimate "keep an eye on the team" purpose,
+even though that role is now a peer rather than an adult (see ADR-0005's
+Consequences — flagged for security-reviewer).
 
-#### 6. `POST /api/v1/coach/players/:playerId/consent-reminder`
+### 3. `POST /api/v1/players/:playerId/consent-reminder`
 
-Coach auth; the service resolves `playerId → teamId` and checks
-`CoachTeamAccessGuard`'s underlying membership rule (service-layer check,
-per Conventions, since the guard itself is path-param-`teamId`-shaped).
-Backs C2's **"Skicka påminnelse till förälder"** action — a genuinely new
-endpoint, per `phase2-flows.md`'s judgment call (the Phase 1 consent flow
-only ever issued one token at account-creation time).
+Player auth + captain check: the service resolves `playerId → teamId` and
+requires the *requester* to be that team's captain (`403
+not_team_captain`) — note this is **not** "requester is the target
+player," a captain triggers this for a teammate. Same behavior as the old
+coach-triggered version otherwise.
 
 Request: none (empty body).
 
@@ -193,23 +182,24 @@ Response `200`:
 { "message": "Reminder sent.", "sentAt": "2026-07-05T10:00:00Z" }
 ```
 
-Behavior: only valid while `parentalConsentStatus = pending` —
-`409 consent_not_pending` otherwise (e.g. already approved, or revoked —
-re-sending a reminder for either doesn't make sense and shouldn't be a
-silent no-op that leaves the coach unsure if it worked). Re-uses the
-existing `consent_token`/`consent_token_expires_at` columns on `Player`:
-generates a fresh token (invalidating any prior unused one, same
-single-use posture as today) and re-sends the same consent-request email
-template. Rate-limited per player (e.g. one reminder per 5 minutes) to
-stop a coach mashing the button from spamming a parent's inbox — exact
-window is backend-developer's call, not fixed here, but the need for
-*some* limit is not optional given this sends real email to a real parent.
+Behavior unchanged from the previous contract: only valid while
+`parentalConsentStatus = pending` (`409 consent_not_pending` otherwise),
+reuses `consent_token`/`consent_token_expires_at`, rate-limited per player
+(e.g. one reminder per 5 minutes — exact window still backend-developer's
+call).
 
-#### 7. `POST /api/v1/coach/players/:playerId/session-reissue`
+**Flagged for security-reviewer** (carried from ADR-0005's Consequences):
+this now sends a real email nudge to a teammate's parent, triggered by
+another child rather than an adult coach. The mechanism/rate-limiting is
+identical to the old design; the trust model triggering it is not, and
+deserves an explicit sign-off rather than inheriting the old review.
 
-Coach auth; same `playerId → teamId` service-layer membership check as
-endpoint 6. Backs C2's **"Skicka ny inloggningslänk"** action. Full flow
-in ADR-0004 Part 3 — this is just the shape.
+### 4. `POST /api/v1/players/:playerId/session-reissue`
+
+Player auth + captain check, same `playerId → teamId` resolution as
+endpoint 3. **Mechanism is entirely unchanged from ADR-0004 Part 3** — only
+the caller's authorization changed (captain via player JWT, not coach via
+`CoachAuthGuard`).
 
 Request: none.
 
@@ -218,32 +208,38 @@ Response `200`:
 { "reissueCode": "H4K7QWXP", "expiresAt": "2026-07-05T10:15:00Z" }
 ```
 
-Side effects (one transaction): increments `player.token_version`
-(invalidating every existing token for this player immediately),
-generates+stores a fresh `session_reissue_code`/`_expires_at` (15-minute
-TTL, overwriting any prior unredeemed code). The frontend must render
-`reissueCode` prominently on the confirmation screen — see ADR-0004's note
-that `phase2-flows.md`'s existing confirmation copy ("Ny länk skickad...")
-needs a small adjustment since this is a *displayed code*, not something
-sent through a channel the kid checks separately.
+Side effects (one transaction, per ADR-0004 Part 3): increments
+`player.token_version` (invalidating every existing token for the target
+player immediately), generates+stores a fresh
+`session_reissue_code`/`_expires_at` (15-minute TTL, overwriting any prior
+unredeemed code). Frontend renders `reissueCode` prominently on the
+captain's confirmation screen (same UX note as before: this is a
+*displayed* code, not something sent through a separate channel).
+
+**Also flagged for security-reviewer**, same reasoning as endpoint 3: a
+captain now holds a button that can invalidate a teammate's session and
+generate a login code for them. Worth confirming this is an acceptable
+level of peer trust for this feature before it ships (the reissue-code
+entropy/TTL/throttle combination itself is unchanged from ADR-0004 and
+doesn't need re-review on its own).
 
 ---
 
-### Challenge CRUD
+### Weekly team goal
 
-State machine (enforced server-side, not just a UI convention):
-`draft → active → completed | cancelled`. No other transition is legal —
-no `active → draft`, no un-cancelling (`cancelled` is terminal), no
-skipping straight to `completed` (that's presumably a scheduled/automatic
-transition once `endDate` passes, not a coach action — see note on
-endpoint 9). `targetMetric`, `targetValue`, `startDate`, `endDate` are
-frozen the moment `status` leaves `draft`; only `draft` challenges accept
-`PATCH` changes to those fields.
+State machine (enforced server-side, unchanged from the original design):
+`draft → active → completed | cancelled`. No other transition is legal.
+`targetMetric`, `targetValue`, `startDate`, `endDate` are frozen the moment
+`status` leaves `draft`; only `draft` goals accept `PATCH` changes to those
+fields. **New in this version:** at most one goal per team may be `active`
+at a time (DB-enforced, ADR-0005 Decision 2) — activating a second one
+while one is already active is rejected.
 
-#### 8. `POST /api/v1/coach/teams/:teamId/challenges`
+#### 5. `POST /api/v1/teams/:teamId/weekly-goal`
 
-Coach auth + `CoachTeamAccessGuard`. Backs Screen CB4's "Spara som utkast"
-/ "Publicera nu" — a single endpoint, `status` in the body decides which.
+Player auth + captain check (`403 not_team_captain`). Creates a new goal
+row (the `Challenge` entity, reused — see ADR-0005) with
+`createdByPlayerId` set to the requester.
 
 Request:
 ```ts
@@ -258,22 +254,22 @@ Request:
 }
 ```
 
-Response `201`: the full `Challenge` row (camelCase field names matching
-the entity — `id`, `teamId`, `createdByCoachId`, `title`, `description`,
-`targetMetric`, `targetValue`, `startDate`, `endDate`, `status`).
+Response `201`: the goal row, camelCase (`id`, `teamId`,
+`createdByPlayerId`, `title`, `description`, `targetMetric`, `targetValue`,
+`startDate`, `endDate`, `status`) — no progress fields yet at creation
+(there's nothing to compute for a brand-new goal until it's `active` and
+some time has passed; `GET` endpoints below always include progress).
 
-Errors: `400` validation (`targetMetric` not in the fixed enum —
-per `phase2-flows.md`'s CB2 judgment call, this is enforced at the DTO
-boundary exactly like `BadgeAwardContext`'s discriminated union in
-ADR-0002's addendum, not left to the free-form column type; `endDate` ≤
-`startDate`; `status` anything other than `draft`/`active` at creation).
+Errors: `400` validation (`targetMetric` not in the fixed enum, `endDate` ≤
+`startDate`, `status` anything other than `draft`/`active` at creation);
+`409 active_goal_already_exists` if `status: "active"` is requested while
+the team already has an `active` goal (creating another `draft` in this
+situation is fine and not an error).
 
-#### 9. `PATCH /api/v1/coach/challenges/:id`
+#### 6. `PATCH /api/v1/teams/:teamId/weekly-goal/:id`
 
-Coach auth; service-layer `teamId` membership check (challenge's `teamId`
-against the coach's `TeamCoach` rows).
+Player auth + captain check. Request (all fields optional):
 
-Request (all fields optional; only the fields being changed):
 ```ts
 {
   title?: string;
@@ -286,153 +282,166 @@ Request (all fields optional; only the fields being changed):
 }
 ```
 
-Rules, enforced in the service layer, not trusted from the client:
+Rules, enforced server-side:
 - If the current row's `status !== 'draft'`: any attempt to change
   `targetMetric`, `targetValue`, `startDate`, or `endDate` is rejected —
-  `409 challenge_target_frozen` — even if the new values are identical to
-  the old ones (simplest rule to reason about; a no-op edit isn't worth a
-  special case). `title`/`description` may still be edited at any
-  non-terminal status (cosmetic, no fairness concern).
+  `409 challenge_target_frozen`, even for a no-op identical value (simplest
+  rule, and — per ADR-0005 — closes off a captain shrinking the target
+  mid-week to trigger the bonus early). `title`/`description` may be edited
+  at any non-terminal status.
 - `status` transitions accepted: `draft → active`, `active → completed`,
-  `active → cancelled`. Anything else (`draft → completed`,
-  `draft → cancelled`, `completed → *`, `cancelled → *`, or setting the
-  same status) is `409 invalid_challenge_transition`.
-- `active → completed` is modeled here as *available* (a coach or a future
-  scheduled job marking a challenge done once `endDate` passes) but this
-  contract doesn't mandate who/what calls it — backend-developer may add
-  an automatic end-of-day sweep once `endDate` passes as a follow-up; doing
-  it manually via this endpoint is sufficient for Phase 2.
+  `active → cancelled`. Anything else is `409 invalid_challenge_transition`.
+- `draft → active` additionally fails with `409 active_goal_already_exists`
+  if the team already has a different `active` goal.
+- `active → completed` is modeled as available (a captain action, or a
+  future automatic end-of-day sweep once `endDate` passes) — this contract
+  doesn't mandate who/what calls it, same as the original design.
 
-Response `200`: the updated `Challenge` row, same shape as endpoint 8.
+Response `200`: the updated goal row, same shape as endpoint 5's response.
 
-#### 10. `GET /api/v1/coach/teams/:teamId/challenges`
+#### 7. `GET /api/v1/teams/:teamId/weekly-goal`
 
-Coach auth + `CoachTeamAccessGuard`. Backs C1's "Visa alla" and C3's list
-view (no separate screen/shape — same endpoint, no query param needed for
-Phase 2's scale; add pagination later if a team ever has enough challenges
-to need it).
-
-Response `200`: `{ "challenges": [ /* Challenge rows, newest first */ ] }`
-
-#### 11. `GET /api/v1/coach/challenges/:id`
-
-Coach auth; service-layer `teamId` membership check. Backs Screen C3.
+Player auth; `team_mismatch` check only — **open to any player on the
+team, not captain-gated.** Progress is a team-wide number every teammate
+should be able to see (that's the point of the feature), unlike the roster
+view.
 
 Response `200`:
 ```json
 {
-  "challenge": { /* full Challenge row */ },
-  "completion": { "completedCount": 5, "rosterCount": 16 }
+  "goal": {
+    "id": "uuid",
+    "title": "Zorro-finter-veckan",
+    "description": "Gör så många zorro-finter du kan innan fredag!",
+    "targetMetric": "drill-minuter",
+    "targetValue": 600,
+    "startDate": "2026-07-06",
+    "endDate": "2026-07-12",
+    "status": "active",
+    "createdByPlayerId": "uuid",
+    "progressMinutes": 420,
+    "percentComplete": 70.0,
+    "goalMet": false,
+    "bonusAwardedAt": null
+  },
+  "viewerIsCaptain": true
 }
 ```
 
-`completion` is the same aggregate computation as the player-facing
-endpoint 12 below — reused, not duplicated (see that endpoint's note).
-No per-player ranked list, per `phase2-flows.md`'s explicit "no leaderboard
-here either" judgment call.
+`goal` is `null` (not an error) if the team has no `active` goal and no
+`draft` either. `progressMinutes`/`percentComplete`/`goalMet` are computed
+server-side from the team-wide aggregate (ADR-0005's formula) — never
+trusted from any client state. `viewerIsCaptain` lets the client show
+management actions (edit/publish/cancel) without a second call.
 
----
+#### 8. `GET /api/v1/teams/:teamId/weekly-goal/history`
 
-### Player-facing challenge endpoints
-
-#### 12. `GET /api/v1/players/me/challenges`
-
-Player auth (`JwtAuthGuard`). Backs Screen CP1.
+Player auth; `team_mismatch` check only. Backs a simple past-goals list —
+no pagination, matching the existing "a team has a handful of these at a
+time" scale assumption.
 
 Response `200`:
 ```json
-{
-  "active": [
-    {
-      "id": "uuid",
-      "title": "Zorro-finter-utmaningen",
-      "description": "Gör så många zorro-finter du kan innan fredag!",
-      "targetMetric": "drill-minuter",
-      "targetValue": 90,
-      "endDate": "2026-07-11",
-      "playerProgress": 42,
-      "playerComplete": false,
-      "completedCount": 5,
-      "rosterCount": 16
-    }
-  ],
-  "completed": [
-    { "...": "same shape, playerComplete reflects final state" }
-  ]
-}
+{ "goals": [ /* goal rows, same shape as endpoint 7's `goal`, newest first, status completed|cancelled only */ ] }
 ```
-
-`playerProgress` = sum of this player's own
-`TrainingLogEntry.durationMinutes` where `challengeId` matches, filtered
-to log rows whose `activityType` matches the challenge's `targetMetric`
-unless the metric is `total-minuter` (which sums across all
-`activityType`s) — computed server-side, not trusted from any client
-state. `completedCount`/`rosterCount` is the same team-wide aggregate
-computation backing coach endpoint 11 (one shared service method,
-consumed by both the coach and player controllers, per the note in
-`phase2-flows.md`'s sketch — avoids two slightly-different
-implementations of "how many players hit the target" drifting apart).
-
-No pagination, no infinite scroll — matches the UX doc's "a team has a
-handful of challenges at a time."
 
 ---
 
-### `POST /api/v1/training-logs` — `challengeId` validation (extends Phase 1)
+### `POST /api/v1/training-logs` (existing Phase 1 endpoint)
 
-Shape unchanged from `phase1-contract.md` (still
-`{ activityType, durationMinutes, challengeId? }` →
-`{ trainingLogId, loggedAt, streak, teamPool }`). What changes in Phase 2:
-a submitted `challengeId` is now actually validated, where Phase 1 accepted
-and stored it uninspected. Three checks, in order, each with its own error
-so the client (and code-critic) can tell them apart:
+**Request shape is completely unchanged from `phase1-contract.md`:**
+`{ activityType, durationMinutes, challengeId? }`. `challengeId` remains
+accepted and stored exactly as Phase 1 already does — **no new validation
+is added for it in Phase 2.** Per ADR-0005 Decision 2: the weekly team
+goal's progress is computed automatically from every matching log in its
+date range, with no per-log tagging step, so there is nothing for
+`challengeId` to opt a log into for this feature. `challengeId` stays a
+dormant, unused, nullable column — unchanged from its Phase 1 status —
+available to a possible future *individual*-challenge feature, not wired
+to anything in Phase 2.
 
-1. **Challenge exists and belongs to the player's own team** —
-   `404 challenge_not_found` otherwise (deliberately the same code whether
-   the id doesn't exist at all or belongs to a different team — never
-   confirm cross-team existence, per the closed-team-bubble constraint;
-   this is the same "don't hint" posture as `invite_code_not_found`).
-2. **Challenge is `active`** — `409 challenge_not_active` for `draft`,
-   `completed`, or `cancelled` (a client showing a stale cached chip from
-   before a challenge ended is the realistic trigger, not malice).
-3. **Metric-compatible with the submitted `activityType`** — the
-   challenge's `targetMetric` must be `total-minuter` or match the
-   activity type (`fitness-minuter` ↔ `fitness`, etc.) —
-   `400 challenge_metric_mismatch` otherwise. This is the "reject
-   silently-mismatched tags" rule `phase2-flows.md`'s notes call out
-   explicitly: a client bug or a stale UI state must not be allowed to
-   tag, say, a `running` log to a `drill-minuter` challenge and have it
-   silently count.
+**Response shape gains one new field**, computed inside the same
+transaction as the existing streak/pool logic (ADR-0005, Decision 3):
 
-All three checks happen inside the same pre-transaction/in-transaction
-structure `TrainingLogsService.logTraining` already uses for the consent
-check (validate before the row-locked re-read, re-validate against the
-locked data if there's any race-relevant state — here, a challenge going
-`cancelled` mid-request is the analogous race to consent being revoked
-mid-request in Phase 1, and should be re-checked after acquiring whatever
-lock is taken, not just before).
+```ts
+{
+  trainingLogId: string;
+  loggedAt: string;
+  streak: { currentStreakCount: number; longestStreakCount: number; alreadyLoggedToday: boolean }; // unchanged
+  teamPool: { pointsTotal: number; goalThreshold: number; percentComplete: number }; // unchanged shape; pointsTotal already reflects any bonus below
+  goalBonus: { awardedPoints: number } | null; // NEW
+}
+```
+
+**Corrected 2026-07-05**: the bonus is a one-time lump sum (flat +5, plus 1
+point per team-wide minute logged toward the goal), not a per-log or
+ongoing bonus — see ADR-0005 Decision 3's correction note for why this
+changed from the original "+5 per log" design.
+
+- `null`: no `active` weekly goal covers this log's date, the team's
+  progress (including this log) is still below `targetValue`, or the goal
+  was already met by an earlier log (nothing new to report this time —
+  the bonus only ever fires once per goal).
+- `{ awardedPoints: N }`: this log's insertion caused the team to cross
+  `targetValue` for the first (and only) time; `N = 5 + progress` (flat +5,
+  plus 1 point per team-wide minute — `progress` is the same team-wide
+  minute sum just computed for the target check). Because this only ever
+  fires once per goal, a non-null `goalBonus` unambiguously means "this log
+  just did it" — no separate flag needed to distinguish an "already met"
+  case, since that's folded into `null` above.
+
+Exact algorithm (row-locked read of the team's active goal, idempotency via
+`goal_bonus_awarded_at`, the one-time award) is specified precisely in
+ADR-0005, Decision 3 — implement against that, not a re-derivation here.
+
+---
 
 ## Notes for implementers
 
-- **backend-developer:** `CoachTeamAccessGuard` and the service-layer
-  "resolve resource → teamId → check TeamCoach" pattern (endpoints 6, 7, 9,
-  11) are the same authorization primitive expressed two ways — factor the
-  actual membership check into one shared method both call, don't
-  reimplement the `TeamCoach` lookup per endpoint.
-- **backend-developer:** the shared "team-wide completion aggregate" used
-  by endpoints 11 and 12 should be one service method, not two — see that
-  note inline above.
-- **frontend-developer:** the new player-facing "enter your reissue code"
-  screen (ADR-0004 Part 3, step 4) has no Phase 1 equivalent to build
-  from — treat it as a new small flow, not a variant of an existing
-  screen.
-- **ux-designer:** the C2 "Skicka ny inloggningslänk" confirmation copy
-  needs to actually surface `reissueCode` from endpoint 7's response, not
-  just a generic "sent" toast — flagged in ADR-0004, repeated here since
-  it's this contract's response shape that makes the gap concrete.
-- **security-reviewer:** per CLAUDE.md, this whole contract touches auth
-  (coach login, password reset, session reissue) and child data (roster,
-  consent reminder) — blocking review before merge, not a final check.
-  Specifically worth confirming: the reissue-code entropy/TTL/throttle
-  combination (ADR-0004), the consent-reminder rate limit (endpoint 6),
-  and that no coach endpoint response leaks `realName`/`parentContact`.
+- **backend-developer:** the captain check (`assertIsCaptainOfTeam`) and
+  the `team_mismatch` check are both small, single-purpose service methods
+  — factor each into one shared place (e.g. on `PlayersService` or a new
+  small `WeeklyGoalService`), called from every endpoint above that needs
+  it, rather than reimplemented per controller.
+- **backend-developer:** the team-wide progress aggregate (used by
+  endpoints 1, 7, 8, and the bonus check in `POST /training-logs`) should
+  be one shared query/service method, not four slightly different
+  implementations — same "don't duplicate the aggregate" note the old
+  contract made about the individual-progress version of this problem.
+- **backend-developer:** the bonus-check step inside
+  `TrainingLogsService.logTraining`'s existing transaction needs the
+  row-locked read of the team's `active` `Challenge` **before** deciding
+  whether to run the bulk award — see ADR-0005 Decision 3 for the exact
+  ordering; this is what makes the idempotency guarantee hold under
+  concurrent writes, not the `goal_bonus_awarded_at` check alone.
+- **frontend-developer:** the captain-facing weekly-goal builder screens
+  (title/description → target → dates → review, mirroring the old
+  CB1-CB4 flow) and the player-facing goal card are both new builds against
+  a ux-designer pass that will follow this contract — `phase2-flows.md`'s
+  existing CB1-CB4/CP1 screens are a reasonable visual/copy starting point
+  but their data assumptions (individual progress, coach auth) need
+  updating, not a fresh design from zero.
+- **frontend-developer:** the "enter your reissue code" player screen
+  (ADR-0004 Part 3) is unchanged in shape from the old design — still a new
+  screen with no Phase 1 equivalent — only the screen that *triggers* it
+  (now a captain's roster action, not a coach's) changes.
+- **security-reviewer:** blocking review before merge, per CLAUDE.md, same
+  as the superseded version of this contract — but the specific things
+  worth confirming have shifted: (1) a child-captain triggering
+  consent-reminder-resend and session-reissue for a *teammate* (endpoints
+  3-4) is a different trust model than an adult coach doing the same,
+  flagged explicitly in ADR-0005's Consequences, not previously reviewed
+  under this framing; (2) the `is_captain`/`active`-goal partial unique
+  indexes actually prevent the two-active-captain / two-active-goal races
+  they're meant to; (3) the bonus-award transaction's idempotency under
+  concurrent training-log writes for the same team (a realistic scenario —
+  multiple teammates logging around the same time near the end of the
+  week); (4) no response above leaks `realName`/`parentContact` (unchanged
+  concern from the old contract, still worth a fresh check against these
+  specific new shapes).
+- **code-critic:** the bonus mechanic in particular (crossing detection,
+  bulk-vs-incremental award, interaction with `active → cancelled`/
+  `completed`) is the most novel piece of logic in this contract — worth
+  the same "edge cases: first-ever streak day, midnight rollover, missed
+  day, concurrent team-pool writes" level of scrutiny Phase 1's streak/pool
+  logic got, applied to goal-crossing/bonus idempotency instead.
