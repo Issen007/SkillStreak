@@ -112,6 +112,22 @@ export class ChallengeTargetFrozenException extends AppException {
   }
 }
 
+export class ChallengeAlreadyTerminalException extends AppException {
+  constructor() {
+    // Fixes a confirmed code-critic finding: title/description were being
+    // applied unconditionally, with no check against currentStatus at all
+    // — contradicting both ADR-0005 and phase2-contract.md's "editable at
+    // any non-terminal status." completed/cancelled goals are now a
+    // read-only historical record in full, not just for their
+    // target/dates.
+    super(
+      'challenge_already_terminal',
+      'title/description cannot be edited once a weekly goal is completed or cancelled.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
 export class ConsentNotPendingException extends AppException {
   constructor() {
     super(
@@ -140,6 +156,27 @@ export class InvalidOrExpiredCodeException extends AppException {
       'invalid_or_expired_code',
       'This session-reissue code is invalid, expired, or already used.',
       HttpStatus.BAD_REQUEST,
+    );
+  }
+}
+
+export class SessionReissueDisabledException extends AppException {
+  constructor() {
+    // Disabled 2026-07-05 per a security review finding: the reissue code
+    // is returned directly to whichever caller triggers it (intended to be
+    // relayed in person to the target player), but nothing technically
+    // stops that same caller from redeeming it themselves — a captain can
+    // fully impersonate any teammate, with no rate limit or audit trail.
+    // The underlying service/logic (SessionService, token_version,
+    // single-use code redemption) is otherwise sound and stays in place;
+    // only these two routes are gated off pending a redesign that binds
+    // redemption to the target player rather than to bearer possession of
+    // the code. See docs/adr/0004-coach-auth-and-session-reissue.md Part 3
+    // and docs/ACTION_PLAN.md's Phase 2 security-review follow-ups.
+    super(
+      'session_reissue_disabled',
+      'Session reissue is temporarily disabled pending a security fix.',
+      HttpStatus.SERVICE_UNAVAILABLE,
     );
   }
 }

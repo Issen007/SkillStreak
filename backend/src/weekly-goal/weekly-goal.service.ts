@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
   ActiveGoalAlreadyExistsException,
+  ChallengeAlreadyTerminalException,
   ChallengeNotFoundException,
   ChallengeTargetFrozenException,
   InvalidChallengeTransitionException,
@@ -341,6 +342,20 @@ export class WeeklyGoalService {
 
       if (dto.status !== undefined) {
         assertValidTransition(currentStatus, dto.status);
+      }
+
+      // title/description are editable at any *non-terminal* status
+      // (draft/active), per ADR-0005 and phase2-contract.md — completed/
+      // cancelled goals are a read-only historical record in full, not
+      // just for their target/dates. Fixes a confirmed code-critic
+      // finding: these two fields had no status check at all before.
+      const isTerminal =
+        currentStatus === ChallengeStatus.COMPLETED ||
+        currentStatus === ChallengeStatus.CANCELLED;
+      const changesTitleOrDescription =
+        dto.title !== undefined || dto.description !== undefined;
+      if (isTerminal && changesTitleOrDescription) {
+        throw new ChallengeAlreadyTerminalException();
       }
 
       if (dto.title !== undefined) goal.title = dto.title;
