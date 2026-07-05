@@ -152,6 +152,11 @@ activemq-data/
 .env.*
 !.env.example
 .envrc
+
+# Kubernetes secrets — copied locally from k8s/secret.yaml.example and
+# filled in with real values. Never commit the real file, only the
+# .example template.
+k8s/secret.yaml
 .venv
 env/
 venv/

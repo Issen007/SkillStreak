@@ -53,6 +53,27 @@ export class Player {
   @Column({ name: 'last_trained_date', type: 'date', nullable: true })
   lastTrainedDate!: string | null;
 
+  // Bearer-secret for the parental-consent approval link
+  // (docs/api/phase1-contract.md step 6 / the new ConsentModule) — a 256-bit
+  // token from crypto.randomBytes(32).toString('hex'), single-use (cleared
+  // to null by PlayersService.approveByConsentToken once consumed) and
+  // time-boxed by consentTokenExpiresAt. These are secrets, not player data:
+  // NEVER add either column to a response DTO (GET /players/me etc.).
+  @Column({
+    name: 'consent_token',
+    type: 'varchar',
+    nullable: true,
+    unique: true,
+  })
+  consentToken!: string | null;
+
+  @Column({
+    name: 'consent_token_expires_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  consentTokenExpiresAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

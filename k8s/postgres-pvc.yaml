@@ -1,0 +1,16 @@
+# Durable storage for Postgres so data survives pod restarts/rescheduling.
+# Small size for an MVP beta with a handful of youth teams — resize later
+# if needed. No storageClassName pinned here: uses whatever the cluster's
+# default StorageClass is. Set one explicitly if the target cluster doesn't
+# have a default.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: skillstreak
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

@@ -2,7 +2,7 @@
 
 This turns the README's roadmap into concrete next steps, and maps each
 step to one of the specialized agents in `.claude/agents/`. See
-[CLAUDE.md](CLAUDE.md) for full project context and constraints.
+[CLAUDE.md](../CLAUDE.md) for full project context and constraints.
 
 ## The team
 
@@ -26,10 +26,10 @@ focus baked in.
       for candidates). Blocks nothing technical, but do it before it's
       wired into package names/bundle IDs. Still open.
 - [x] **architect**: write ADR-0001 deciding NestJS vs FastAPI for the
-      backend. → `docs/adr/0001-backend-framework.md`, decision: NestJS.
+      backend. → `adr/0001-backend-framework.md`, decision: NestJS.
 - [x] **architect**: write ADR-0002 for the initial data model — Team,
       Player, Coach, Streak, TeamSeasonPot, Badge — noting what lives in
-      Postgres vs Redis and why. → `docs/adr/0002-data-model.md`.
+      Postgres vs Redis and why. → `adr/0002-data-model.md`.
 - [x] **backend-developer**: scaffold repo structure, `Dockerfile` +
       `docker-compose.yml` (Postgres + Redis + API service). → `backend/`
       NestJS app with a `/health` endpoint; verified live end-to-end
@@ -62,7 +62,7 @@ focus baked in.
 **Phase 0 is done** except the app name, which isn't a technical blocker.
 
 **Follow-up (2026-07-03):** package-manager standard set in
-`docs/adr/0003-package-managers.md` — pnpm for Node/TS (now: `backend/`;
+`adr/0003-package-managers.md` — pnpm for Node/TS (now: `backend/`;
 later: the Expo app), uv for any future Python service. `backend/` migrated
 from npm to pnpm (Dockerfile, lockfile); rebuilt and smoke-tested via both
 `docker build` and a full `docker compose up` + `/health` check. Added
@@ -73,9 +73,9 @@ branch-protection setting, not a repo file — see CLAUDE.md.
 
 **Follow-up (2026-07-03):** **architect** closed the three Phase 0 data-model
 gaps above and defined the Phase 1 API contract ahead of real migrations →
-`docs/adr/0002-data-model.md`'s addendum (real_name/parent_contact
+`adr/0002-data-model.md`'s addendum (real_name/parent_contact
 isolation, consent gating point, BadgeAward.context shape) and
-`docs/api/phase1-contract.md` (onboarding sequence, "Jag har tränat"
+`api/phase1-contract.md` (onboarding sequence, "Jag har tränat"
 endpoint, home-screen fetch) — for backend-developer/frontend-developer/
 ux-designer to build against directly rather than re-deriving from
 ADR-0002 alone.
@@ -90,10 +90,10 @@ walking skeleton plus one mockup.
 - [x] propose a small style guide — color palette + font
       pairing for the brand (energetic/kid-friendly, works with the
       streak/fire and team-gold themes, high contrast for accessibility).
-      → `docs/design/style-guide.md` (flame/gold/ink/paper/success tokens,
+      → `design/style-guide.md` (flame/gold/ink/paper/success tokens,
       Baloo 2 + Nunito).
 - [x] build one mockup of the app's first screen (home) applying that
-      palette/fonts → `docs/design/home-screen-mockup.html` (Artifact
+      palette/fonts → `design/home-screen-mockup.html` (Artifact
       hosting was unreachable — DNS failures to `api.anthropic.com` — so
       this is a self-contained local HTML file instead of a hosted link;
       retry hosting it later if useful, not blocking).
@@ -113,7 +113,7 @@ walking skeleton plus one mockup.
 **Definition of done:** met — Expo Go on a real device shows the on-brand
 home screen; `docker-compose up` brings up API+Postgres+Redis and
 `/health` responds (Phase 0); palette/fonts are written down in
-`docs/design/style-guide.md` for reuse in Phase 1. No streak logic, no
+`design/style-guide.md` for reuse in Phase 1. No streak logic, no
 auth, no real data yet — that's Phase 1, starting now.
 
 ## Phase 1 — MVP (README's "Fas 1")
@@ -126,17 +126,17 @@ increment, and see the team's shared point pool increment.
       constrained `BadgeAward.context` shape from ADR-0002's addendum);
       implement streak logic (Redis) and team pool logic (Postgres) as
       separate modules per the architect's ADR; implement the endpoints in
-      `docs/api/phase1-contract.md`, including the consent gate on
+      `api/phase1-contract.md`, including the consent gate on
       `TrainingLogEntry` creation. → TypeORM, full schema + seed script;
       verified live against `docker compose` (migrations, seed, full
       onboarding→consent-gate→training-log curl walkthrough).
 - [x] **ux-designer**: design the onboarding + parental-consent flow
       (including the "waiting for parent approval" home-screen state), and
       the core "Jag har tränat" screen (streak view + team meter) — against
-      `docs/api/phase1-contract.md`. → `docs/design/phase1-flows.md` +
-      `docs/design/phase1-mockup.html`.
+      `api/phase1-contract.md`. → `design/phase1-flows.md` +
+      `design/phase1-mockup.html`.
 - [x] **frontend-developer**: scaffold the Expo app; build the onboarding
-      and core screen against the UX spec and `docs/api/phase1-contract.md`.
+      and core screen against the UX spec and `api/phase1-contract.md`.
       → `mobile/src/` (onboarding O1-O6, home H1/H3/H4/H2/H5/H6); verified
       against the live backend via a Node harness exercising the real API
       client code.
@@ -154,7 +154,7 @@ increment, and see the team's shared point pool increment.
 - [x] **code-critic**: review the streak/team-pool logic and the core
       screen's client code before merge (edge cases: first-ever streak
       day, midnight rollover, missed day, concurrent team-pool writes; the
-      same-day-logging rule is now fixed in `docs/api/phase1-contract.md`,
+      same-day-logging rule is now fixed in `api/phase1-contract.md`,
       check the implementation actually matches it). → Backend pass: core
       loop correct (verified live with a 20-concurrent-request test against
       real Postgres), 5 lower-severity findings fixed (unscoped
@@ -185,14 +185,36 @@ client have both passed code-critic review.
 
 ## Phase 2 — Coach tools & challenges ("Fas 2")
 
-- [ ] **ux-designer**: design the coach dashboard and challenge-builder
-      flow (e.g. "Gör 50 zorro-finter innan fredag").
+- [x] **ux-designer**: design the coach dashboard and challenge-builder
+      flow (e.g. "Gör 50 zorro-finter innan fredag"). →
+      `design/phase2-flows.md` + `design/phase2-mockup.html`. Explicitly
+      declined two non-UI decisions (coach authentication; the player
+      session-reissue mechanism), correctly flagging them for architect.
+- [x] **architect**: closed the two decisions ux-designer flagged, and
+      formalized Phase 2's endpoint sketches into a real contract. →
+      `adr/0004-coach-auth-and-session-reissue.md` (coach login:
+      password-based, with the existing consent-mail infra reused only for
+      password reset, not routine login; player session reissue: a
+      `Player.token_version` column checked at JWT-verify time, plus a new
+      coach-triggered, short-lived, human-typable one-time code — not the
+      consent-token mechanism reused verbatim — that a kid enters on a new
+      "lost your session" screen; coach and player tokens use separate
+      guards/secrets, not a shared `JwtAuthGuard`) and
+      `api/phase2-contract.md` (coach login/roster/dashboard, challenge
+      CRUD with its draft→active→completed/cancelled state machine,
+      `GET /players/me/challenges`, `POST /training-logs`'s new
+      `challengeId` validation, consent-reminder resend, session reissue).
 - [ ] **backend-developer**: challenge CRUD + assignment to a team; VM-Guld
-      meter aggregation.
+      meter aggregation; the coach-auth and session-reissue schema/flows
+      from `adr/0004-coach-auth-and-session-reissue.md` and
+      `api/phase2-contract.md`.
 - [ ] **frontend-developer**: coach view; player-facing challenge card and
-      progress meter.
+      progress meter; the new "enter your reissue code" screen
+      (`adr/0004`) and the coach-side reissue-code display (`phase2-flows.md`'s
+      C2 confirmation copy needs a small adjustment per the ADR).
 - [ ] **code-critic** + **security-reviewer**: review before merge, as in
-      Phase 1.
+      Phase 1 — auth (coach login, password reset, session reissue) makes
+      this phase security-reviewer-blocking, per CLAUDE.md.
 
 ## Phase 3 — Media & social ("Fas 3")
 
@@ -202,7 +224,7 @@ treat `security-reviewer` involvement as blocking, not a final check.
 - [ ] **architect**: ADR for video storage/serving (where clips live, how
       access is scoped to a single team, retention/deletion), and — if the
       validity/tagging feature actually needs local ML — the new Python
-      service's shape, built with uv per `docs/adr/0003-package-managers.md`.
+      service's shape, built with uv per `adr/0003-package-managers.md`.
 - [ ] **security-reviewer**: sign off on the storage/access design *before*
       backend-developer builds it, not after.
 - [ ] **ux-designer**: design the safe feed and the "tag a teammate to
@@ -214,11 +236,60 @@ treat `security-reviewer` involvement as blocking, not a final check.
 
 ## Phase 4 — Kubernetes & public launch ("Fas 4")
 
-- [ ] **architect**: Helm chart / K8s manifest design — only start this
-      once Phases 1–3 are stable; don't let this pull effort forward.
-- [ ] **backend-developer**: implement manifests, CI/CD for deploys.
-- [ ] **security-reviewer**: production-hardening pass (secrets management,
-      network policy, rate limiting) before any public rollout.
+- [x] **backend-developer**: plain K8s manifests — pulled forward to
+      2026-07-05 ahead of Phases 2–3, deliberately, to prepare for an early
+      external beta. See "Pre-beta hardening pass" below for what shipped
+      and what's still open (notably: no TLS yet).
+- [ ] **architect**: Helm chart — not done; current manifests are plain
+      YAML per the project owner's explicit request, not a rejection of
+      Helm, just not needed yet.
+- [ ] **security-reviewer**: full production-hardening pass (secrets
+      management via a real secrets manager, network policy) — partially
+      covered by the pre-beta pass below (rate limiting already existed
+      from Phase 1), but not a complete Fas 4 pass.
+
+## Pre-beta hardening pass (2026-07-05, ahead of Fas 2)
+
+Not part of the Fas numbering — the project owner is beta-testing with real
+users (starting with their own kids) sooner than the roadmap's phase order,
+and asked for a real parental-consent email flow, a docs pass, a security/CVE
+audit, and Kubernetes manifests to get there. Tracked here since it cuts
+across several future phases.
+
+- [x] Real SMTP (Google Workspace relay) wired up (`backend/src/mail/`),
+      verified with a live auth test and a real email round-trip.
+- [x] `GET`/`POST /api/v1/consent/:token` implemented — the parent-facing
+      approval link the Phase 1 contract had only sketched. GET has no side
+      effects (email-scanner prefetch safety), single-use token, row-locked
+      approval. Verified live end-to-end including a real email to a real
+      inbox.
+- [x] Docs reorganized: `ACTION_PLAN.md` → `docs/ACTION_PLAN.md`, original
+      pitch README → `docs/PROJECT.md` (FastAPI mention corrected to NestJS),
+      new root `README.md` is a setup guide for a new user/beta tester, with
+      an Early Alpha data-loss disclaimer and real device screenshots.
+- [x] `k8s/` manifests (plain YAML, not Helm) — see Phase 4 above.
+- [x] Full CVE/security audit (`security-reviewer`, cross-checked against
+      `pnpm audit`/GHSA and OSV.dev independently) — findings and
+      resolutions:
+      - [x] `multer@2.1.1` (transitive via `@nestjs/platform-express`) —
+            two DoS advisories (GHSA-72gw-mp4g-v24j, GHSA-3p4h-7m6x-2hcm).
+            Not reachable yet (no upload endpoint until Fas 3) but fixed
+            now via a `pnpm-workspace.yaml` override to `>=2.2.0` anyway.
+      - [x] Real SMTP account/LAN IP were committed as *example* values in
+            both `.env.example` files and `k8s/configmap.yaml` — replaced
+            with generic placeholders (no password was ever committed).
+      - [ ] **`k8s/ingress.yaml` has no TLS** — the consent-approval token
+            is a bearer credential mailed to real parents; serving it over
+            plain HTTP is a real problem, not a formality. Loudly flagged
+            in `k8s/README.md` and `ingress.yaml` — **blocking** before
+            this manifest set is ever applied against a real domain.
+      - [ ] Two moderate CVEs in `mobile/`'s Expo/Metro *build tooling*
+            (postcss via `@expo/metro-config`, uuid via `xcode`) — not
+            shipped in the built app, no reachable runtime path. Deferred;
+            revisit on the next Expo SDK bump.
+      - [ ] 180-day JWT with no revocation/reissue (carried over from the
+            Phase 1 review) — still an accepted gap, still tracked for
+            Phase 2's coach dashboard.
 
 ## Standing practice, every phase
 

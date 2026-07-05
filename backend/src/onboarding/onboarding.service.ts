@@ -1,13 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { PlayerTokenService } from '../auth/player-token.service';
 import { ScreenNameTakenException } from '../common/errors/exceptions';
+import { MailService } from '../mail/mail.service';
+import { buildConsentRequestEmail } from '../mail/templates/consent-request-email.template';
 import { ConsentMethod } from '../player-private-info/entities/parental-consent-record.entity';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
+import { generateConsentToken } from '../players/consent-token.util';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
 import { PlayersService } from '../players/players.service';
 import { TeamsService } from '../teams/teams.service';
 import { CreatePlayerDto } from './dto/create-player.dto';
+
+const DEFAULT_APP_PUBLIC_URL = 'http://localhost:3000';
 
 const POSTGRES_UNIQUE_VIOLATION = '23505';
 
@@ -39,12 +45,16 @@ interface CreatePlayerResult {
 // never import PlayerPrivateInfoModule (docs/adr/0002 addendum §1).
 @Injectable()
 export class OnboardingService {
+  private readonly logger = new Logger(OnboardingService.name);
+
   constructor(
     private readonly dataSource: DataSource,
     private readonly teamsService: TeamsService,
     private readonly playersService: PlayersService,
     private readonly playerPrivateInfoService: PlayerPrivateInfoService,
     private readonly playerTokenService: PlayerTokenService,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService,
   ) {}
 
   async createPlayer(dto: CreatePlayerDto): Promise<CreatePlayerResult> {
@@ -84,23 +94,53 @@ export class OnboardingService {
           consentMethod,
         );
 
-        return player;
+        const { token, expiresAt } = generateConsentToken();
+        await this.playersService.setConsentToken(
+          manager,
+          player.id,
+          token,
+          expiresAt,
+        );
+
+        return { player, consentToken: token };
       });
 
-      // TODO(backend-developer, out of scope for this task): actually send
-      // a consent request to dto.parentContact (email/SMS) here, outside
-      // the transaction, now that the row exists. Phase 1 only creates the
-      // ParentalConsentRecord; approval itself happens out-of-band via
-      // GET/POST /api/v1/consent/:consentToken (not part of this app's
-      // contract, per docs/api/phase1-contract.md step 6).
+      // Best-effort: mail sending must never block or fail account
+      // creation (the onboarding "shell" step is meant to be fast and
+      // friction-free — see ADR-0002 addendum §2). If MailService is a
+      // no-op (SMTP not configured) or the send throws, this just logs and
+      // moves on; the parent can still be reached another way, and the
+      // token/row already exist for a resend.
+      const appPublicUrl =
+        this.configService.get<string>('APP_PUBLIC_URL') ??
+        DEFAULT_APP_PUBLIC_URL;
+      const consentUrl = `${appPublicUrl}/api/v1/consent/${result.consentToken}`;
+      const email = buildConsentRequestEmail({
+        screenName: result.player.screenName,
+        teamName: team.name,
+        consentUrl,
+      });
+      try {
+        await this.mailService.sendMail({
+          to: dto.parentContact,
+          subject: email.subject,
+          html: email.html,
+          text: email.text,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Failed to send consent request email for player ${result.player.id}: ${message}`,
+        );
+      }
 
       return {
-        playerId: result.id,
-        teamId: result.teamId,
-        screenName: result.screenName,
-        avatarId: result.avatarId,
-        consentStatus: result.parentalConsentStatus,
-        sessionToken: this.playerTokenService.issueFor(result.id),
+        playerId: result.player.id,
+        teamId: result.player.teamId,
+        screenName: result.player.screenName,
+        avatarId: result.player.avatarId,
+        consentStatus: result.player.parentalConsentStatus,
+        sessionToken: this.playerTokenService.issueFor(result.player.id),
       };
     } catch (error) {
       if (isScreenNameUniqueViolation(error)) {

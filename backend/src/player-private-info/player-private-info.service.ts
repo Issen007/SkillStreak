@@ -62,4 +62,19 @@ export class PlayerPrivateInfoService {
     });
     return info?.realName ?? null;
   }
+
+  /**
+   * The other narrow read path this module exposes, per ADR-0002 addendum
+   * §1: "the consent-flow service (reads/writes parent_contact)". Used by
+   * the send-test-consent-email script, which needs to (re)send a consent
+   * email to an existing player without going through the full onboarding
+   * flow (which already has parentContact from the request body and
+   * doesn't need to read it back).
+   */
+  async getParentContact(playerId: string): Promise<string | null> {
+    const info = await this.privateInfoRepository.findOne({
+      where: { playerId },
+    });
+    return info?.parentContact ?? null;
+  }
 }

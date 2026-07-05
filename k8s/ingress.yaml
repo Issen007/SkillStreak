@@ -1,0 +1,29 @@
+# Basic HTTP routing to the api Service. Assumes an ingress-nginx controller
+# is already installed on the target cluster (ingressClassName: nginx) —
+# swap the class if the cluster uses a different ingress controller.
+#
+# TODO (whoever sets up the real domain): this intentionally has no TLS/
+# cert-manager config yet — there's no real public domain for this app
+# yet, just a placeholder in configmap.yaml's APP_PUBLIC_URL.
+# Once a domain exists:
+#   - replace `host` below with the real domain
+#   - add a `tls:` section referencing a cert-manager-issued Secret (or
+#     other TLS termination) so this isn't served over plain HTTP
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api
+  namespace: skillstreak
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: skillstreak.example.todo # TODO: replace with the real domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 80

@@ -1,0 +1,26 @@
+# Non-secret API configuration. Pair with secret.yaml (copied from
+# secret.yaml.example) for the values that actually need to stay private.
+#
+# These are beta-deployment defaults mirroring backend/.env.example and
+# docker-compose.yml — adjust per environment as needed (e.g. a real
+# Postgres DB/user name instead of the dev-era "app_dev"/"app").
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skillstreak-config
+  namespace: skillstreak
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  POSTGRES_DB: "app_dev"
+  # Not sensitive on its own — pairs with POSTGRES_PASSWORD in secret.yaml.
+  POSTGRES_USER: "app"
+  JWT_EXPIRES_IN: "180d"
+  SMTP_HOST: "smtp-relay.gmail.com"
+  SMTP_PORT: "587"
+  SMTP_FROM: "SkillStreak <noreply@yourdomain.example>"
+  # TODO: must become the real public domain (e.g.
+  # https://app.skillstreak.example) before this is applied anywhere — the
+  # parental-consent email links here, so a placeholder/LAN address is
+  # useless to a parent outside the coach's home network.
+  APP_PUBLIC_URL: "http://CHANGE_ME:3000"

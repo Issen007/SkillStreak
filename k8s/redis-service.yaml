@@ -1,0 +1,16 @@
+# ClusterIP only — Redis is internal-only, never exposed outside the
+# cluster (mirrors docker-compose.yml binding Redis to 127.0.0.1 only).
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: skillstreak
+  labels:
+    app: redis
+spec:
+  type: ClusterIP
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379

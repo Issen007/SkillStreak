@@ -1,0 +1,16 @@
+# ClusterIP — internal entry point for the api Pods. External access is
+# via Ingress (see ingress.yaml), not by exposing this Service directly.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: skillstreak
+  labels:
+    app: api
+spec:
+  type: ClusterIP
+  selector:
+    app: api
+  ports:
+    - port: 80
+      targetPort: 3000

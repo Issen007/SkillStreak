@@ -1,2 +1,10 @@
 allowBuilds:
   unrs-resolver: true
+
+# @nestjs/platform-express pins an exact multer@2.1.1, which carries two
+# DoS advisories (GHSA-72gw-mp4g-v24j, GHSA-3p4h-7m6x-2hcm) fixed in
+# 2.2.0. No upload endpoint exists yet (Phase 1 has none, so this isn't
+# reachable today), but Fas 3's video upload will use this exact
+# dependency chain — overriding now rather than waiting.
+overrides:
+  multer: ">=2.2.0"
