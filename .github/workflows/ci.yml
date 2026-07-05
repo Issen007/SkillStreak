@@ -18,7 +18,7 @@ jobs:
     # datastores docker-compose.yml provides locally, as service containers.
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: app
           POSTGRES_PASSWORD: app

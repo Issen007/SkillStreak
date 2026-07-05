@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -48,7 +48,13 @@ services:
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # Postgres 18's official image changed convention: a single mount at
+      # /var/lib/postgresql (not .../data) so it can manage a
+      # version-specific subdirectory itself (pg_ctlcluster-style), enabling
+      # a future in-place major-version upgrade via `pg_upgrade --link`.
+      # Mounting at .../data (the pre-18 convention) makes the image refuse
+      # to start. See https://github.com/docker-library/postgres/pull/1259.
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
