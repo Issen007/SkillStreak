@@ -40,15 +40,24 @@ focus baked in.
       now bound to `127.0.0.1` in `docker-compose.yml`. Three PLAUSIBLE
       data-model gaps flagged for Phase 1, before ADR-0002 becomes real
       schema:
-      - [ ] Isolate `real_name` as structurally as `ParentalConsentRecord`
+      - [x] Isolate `real_name` as structurally as `ParentalConsentRecord`
             is isolated (currently just a nullable column with a
-            visibility *convention*, not an enforced boundary).
-      - [ ] Reconsider whether `parental_consent_status` should gate
+            visibility *convention*, not an enforced boundary). Resolved:
+            new `PlayerPrivateInfo` table (also absorbs `parent_contact`
+            for the same reason) — see ADR-0002's 2026-07-03 addendum.
+      - [x] Reconsider whether `parental_consent_status` should gate
             account creation itself for the youngest players, not only
-            media upload.
-      - [ ] Constrain `BadgeAward.context` (currently freeform text/JSON)
+            media upload. Resolved: gates the first `TrainingLogEntry`
+            (real gameplay/data processing), not the onboarding shell
+            (team join + profile) — see ADR-0002's addendum §2. Age-band
+            nuance (13+ self-consent under Swedish GDPR Art. 8) flagged
+            for security-reviewer to confirm before Fas 1 ships.
+      - [x] Constrain `BadgeAward.context` (currently freeform text/JSON)
             so it can't become a backdoor for location/PII the rest of
-            the model deliberately excludes.
+            the model deliberately excludes. Resolved: fixed
+            `trigger_reason` enum + a small allow-listed field set per
+            reason, enforced at the API/DTO boundary — see ADR-0002's
+            addendum §3.
 
 **Phase 0 is done** except the app name, which isn't a technical blocker.
 
@@ -62,6 +71,15 @@ build check, and a docker-compose smoke test, on every PR into `main` and
 push to `main`. Making that check *required* before merge is a GitHub
 branch-protection setting, not a repo file — see CLAUDE.md.
 
+**Follow-up (2026-07-03):** **architect** closed the three Phase 0 data-model
+gaps above and defined the Phase 1 API contract ahead of real migrations →
+`docs/adr/0002-data-model.md`'s addendum (real_name/parent_contact
+isolation, consent gating point, BadgeAward.context shape) and
+`docs/api/phase1-contract.md` (onboarding sequence, "Jag har tränat"
+endpoint, home-screen fetch) — for backend-developer/frontend-developer/
+ux-designer to build against directly rather than re-deriving from
+ADR-0002 alone.
+
 ## Phase 0.5 — Hello World & Visual Identity
 
 Not part of the README's Fas numbering — a small, deliberately narrow phase
@@ -69,52 +87,101 @@ to prove the toolchain works end-to-end and lock a visual identity *before*
 any real screen gets built on top of it. Nothing here is functional; it's a
 walking skeleton plus one mockup.
 
-- [ ] **ux-designer**: propose a small style guide — color palette + font
+- [x] propose a small style guide — color palette + font
       pairing for the brand (energetic/kid-friendly, works with the
       streak/fire and team-gold themes, high contrast for accessibility).
-      Record it in `docs/design/style-guide.md`.
-- [ ] **ux-designer**: build one mockup of the app's first screen (splash or
-      home) applying that palette/fonts, as an HTML artifact — this is the
-      "first slide" the rest of the app's look will be judged against.
-- [ ] **frontend-developer**: scaffold the Expo app and get a literal
-      hello-world screen running in a simulator/Expo Go — confirms the
-      Expo/TypeScript toolchain actually works on this machine. Once the
-      ux-designer's mockup is approved, reskin that one screen to match it
-      (real colors/fonts, still no real functionality).
-- [ ] **backend-developer**: scaffold the API service with a single health
-      check endpoint (e.g. `GET /ping`) wired into `docker-compose.yml` with
-      Postgres + Redis — confirms all three containers actually start and
-      talk to each other, before any real schema exists.
+      → `docs/design/style-guide.md` (flame/gold/ink/paper/success tokens,
+      Baloo 2 + Nunito).
+- [x] build one mockup of the app's first screen (home) applying that
+      palette/fonts → `docs/design/home-screen-mockup.html` (Artifact
+      hosting was unreachable — DNS failures to `api.anthropic.com` — so
+      this is a self-contained local HTML file instead of a hosted link;
+      retry hosting it later if useful, not blocking).
+- [x] **frontend-developer**: scaffold the Expo app and get a literal
+      hello-world screen running, styled with the approved palette/fonts.
+      → `mobile/` (Expo, TypeScript). Confirmed working on a physical phone
+      via Expo Go after a real snag: the project's initial SDK 57 didn't
+      match the phone's installed Expo Go build (SDK 54) — Expo Go only
+      supports one SDK per app-store release, updating the app doesn't
+      change that. Downgraded `mobile/` to SDK 54 (react-native 0.81.5,
+      react 19.1.0) via `expo install --fix`; typecheck, `expo-doctor`
+      (18/18), and iOS+Android bundle all verified before handing back.
+- [x] **backend-developer**: scaffold the API service with a single health
+      check endpoint wired into `docker-compose.yml` with Postgres + Redis.
+      → done in Phase 0 already (`/health`), nothing further needed here.
 
-**Definition of done:** `expo start` shows the on-brand first screen on a
-device/simulator; `docker-compose up` brings up API+Postgres+Redis and
-`/ping` responds; palette/fonts are written down in
+**Definition of done:** met — Expo Go on a real device shows the on-brand
+home screen; `docker-compose up` brings up API+Postgres+Redis and
+`/health` responds (Phase 0); palette/fonts are written down in
 `docs/design/style-guide.md` for reuse in Phase 1. No streak logic, no
-auth, no real data yet — that's Phase 1.
+auth, no real data yet — that's Phase 1, starting now.
 
 ## Phase 1 — MVP (README's "Fas 1")
 
 Goal: a player can tap "Jag har tränat", see their personal streak
 increment, and see the team's shared point pool increment.
 
-- [ ] **backend-developer**: implement the Team/Player/Coach schema as
-      migrations; implement streak logic (Redis) and team pool logic
-      (Postgres) as separate modules per the architect's ADR.
-- [ ] **ux-designer**: design the onboarding + parental-consent flow, and
-      the core "Jag har tränat" screen (streak view + team meter).
-- [ ] **frontend-developer**: scaffold the Expo app; build the onboarding
-      and core screen against the UX spec and the backend API contract.
-- [ ] **security-reviewer**: review the parental-consent flow and the
+- [x] **backend-developer**: implement the Team/Player/Coach schema as
+      migrations (including the `PlayerPrivateInfo` split and the
+      constrained `BadgeAward.context` shape from ADR-0002's addendum);
+      implement streak logic (Redis) and team pool logic (Postgres) as
+      separate modules per the architect's ADR; implement the endpoints in
+      `docs/api/phase1-contract.md`, including the consent gate on
+      `TrainingLogEntry` creation. → TypeORM, full schema + seed script;
+      verified live against `docker compose` (migrations, seed, full
+      onboarding→consent-gate→training-log curl walkthrough).
+- [x] **ux-designer**: design the onboarding + parental-consent flow
+      (including the "waiting for parent approval" home-screen state), and
+      the core "Jag har tränat" screen (streak view + team meter) — against
+      `docs/api/phase1-contract.md`. → `docs/design/phase1-flows.md` +
+      `docs/design/phase1-mockup.html`.
+- [x] **frontend-developer**: scaffold the Expo app; build the onboarding
+      and core screen against the UX spec and `docs/api/phase1-contract.md`.
+      → `mobile/src/` (onboarding O1-O6, home H1/H3/H4/H2/H5/H6); verified
+      against the live backend via a Node harness exercising the real API
+      client code.
+- [x] **security-reviewer**: review the parental-consent flow and the
       player identity model (screen names) before this phase is
       considered done — this is the first phase that touches real child
-      accounts.
-- [ ] **code-critic**: review the streak/team-pool logic and the core
+      accounts. Specifically confirm the age-band nuance flagged in
+      ADR-0002's addendum §2 (13+ self-consent under Swedish GDPR Art. 8).
+      → Backend pass: one CONFIRMED finding (no rate limiting on the two
+      unauthenticated routes — fixed). Age-band question resolved: parent
+      consent for every player in Phase 1, deliberately (ADR-0002
+      addendum). Mobile-client follow-up pass: no findings. 180-day JWT
+      with no revocation/reissue flagged as an acceptable Phase 1 gap,
+      tracked below for Phase 2.
+- [x] **code-critic**: review the streak/team-pool logic and the core
       screen's client code before merge (edge cases: first-ever streak
-      day, midnight rollover, missed day, concurrent team-pool writes).
+      day, midnight rollover, missed day, concurrent team-pool writes; the
+      same-day-logging rule is now fixed in `docs/api/phase1-contract.md`,
+      check the implementation actually matches it). → Backend pass: core
+      loop correct (verified live with a 20-concurrent-request test against
+      real Postgres), 5 lower-severity findings fixed (unscoped
+      unique-violation catch, missing format validation, no automated
+      concurrency regression test, untested BadgeAwardContext DTO). Mobile
+      pass: 2 confirmed bugs (SecureStore-failure hang, missing 401
+      handling on training-log submit) + 3 edge cases, all fixed.
 
-**Definition of done:** `docker-compose up` brings up the full stack; a
-player can complete the core loop end-to-end; the schema and consent flow
-have passed security review.
+**Definition of done:** met. `docker-compose up` brings up the full stack;
+a player can complete the core loop end-to-end (onboarding → consent gate
+→ "Jag har tränat" → streak + team pool update, same-day rule included);
+schema and consent flow have passed security review, backend and mobile
+client have both passed code-critic review.
+
+**Follow-ups tracked for Phase 2, deliberately not fixed now:**
+- JWT lifetime (180 days) has no revocation/reissue path — add a
+  `tokenVersion` check + coach-facing "reissue this player's session"
+  action alongside the Phase 2 coach dashboard.
+- `docker-entrypoint.sh` only runs migrations, not the seed script — a
+  fresh `docker compose up` has no invite code until someone runs
+  `pnpm run seed` manually inside the container. Fine for local dev today;
+  worth revisiting once there's a real coach-facing team-creation flow
+  (Phase 2) that makes seed data unnecessary rather than automating it.
+- `TeamPoolService.getActivePotForTeam` has no DB-level uniqueness
+  guard against two simultaneously-"active" pots for one team — not
+  reachable while pot creation is seed-only, but relevant once Phase 2
+  builds season rollover.
 
 ## Phase 2 — Coach tools & challenges ("Fas 2")
 

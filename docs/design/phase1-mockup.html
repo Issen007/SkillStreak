@@ -1,0 +1,476 @@
+<title>SkillStreak — Fas 1: onboarding, väntar-läge & lyckad logg</title>
+<style>
+  :root {
+    --chrome-bg: #F1EFEA;
+    --chrome-bg-alt: #E8E4DC;
+    --chrome-text: #1B1B3A;
+    --chrome-text-muted: #6B6B85;
+    --chrome-line: #D8D4CA;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --chrome-bg: #16151C;
+      --chrome-bg-alt: #1E1D26;
+      --chrome-text: #F1EFEA;
+      --chrome-text-muted: #9A97AC;
+      --chrome-line: #322F3C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --chrome-bg: #16151C;
+    --chrome-bg-alt: #1E1D26;
+    --chrome-text: #F1EFEA;
+    --chrome-text-muted: #9A97AC;
+    --chrome-line: #322F3C;
+  }
+  :root[data-theme="light"] {
+    --chrome-bg: #F1EFEA;
+    --chrome-bg-alt: #E8E4DC;
+    --chrome-text: #1B1B3A;
+    --chrome-text-muted: #6B6B85;
+    --chrome-line: #D8D4CA;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--chrome-bg);
+    color: var(--chrome-text);
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    padding: 40px 20px 64px;
+  }
+
+  .chrome-heading { text-align: center; max-width: 640px; margin-bottom: 6px; }
+  .chrome-eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--chrome-text-muted); margin: 0 0 6px;
+  }
+  .chrome-title {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 26px; margin: 0 0 8px; text-wrap: balance;
+  }
+  .chrome-sub { font-size: 14px; color: var(--chrome-text-muted); margin: 0; line-height: 1.5; }
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 28px;
+    max-width: 1400px;
+  }
+
+  .frame-block { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .frame-label {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 14px;
+    text-align: center;
+    max-width: 300px;
+    color: var(--chrome-text);
+  }
+  .frame-label small { display: block; font-weight: 400; font-size: 11.5px; color: var(--chrome-text-muted); margin-top: 3px; }
+
+  /* ---- phone frame ---- */
+  .phone {
+    width: 300px;
+    height: 650px;
+    border-radius: 38px;
+    background: #0d0c14;
+    padding: 11px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 24px 48px -18px rgba(0,0,0,0.45);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    border-radius: 28px;
+    background: #FAFAF7;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+    color: #1B1B3A;
+  }
+  .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 96px; height: 20px; background: #0d0c14; border-radius: 0 0 14px 14px; z-index: 5;
+  }
+  .statusbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px 3px; font-size: 12px; font-weight: 700;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .statusbar .icons { display: flex; gap: 4px; align-items: center; opacity: 0.85; }
+
+  .app-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 4px 18px 10px; flex-shrink: 0;
+  }
+  .wordmark { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 18px; line-height: 1.1; }
+  .wordmark small {
+    display: block; font-family: 'Nunito', system-ui, sans-serif; font-size: 9px;
+    font-weight: 400; letter-spacing: 0.03em; color: #6B6B85; margin-top: 2px;
+  }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: #FFE1CE;
+    display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
+  }
+
+  .content {
+    flex: 1; overflow-y: auto; padding: 4px 18px 16px;
+    display: flex; flex-direction: column; gap: 13px;
+  }
+
+  .greeting { font-size: 12px; color: #6B6B85; margin: 0; }
+  .greeting strong { color: #1B1B3A; font-weight: 700; }
+
+  /* generic form screen (onboarding) */
+  .form-screen { flex: 1; display: flex; flex-direction: column; padding: 10px 20px 20px; gap: 14px; }
+  .form-icon { font-size: 34px; text-align: center; margin: 6px 0 0; }
+  .form-h1 {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 20px; text-align: center; margin: 0; line-height: 1.25;
+  }
+  .form-body { font-size: 12.5px; text-align: center; color: #47455c; line-height: 1.5; margin: 0; }
+  .form-label { font-size: 11px; font-weight: 700; color: #6B6B85; margin: 6px 0 -6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .form-input {
+    border: 1.5px solid #E3DED2; border-radius: 14px; padding: 13px 14px;
+    font-size: 14px; font-family: inherit; background: #FFFFFF; color: #1B1B3A;
+  }
+  .form-helper { font-size: 10.5px; color: #8f8ca3; text-align: center; margin: -6px 0 0; }
+  .form-coach-note {
+    font-size: 10px; color: #8f8ca3; text-align: center; margin: 4px 0 0;
+    border-top: 1px dashed #E3DED2; padding-top: 8px;
+  }
+  .spacer { flex: 1; }
+  .form-cta {
+    border: none; width: 100%; background: #1B1B3A; color: #FFFFFF;
+    font-family: 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 15px;
+    padding: 15px 18px; border-radius: 16px; cursor: pointer;
+  }
+
+  /* streak card */
+  .streak-card {
+    background: linear-gradient(155deg, #FF6B35 0%, #FF8A5C 100%);
+    border-radius: 20px; padding: 17px 18px; color: #FFFFFF;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 12px 24px -14px rgba(255,107,53,0.65);
+    position: relative;
+  }
+  .streak-flame { font-size: 30px; line-height: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.15)); }
+  .streak-num { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 24px; line-height: 1; margin: 0 0 2px; }
+  .streak-label { font-size: 11.5px; margin: 0; opacity: 0.92; }
+  .streak-check {
+    position: absolute; top: -8px; right: -6px;
+    background: #3DAA6B; color: #fff; font-size: 10px; font-weight: 700;
+    padding: 4px 9px; border-radius: 999px; box-shadow: 0 4px 10px -2px rgba(0,0,0,0.3);
+    white-space: nowrap;
+  }
+
+  /* waiting / paused banner (replaces streak card + cta) */
+  .wait-card {
+    border-radius: 20px; padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .wait-card.pending { background: #FFF4E8; border: 1.5px solid #FFD9A8; }
+  .wait-card.paused { background: #F2EFF8; border: 1.5px solid #D8D0EC; }
+  .wait-head { display: flex; align-items: center; gap: 9px; }
+  .wait-icon { font-size: 20px; }
+  .wait-title { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 15px; margin: 0; }
+  .wait-body { font-size: 12px; color: #47455c; margin: 0; line-height: 1.45; }
+  .wait-refresh {
+    align-self: flex-start; margin-top: 2px; font-size: 11.5px; font-weight: 700;
+    color: #1B1B3A; background: rgba(255,255,255,0.7); border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 999px; padding: 6px 12px; cursor: pointer;
+  }
+
+  /* primary CTA */
+  .cta {
+    border: none; width: 100%; background: #1B1B3A; color: #FFFFFF;
+    font-family: 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 15px;
+    padding: 15px 18px; border-radius: 16px; display: flex; align-items: center;
+    justify-content: center; gap: 8px; cursor: pointer;
+  }
+  .cta.disabled { background: #DAD6CB; color: #8f8c9e; }
+  .cta .dot { width: 8px; height: 8px; border-radius: 50%; background: #3DAA6B; box-shadow: 0 0 0 3px rgba(61,170,107,0.25); }
+  .cta.disabled .dot { background: #b7b4a6; box-shadow: none; }
+  .cta-secondary {
+    border: 1.5px solid #1B1B3A; width: 100%; background: transparent; color: #1B1B3A;
+    font-family: 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 14.5px;
+    padding: 13px 18px; border-radius: 16px; cursor: pointer;
+  }
+
+  /* team pool card */
+  .team-card { background: #FFFFFF; border: 1px solid #EFEBE2; border-radius: 20px; padding: 15px 17px 17px; }
+  .team-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .team-card-title { font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .team-card-title .medal { font-size: 14px; }
+  .team-card-points { font-size: 11px; font-weight: 700; color: #B37B00; font-variant-numeric: tabular-nums; }
+  .meter-track { width: 100%; height: 11px; background: #F3EEE3; border-radius: 999px; overflow: hidden; }
+  .meter-fill { height: 100%; background: linear-gradient(90deg, #FFB800, #FFCE47); border-radius: 999px; transition: width 1.1s ease; }
+  .team-card-sub { margin: 9px 0 0; font-size: 10.5px; color: #6B6B85; }
+
+  /* success overlay */
+  .success-banner {
+    position: absolute; top: 58px; left: 14px; right: 14px;
+    background: #1B1B3A; color: #fff; border-radius: 16px; padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 700;
+    box-shadow: 0 14px 26px -12px rgba(0,0,0,0.4); z-index: 6;
+  }
+  .success-banner .emoji { font-size: 18px; }
+  .float-tag {
+    position: absolute; font-size: 11px; font-weight: 700; color: #B37B00;
+    background: #FFF4D9; padding: 4px 9px; border-radius: 999px; z-index: 6;
+  }
+
+  .badges-title { font-size: 11px; font-weight: 700; color: #6B6B85; text-transform: uppercase; letter-spacing: 0.06em; margin: 0; }
+  .badges-row { display: flex; gap: 9px; }
+  .badge { flex: 1; background: #FFFFFF; border: 1px solid #EFEBE2; border-radius: 14px; padding: 10px 6px; text-align: center; }
+  .badge .emoji { font-size: 18px; display: block; margin-bottom: 3px; }
+  .badge .label { font-size: 9.5px; font-weight: 700; line-height: 1.2; color: #1B1B3A; }
+
+  .tabbar {
+    flex-shrink: 0; display: flex; justify-content: space-around; align-items: center;
+    padding: 8px 8px 20px; border-top: 1px solid #F0ECE2; background: #FFFFFF;
+  }
+  .tab { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 9.5px; font-weight: 700; color: #B7B4C6; }
+  .tab .icon { font-size: 17px; line-height: 1; }
+  .tab.active { color: #FF6B35; }
+
+  /* avatar grid (onboarding) */
+  .avatar-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .avatar-opt {
+    aspect-ratio: 1; border-radius: 12px; background: #FFF; border: 1.5px solid #E3DED2;
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+  }
+  .avatar-opt.selected { border-color: #FF6B35; background: #FFEFE7; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 9px 16px;
+    max-width: 640px; padding: 13px 16px; background: var(--chrome-bg-alt);
+    border: 1px solid var(--chrome-line); border-radius: 14px; font-size: 11.5px;
+  }
+  .swatch { display: flex; align-items: center; gap: 6px; color: var(--chrome-text); }
+  .swatch i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+  .fontnote { font-size: 11px; color: var(--chrome-text-muted); max-width: 640px; text-align: center; }
+</style>
+
+<div class="chrome-heading">
+  <p class="chrome-eyebrow">Fas 1 — onboarding, samtycke &amp; kärnloop</p>
+  <h1 class="chrome-title">Nyckelskärmar: väntar-läge, redan loggat, och lyckad logg</h1>
+  <p class="chrome-sub">Statisk referens kopplad till <code>docs/design/phase1-flows.md</code> — bygg riktig funktionalitet mot <code>docs/api/phase1-contract.md</code>, inte mot den här filen. Palett enligt <code>docs/design/style-guide.md</code>.</p>
+</div>
+
+<div class="row">
+
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
+        <div class="form-screen">
+          <p class="form-icon">🔒</p>
+          <h1 class="form-h1">Vi frågar en vuxen om lov</h1>
+          <p class="form-body">Innan du kan börja logga träningar behöver en förälder eller vårdnadshavare säga ja. Vi skickar dem en snabb fråga — de godkänner med ett klick.</p>
+          <p class="form-label">Förälders/vårdnadshavares e-post eller mobilnummer</p>
+          <input class="form-input" placeholder="t.ex. namn@exempel.se" />
+          <p class="form-helper">Vi använder det bara för att fråga om lov — inget annat.</p>
+          <div class="spacer"></div>
+          <button class="form-cta">Skicka förfrågan</button>
+          <p class="form-coach-note">Tränare: hjälp spelaren fylla i om de är osäkra på uppgifterna.</p>
+        </div>
+      </div>
+    </div>
+    <p class="frame-label">Onboarding — O5<small>Skärmen som ramar in samtyckesfrågan, innan POST /players</small></p>
+  </div>
+
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
+        <div class="app-header">
+          <div class="wordmark">SkillStreak<small>arbetstitel</small></div>
+          <div class="avatar">🦊</div>
+        </div>
+        <div class="content">
+          <p class="greeting">Hej, <strong>FloorballStar15</strong>!</p>
+
+          <div class="wait-card pending">
+            <div class="wait-head"><span class="wait-icon">⏳</span><p class="wait-title">Väntar på godkännande</p></div>
+            <p class="wait-body">Vi har frågat en förälder eller vårdnadshavare om lov. Så fort de säger ja låser vi upp knappen nedan!</p>
+            <button class="wait-refresh">Kolla igen</button>
+          </div>
+
+          <button class="cta disabled"><span class="dot"></span> Jag har tränat 🔒</button>
+
+          <div class="team-card">
+            <div class="team-card-head">
+              <span class="team-card-title"><span class="medal">🥇</span> Lagets VM-Guld-pott</span>
+              <span class="team-card-points">1 280 / 5 000</span>
+            </div>
+            <div class="meter-track"><div class="meter-fill" style="width:25.6%"></div></div>
+            <p class="team-card-sub">25,6 % till guldet Vår 2026 — alla bidrar lika mycket.</p>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab active"><span class="icon">🏠</span>Hem</div>
+          <div class="tab"><span class="icon">🎯</span>Utmaningar</div>
+          <div class="tab"><span class="icon">👥</span>Laget</div>
+          <div class="tab"><span class="icon">⚙️</span>Profil</div>
+        </div>
+      </div>
+    </div>
+    <p class="frame-label">Hemskärm — O7 / H4<small>consentStatus: "pending" (eller "not_requested") — den förväntade startpunkten för alla spelare</small></p>
+  </div>
+
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
+        <div class="app-header">
+          <div class="wordmark">SkillStreak<small>arbetstitel</small></div>
+          <div class="avatar">🦊</div>
+        </div>
+        <div class="content">
+          <p class="greeting">Hej, <strong>FloorballStar15</strong>!</p>
+
+          <div class="wait-card paused">
+            <div class="wait-head"><span class="wait-icon">⏸️</span><p class="wait-title">Träning är pausad just nu</p></div>
+            <p class="wait-body">En förälder eller vårdnadshavare har dragit tillbaka godkännandet. Prata med din tränare om du har frågor.</p>
+          </div>
+
+          <button class="cta disabled"><span class="dot"></span> Jag har tränat 🔒</button>
+
+          <div class="team-card">
+            <div class="team-card-head">
+              <span class="team-card-title"><span class="medal">🥇</span> Lagets VM-Guld-pott</span>
+              <span class="team-card-points">1 280 / 5 000</span>
+            </div>
+            <div class="meter-track"><div class="meter-fill" style="width:25.6%"></div></div>
+            <p class="team-card-sub">25,6 % till guldet Vår 2026 — alla bidrar lika mycket.</p>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab active"><span class="icon">🏠</span>Hem</div>
+          <div class="tab"><span class="icon">🎯</span>Utmaningar</div>
+          <div class="tab"><span class="icon">👥</span>Laget</div>
+          <div class="tab"><span class="icon">⚙️</span>Profil</div>
+        </div>
+      </div>
+    </div>
+    <p class="frame-label">Hemskärm — O7<small>consentStatus: "revoked" — distinkt kopia, ingen skuldbeläggning av barnet</small></p>
+  </div>
+
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
+        <div class="app-header">
+          <div class="wordmark">SkillStreak<small>arbetstitel</small></div>
+          <div class="avatar">🦊</div>
+        </div>
+        <div class="content" style="position: relative;">
+          <p class="greeting">Hej, <strong>FloorballStar15</strong>!</p>
+
+          <div class="success-banner"><span class="emoji">🔥</span> Snyggt jobbat! 6 dagar i rad.</div>
+          <span class="float-tag" style="top: 168px; right: 26px;">+15 min till laget</span>
+
+          <div class="streak-card">
+            <div class="streak-flame">🔥</div>
+            <div>
+              <p class="streak-num">6 dagar</p>
+              <p class="streak-label">Din personliga streak — fortsätt så!</p>
+            </div>
+          </div>
+
+          <button class="cta disabled"><span class="dot"></span> Jag har tränat 🔒</button>
+
+          <div class="team-card">
+            <div class="team-card-head">
+              <span class="team-card-title"><span class="medal">🥇</span> Lagets VM-Guld-pott</span>
+              <span class="team-card-points">1 295 / 5 000</span>
+            </div>
+            <div class="meter-track"><div class="meter-fill" style="width:25.9%"></div></div>
+            <p class="team-card-sub">25,9 % till guldet Vår 2026 — alla bidrar lika mycket.</p>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab active"><span class="icon">🏠</span>Hem</div>
+          <div class="tab"><span class="icon">🎯</span>Utmaningar</div>
+          <div class="tab"><span class="icon">👥</span>Laget</div>
+          <div class="tab"><span class="icon">⚙️</span>Profil</div>
+        </div>
+      </div>
+    </div>
+    <p class="frame-label">Hemskärm — H5 (ögonblicksbild)<small>Precis efter 201 från POST /training-logs — banner + flytande poolmärke, tonar ut efter ~2,5s</small></p>
+  </div>
+
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
+        <div class="app-header">
+          <div class="wordmark">SkillStreak<small>arbetstitel</small></div>
+          <div class="avatar">🦊</div>
+        </div>
+        <div class="content">
+          <p class="greeting">Hej, <strong>FloorballStar15</strong>!</p>
+
+          <div class="streak-card">
+            <span class="streak-check">Loggat idag ✓</span>
+            <div class="streak-flame">🔥</div>
+            <div>
+              <p class="streak-num">6 dagar</p>
+              <p class="streak-label">Din personliga streak — fortsätt så!</p>
+            </div>
+          </div>
+
+          <button class="cta-secondary">Logga en till träning</button>
+
+          <div class="team-card">
+            <div class="team-card-head">
+              <span class="team-card-title"><span class="medal">🥇</span> Lagets VM-Guld-pott</span>
+              <span class="team-card-points">1 295 / 5 000</span>
+            </div>
+            <div class="meter-track"><div class="meter-fill" style="width:25.9%"></div></div>
+            <p class="team-card-sub">25,9 % till guldet Vår 2026 — alla bidrar lika mycket.</p>
+          </div>
+
+          <p class="badges-title">Senaste utmärkelser</p>
+          <div class="badges-row">
+            <div class="badge"><span class="emoji">💪</span><span class="label">Bästa<br>kämpe</span></div>
+            <div class="badge"><span class="emoji">🎨</span><span class="label">Mest<br>kreativ</span></div>
+            <div class="badge"><span class="emoji">🤝</span><span class="label">Bästa<br>lagkompis</span></div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab active"><span class="icon">🏠</span>Hem</div>
+          <div class="tab"><span class="icon">🎯</span>Utmaningar</div>
+          <div class="tab"><span class="icon">👥</span>Laget</div>
+          <div class="tab"><span class="icon">⚙️</span>Profil</div>
+        </div>
+      </div>
+    </div>
+    <p class="frame-label">Hemskärm — H3<small>alreadyLoggedToday: true — knappen döljs inte, den byter stil (fortsatt tappbar för lagets pott)</small></p>
+  </div>
+
+</div>
+
+<div class="legend">
+  <span class="swatch"><i style="background:#FF6B35"></i>flame — individuell streak</span>
+  <span class="swatch"><i style="background:#FFB800"></i>gold — lagets pott</span>
+  <span class="swatch"><i style="background:#1B1B3A"></i>ink — text / CTA</span>
+  <span class="swatch"><i style="background:#FFF4E8;box-shadow:inset 0 0 0 1px #FFD9A8"></i>väntar-banner</span>
+  <span class="swatch"><i style="background:#F2EFF8;box-shadow:inset 0 0 0 1px #D8D0EC"></i>pausad-banner</span>
+  <span class="swatch"><i style="background:#3DAA6B"></i>success</span>
+</div>
+<p class="fontnote">Typsnitt faller tillbaka på systemtypsnitt i denna statiska, fristående fil (ingen extern fonthämtning). Riktig app använder Baloo 2 / Nunito enligt <code>docs/design/style-guide.md</code>.</p>

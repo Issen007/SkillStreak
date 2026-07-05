@@ -13,10 +13,48 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # Phase 1's e2e suite exercises real Postgres/Redis writes (streak/team-
+    # pool transactions), not just a stub — so CI needs the same two
+    # datastores docker-compose.yml provides locally, as service containers.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d app_dev"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://app:app@localhost:5432/app_dev
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-only-test-secret
     steps:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
+        with:
+          # pnpm/action-setup auto-detects the version from a root
+          # package.json's "packageManager" field — but our Node project
+          # lives in backend/, not the repo root (defaults.run.working-directory
+          # only applies to `run:` steps, not `uses:` actions), so it can't
+          # auto-detect here. Pinned to match backend/package.json's
+          # packageManager pin.
+          version: 11.9.0
 
       - uses: actions/setup-node@v4
         with:
@@ -32,6 +70,9 @@ jobs:
 
       - name: Build
         run: pnpm run build
+
+      - name: Run migrations
+        run: pnpm run migration:run
 
       - name: Unit tests
         run: pnpm test
