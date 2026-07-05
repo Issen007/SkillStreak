@@ -121,33 +121,67 @@ auth, no real data yet — that's Phase 1, starting now.
 Goal: a player can tap "Jag har tränat", see their personal streak
 increment, and see the team's shared point pool increment.
 
-- [ ] **backend-developer**: implement the Team/Player/Coach schema as
+- [x] **backend-developer**: implement the Team/Player/Coach schema as
       migrations (including the `PlayerPrivateInfo` split and the
       constrained `BadgeAward.context` shape from ADR-0002's addendum);
       implement streak logic (Redis) and team pool logic (Postgres) as
       separate modules per the architect's ADR; implement the endpoints in
       `docs/api/phase1-contract.md`, including the consent gate on
-      `TrainingLogEntry` creation.
-- [ ] **ux-designer**: design the onboarding + parental-consent flow
+      `TrainingLogEntry` creation. → TypeORM, full schema + seed script;
+      verified live against `docker compose` (migrations, seed, full
+      onboarding→consent-gate→training-log curl walkthrough).
+- [x] **ux-designer**: design the onboarding + parental-consent flow
       (including the "waiting for parent approval" home-screen state), and
       the core "Jag har tränat" screen (streak view + team meter) — against
-      `docs/api/phase1-contract.md`.
-- [ ] **frontend-developer**: scaffold the Expo app; build the onboarding
+      `docs/api/phase1-contract.md`. → `docs/design/phase1-flows.md` +
+      `docs/design/phase1-mockup.html`.
+- [x] **frontend-developer**: scaffold the Expo app; build the onboarding
       and core screen against the UX spec and `docs/api/phase1-contract.md`.
-- [ ] **security-reviewer**: review the parental-consent flow and the
+      → `mobile/src/` (onboarding O1-O6, home H1/H3/H4/H2/H5/H6); verified
+      against the live backend via a Node harness exercising the real API
+      client code.
+- [x] **security-reviewer**: review the parental-consent flow and the
       player identity model (screen names) before this phase is
       considered done — this is the first phase that touches real child
       accounts. Specifically confirm the age-band nuance flagged in
       ADR-0002's addendum §2 (13+ self-consent under Swedish GDPR Art. 8).
-- [ ] **code-critic**: review the streak/team-pool logic and the core
+      → Backend pass: one CONFIRMED finding (no rate limiting on the two
+      unauthenticated routes — fixed). Age-band question resolved: parent
+      consent for every player in Phase 1, deliberately (ADR-0002
+      addendum). Mobile-client follow-up pass: no findings. 180-day JWT
+      with no revocation/reissue flagged as an acceptable Phase 1 gap,
+      tracked below for Phase 2.
+- [x] **code-critic**: review the streak/team-pool logic and the core
       screen's client code before merge (edge cases: first-ever streak
       day, midnight rollover, missed day, concurrent team-pool writes; the
       same-day-logging rule is now fixed in `docs/api/phase1-contract.md`,
-      check the implementation actually matches it).
+      check the implementation actually matches it). → Backend pass: core
+      loop correct (verified live with a 20-concurrent-request test against
+      real Postgres), 5 lower-severity findings fixed (unscoped
+      unique-violation catch, missing format validation, no automated
+      concurrency regression test, untested BadgeAwardContext DTO). Mobile
+      pass: 2 confirmed bugs (SecureStore-failure hang, missing 401
+      handling on training-log submit) + 3 edge cases, all fixed.
 
-**Definition of done:** `docker-compose up` brings up the full stack; a
-player can complete the core loop end-to-end; the schema and consent flow
-have passed security review.
+**Definition of done:** met. `docker-compose up` brings up the full stack;
+a player can complete the core loop end-to-end (onboarding → consent gate
+→ "Jag har tränat" → streak + team pool update, same-day rule included);
+schema and consent flow have passed security review, backend and mobile
+client have both passed code-critic review.
+
+**Follow-ups tracked for Phase 2, deliberately not fixed now:**
+- JWT lifetime (180 days) has no revocation/reissue path — add a
+  `tokenVersion` check + coach-facing "reissue this player's session"
+  action alongside the Phase 2 coach dashboard.
+- `docker-entrypoint.sh` only runs migrations, not the seed script — a
+  fresh `docker compose up` has no invite code until someone runs
+  `pnpm run seed` manually inside the container. Fine for local dev today;
+  worth revisiting once there's a real coach-facing team-creation flow
+  (Phase 2) that makes seed data unnecessary rather than automating it.
+- `TeamPoolService.getActivePotForTeam` has no DB-level uniqueness
+  guard against two simultaneously-"active" pots for one team — not
+  reachable while pot creation is seed-only, but relevant once Phase 2
+  builds season rollover.
 
 ## Phase 2 — Coach tools & challenges ("Fas 2")
 
