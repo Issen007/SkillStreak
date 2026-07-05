@@ -4,6 +4,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppConfigModule } from './config/app-config.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
+import { MailModule } from './mail/mail.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { PlayerPrivateInfoModule } from './player-private-info/player-private-info.module';
 import { PlayersModule } from './players/players.module';
@@ -29,6 +30,7 @@ import { TrainingLogsModule } from './training-logs/training-logs.module';
       },
     ]),
     HealthModule,
+    MailModule,
     TeamsModule,
     TeamPoolModule,
     PlayerPrivateInfoModule,

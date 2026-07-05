@@ -28,6 +28,35 @@ class EnvironmentVariables {
   @IsOptional()
   @IsNotEmpty()
   JWT_EXPIRES_IN?: string;
+
+  // All optional: mail sending degrades to a clearly-logged no-op rather
+  // than failing app boot when unset (see MailService) — lets the rest of
+  // the app keep working while SMTP is still being configured.
+  @IsOptional()
+  @IsNotEmpty()
+  SMTP_HOST?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  SMTP_PORT?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  SMTP_USER?: string;
+
+  @IsOptional()
+  SMTP_PASSWORD?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  SMTP_FROM?: string;
+
+  // The address a parent's browser can actually reach to click the consent
+  // link — a LAN IP during local testing, a real domain once deployed.
+  // Optional with a localhost fallback in code so nothing crashes if unset.
+  @IsOptional()
+  @IsNotEmpty()
+  APP_PUBLIC_URL?: string;
 }
 
 // Fails fast on boot rather than surfacing a confusing runtime error the
