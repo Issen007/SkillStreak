@@ -1,0 +1,17 @@
+# ClusterIP only, on purpose — Postgres is never exposed outside the
+# cluster (mirrors docker-compose.yml binding Postgres to 127.0.0.1 only).
+# Do not change this to NodePort/LoadBalancer or add an Ingress rule for it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: skillstreak
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432

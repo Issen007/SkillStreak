@@ -1,0 +1,105 @@
+# NestJS API, built from backend/Dockerfile.
+#
+# `image: skillstreak-api:latest` below is a PLACEHOLDER. Building that
+# Dockerfile and pushing the result to a registry the cluster can pull from
+# (e.g. GHCR, Docker Hub, a private registry) is a CI/CD step not covered by
+# these manifests — swap in the real `registry/repo:tag` before applying
+# this file, and prefer an immutable tag (git SHA or version) over `latest`
+# once that pipeline exists so rollouts are reproducible/reversible.
+#
+# KNOWN LIMITATION: backend/docker-entrypoint.sh runs TypeORM migrations on
+# every container start before the app boots (see docs/adr/0002-data-model.md
+# — schema changes go through migrations, never manual edits). That's fine
+# with docker-compose's single api container, but with replicas: 2 here,
+# both pods can run `migration:run` concurrently on a rolling restart. Small
+# race window; not solved in this first cut (would mean moving migrations
+# into a separate Job/init step with locking). If that's a concern before a
+# real cluster exists, drop replicas to 1 until it's addressed.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: skillstreak
+  labels:
+    app: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: skillstreak-api:latest # PLACEHOLDER — see comment above
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: skillstreak-config
+          env:
+            # Individual Postgres pieces, used only to compose DATABASE_URL
+            # below — the API itself reads a single DATABASE_URL connection
+            # string (see backend/src/config/env.validation.ts), not
+            # separate host/user/password vars.
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: skillstreak-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: skillstreak-config
+                  key: POSTGRES_DB
+            - name: DATABASE_URL
+              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: JWT_SECRET
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: SMTP_USER
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: SMTP_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

@@ -4,16 +4,20 @@ Guidance for Claude Code when working in this repository.
 
 ## Project status
 
-Phase 0 (Foundations) is done — see [ACTION_PLAN.md](ACTION_PLAN.md) for the
-live checklist. `docs/adr/` has the backend-framework and data-model
-decisions, and `backend/` has a scaffolded NestJS app (health-check only,
-no schema yet) wired to Postgres + Redis via `docker-compose.yml`. Phase
-0.5 (Hello World & Visual Identity) is next. There is now some real
-architecture to preserve (the ADRs, the scaffold) — don't treat this repo
-as a blank slate the way earlier sessions could.
+Phases 0, 0.5, and 1 (MVP) are functionally done — see
+[docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) for the live checklist. There's
+a real, working app now: `backend/` (NestJS) implements the full Phase 1
+schema, JWT auth, the "Jag har tränat" streak/team-pool loop, and a real
+parental-consent email + approval flow (SMTP via Google Workspace); `mobile/`
+(Expo) has the onboarding and home screens wired to it; this has been
+manually verified end-to-end including a real email round-trip. This repo
+has substantial real architecture to preserve — don't treat it as a blank
+slate the way earlier sessions could. Currently in progress: a pre-external-beta
+pass (docs reorg, a full CVE/security audit, Kubernetes manifests for
+deployment) ahead of Fas 2.
 
 The project itself is also unnamed ("SkillStreak" is a working title — see
-README banner for name candidates: SkillFlex, FloorGrind, StreakUp, ZorroGo,
+docs/PROJECT.md banner for name candidates: SkillFlex, FloorGrind, StreakUp, ZorroGo,
 SquadPulse). Don't hardcode the working title into code/config in a way
 that's painful to rename later.
 
@@ -38,7 +42,7 @@ LLM-backed feature for coaches to generate training plans from a prompt
 ## Non-negotiable constraints — users are children (~9–13+)
 
 Any feature touching accounts, media, or data must satisfy these (from the
-README's Privacy by Design section) before anything else:
+docs/PROJECT.md's Privacy by Design section) before anything else:
 
 - **Closed team bubbles** — no data/video/comments public by default; a user
   only ever sees their own verified team.
@@ -69,19 +73,21 @@ adding geolocation for "nearby teams", etc.).
   [`docs/adr/0003-package-managers.md`](docs/adr/0003-package-managers.md).
   Don't reintroduce npm/yarn or pip/poetry lockfiles alongside these.
 
-## Roadmap (from README)
+## Roadmap (from docs/PROJECT.md)
 
-- **Fas 1 (current):** repo + Docker setup; DB schema for
+- **Fas 1 (functionally done):** repo + Docker setup; DB schema for
   Team/Player/Coach (GDPR-compliant, supports both individual and team
-  scoring); first React Native screen — a "Jag har tränat" (I trained)
-  button that starts a streak and adds points to the team pool.
-- **Fas 2:** coach view for sending challenges; streak logic on the
-  backend; team "VM-guld" meter.
+  scoring); a real "Jag har tränat" screen that starts a streak and adds
+  points to the team pool, gated by a real parental-consent email flow.
+- **Fas 2 (next):** coach view for sending challenges; team "VM-guld"
+  meter already exists from Fas 1, challenge-specific logic is what's left.
 - **Fas 3:** secure video upload + team-bound feed.
-- **Fas 4:** Helm/K8s manifests; international rollout.
+- **Fas 4:** Helm/K8s manifests; international rollout. (Plain K8s
+  manifests were pulled forward into `k8s/` ahead of schedule to prepare
+  for an early external beta — see docs/ACTION_PLAN.md.)
 
 When asked to "start building" or "what's next," default to the first
-unchecked item in [ACTION_PLAN.md](ACTION_PLAN.md) (which includes a
+unchecked item in [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) (which includes a
 Phase 0.5 ahead of Fas 1 proper) unless told otherwise.
 
 ## Claude Code subagents for this project
@@ -101,12 +107,12 @@ the architect draft an ADR for X"):
 7. **ide-buddy** — default day-to-day pairing/debugging when nothing above
    clearly fits.
 
-See [ACTION_PLAN.md](ACTION_PLAN.md) for how these map onto the Fas 1–4
+See [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) for how these map onto the Fas 1–4
 roadmap.
 
 ## Language notes
 
-Product content and the README are in Swedish (target users: Swedish youth
+Product content and docs/PROJECT.md are in Swedish (target users: Swedish youth
 floorball teams/coaches). Default to English for code, comments, commit
 messages, and this kind of planning doc unless told otherwise — but
 user-facing app strings will need Swedish, and the app will likely need
@@ -129,9 +135,9 @@ tested before merge" to actually be enforced, not just advisory.
 
 ## Open decisions to surface, not silently pick
 
-- Final app name (still open — see README banner for candidates).
+- Final app name (still open — see docs/PROJECT.md banner for candidates).
 - Three data-model gaps flagged by security-reviewer during the Phase 0
-  review, tracked in [ACTION_PLAN.md](ACTION_PLAN.md)'s Phase 0 section,
+  review, tracked in [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md)'s Phase 0 section,
   to resolve before ADR-0002 becomes real schema in Phase 1: isolating
   `real_name`, whether consent should gate account creation (not just
   media) for the youngest players, and constraining `BadgeAward.context`

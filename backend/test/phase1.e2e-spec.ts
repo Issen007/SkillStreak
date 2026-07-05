@@ -70,7 +70,7 @@ interface PlayerMeBody {
 
 // Exercises the four Phase 1 endpoints end-to-end against a real Postgres +
 // Redis (docker-compose's postgres/redis services must be up and migrated —
-// see backend/README or ACTION_PLAN.md's verification steps). Each run
+// see docs/ACTION_PLAN.md's verification steps). Each run
 // creates its own Team/Season/TeamSeasonPot fixture (unique invite code) so
 // this suite is safe to re-run without colliding with seed data or itself.
 describe('Phase 1 API (e2e)', () => {

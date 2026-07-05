@@ -2,7 +2,7 @@
 
 This turns the README's roadmap into concrete next steps, and maps each
 step to one of the specialized agents in `.claude/agents/`. See
-[CLAUDE.md](CLAUDE.md) for full project context and constraints.
+[CLAUDE.md](../CLAUDE.md) for full project context and constraints.
 
 ## The team
 
@@ -26,10 +26,10 @@ focus baked in.
       for candidates). Blocks nothing technical, but do it before it's
       wired into package names/bundle IDs. Still open.
 - [x] **architect**: write ADR-0001 deciding NestJS vs FastAPI for the
-      backend. → `docs/adr/0001-backend-framework.md`, decision: NestJS.
+      backend. → `adr/0001-backend-framework.md`, decision: NestJS.
 - [x] **architect**: write ADR-0002 for the initial data model — Team,
       Player, Coach, Streak, TeamSeasonPot, Badge — noting what lives in
-      Postgres vs Redis and why. → `docs/adr/0002-data-model.md`.
+      Postgres vs Redis and why. → `adr/0002-data-model.md`.
 - [x] **backend-developer**: scaffold repo structure, `Dockerfile` +
       `docker-compose.yml` (Postgres + Redis + API service). → `backend/`
       NestJS app with a `/health` endpoint; verified live end-to-end
@@ -62,7 +62,7 @@ focus baked in.
 **Phase 0 is done** except the app name, which isn't a technical blocker.
 
 **Follow-up (2026-07-03):** package-manager standard set in
-`docs/adr/0003-package-managers.md` — pnpm for Node/TS (now: `backend/`;
+`adr/0003-package-managers.md` — pnpm for Node/TS (now: `backend/`;
 later: the Expo app), uv for any future Python service. `backend/` migrated
 from npm to pnpm (Dockerfile, lockfile); rebuilt and smoke-tested via both
 `docker build` and a full `docker compose up` + `/health` check. Added
@@ -73,9 +73,9 @@ branch-protection setting, not a repo file — see CLAUDE.md.
 
 **Follow-up (2026-07-03):** **architect** closed the three Phase 0 data-model
 gaps above and defined the Phase 1 API contract ahead of real migrations →
-`docs/adr/0002-data-model.md`'s addendum (real_name/parent_contact
+`adr/0002-data-model.md`'s addendum (real_name/parent_contact
 isolation, consent gating point, BadgeAward.context shape) and
-`docs/api/phase1-contract.md` (onboarding sequence, "Jag har tränat"
+`api/phase1-contract.md` (onboarding sequence, "Jag har tränat"
 endpoint, home-screen fetch) — for backend-developer/frontend-developer/
 ux-designer to build against directly rather than re-deriving from
 ADR-0002 alone.
@@ -90,10 +90,10 @@ walking skeleton plus one mockup.
 - [x] propose a small style guide — color palette + font
       pairing for the brand (energetic/kid-friendly, works with the
       streak/fire and team-gold themes, high contrast for accessibility).
-      → `docs/design/style-guide.md` (flame/gold/ink/paper/success tokens,
+      → `design/style-guide.md` (flame/gold/ink/paper/success tokens,
       Baloo 2 + Nunito).
 - [x] build one mockup of the app's first screen (home) applying that
-      palette/fonts → `docs/design/home-screen-mockup.html` (Artifact
+      palette/fonts → `design/home-screen-mockup.html` (Artifact
       hosting was unreachable — DNS failures to `api.anthropic.com` — so
       this is a self-contained local HTML file instead of a hosted link;
       retry hosting it later if useful, not blocking).
@@ -113,7 +113,7 @@ walking skeleton plus one mockup.
 **Definition of done:** met — Expo Go on a real device shows the on-brand
 home screen; `docker-compose up` brings up API+Postgres+Redis and
 `/health` responds (Phase 0); palette/fonts are written down in
-`docs/design/style-guide.md` for reuse in Phase 1. No streak logic, no
+`design/style-guide.md` for reuse in Phase 1. No streak logic, no
 auth, no real data yet — that's Phase 1, starting now.
 
 ## Phase 1 — MVP (README's "Fas 1")
@@ -126,17 +126,17 @@ increment, and see the team's shared point pool increment.
       constrained `BadgeAward.context` shape from ADR-0002's addendum);
       implement streak logic (Redis) and team pool logic (Postgres) as
       separate modules per the architect's ADR; implement the endpoints in
-      `docs/api/phase1-contract.md`, including the consent gate on
+      `api/phase1-contract.md`, including the consent gate on
       `TrainingLogEntry` creation. → TypeORM, full schema + seed script;
       verified live against `docker compose` (migrations, seed, full
       onboarding→consent-gate→training-log curl walkthrough).
 - [x] **ux-designer**: design the onboarding + parental-consent flow
       (including the "waiting for parent approval" home-screen state), and
       the core "Jag har tränat" screen (streak view + team meter) — against
-      `docs/api/phase1-contract.md`. → `docs/design/phase1-flows.md` +
-      `docs/design/phase1-mockup.html`.
+      `api/phase1-contract.md`. → `design/phase1-flows.md` +
+      `design/phase1-mockup.html`.
 - [x] **frontend-developer**: scaffold the Expo app; build the onboarding
-      and core screen against the UX spec and `docs/api/phase1-contract.md`.
+      and core screen against the UX spec and `api/phase1-contract.md`.
       → `mobile/src/` (onboarding O1-O6, home H1/H3/H4/H2/H5/H6); verified
       against the live backend via a Node harness exercising the real API
       client code.
@@ -154,7 +154,7 @@ increment, and see the team's shared point pool increment.
 - [x] **code-critic**: review the streak/team-pool logic and the core
       screen's client code before merge (edge cases: first-ever streak
       day, midnight rollover, missed day, concurrent team-pool writes; the
-      same-day-logging rule is now fixed in `docs/api/phase1-contract.md`,
+      same-day-logging rule is now fixed in `api/phase1-contract.md`,
       check the implementation actually matches it). → Backend pass: core
       loop correct (verified live with a 20-concurrent-request test against
       real Postgres), 5 lower-severity findings fixed (unscoped
@@ -202,7 +202,7 @@ treat `security-reviewer` involvement as blocking, not a final check.
 - [ ] **architect**: ADR for video storage/serving (where clips live, how
       access is scoped to a single team, retention/deletion), and — if the
       validity/tagging feature actually needs local ML — the new Python
-      service's shape, built with uv per `docs/adr/0003-package-managers.md`.
+      service's shape, built with uv per `adr/0003-package-managers.md`.
 - [ ] **security-reviewer**: sign off on the storage/access design *before*
       backend-developer builds it, not after.
 - [ ] **ux-designer**: design the safe feed and the "tag a teammate to

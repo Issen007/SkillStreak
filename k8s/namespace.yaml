@@ -1,0 +1,10 @@
+# All SkillStreak k8s resources live in this namespace. Keeping everything
+# scoped here (rather than `default`) makes it trivial to see/tear down the
+# whole beta deployment as one unit, and keeps Postgres/Redis out of reach
+# of anything else that might later share the cluster.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: skillstreak
+  labels:
+    app.kubernetes.io/part-of: skillstreak

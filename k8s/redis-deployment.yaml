@@ -1,0 +1,49 @@
+# Single-instance Redis, matching docker-compose.yml's redis:7-alpine.
+# Deliberately no PersistentVolumeClaim: per docs/adr/0002-data-model.md,
+# Redis here is a cache/accelerator over Postgres (streaks, real-time
+# leaderboards), never the source of truth. Safe to lose and rebuild — the
+# compose setup doesn't persist it either, so we don't pretend otherwise
+# here.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: skillstreak
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
