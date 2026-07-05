@@ -1,6 +1,10 @@
 import { EntityManager } from 'typeorm';
 import { ActivityType } from '../training-logs/activity-type.enum';
 import { ChallengeStatus } from '../challenges/entities/challenge.entity';
+import {
+  ChallengeAlreadyTerminalException,
+  ChallengeTargetFrozenException,
+} from '../common/errors/exceptions';
 import { WeeklyGoalTargetMetric } from './weekly-goal-target-metric.enum';
 import { WeeklyGoalService } from './weekly-goal.service';
 
@@ -246,5 +250,105 @@ describe('WeeklyGoalService.processGoalBonusForLog', () => {
       ([sql]: [string]) => sql.includes('activity_type'),
     );
     expect(activityTypeCalls).toHaveLength(0);
+  });
+});
+
+describe('WeeklyGoalService.patchGoal', () => {
+  const teamId = 'team-1';
+  const goalId = 'goal-1';
+  const requesterId = 'player-captain';
+
+  // patchGoal re-reads the row under a lock via a second createQueryBuilder
+  // call (the "existing active goal" check) only when transitioning to
+  // ACTIVE — not exercised by these tests, so a plain getOne-only builder
+  // is enough here.
+  function buildService(currentStatus: ChallengeStatus) {
+    const goalRow = {
+      id: goalId,
+      teamId,
+      title: 'Original title',
+      description: 'Original description',
+      targetMetric: WeeklyGoalTargetMetric.TOTAL_MINUTER,
+      targetValue: 100,
+      startDate: '2026-07-06',
+      endDate: '2026-07-12',
+      status: currentStatus,
+      goalBonusAwardedAt: null,
+      goalBonusPointsAwarded: null,
+    };
+
+    const qb = makeQueryBuilder({ getOne: goalRow });
+    const save = jest.fn((entity: typeof goalRow) => Promise.resolve(entity));
+    const challengeRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(qb),
+      save,
+    };
+
+    const manager = {
+      getRepository: jest.fn().mockReturnValue(challengeRepository),
+    } as unknown as EntityManager;
+
+    const dataSource = {
+      transaction: jest.fn((cb: (manager: EntityManager) => unknown) =>
+        cb(manager),
+      ),
+    };
+
+    const playersService = {
+      assertIsCaptainOfTeam: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const service = new WeeklyGoalService(
+      dataSource as never,
+      playersService as never,
+      undefined as never,
+      challengeRepository as never,
+      undefined as never,
+    );
+
+    return { service, goalRow, save };
+  }
+
+  it('rejects a title change on a completed goal — the confirmed code-critic finding', async () => {
+    const { service } = buildService(ChallengeStatus.COMPLETED);
+    await expect(
+      service.patchGoal(teamId, goalId, requesterId, { title: 'New title' }),
+    ).rejects.toBeInstanceOf(ChallengeAlreadyTerminalException);
+  });
+
+  it('rejects a description change on a cancelled goal', async () => {
+    const { service } = buildService(ChallengeStatus.CANCELLED);
+    await expect(
+      service.patchGoal(teamId, goalId, requesterId, {
+        description: 'New description',
+      }),
+    ).rejects.toBeInstanceOf(ChallengeAlreadyTerminalException);
+  });
+
+  it('allows a title change while draft', async () => {
+    const { service, save } = buildService(ChallengeStatus.DRAFT);
+    await service.patchGoal(teamId, goalId, requesterId, {
+      title: 'Updated title',
+    });
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Updated title' }),
+    );
+  });
+
+  it('allows a description change while active (non-terminal, non-draft)', async () => {
+    const { service, save } = buildService(ChallengeStatus.ACTIVE);
+    await service.patchGoal(teamId, goalId, requesterId, {
+      description: 'Updated description',
+    });
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ description: 'Updated description' }),
+    );
+  });
+
+  it('still rejects a frozen-field change (targetValue) once active — unaffected by this fix', async () => {
+    const { service } = buildService(ChallengeStatus.ACTIVE);
+    await expect(
+      service.patchGoal(teamId, goalId, requesterId, { targetValue: 200 }),
+    ).rejects.toBeInstanceOf(ChallengeTargetFrozenException);
   });
 });

@@ -1,4 +1,4 @@
-# Single-instance Postgres, matching docker-compose.yml's postgres:16-alpine.
+# Single-instance Postgres, matching docker-compose.yml's postgres:18-alpine.
 # This is a Deployment (not a StatefulSet) because we're intentionally
 # staying at one replica for MVP beta — no HA/replication yet. `Recreate`
 # strategy avoids two pods ever trying to mount the same ReadWriteOnce PVC
@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16-alpine
+          image: postgres:18-alpine
           ports:
             - containerPort: 5432
           env:
@@ -44,8 +44,11 @@ spec:
                   name: skillstreak-config
                   key: POSTGRES_DB
           volumeMounts:
+            # Postgres 18's image expects a single mount at
+            # /var/lib/postgresql (not .../data) — see docker-compose.yml's
+            # comment on this same change.
             - name: postgres-data
-              mountPath: /var/lib/postgresql/data
+              mountPath: /var/lib/postgresql
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]

@@ -245,37 +245,174 @@ context, not as live direction.
       structure itself didn't need to change, only the awarded-amount
       formula and the (now removed) "keeps paying after the crossing"
       branch.
-- [ ] **ux-designer follow-up (not yet started)**: redesign
-      `design/phase2-flows.md`'s Part 1 (drop the coach-dashboard framing
-      entirely — a captain's screens live inside the ordinary player app,
-      gated by `is_captain`, not a separate login surface) and Part 3 (the
-      player-facing goal card is now a team-wide progress meter — closer
-      to VM-Guld's gold meter than the individual flame meter it currently
-      specifies — plus a celebratory moment for the one-time bonus, using
-      `POST /training-logs`'s new `goalBonus` field). Also needs the new
-      player-facing "enter your reissue code" screen (ADR-0004 Part 3,
-      unaffected by the pivot but never designed in UI terms).
-- [ ] **backend-developer**: implement `adr/0005-kapten-and-weekly-team-goal.md`
-      and the corresponding parts of `api/phase2-contract.md` — captain
-      flag/index, weekly-goal CRUD, team-wide progress computation, the
-      goal-completion bonus inside the training-log transaction, plus
-      ADR-0004 Part 3's session-reissue mechanism (unaffected by the
-      pivot, still needed). **Do not build coach password
-      login/`CoachAuthGuard`/bcrypt** — superseded, per above.
-- [ ] **frontend-developer**: captain-only screens (weekly-goal
-      create/edit, roster/consent view — gated on `is_captain`, using the
-      existing player session, no new login screen), the team-wide goal
-      progress card + bonus celebration for every player, and the new
-      "enter your reissue code" screen. Build against the ux-designer
-      follow-up above once it lands, not directly against the superseded
-      `phase2-flows.md` Parts 1/3.
-- [ ] **code-critic** + **security-reviewer**: review before merge, as in
-      Phase 1. Auth (session reissue) and child data (roster, consent
-      reminder) still make this security-reviewer-blocking, per CLAUDE.md
-      — specifically flagged by architect: a **child captain** now
-      triggers consent-reminder/session-reissue for a **teammate**, a
-      different trust model than the original adult-coach version, worth
-      an explicit sign-off rather than silently inherited.
+- [x] **ux-designer follow-up**: redesigned `design/phase2-flows.md` in
+      place — Part 1 replaced entirely (no coach-dashboard framing; a
+      captain's screens (K1 roster summary/entry, K2 full roster,
+      K3 reissue-code display) live inside the ordinary "Laget" tab, gated
+      client-side on `viewerIsCaptain`); Part 2 (KB1-KB4 goal builder)
+      adapted to a team-wide target; Part 3 replaced with a team-wide gold
+      progress meter (G1) and a role-split bonus celebration — a bigger
+      team-crediting takeover for whoever's log crossed the threshold (G2)
+      vs. a smaller one-time catch-up banner for every other player on next
+      open (G3); new Part 4 (R1/R2) for ADR-0004 Part 3's session-redemption
+      screen. Also caught and fixed a real accuracy bug in its own first
+      draft: a proposed client-side derivation of the non-triggering
+      viewer's bonus amount (`5 + targetValue`) was wrong per ADR-0005's
+      actual formula — fixed by persisting `goalBonusPointsAwarded` on the
+      goal record instead (see `api/phase2-contract.md`).
+- [x] **backend-developer**: implemented `adr/0005-kapten-and-weekly-team-goal.md`
+      and `api/phase2-contract.md` in full — captain flag/index, weekly-goal
+      CRUD + state machine, team-wide progress computation, the
+      goal-completion bonus inside the training-log transaction (persisting
+      `goalBonusPointsAwarded`, not just the timestamp, per the mid-task fix
+      above), and ADR-0004 Part 3's session-reissue mechanism. Verified
+      independently (not just the implementing agent's own report): clean
+      lint/build, unit + e2e tests, rerun against a fresh `docker-compose`
+      Postgres/Redis. No coach password login/`CoachAuthGuard`/bcrypt was
+      built, per the pivot.
+- [x] **code-critic** + **security-reviewer**: ran after the code had
+      already reached `main` (a process gap — this should have blocked the
+      merge, not followed it; see "Branching process gap" below). Findings:
+      - [x] **code-critic, CONFIRMED**: `title`/`description` were editable
+            on `completed`/`cancelled` goals with no status check at all,
+            contradicting the contract's "non-terminal status" rule. Fixed:
+            new `ChallengeAlreadyTerminalException`, plus test coverage for
+            `patchGoal` (there was none before — code-critic's own finding).
+      - [ ] **security-reviewer, CONFIRMED CRITICAL — session-reissue allows
+            full account takeover, not just impersonation risk.** The
+            reissue code is returned directly to whoever calls
+            `POST /players/:playerId/session-reissue` (intended to be
+            relayed to the target player in person), but
+            `POST /players/session/redeem` is unauthenticated and accepts
+            the code from anyone — so the same captain who triggered
+            reissue can immediately redeem it themselves and get a live
+            session token **for the target player**, repeatedly, with no
+            rate limit, no audit trail, and no notification to the
+            affected player or their parent. Verified directly by reading
+            the controller code, not taken on the reviewer's word alone.
+            **Action taken**: both routes disabled (`SessionReissueDisabledException`,
+            503 `session_reissue_disabled`) rather than shipping a partial
+            fix — this reverts to Phase 1's already-accepted "180-day JWT,
+            no revocation" state, not a new regression. `SessionService` and
+            its logic are left intact (the `token_version`/single-use-code
+            mechanism itself is sound) for a proper redesign later that
+            binds redemption to the target player rather than to bearer
+            possession of the code. **Still open, tracked in Phase 2.5.**
+      - Everything else both reviewers checked — the bonus mechanic's
+        idempotency (including under real concurrency), the weekly-goal
+        state machine, captain authorization/IDOR scoping, the DB-level
+        uniqueness constraints, SQL injection surface, PII/location
+        exposure — came back clean.
+
+**Branching process gap, noted so it isn't repeated:** Phase 2's work was
+committed to the `phase1` branch (kept open from Phase 1) instead of its own
+branch, and both `phase1` and (once split out) `phase2` were merged to
+`main` before the code-critic/security-reviewer pass ran — the pass above
+happened *after* merge, on a fresh `phase2-followup` branch, not before. The
+critical session-reissue finding was caught and disabled promptly, but the
+right process is: branch per phase, review before merge, every time.
+
+- [x] **frontend-developer**: built the Hem/Mål/Laget tab bar (Phase 1
+      never built one) wrapping K1/K2 (roster + consent view, gated on
+      `viewerIsCaptain`, existing player session, no new login screen),
+      KB1-KB4 (goal builder, with both the preemptive client-side guard
+      and the server-side `409` fallback), G1 (team-wide gold progress
+      card), and the G2/G3 bonus-celebration split (a bigger takeover for
+      the triggering player, a smaller one-time catch-up banner + tab dot
+      for everyone else, reading `goalBonusPointsAwarded` from the
+      weekly-goal `GET` response rather than re-deriving it). Confirmed
+      via grep: zero references anywhere in `mobile/src` to the disabled
+      session-reissue/redeem feature — R1/R2 and K2/K3's reissue action
+      were correctly skipped. Verified independently (clean
+      `tsc`/`expo-doctor`, reviewed the celebration-split and KB4-guard
+      logic directly) on top of the implementing agent's own live-backend
+      verification against a seeded Postgres 18 instance.
+
+**Phase 2 is functionally complete** (backend + frontend implemented,
+reviewed; the session-reissue feature is a known, tracked, disabled gap
+— not silently missing). Continuing directly into Phase 2.5 below, per
+the project owner's instruction.
+
+**Follow-up (2026-07-05), done ahead of the frontend work above:** Postgres
+16 → 18, on branch `phase2-followup` (not yet merged). Real finding:
+Postgres 18's official image changed its expected volume mount convention
+(a single mount at `/var/lib/postgresql`, not `.../data`) to support a
+future `pg_upgrade --link` path — mounting at the old location makes the
+18+ image refuse to start. Fixed in `docker-compose.yml`,
+`k8s/postgres-deployment.yaml`, and the CI workflow's service container.
+Verified against a fresh instance (old volume wiped — a major-version bump
+isn't binary-compatible with existing data directories, and there's no real
+data yet to migrate): all migrations ran automatically via the entrypoint,
+62 unit + 24 e2e tests pass, the seed script runs cleanly, `/health`
+responds.
+
+## Phase 2.5 — Verify and Security check ("Fas 2.5")
+
+This phase is a deliberate pause after the Phase 2 pivot, to let the
+architect and security-reviewer sign off on the new design before any
+real media upload or social features are built. The project owner is
+already beta-testing with real kids, so this is a *blocking* review, not a
+final check.
+Do also go though the code so it is documented and reviewed, but also see if we don't have code that could be optimized or reused so we don't have to write new code for the next phase.
+
+- [x] **backend-developer**: added `backend/README.md` (module map, run
+      instructions, dormant-module flags, pointers to ADRs/contracts —
+      deliberately not duplicating them). Fixed several stale comments left
+      over from the pre-kapten-pivot design (`season.entity.ts`,
+      `coach.entity.ts`, `team-coach.entity.ts`, `badge-trigger-reason.enum.ts`,
+      `points.util.ts`). Genuine reuse finding acted on: `onboarding.service.ts`
+      and `weekly-goal.service.ts` each independently defined an identical
+      "is this Postgres error a unique-violation on constraint X" helper —
+      extracted into `backend/src/common/errors/postgres-error.util.ts`
+      (`isPostgresUniqueViolation`), both call sites now share it. Verified:
+      lint, build, 62/62 unit tests, 24/24 e2e tests all pass unchanged after
+      the extraction.
+- [x] **frontend-developer**: added `mobile/README.md` (module map, local-run
+      instructions including the Expo-Go SDK-version gotcha, and a "known
+      duplication / consolidation candidates" section — `CatchUpBanner`/
+      `Toast`, shared loading/error boilerplate across `HomeScreen`/
+      `TeamScreen`/`GoalScreen`/`RosterScreen`, and the `TeamPoolCard`/
+      `GoalCard` progress-bar animation — flagged for before Phase 3 adds a
+      third or fourth similar screen, not acted on now to avoid an
+      unrequested refactor). Fixed a few stale/missing comments (`AppShell.tsx`'s
+      G2/G3 suppression walkthrough, `PrimaryButton.tsx`, `AppHeader.tsx`).
+      Confirmed via grep: zero references anywhere in `mobile/src` to the
+      disabled session-reissue/redeem feature — the frontend never grew a
+      dependency on it. Verified: `npx tsc --noEmit` clean, `npx expo-doctor`
+      18/18.
+- [x] **security-reviewer**: full sign-off — **safe to continue into Phase 3
+      planning.** Re-confirmed the session-reissue disable holds end-to-end
+      (controller, service reachability, e2e coverage, and the mobile client
+      — zero live calls, zero UI affordance for it). Re-confirmed server-side
+      authorization (not client trust) gates every mutating Phase 2 endpoint,
+      no `real_name`/location exposure anywhere in the new roster/goal
+      payloads, DTO whitelisting blocks field-smuggling, and the training-log
+      write path has no IDOR (player ID always comes from the JWT, never a
+      param). Two non-blocking findings, not gating Phase 3:
+      - **Consent-reminder cooldown only bounds a 5-minute burst, not
+        sustained volume** — an authenticated captain can force a real email
+        to a teammate's parent roughly every 5 minutes indefinitely (~288/day),
+        with no daily cap and no audit trail of resend counts. Confirmed as a
+        genuine, traceable harassment vector against a real family inbox (not
+        theoretical, since it requires a deliberate, identifiable actor).
+        Recommended fix before scaling the beta wider: a daily cap per target
+        (e.g. 3/day) plus a lightweight audit record. **Still open.**
+      - **`localFlags`'s `lastSeenBonusAwardedAt` key is scoped by `goalId`
+        only, not by player** — on a shared/handed-down device, a second
+        player logging in after a first player already saw a goal's bonus
+        celebration will silently miss their own one-time G3 banner. Cosmetic
+        only (the value is just a timestamp, no PII, no cross-account data
+        exposure) — recommended fix is to key by `${playerId}.${goalId}` and
+        clear `localFlags` alongside `clearSessionToken()`. **Still open, low
+        priority.**
+
+**Phase 2.5 is complete — security-reviewer's sign-off is "safe to continue
+into Phase 3 planning."** Two non-blocking, tracked findings remain open
+(consent-reminder sustained-volume cap, `localFlags` per-player scoping);
+neither needs to be fixed before Phase 3 starts, but both should land before
+the beta scales beyond the current team. The session-reissue redesign is
+also still open (see the Phase 2 section above) and remains deferred.
+
 
 ## Phase 3 — Media & social ("Fas 3")
 

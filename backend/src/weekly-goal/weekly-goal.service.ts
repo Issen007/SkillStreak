@@ -3,10 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
   ActiveGoalAlreadyExistsException,
+  ChallengeAlreadyTerminalException,
   ChallengeNotFoundException,
   ChallengeTargetFrozenException,
   InvalidChallengeTransitionException,
 } from '../common/errors/exceptions';
+import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
 import { PlayersService } from '../players/players.service';
 import { Player } from '../players/entities/player.entity';
@@ -22,7 +24,6 @@ import { UpdateWeeklyGoalDto } from './dto/update-weekly-goal.dto';
 import { ACTIVITY_TYPE_BY_TARGET_METRIC } from './weekly-goal-target-metric.enum';
 import { isLegalWeeklyGoalTransition } from './weekly-goal-transition.util';
 
-const POSTGRES_UNIQUE_VIOLATION = '23505';
 const ONE_ACTIVE_GOAL_PER_TEAM_CONSTRAINT =
   'idx_challenge_one_active_goal_per_team';
 
@@ -36,14 +37,7 @@ function assertValidTransition(
 }
 
 function isActiveGoalUniqueViolation(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null || !('code' in error)) {
-    return false;
-  }
-  const pgError = error as { code?: string; constraint?: string };
-  return (
-    pgError.code === POSTGRES_UNIQUE_VIOLATION &&
-    pgError.constraint === ONE_ACTIVE_GOAL_PER_TEAM_CONSTRAINT
-  );
+  return isPostgresUniqueViolation(error, ONE_ACTIVE_GOAL_PER_TEAM_CONSTRAINT);
 }
 
 export interface GoalProgressSummary {
@@ -341,6 +335,20 @@ export class WeeklyGoalService {
 
       if (dto.status !== undefined) {
         assertValidTransition(currentStatus, dto.status);
+      }
+
+      // title/description are editable at any *non-terminal* status
+      // (draft/active), per ADR-0005 and phase2-contract.md — completed/
+      // cancelled goals are a read-only historical record in full, not
+      // just for their target/dates. Fixes a confirmed code-critic
+      // finding: these two fields had no status check at all before.
+      const isTerminal =
+        currentStatus === ChallengeStatus.COMPLETED ||
+        currentStatus === ChallengeStatus.CANCELLED;
+      const changesTitleOrDescription =
+        dto.title !== undefined || dto.description !== undefined;
+      if (isTerminal && changesTitleOrDescription) {
+        throw new ChallengeAlreadyTerminalException();
       }
 
       if (dto.title !== undefined) goal.title = dto.title;

@@ -3,25 +3,25 @@ import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 
-interface PrimaryButtonProps {
+interface SecondaryButtonProps {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
 }
 
-/** Solid `ink`-filled CTA — originally "every primary onboarding action",
- * now also reused as-is for Phase 2's captain actions (e.g. GoalScreen's
- * "Aktivera nu"/"+ Sätt veckans mål", KB4Review's "Aktivera nu") since
- * those needed the exact same visual weight, not a new variant. (The home
- * screen's flame-filled "Jag har tränat" button is its own component since
- * its disabled/restyled states are more specific — see `TrainedButton`.) */
-export function PrimaryButton({
+/** Low-emphasis bordered action — e.g. Screen G1's "Avbryt målet" ("a
+ * secondary, low-emphasis button" per the flow doc) and Screen KB4's
+ * "Spara som utkast". Visually subordinate to a screen's primary CTA
+ * without disappearing into a text-only `SecondaryLink`. Mirrors
+ * `TrainedButton`'s existing outline treatment rather than inventing a new
+ * visual language for the same idea. */
+export function SecondaryButton({
   label,
   onPress,
   disabled = false,
   loading = false,
-}: PrimaryButtonProps) {
+}: SecondaryButtonProps) {
   const isDisabled = disabled || loading;
   return (
     <Pressable
@@ -35,11 +35,9 @@ export function PrimaryButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={colors.white} />
+        <ActivityIndicator color={colors.ink} />
       ) : (
-        <Text style={[styles.label, isDisabled && styles.labelDisabled]}>
-          {label}
-        </Text>
+        <Text style={[styles.label, isDisabled && styles.labelDisabled]}>{label}</Text>
       )}
     </Pressable>
   );
@@ -47,24 +45,24 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: colors.ink,
     borderRadius: 16,
-    paddingVertical: 15,
+    borderWidth: 1.5,
+    borderColor: colors.ink,
+    paddingVertical: 14,
     paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonPressed: {
-    opacity: 0.85,
+    opacity: 0.7,
   },
   buttonDisabled: {
-    backgroundColor: colors.disabledBg,
+    borderColor: colors.disabledBg,
   },
   label: {
     fontFamily: fonts.bodyBold,
     fontSize: 15,
-    color: colors.white,
-    textAlign: 'center',
+    color: colors.ink,
   },
   labelDisabled: {
     color: colors.disabledText,

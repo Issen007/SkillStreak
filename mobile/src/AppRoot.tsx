@@ -2,17 +2,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { OnboardingFlow } from './onboarding/OnboardingFlow';
-import { HomeScreen } from './home/HomeScreen';
+import { AppShell } from './AppShell';
 import { getSessionToken } from './api/authStorage';
 import { colors } from './theme/colors';
 
 type RootStatus = 'checking-session' | 'onboarding' | 'home';
 
-/** Top-level screen-state machine: not a navigation library, just "which
- * of the ~8 Phase 1 screens are we in" — appropriate for this app's size
- * per CLAUDE.md ("don't over-engineer for an app with ~8 screens").
- * Onboarding (O1-O6) and the home screen (H1/H3/H4 + H2/H5/H6) each carry
- * their own local state machine (see OnboardingFlow / HomeScreen). */
+/** Top-level screen-state machine: not a navigation library, just "are we
+ * onboarding or in the app" — appropriate for this app's size per
+ * CLAUDE.md. Onboarding (O1-O6) carries its own local state machine (see
+ * OnboardingFlow); once inside the app, `AppShell` owns the Phase 2 tab
+ * bar (Hem/Mål/Laget), each tab in turn owning its own screen(s). */
 export function AppRoot() {
   const [status, setStatus] = useState<RootStatus>('checking-session');
 
@@ -46,7 +46,7 @@ export function AppRoot() {
     return <OnboardingFlow onComplete={handleOnboardingComplete} />;
   }
 
-  return <HomeScreen onSessionInvalid={handleSessionInvalid} />;
+  return <AppShell onSessionInvalid={handleSessionInvalid} />;
 }
 
 const styles = StyleSheet.create({

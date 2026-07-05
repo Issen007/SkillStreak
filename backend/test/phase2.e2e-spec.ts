@@ -520,82 +520,36 @@ describe('Phase 2 API (e2e)', () => {
     });
   });
 
-  describe('Session reissue (ADR-0004 Part 3, captain-triggered)', () => {
-    it('invalidates the old token immediately, then a redeemed code issues a working new one', async () => {
+  describe('Session reissue (ADR-0004 Part 3) — DISABLED pending a security fix', () => {
+    // A post-merge security review confirmed a captain could redeem their
+    // own teammate's reissue code themselves (the response was never bound
+    // to the target player), fully impersonating them with no rate limit
+    // or audit trail. Both routes are gated off (SessionReissueDisabledException,
+    // 503) until a redesign lands — see that exception's comment and
+    // docs/ACTION_PLAN.md's Phase 2 security-review follow-ups. These tests
+    // lock in "disabled", replacing the prior tests that exercised the full
+    // (now-disabled) flow.
+    it('rejects session-reissue with 503, even for a real captain', async () => {
       const { teamId } = await createTeamFixture();
       const { sessionToken: captainToken } = await createCaptain(teamId);
-      const { playerId, sessionToken: oldToken } =
-        await createTeamMember(teamId);
+      const { playerId } = await createTeamMember(teamId);
 
-      // Old token works before reissue.
-      await request(app.getHttpServer())
-        .get('/api/v1/players/me')
-        .set('Authorization', `Bearer ${oldToken}`)
-        .expect(200);
-
-      const reissueResponse = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .post(`/api/v1/players/${playerId}/session-reissue`)
         .set('Authorization', `Bearer ${captainToken}`)
-        .expect(200);
-      const { reissueCode } = reissueResponse.body as {
-        reissueCode: string;
-        expiresAt: string;
-      };
-      expect(reissueCode).toHaveLength(8);
-
-      // Old token now fails — token_version was bumped immediately.
-      const oldTokenResponse = await request(app.getHttpServer())
-        .get('/api/v1/players/me')
-        .set('Authorization', `Bearer ${oldToken}`)
-        .expect(401);
-      expect((oldTokenResponse.body as ApiErrorBody).error.code).toBe(
-        'unauthorized',
-      );
-
-      // A wrong code is rejected generically.
-      const badRedeem = await request(app.getHttpServer())
-        .post('/api/v1/players/session/redeem')
-        .send({ code: 'WRONGCODE' })
-        .expect(400);
-      expect((badRedeem.body as ApiErrorBody).error.code).toBe(
-        'invalid_or_expired_code',
-      );
-
-      // Redeeming the real code issues a fresh, working token.
-      const redeemResponse = await request(app.getHttpServer())
-        .post('/api/v1/players/session/redeem')
-        .send({ code: reissueCode })
-        .expect(200);
-      const { sessionToken: newToken, playerId: redeemedPlayerId } =
-        redeemResponse.body as { sessionToken: string; playerId: string };
-      expect(redeemedPlayerId).toBe(playerId);
-
-      await request(app.getHttpServer())
-        .get('/api/v1/players/me')
-        .set('Authorization', `Bearer ${newToken}`)
-        .expect(200);
-
-      // Single-use: redeeming the same code again fails.
-      const secondRedeem = await request(app.getHttpServer())
-        .post('/api/v1/players/session/redeem')
-        .send({ code: reissueCode })
-        .expect(400);
-      expect((secondRedeem.body as ApiErrorBody).error.code).toBe(
-        'invalid_or_expired_code',
+        .expect(503);
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'session_reissue_disabled',
       );
     });
 
-    it('rejects a non-captain triggering session-reissue for a teammate', async () => {
-      const { teamId } = await createTeamFixture();
-      const { sessionToken: playerAToken } = await createTeamMember(teamId);
-      const { playerId: playerBId } = await createTeamMember(teamId);
-
+    it('rejects session/redeem with 503 regardless of the code supplied', async () => {
       const response = await request(app.getHttpServer())
-        .post(`/api/v1/players/${playerBId}/session-reissue`)
-        .set('Authorization', `Bearer ${playerAToken}`)
-        .expect(403);
+        .post('/api/v1/players/session/redeem')
+        .send({ code: 'ANYCODE1' })
+        .expect(503);
       expect((response.body as ApiErrorBody).error.code).toBe(
-        'not_team_captain',
+        'session_reissue_disabled',
       );
     });
   });
