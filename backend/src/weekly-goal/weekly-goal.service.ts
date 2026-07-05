@@ -8,6 +8,7 @@ import {
   ChallengeTargetFrozenException,
   InvalidChallengeTransitionException,
 } from '../common/errors/exceptions';
+import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
 import { PlayersService } from '../players/players.service';
 import { Player } from '../players/entities/player.entity';
@@ -23,7 +24,6 @@ import { UpdateWeeklyGoalDto } from './dto/update-weekly-goal.dto';
 import { ACTIVITY_TYPE_BY_TARGET_METRIC } from './weekly-goal-target-metric.enum';
 import { isLegalWeeklyGoalTransition } from './weekly-goal-transition.util';
 
-const POSTGRES_UNIQUE_VIOLATION = '23505';
 const ONE_ACTIVE_GOAL_PER_TEAM_CONSTRAINT =
   'idx_challenge_one_active_goal_per_team';
 
@@ -37,14 +37,7 @@ function assertValidTransition(
 }
 
 function isActiveGoalUniqueViolation(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null || !('code' in error)) {
-    return false;
-  }
-  const pgError = error as { code?: string; constraint?: string };
-  return (
-    pgError.code === POSTGRES_UNIQUE_VIOLATION &&
-    pgError.constraint === ONE_ACTIVE_GOAL_PER_TEAM_CONSTRAINT
-  );
+  return isPostgresUniqueViolation(error, ONE_ACTIVE_GOAL_PER_TEAM_CONSTRAINT);
 }
 
 export interface GoalProgressSummary {

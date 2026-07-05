@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { PlayerTokenService } from '../auth/player-token.service';
 import { ScreenNameTakenException } from '../common/errors/exceptions';
+import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
 import { MailService } from '../mail/mail.service';
 import { buildConsentRequestEmail } from '../mail/templates/consent-request-email.template';
 import { ConsentMethod } from '../player-private-info/entities/parental-consent-record.entity';
@@ -14,8 +15,6 @@ import { TeamsService } from '../teams/teams.service';
 import { CreatePlayerDto } from './dto/create-player.dto';
 
 const DEFAULT_APP_PUBLIC_URL = 'http://localhost:3000';
-
-const POSTGRES_UNIQUE_VIOLATION = '23505';
 
 // The unique index backing Player's (team_id, screen_name) uniqueness, per
 // the @Index(['teamId', 'screenName'], { unique: true }) decorator on the
@@ -146,21 +145,12 @@ export class OnboardingService {
         ),
       };
     } catch (error) {
-      if (isScreenNameUniqueViolation(error)) {
+      if (
+        isPostgresUniqueViolation(error, PLAYER_SCREEN_NAME_UNIQUE_CONSTRAINT)
+      ) {
         throw new ScreenNameTakenException();
       }
       throw error;
     }
   }
-}
-
-function isScreenNameUniqueViolation(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null || !('code' in error)) {
-    return false;
-  }
-  const pgError = error as { code?: string; constraint?: string };
-  return (
-    pgError.code === POSTGRES_UNIQUE_VIOLATION &&
-    pgError.constraint === PLAYER_SCREEN_NAME_UNIQUE_CONSTRAINT
-  );
 }
