@@ -19,11 +19,16 @@ const YEARS = Array.from(
 
 interface O4BirthYearProps {
   initialBirthYear: number | null;
+  /** Set when arriving here after a 400 validation error from O5 —
+   * defense-in-depth for if the backend's accepted birth-year range ever
+   * differs from this screen's client-side range check. */
+  externalError?: string | null;
   onNext: (birthYear: number) => void;
 }
 
-export function O4BirthYear({ initialBirthYear, onNext }: O4BirthYearProps) {
+export function O4BirthYear({ initialBirthYear, externalError, onNext }: O4BirthYearProps) {
   const [birthYear, setBirthYear] = useState<number | null>(initialBirthYear);
+  const [error, setError] = useState<string | null>(externalError ?? null);
 
   return (
     <ScreenContainer scroll>
@@ -33,6 +38,8 @@ export function O4BirthYear({ initialBirthYear, onNext }: O4BirthYearProps) {
         Vi använder det för att anpassa utmaningar till din ålder.
       </Text>
 
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
       <View style={styles.grid}>
         {YEARS.map((year) => {
           const selected = year === birthYear;
@@ -41,7 +48,10 @@ export function O4BirthYear({ initialBirthYear, onNext }: O4BirthYearProps) {
               key={year}
               accessibilityRole="button"
               accessibilityState={{ selected }}
-              onPress={() => setBirthYear(year)}
+              onPress={() => {
+                setBirthYear(year);
+                if (error) setError(null);
+              }}
               style={[styles.yearCell, selected && styles.yearCellSelected]}
             >
               <Text style={[styles.yearText, selected && styles.yearTextSelected]}>
@@ -78,6 +88,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 14,
     color: colors.textMuted,
+    textAlign: 'center',
+  },
+  error: {
+    fontFamily: fonts.body,
+    fontSize: 12.5,
+    color: colors.error,
     textAlign: 'center',
   },
   grid: {

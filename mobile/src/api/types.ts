@@ -74,6 +74,10 @@ export interface PlayerMeResponse {
   streak: {
     currentStreakCount: number;
     longestStreakCount: number;
+    // Not patched by HomeScreen after a training log (`POST
+    // /training-logs`'s response doesn't return it), so this goes stale
+    // immediately after a log. Currently unused by any component — if you
+    // add a consumer, re-fetch `me` first rather than trusting this value.
     lastTrainedDate: string | null;
     alreadyLoggedToday: boolean;
   };

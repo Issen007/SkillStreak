@@ -46,12 +46,22 @@ export function HomeScreen({ onSessionInvalid }: HomeScreenProps) {
 
   const hasLoadedOnce = useRef(false);
 
+  // Poll-on-foreground and the manual "Kolla igen" refresh both call
+  // fetchMe, and can race: whichever *response* arrives last would
+  // otherwise win, not whichever *request* was issued last. This counter
+  // lets a request discard its own result if a newer one has since been
+  // issued, without needing a full cancellation library.
+  const fetchRequestId = useRef(0);
+
   const fetchMe = useCallback(async () => {
+    const requestId = ++fetchRequestId.current;
     try {
       const response = await getMe();
+      if (requestId !== fetchRequestId.current) return;
       setMe(response);
       setLoadError(null);
     } catch (err) {
+      if (requestId !== fetchRequestId.current) return;
       if (err instanceof ApiError && err.status === 401) {
         await clearSessionToken();
         onSessionInvalid();
@@ -59,6 +69,7 @@ export function HomeScreen({ onSessionInvalid }: HomeScreenProps) {
       }
       setLoadError('Kunde inte hämta din data. Kolla din uppkoppling.');
     } finally {
+      if (requestId !== fetchRequestId.current) return;
       setLoading(false);
       setManualRefreshing(false);
       hasLoadedOnce.current = true;
@@ -135,6 +146,14 @@ export function HomeScreen({ onSessionInvalid }: HomeScreenProps) {
       }
     } catch (err) {
       setSheetLoading(false);
+      if (err instanceof ApiError && err.status === 401) {
+        // Same recovery as fetchMe: a mid-session token invalidation
+        // shouldn't become a dead end that only killing the app can escape.
+        setSheetOpen(false);
+        await clearSessionToken();
+        onSessionInvalid();
+        return;
+      }
       if (isConsentRequiredError(err)) {
         // Stale-state edge case (Part 1 of the flow doc): the server is
         // the real gate, client state was stale. Close the sheet, toast

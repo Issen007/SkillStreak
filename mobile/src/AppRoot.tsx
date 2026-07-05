@@ -18,8 +18,16 @@ export function AppRoot() {
 
   useEffect(() => {
     void (async () => {
-      const token = await getSessionToken();
-      setStatus(token ? 'home' : 'onboarding');
+      try {
+        const token = await getSessionToken();
+        setStatus(token ? 'home' : 'onboarding');
+      } catch {
+        // SecureStore read failed (e.g. iOS Keychain-before-first-unlock,
+        // Android Keystore corruption) — treat exactly like "no token":
+        // starting onboarding again is an acceptable, simple recovery, and
+        // beats leaving the kid stuck on the spinner forever.
+        setStatus('onboarding');
+      }
     })();
   }, []);
 

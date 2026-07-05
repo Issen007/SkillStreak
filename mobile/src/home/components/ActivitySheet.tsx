@@ -1,5 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
@@ -47,12 +47,27 @@ export function ActivitySheet({
 }: ActivitySheetProps) {
   const [activityType, setActivityType] = useState<ActivityType | null>(null);
   const [durationMinutes, setDurationMinutes] = useState<number | null>(null);
+  const wasVisible = useRef(visible);
 
   const handleClose = () => {
     setActivityType(null);
     setDurationMinutes(null);
     onClose();
   };
+
+  // The sheet is permanently mounted (`<Modal visible={sheetOpen}>`), so
+  // its chip selection survives across opens unless explicitly cleared.
+  // `handleClose` only covers the backdrop-tap path — a successful submit
+  // closes the sheet from the parent (visible: true -> false) without
+  // going through `handleClose`, so without this the previous
+  // activity/duration would still look selected on next open.
+  useEffect(() => {
+    if (wasVisible.current && !visible) {
+      setActivityType(null);
+      setDurationMinutes(null);
+    }
+    wasVisible.current = visible;
+  }, [visible]);
 
   const canSubmit = activityType !== null && durationMinutes !== null && !loading;
 

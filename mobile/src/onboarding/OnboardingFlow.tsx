@@ -29,6 +29,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [o1Error, setO1Error] = useState<string | null>(null);
   const [o3Error, setO3Error] = useState<string | null>(null);
   const [focusNameOnO3, setFocusNameOnO3] = useState(false);
+  const [o4Error, setO4Error] = useState<string | null>(null);
   const [o5Loading, setO5Loading] = useState(false);
   const [o5Error, setO5Error] = useState<string | null>(null);
 
@@ -83,7 +84,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       return (
         <O4BirthYear
           initialBirthYear={data.birthYear}
+          externalError={o4Error}
           onNext={(birthYear) => {
+            setO4Error(null);
             setData((prev) => ({ ...prev, birthYear }));
             setStep('O5');
           }}
@@ -124,6 +127,13 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 setData((prev) => ({ ...prev, teamId: null, teamName: null }));
                 setO1Error('Lagkoden fungerar inte längre. Fråga din tränare om en ny kod.');
                 setStep('O1');
+              } else if (err instanceof ApiError && err.status === 400) {
+                // Defense-in-depth: the birth-year picker already
+                // hard-limits its range client-side, but degrade
+                // gracefully back to O4 if the backend's accepted range
+                // ever differs.
+                setO4Error('Hmm, det året ser inte rätt ut. Testa igen.');
+                setStep('O4');
               } else {
                 setO5Error('Något gick fel. Kolla din uppkoppling och testa igen.');
               }
