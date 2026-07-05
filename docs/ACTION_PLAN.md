@@ -185,14 +185,36 @@ client have both passed code-critic review.
 
 ## Phase 2 — Coach tools & challenges ("Fas 2")
 
-- [ ] **ux-designer**: design the coach dashboard and challenge-builder
-      flow (e.g. "Gör 50 zorro-finter innan fredag").
+- [x] **ux-designer**: design the coach dashboard and challenge-builder
+      flow (e.g. "Gör 50 zorro-finter innan fredag"). →
+      `design/phase2-flows.md` + `design/phase2-mockup.html`. Explicitly
+      declined two non-UI decisions (coach authentication; the player
+      session-reissue mechanism), correctly flagging them for architect.
+- [x] **architect**: closed the two decisions ux-designer flagged, and
+      formalized Phase 2's endpoint sketches into a real contract. →
+      `adr/0004-coach-auth-and-session-reissue.md` (coach login:
+      password-based, with the existing consent-mail infra reused only for
+      password reset, not routine login; player session reissue: a
+      `Player.token_version` column checked at JWT-verify time, plus a new
+      coach-triggered, short-lived, human-typable one-time code — not the
+      consent-token mechanism reused verbatim — that a kid enters on a new
+      "lost your session" screen; coach and player tokens use separate
+      guards/secrets, not a shared `JwtAuthGuard`) and
+      `api/phase2-contract.md` (coach login/roster/dashboard, challenge
+      CRUD with its draft→active→completed/cancelled state machine,
+      `GET /players/me/challenges`, `POST /training-logs`'s new
+      `challengeId` validation, consent-reminder resend, session reissue).
 - [ ] **backend-developer**: challenge CRUD + assignment to a team; VM-Guld
-      meter aggregation.
+      meter aggregation; the coach-auth and session-reissue schema/flows
+      from `adr/0004-coach-auth-and-session-reissue.md` and
+      `api/phase2-contract.md`.
 - [ ] **frontend-developer**: coach view; player-facing challenge card and
-      progress meter.
+      progress meter; the new "enter your reissue code" screen
+      (`adr/0004`) and the coach-side reissue-code display (`phase2-flows.md`'s
+      C2 confirmation copy needs a small adjustment per the ADR).
 - [ ] **code-critic** + **security-reviewer**: review before merge, as in
-      Phase 1.
+      Phase 1 — auth (coach login, password reset, session reissue) makes
+      this phase security-reviewer-blocking, per CLAUDE.md.
 
 ## Phase 3 — Media & social ("Fas 3")
 
