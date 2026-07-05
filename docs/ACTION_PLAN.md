@@ -312,15 +312,26 @@ happened *after* merge, on a fresh `phase2-followup` branch, not before. The
 critical session-reissue finding was caught and disabled promptly, but the
 right process is: branch per phase, review before merge, every time.
 
-- [ ] **frontend-developer**: still pending — captain-only screens (K1/K2:
-      roster + consent view, gated on `is_captain`, using the existing
-      player session, no new login screen), the goal builder (KB1-KB4),
-      and the team-wide goal progress card + bonus celebration for every
-      player (G1-G3), built against the now-current `design/phase2-flows.md`.
-      **Do not build the session-redemption screens (R1/R2)** — that
-      backend feature (`POST /players/session/redeem` and
-      `.../session-reissue`) is disabled pending the security redesign
-      above; building UI against a 503 would be dead work.
+- [x] **frontend-developer**: built the Hem/Mål/Laget tab bar (Phase 1
+      never built one) wrapping K1/K2 (roster + consent view, gated on
+      `viewerIsCaptain`, existing player session, no new login screen),
+      KB1-KB4 (goal builder, with both the preemptive client-side guard
+      and the server-side `409` fallback), G1 (team-wide gold progress
+      card), and the G2/G3 bonus-celebration split (a bigger takeover for
+      the triggering player, a smaller one-time catch-up banner + tab dot
+      for everyone else, reading `goalBonusPointsAwarded` from the
+      weekly-goal `GET` response rather than re-deriving it). Confirmed
+      via grep: zero references anywhere in `mobile/src` to the disabled
+      session-reissue/redeem feature — R1/R2 and K2/K3's reissue action
+      were correctly skipped. Verified independently (clean
+      `tsc`/`expo-doctor`, reviewed the celebration-split and KB4-guard
+      logic directly) on top of the implementing agent's own live-backend
+      verification against a seeded Postgres 18 instance.
+
+**Phase 2 is functionally complete** (backend + frontend implemented,
+reviewed; the session-reissue feature is a known, tracked, disabled gap
+— not silently missing). Continuing directly into Phase 2.5 below, per
+the project owner's instruction.
 
 **Follow-up (2026-07-05), done ahead of the frontend work above:** Postgres
 16 → 18, on branch `phase2-followup` (not yet merged). Real finding:
