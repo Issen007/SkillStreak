@@ -8,7 +8,8 @@ import { WaitingCard } from './components/WaitingCard';
 import { TrainedButton } from './components/TrainedButton';
 import { ActivitySheet } from './components/ActivitySheet';
 import { SuccessOverlay } from './components/SuccessOverlay';
-import { Toast } from './components/Toast';
+import { GoalBonusTakeover } from './components/GoalBonusTakeover';
+import { Toast } from '../components/Toast';
 import { getMe, postTrainingLog } from '../api/endpoints';
 import { ApiError, isConsentRequiredError } from '../api/ApiError';
 import { clearSessionToken } from '../api/authStorage';
@@ -21,6 +22,13 @@ interface HomeScreenProps {
    * stored session token is no longer valid — sends the player back
    * through onboarding rather than showing a dead screen. */
   onSessionInvalid: () => void;
+  /** Phase 2: called whenever a `POST /training-logs` response carries a
+   * non-null `goalBonus` — i.e. this device is the one that triggered the
+   * weekly-goal bonus (Screen G2, shown right here). Lets AppShell mark its
+   * own client-persisted "last seen bonus" flag immediately, so this same
+   * player never also sees Screen G3's catch-up banner for the same goal.
+   * Optional so HomeScreen stays testable/usable standalone. */
+  onGoalBonusTriggered?: () => void;
 }
 
 type SuccessMoment =
@@ -30,8 +38,10 @@ type SuccessMoment =
 /** The real home screen — H1/H3/H4 states driven by `GET /players/me`,
  * H2's activity sheet, and H5/H6's success moments after
  * `POST /training-logs`. Two calls drive the whole screen, per
- * docs/api/phase1-contract.md's "no extra round-trip" principle. */
-export function HomeScreen({ onSessionInvalid }: HomeScreenProps) {
+ * docs/api/phase1-contract.md's "no extra round-trip" principle. Phase 2
+ * adds Screen G2 (the goal-bonus takeover) on top, driven by the same
+ * `POST /training-logs` response's new `goalBonus` field. */
+export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScreenProps) {
   const [me, setMe] = useState<PlayerMeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -42,6 +52,7 @@ export function HomeScreen({ onSessionInvalid }: HomeScreenProps) {
   const [sheetError, setSheetError] = useState<string | null>(null);
 
   const [successMoment, setSuccessMoment] = useState<SuccessMoment | null>(null);
+  const [goalBonusMoment, setGoalBonusMoment] = useState<{ awardedPoints: number } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const hasLoadedOnce = useRef(false);
@@ -133,7 +144,16 @@ export function HomeScreen({ onSessionInvalid }: HomeScreenProps) {
           : prev,
       );
 
-      if (response.streak.alreadyLoggedToday === false) {
+      if (response.goalBonus) {
+        // Screen G2 — this log crossed the team's weekly-goal threshold.
+        // Deliberately supersedes H5/H6 entirely (not layered on top): per
+        // the flow doc, a same-day-first-log streak bump is "subordinate"
+        // to this moment, not a second headline — StreakCard's own
+        // count-up/bounce animation already fires quietly from the state
+        // update above regardless, so nothing further is needed for that.
+        setGoalBonusMoment({ awardedPoints: response.goalBonus.awardedPoints });
+        onGoalBonusTriggered?.();
+      } else if (response.streak.alreadyLoggedToday === false) {
         // This was the day's first log — State H5.
         setSuccessMoment({
           kind: 'first-log',
@@ -196,7 +216,12 @@ export function HomeScreen({ onSessionInvalid }: HomeScreenProps) {
       <AppHeader screenName={me.player.screenName} avatarId={me.player.avatarId} />
 
       <View style={styles.content}>
-        {successMoment?.kind === 'first-log' ? (
+        {goalBonusMoment ? (
+          <GoalBonusTakeover
+            awardedPoints={goalBonusMoment.awardedPoints}
+            onDismiss={() => setGoalBonusMoment(null)}
+          />
+        ) : successMoment?.kind === 'first-log' ? (
           <SuccessOverlay
             bannerText={`🔥 Snyggt jobbat! ${successMoment.streakCount} dagar i rad.`}
             floatingText={`+${successMoment.durationMinutes} min till laget`}
