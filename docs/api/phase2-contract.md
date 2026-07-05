@@ -322,7 +322,8 @@ Response `200`:
     "progressMinutes": 420,
     "percentComplete": 70.0,
     "goalMet": false,
-    "bonusAwardedAt": null
+    "bonusAwardedAt": null,
+    "bonusPointsAwarded": null
   },
   "viewerIsCaptain": true
 }
@@ -333,6 +334,20 @@ Response `200`:
 server-side from the team-wide aggregate (ADR-0005's formula) — never
 trusted from any client state. `viewerIsCaptain` lets the client show
 management actions (edit/publish/cancel) without a second call.
+
+**`bonusAwardedAt`/`bonusPointsAwarded` — added 2026-07-05** so a teammate
+who *didn't* trigger the bonus (i.e. opens the app after someone else's log
+already crossed the threshold) can still see the exact amount, per
+`docs/design/phase2-flows.md`'s Screen G3. `bonusPointsAwarded` is the same
+`5 + progress-at-crossing-time` value computed once in
+`TrainingLogsService.logTraining`'s transaction (ADR-0005 Decision 3) and
+persisted alongside `bonusAwardedAt`, not re-derived — a client-side guess
+like `5 + targetValue` would be wrong, since crossing-time progress almost
+always exceeds `targetValue` by however many minutes the crossing log
+contributed. Both fields are `null` until the bonus fires, then permanent
+for that goal (never cleared, matches `bonusAwardedAt`'s existing
+never-clawed-back semantics). Same two fields also appear on each entry in
+endpoint 8's history list.
 
 #### 8. `GET /api/v1/teams/:teamId/weekly-goal/history`
 
