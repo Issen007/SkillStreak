@@ -21,6 +21,19 @@ function teamStreakLeaderboardKey(teamId: string): string {
   return `leaderboard:team:${teamId}:streak`;
 }
 
+function consentReminderCooldownKey(playerId: string): string {
+  return `consent-reminder:${playerId}:cooldown`;
+}
+
+// docs/api/phase2-contract.md endpoint 3: "rate-limited per player" — a
+// per-IP @Throttle() (as used elsewhere in this codebase) doesn't express
+// that on its own, since a captain's IP isn't the thing being limited, the
+// *target player* is. A per-second-chance-of-collision cooldown lock is
+// exactly the kind of fast-moving, safe-to-lose state Redis already owns
+// in this app (ADR-0002) — it's a UX rate limit, not the security boundary
+// (that's the captain check + the mailed token itself).
+const CONSENT_REMINDER_COOLDOWN_SECONDS = 5 * 60;
+
 @Injectable()
 export class RedisService {
   constructor(@Inject(REDIS_CLIENT) private readonly client: Redis) {}
@@ -89,6 +102,28 @@ export class RedisService {
       result.push({ playerId: raw[i], streakCount: Number(raw[i + 1]) });
     }
     return result;
+  }
+
+  /**
+   * Atomically claims the per-player consent-reminder cooldown lock (a
+   * `SET ... NX EX` — set-if-not-exists with a TTL). Returns `true` if this
+   * call claimed the lock (i.e. it's fine to send), `false` if another
+   * reminder was already sent within the cooldown window. `ttlSeconds` is
+   * a parameter (not baked into the key helper) purely so tests can use a
+   * short window without waiting out the real 5-minute default.
+   */
+  async tryClaimConsentReminderCooldown(
+    playerId: string,
+    ttlSeconds: number = CONSENT_REMINDER_COOLDOWN_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      consentReminderCooldownKey(playerId),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
   }
 
   async quit(): Promise<void> {

@@ -8,6 +8,7 @@ import { ParentalConsentStatus } from '../players/player-consent-status.enum';
 import { PlayersService } from '../players/players.service';
 import { RedisService } from '../redis/redis.service';
 import { TeamPoolService } from '../team-pool/team-pool.service';
+import { WeeklyGoalService } from '../weekly-goal/weekly-goal.service';
 import { CreateTrainingLogDto } from './dto/create-training-log.dto';
 import { TrainingLogEntry } from './entities/training-log-entry.entity';
 import { pointsForTrainingLog } from './points.util';
@@ -25,6 +26,10 @@ export interface TrainingLogResponse {
     goalThreshold: number;
     percentComplete: number;
   };
+  // NEW in Phase 2 (docs/api/phase2-contract.md, ADR-0005 Decision 3): only
+  // non-null on the one log whose insertion caused the team to cross its
+  // active weekly goal's target for the first (and only) time.
+  goalBonus: { awardedPoints: number } | null;
 }
 
 // The "Jag har tränat" core loop. Follows ADR-0002's mandated write order:
@@ -38,6 +43,7 @@ export class TrainingLogsService {
     private readonly dataSource: DataSource,
     private readonly playersService: PlayersService,
     private readonly teamPoolService: TeamPoolService,
+    private readonly weeklyGoalService: WeeklyGoalService,
     private readonly redisService: RedisService,
     @InjectRepository(TrainingLogEntry)
     private readonly trainingLogEntryRepository: Repository<TrainingLogEntry>,
@@ -54,7 +60,7 @@ export class TrainingLogsService {
 
     const today = stockholmDateString();
 
-    const { trainingLog, streakUpdate, updatedPot } =
+    const { trainingLog, streakUpdate, updatedPot, goalBonus } =
       await this.dataSource.transaction(async (manager) => {
         // Row-locked re-read: guards against a consent revocation racing in
         // between the check above and this transaction, and serializes
@@ -103,13 +109,31 @@ export class TrainingLogsService {
           lockedPlayer.teamId,
           manager,
         );
-        const updatedPot = await this.teamPoolService.addPoints(
+        let updatedPot = await this.teamPoolService.addPoints(
           manager,
           pot.id,
           pointsForTrainingLog(dto.durationMinutes),
         );
 
-        return { trainingLog, streakUpdate, updatedPot };
+        // ADR-0005 Decision 3: the goal-completion bonus, checked
+        // opportunistically in the same transaction, after the base points
+        // above — row-locks the team's active goal (if any), so this also
+        // serializes concurrent training-log writes for the same team
+        // around the crossing check.
+        const goalBonusResult =
+          await this.weeklyGoalService.processGoalBonusForLog(
+            manager,
+            lockedPlayer.teamId,
+            pot.id,
+            stockholmDateString(trainingLog.loggedAt),
+          );
+        let goalBonus: { awardedPoints: number } | null = null;
+        if (goalBonusResult) {
+          updatedPot = goalBonusResult.updatedPot;
+          goalBonus = { awardedPoints: goalBonusResult.awardedPoints };
+        }
+
+        return { trainingLog, streakUpdate, updatedPot, goalBonus };
       });
 
     // Redis updated only after the Postgres transaction has committed, per
@@ -142,6 +166,7 @@ export class TrainingLogsService {
           updatedPot.goalThreshold,
         ),
       },
+      goalBonus,
     };
   }
 }

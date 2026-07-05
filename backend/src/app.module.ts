@@ -9,9 +9,11 @@ import { MailModule } from './mail/mail.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { PlayerPrivateInfoModule } from './player-private-info/player-private-info.module';
 import { PlayersModule } from './players/players.module';
+import { SessionModule } from './session/session.module';
 import { TeamPoolModule } from './team-pool/team-pool.module';
 import { TeamsModule } from './teams/teams.module';
 import { TrainingLogsModule } from './training-logs/training-logs.module';
+import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
 
 @Module({
   imports: [
@@ -39,6 +41,8 @@ import { TrainingLogsModule } from './training-logs/training-logs.module';
     OnboardingModule,
     ConsentModule,
     TrainingLogsModule,
+    WeeklyGoalModule,
+    SessionModule,
   ],
   providers: [
     {
