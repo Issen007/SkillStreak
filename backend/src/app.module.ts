@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppConfigModule } from './config/app-config.module';
+import { ConsentModule } from './consent/consent.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
@@ -36,6 +37,7 @@ import { TrainingLogsModule } from './training-logs/training-logs.module';
     PlayerPrivateInfoModule,
     PlayersModule,
     OnboardingModule,
+    ConsentModule,
     TrainingLogsModule,
   ],
   providers: [
