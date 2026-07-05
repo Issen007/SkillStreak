@@ -214,11 +214,60 @@ treat `security-reviewer` involvement as blocking, not a final check.
 
 ## Phase 4 — Kubernetes & public launch ("Fas 4")
 
-- [ ] **architect**: Helm chart / K8s manifest design — only start this
-      once Phases 1–3 are stable; don't let this pull effort forward.
-- [ ] **backend-developer**: implement manifests, CI/CD for deploys.
-- [ ] **security-reviewer**: production-hardening pass (secrets management,
-      network policy, rate limiting) before any public rollout.
+- [x] **backend-developer**: plain K8s manifests — pulled forward to
+      2026-07-05 ahead of Phases 2–3, deliberately, to prepare for an early
+      external beta. See "Pre-beta hardening pass" below for what shipped
+      and what's still open (notably: no TLS yet).
+- [ ] **architect**: Helm chart — not done; current manifests are plain
+      YAML per the project owner's explicit request, not a rejection of
+      Helm, just not needed yet.
+- [ ] **security-reviewer**: full production-hardening pass (secrets
+      management via a real secrets manager, network policy) — partially
+      covered by the pre-beta pass below (rate limiting already existed
+      from Phase 1), but not a complete Fas 4 pass.
+
+## Pre-beta hardening pass (2026-07-05, ahead of Fas 2)
+
+Not part of the Fas numbering — the project owner is beta-testing with real
+users (starting with their own kids) sooner than the roadmap's phase order,
+and asked for a real parental-consent email flow, a docs pass, a security/CVE
+audit, and Kubernetes manifests to get there. Tracked here since it cuts
+across several future phases.
+
+- [x] Real SMTP (Google Workspace relay) wired up (`backend/src/mail/`),
+      verified with a live auth test and a real email round-trip.
+- [x] `GET`/`POST /api/v1/consent/:token` implemented — the parent-facing
+      approval link the Phase 1 contract had only sketched. GET has no side
+      effects (email-scanner prefetch safety), single-use token, row-locked
+      approval. Verified live end-to-end including a real email to a real
+      inbox.
+- [x] Docs reorganized: `ACTION_PLAN.md` → `docs/ACTION_PLAN.md`, original
+      pitch README → `docs/PROJECT.md` (FastAPI mention corrected to NestJS),
+      new root `README.md` is a setup guide for a new user/beta tester, with
+      an Early Alpha data-loss disclaimer and real device screenshots.
+- [x] `k8s/` manifests (plain YAML, not Helm) — see Phase 4 above.
+- [x] Full CVE/security audit (`security-reviewer`, cross-checked against
+      `pnpm audit`/GHSA and OSV.dev independently) — findings and
+      resolutions:
+      - [x] `multer@2.1.1` (transitive via `@nestjs/platform-express`) —
+            two DoS advisories (GHSA-72gw-mp4g-v24j, GHSA-3p4h-7m6x-2hcm).
+            Not reachable yet (no upload endpoint until Fas 3) but fixed
+            now via a `pnpm-workspace.yaml` override to `>=2.2.0` anyway.
+      - [x] Real SMTP account/LAN IP were committed as *example* values in
+            both `.env.example` files and `k8s/configmap.yaml` — replaced
+            with generic placeholders (no password was ever committed).
+      - [ ] **`k8s/ingress.yaml` has no TLS** — the consent-approval token
+            is a bearer credential mailed to real parents; serving it over
+            plain HTTP is a real problem, not a formality. Loudly flagged
+            in `k8s/README.md` and `ingress.yaml` — **blocking** before
+            this manifest set is ever applied against a real domain.
+      - [ ] Two moderate CVEs in `mobile/`'s Expo/Metro *build tooling*
+            (postcss via `@expo/metro-config`, uuid via `xcode`) — not
+            shipped in the built app, no reachable runtime path. Deferred;
+            revisit on the next Expo SDK bump.
+      - [ ] 180-day JWT with no revocation/reissue (carried over from the
+            Phase 1 review) — still an accepted gap, still tracked for
+            Phase 2's coach dashboard.
 
 ## Standing practice, every phase
 

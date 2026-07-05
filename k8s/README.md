@@ -5,6 +5,19 @@ roadmap position to prepare for an external beta deployment. Mirrors
 `docker-compose.yml`: one `api` (NestJS), one Postgres, one Redis, all
 scoped to the `skillstreak` namespace.
 
+> ## 🛑 DO NOT apply `ingress.yaml` against a real domain without adding TLS first
+> This is not a generic "add HTTPS eventually" nice-to-have. The
+> parental-consent email (`docs/api/phase1-contract.md`) links to
+> `${APP_PUBLIC_URL}/api/v1/consent/:token` — that URL's token **is the
+> credential** that approves a child's account (see
+> `backend/src/players/consent-token.util.ts`). Serving it over plain HTTP
+> means that link, mailed to a real parent, is interceptable on the network
+> and lands in plaintext in any proxy/ingress access log. Add a `tls:`
+> block (cert-manager or equivalent) to `ingress.yaml` *before* this is ever
+> applied against a domain real parents will actually receive links for —
+> not after, not "for the next iteration." Flagged as CONFIRMED/High in the
+> pre-beta security review (see `docs/ACTION_PLAN.md`).
+
 **Not yet verified against a real cluster.** There is no cluster available
 in this environment to `kubectl apply` these manifests against. What *was*
 checked: every file is well-formed YAML, and `kubectl apply --dry-run=client`

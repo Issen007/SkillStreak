@@ -18,7 +18,7 @@ data:
   JWT_EXPIRES_IN: "180d"
   SMTP_HOST: "smtp-relay.gmail.com"
   SMTP_PORT: "587"
-  SMTP_FROM: "SkillStreak <noreply@isstech.io>"
+  SMTP_FROM: "SkillStreak <noreply@yourdomain.example>"
   # TODO: must become the real public domain (e.g.
   # https://app.skillstreak.example) before this is applied anywhere — the
   # parental-consent email links here, so a placeholder/LAN address is
