@@ -183,13 +183,24 @@ client have both passed code-critic review.
   reachable while pot creation is seed-only, but relevant once Phase 2
   builds season rollover.
 
-## Phase 2 — Coach tools & challenges ("Fas 2")
+## Phase 2 — Kapten (team captain) & the weekly team goal ("Fas 2")
+
+**Pivoted 2026-07-05**, mid-phase, after the project owner reviewed the
+original coach-dashboard plan: no separate adult "Coach" login/dashboard.
+Instead, one player per team is manually flagged as **Kapten** (captain) and
+uses their *existing* player account to set a weekly team-wide goal; the
+team gets a one-time point bonus when it's reached. This replaces (not
+supplements) the coach-auth design below — kept in the history for
+context, not as live direction.
 
 - [x] **ux-designer**: design the coach dashboard and challenge-builder
       flow (e.g. "Gör 50 zorro-finter innan fredag"). →
       `design/phase2-flows.md` + `design/phase2-mockup.html`. Explicitly
       declined two non-UI decisions (coach authentication; the player
       session-reissue mechanism), correctly flagging them for architect.
+      **Superseded by the pivot below** — its coach-dashboard framing and
+      Part 3's individual-progress judgment call are no longer the
+      direction; a follow-up ux-designer pass is still needed (see below).
 - [x] **architect**: closed the two decisions ux-designer flagged, and
       formalized Phase 2's endpoint sketches into a real contract. →
       `adr/0004-coach-auth-and-session-reissue.md` (coach login:
@@ -201,20 +212,70 @@ client have both passed code-critic review.
       "lost your session" screen; coach and player tokens use separate
       guards/secrets, not a shared `JwtAuthGuard`) and
       `api/phase2-contract.md` (coach login/roster/dashboard, challenge
-      CRUD with its draft→active→completed/cancelled state machine,
-      `GET /players/me/challenges`, `POST /training-logs`'s new
-      `challengeId` validation, consent-reminder resend, session reissue).
-- [ ] **backend-developer**: challenge CRUD + assignment to a team; VM-Guld
-      meter aggregation; the coach-auth and session-reissue schema/flows
-      from `adr/0004-coach-auth-and-session-reissue.md` and
-      `api/phase2-contract.md`.
-- [ ] **frontend-developer**: coach view; player-facing challenge card and
-      progress meter; the new "enter your reissue code" screen
-      (`adr/0004`) and the coach-side reissue-code display (`phase2-flows.md`'s
-      C2 confirmation copy needs a small adjustment per the ADR).
+      CRUD, etc). **Parts 1-2 of that ADR (coach password auth, the
+      separate coach JWT universe) are now superseded** — see below.
+      Part 3 (player session reissue) is unaffected and stands as designed.
+- [x] **architect**: redesigned Phase 2 around the pivot →
+      `adr/0005-kapten-and-weekly-team-goal.md` (new): `Player.is_captain`
+      boolean + a DB-level partial unique index enforcing one active
+      captain per team, assigned manually (seed/admin action, same
+      posture as Phase 1's team creation); the existing `Challenge` entity
+      reused as "this week's goal" (renamed `created_by_coach_id` →
+      `created_by_player_id`), progress flipped from individual to
+      **team-wide** (`SUM(duration_minutes)` across every team member's
+      logs in range — no `challengeId` tagging needed, that field stays
+      dormant); a goal-completion bonus checked opportunistically inside
+      the existing `POST /training-logs` transaction (no cron/K8s job),
+      idempotent via a `goal_bonus_awarded_at` flag set under the same row
+      lock used to detect the crossing. `api/phase2-contract.md` rewritten
+      to match: no coach endpoints, `POST`/`PATCH .../weekly-goal` gated on
+      captain status via a plain service-layer check (no new guard class),
+      `GET` endpoints open to any teammate.
+- [x] **Bonus-formula correction, 2026-07-05**: ADR-0005's first draft
+      specified "+5 per log, retroactive-then-ongoing." That conflicted
+      with the project owner's own note here in ACTION_PLAN.md ("+5p for
+      each challenge and +1p for each minute of the challenge") — asked
+      directly, the project owner confirmed the ACTION_PLAN wording is
+      correct. **Final mechanic: a one-time lump sum — flat +5, plus 1
+      point per team-wide minute logged toward the goal — paid once when
+      the goal is first met**, not per-log or ongoing. Both
+      `adr/0005-kapten-and-weekly-team-goal.md` (Decision 3) and
+      `api/phase2-contract.md` (`POST /training-logs`'s `goalBonus`
+      response field) updated to match; the transaction/idempotency
+      structure itself didn't need to change, only the awarded-amount
+      formula and the (now removed) "keeps paying after the crossing"
+      branch.
+- [ ] **ux-designer follow-up (not yet started)**: redesign
+      `design/phase2-flows.md`'s Part 1 (drop the coach-dashboard framing
+      entirely — a captain's screens live inside the ordinary player app,
+      gated by `is_captain`, not a separate login surface) and Part 3 (the
+      player-facing goal card is now a team-wide progress meter — closer
+      to VM-Guld's gold meter than the individual flame meter it currently
+      specifies — plus a celebratory moment for the one-time bonus, using
+      `POST /training-logs`'s new `goalBonus` field). Also needs the new
+      player-facing "enter your reissue code" screen (ADR-0004 Part 3,
+      unaffected by the pivot but never designed in UI terms).
+- [ ] **backend-developer**: implement `adr/0005-kapten-and-weekly-team-goal.md`
+      and the corresponding parts of `api/phase2-contract.md` — captain
+      flag/index, weekly-goal CRUD, team-wide progress computation, the
+      goal-completion bonus inside the training-log transaction, plus
+      ADR-0004 Part 3's session-reissue mechanism (unaffected by the
+      pivot, still needed). **Do not build coach password
+      login/`CoachAuthGuard`/bcrypt** — superseded, per above.
+- [ ] **frontend-developer**: captain-only screens (weekly-goal
+      create/edit, roster/consent view — gated on `is_captain`, using the
+      existing player session, no new login screen), the team-wide goal
+      progress card + bonus celebration for every player, and the new
+      "enter your reissue code" screen. Build against the ux-designer
+      follow-up above once it lands, not directly against the superseded
+      `phase2-flows.md` Parts 1/3.
 - [ ] **code-critic** + **security-reviewer**: review before merge, as in
-      Phase 1 — auth (coach login, password reset, session reissue) makes
-      this phase security-reviewer-blocking, per CLAUDE.md.
+      Phase 1. Auth (session reissue) and child data (roster, consent
+      reminder) still make this security-reviewer-blocking, per CLAUDE.md
+      — specifically flagged by architect: a **child captain** now
+      triggers consent-reminder/session-reissue for a **teammate**, a
+      different trust model than the original adult-coach version, worth
+      an explicit sign-off rather than silently inherited.
 
 ## Phase 3 — Media & social ("Fas 3")
 

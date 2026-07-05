@@ -1,4 +1,4 @@
-<title>SkillStreak — Fas 2: tränarvy, utmaningsbyggare &amp; utmaningskort</title>
+<title>SkillStreak — Fas 2: Kapten, veckans mål &amp; tappad inloggning</title>
 <style>
   :root {
     --chrome-bg: #F1EFEA;
@@ -46,7 +46,7 @@
     padding: 40px 20px 64px;
   }
 
-  .chrome-heading { text-align: center; max-width: 680px; margin-bottom: 6px; }
+  .chrome-heading { text-align: center; max-width: 720px; margin-bottom: 6px; }
   .chrome-eyebrow {
     font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
     text-transform: uppercase; color: var(--chrome-text-muted); margin: 0 0 6px;
@@ -56,6 +56,12 @@
     font-size: 26px; margin: 0 0 8px; text-wrap: balance;
   }
   .chrome-sub { font-size: 14px; color: var(--chrome-text-muted); margin: 0; line-height: 1.5; }
+
+  .part-heading {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 15px; color: var(--chrome-text); text-align: center;
+    margin: 6px 0 -10px; max-width: 720px;
+  }
 
   .row {
     display: flex;
@@ -120,10 +126,11 @@
   .avatar {
     width: 32px; height: 32px; border-radius: 50%; background: #FFE1CE;
     display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
+    position: relative;
   }
-  .coach-pill {
-    font-size: 9px; font-weight: 700; color: #6B6B85; background: #EFEBE2;
-    padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em;
+  .crown-badge {
+    position: absolute; top: -7px; right: -7px; font-size: 13px;
+    background: #FFF; border-radius: 50%; padding: 1px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);
   }
 
   .content {
@@ -140,50 +147,69 @@
   .card-title { font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
   .card-title .ic { font-size: 14px; }
 
-  /* roster / consent card */
-  .big-num { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 22px; margin: 0 0 8px; }
-  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  /* aggregate chips */
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
   .chip { font-size: 10.5px; font-weight: 700; padding: 5px 10px; border-radius: 999px; }
   .chip.approved { background: #E4F4EA; color: #226644; }
   .chip.pending { background: #FFF4E8; color: #99610A; }
   .chip.revoked { background: #F2EFF8; color: #5A4A8C; }
-  .card-link {
-    align-self: flex-start; font-size: 11.5px; font-weight: 700;
-    color: #1B1B3A; background: #F3EEE3; border: none;
-    border-radius: 999px; padding: 7px 13px; cursor: pointer;
-  }
 
-  /* team pool card (coach) */
+  /* team pool / goal meters */
   .team-card-points { font-size: 11px; font-weight: 700; color: #B37B00; font-variant-numeric: tabular-nums; }
   .meter-track { width: 100%; height: 11px; background: #F3EEE3; border-radius: 999px; overflow: hidden; }
   .meter-fill.gold { height: 100%; background: linear-gradient(90deg, #FFB800, #FFCE47); border-radius: 999px; }
-  .meter-fill.flame { height: 100%; background: linear-gradient(90deg, #FF6B35, #FF8A5C); border-radius: 999px; }
   .card-sub { margin: 9px 0 0; font-size: 10.5px; color: #6B6B85; }
-  .card-sub.coach-only { color: #8f8ca3; font-style: italic; }
 
-  /* challenges card */
-  .challenge-row { display: flex; flex-direction: column; gap: 2px; padding: 9px 0; border-top: 1px solid #F3EEE3; }
-  .challenge-row:first-of-type { border-top: none; padding-top: 0; }
-  .challenge-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .challenge-row-title { font-size: 12.5px; font-weight: 700; }
-  .status-pill { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
-  .status-pill.active { background: #E4F4EA; color: #226644; }
-  .status-pill.draft { background: #EFEBE2; color: #6B6B85; }
-  .status-pill.completed { background: #E7ECFB; color: #33518C; }
-  .challenge-row-sub { font-size: 10.5px; color: #8f8ca3; }
-  .new-challenge-btn {
-    border: none; width: 100%; background: #1B1B3A; color: #FFFFFF;
-    font-family: 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 13.5px;
-    padding: 12px 16px; border-radius: 14px; margin-top: 12px; cursor: pointer;
+  /* captain card on Laget tab */
+  .captain-card {
+    background: #FFFBF0; border: 1.5px solid #FFDD8A; border-radius: 20px;
+    padding: 14px 16px 16px;
   }
+  .captain-head { font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+  .captain-btn {
+    display: block; width: 100%; border: none; background: #1B1B3A; color: #fff;
+    font-family: 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 12.5px;
+    padding: 11px 14px; border-radius: 13px; cursor: pointer; margin-top: 8px;
+  }
+  .captain-btn:first-of-type { margin-top: 0; }
+  .captain-btn.ghost { background: transparent; border: 1.5px solid #1B1B3A; color: #1B1B3A; }
+
+  /* roster rows */
+  .roster-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid #F3EEE3; }
+  .roster-row:first-of-type { border-top: none; padding-top: 0; }
+  .roster-avatar {
+    width: 30px; height: 30px; border-radius: 50%; background: #FFE1CE;
+    display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;
+  }
+  .roster-info { flex: 1; min-width: 0; }
+  .roster-name { font-size: 12px; font-weight: 700; margin: 0; }
+  .roster-sub { font-size: 10px; color: #8f8ca3; margin: 1px 0 0; }
+  .roster-actions { font-size: 15px; color: #B7B4C6; padding: 4px; }
+
+  .action-sheet {
+    background: #FFF; border: 1.5px solid #E3DED2; border-radius: 14px;
+    padding: 10px 12px; font-size: 11px; color: #47455c; line-height: 1.6;
+  }
+  .action-sheet strong { color: #1B1B3A; }
+  .action-sheet .warn { color: #B34E1E; font-weight: 700; }
+
+  /* code display (K3) */
+  .code-screen { flex: 1; display: flex; flex-direction: column; padding: 14px 20px 20px; gap: 14px; align-items: center; text-align: center; }
+  .code-box {
+    background: #1B1B3A; color: #FFCE47; font-family: 'Courier New', monospace;
+    font-weight: 700; font-size: 26px; letter-spacing: 4px;
+    padding: 18px 14px; border-radius: 16px; width: 100%;
+  }
+  .code-note { font-size: 11px; color: #47455c; line-height: 1.5; margin: 0; }
+  .code-warn { font-size: 10.5px; color: #8f8ca3; line-height: 1.5; margin: 0; font-style: italic; }
 
   /* generic form screen (builder) */
   .form-screen { flex: 1; display: flex; flex-direction: column; padding: 10px 20px 20px; gap: 14px; }
   .form-h1 {
     font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
-    font-size: 19px; margin: 0; line-height: 1.25;
+    font-size: 18px; margin: 0; line-height: 1.25;
   }
-  .form-body { font-size: 12px; color: #47455c; line-height: 1.5; margin: 0; }
+  .form-body { font-size: 11.5px; color: #47455c; line-height: 1.5; margin: 0; }
   .form-label { font-size: 11px; font-weight: 700; color: #6B6B85; margin: 4px 0 -6px; text-transform: uppercase; letter-spacing: 0.04em; }
   .form-input {
     border: 1.5px solid #E3DED2; border-radius: 14px; padding: 12px 14px;
@@ -193,14 +219,16 @@
   .spacer { flex: 1; }
   .form-cta {
     border: none; width: 100%; background: #1B1B3A; color: #FFFFFF;
-    font-family: 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 14.5px;
+    font-family: 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 14px;
     padding: 14px 18px; border-radius: 16px; cursor: pointer;
   }
+  .form-cta.disabled { background: #DAD6CB; color: #8f8c9e; cursor: default; }
   .form-cta-secondary {
     border: 1.5px solid #1B1B3A; width: 100%; background: transparent; color: #1B1B3A;
     font-family: 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 13.5px;
     padding: 12px 18px; border-radius: 16px; cursor: pointer; margin-top: 8px;
   }
+  .disabled-note { font-size: 10px; color: #B34E1E; background: #FFF4E8; border-radius: 10px; padding: 8px 10px; margin: -4px 0 0; line-height: 1.4; }
 
   /* metric chip picker */
   .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -209,7 +237,7 @@
     padding: 11px 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700;
   }
   .metric-chip .ic { font-size: 16px; }
-  .metric-chip.selected { border-color: #FF6B35; background: #FFEFE7; }
+  .metric-chip.selected { border-color: #FFB800; background: #FFF8E1; }
   .metric-chip.full { grid-column: 1 / -1; }
 
   .preview-callout {
@@ -217,12 +245,18 @@
     padding: 10px 12px; font-size: 11.5px; color: #47455c; line-height: 1.45;
   }
 
-  /* preview / review card (challenge as player sees it) */
-  .preview-card { background: #FFFFFF; border: 1.5px solid #FFD9C4; border-radius: 18px; padding: 14px 15px; }
-  .preview-card-title { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 14.5px; margin: 0 0 4px; }
-  .preview-card-desc { font-size: 11px; color: #6B6B85; margin: 0 0 10px; line-height: 1.4; }
-  .preview-meter-row { display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 700; color: #47455c; margin-bottom: 4px; }
-  .preview-sub { font-size: 10px; color: #8f8ca3; margin: 8px 0 0; }
+  /* goal preview / real card — gold, lighter weight than VM-Guld hero */
+  .goal-card { background: #FFFFFF; border: 1px solid #EFEBE2; border-radius: 18px; padding: 14px 15px 15px; }
+  .goal-eyebrow { font-size: 10px; font-weight: 700; color: #B37B00; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 2px; }
+  .goal-title { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 14.5px; margin: 0 0 4px; }
+  .goal-desc { font-size: 11px; color: #6B6B85; margin: 0 0 10px; line-height: 1.4; }
+  .goal-meter-row { display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 700; color: #47455c; margin-bottom: 5px; }
+  .goal-meter-row .pct { color: #B37B00; }
+  .goal-end-line { font-size: 10px; color: #8f8ca3; margin: 8px 0 0; }
+  .done-chip {
+    display: inline-block; font-size: 9.5px; font-weight: 700; color: #226644;
+    background: #E4F4EA; padding: 3px 8px; border-radius: 999px; margin-left: 4px;
+  }
 
   .tabbar {
     flex-shrink: 0; display: flex; justify-content: space-around; align-items: center;
@@ -238,45 +272,53 @@
     box-shadow: 0 0 0 2px #FFFFFF;
   }
 
-  /* roster rows */
-  .roster-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid #F3EEE3; }
-  .roster-row:first-of-type { border-top: none; padding-top: 0; }
-  .roster-avatar {
-    width: 30px; height: 30px; border-radius: 50%; background: #FFE1CE;
-    display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;
+  /* G2 celebration takeover — gold, bigger than an ordinary success toast */
+  .celebrate-overlay {
+    position: absolute; top: 54px; left: 12px; right: 12px;
+    background: linear-gradient(155deg, #FFB800 0%, #FFCE47 100%);
+    border-radius: 20px; padding: 18px 18px 16px; color: #1B1B3A;
+    box-shadow: 0 16px 32px -14px rgba(179,123,0,0.55); z-index: 6;
+    text-align: center;
   }
-  .roster-info { flex: 1; min-width: 0; }
-  .roster-name { font-size: 12px; font-weight: 700; margin: 0; }
-  .roster-sub { font-size: 10px; color: #8f8ca3; margin: 1px 0 0; }
-  .roster-actions { font-size: 15px; color: #B7B4C6; padding: 4px; }
+  .celebrate-icon { font-size: 30px; margin: 0 0 6px; }
+  .celebrate-head { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 16px; margin: 0 0 5px; }
+  .celebrate-sub { font-size: 11.5px; margin: 0 0 10px; opacity: 0.85; line-height: 1.4; }
+  .celebrate-points { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 18px; margin: 0; }
 
-  /* challenge card (player, flame meter) */
-  .pchallenge-card { background: #FFFFFF; border: 1px solid #EFEBE2; border-radius: 20px; padding: 15px 16px 16px; }
-  .pchallenge-title { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 14.5px; margin: 0 0 4px; display:flex; align-items:center; gap:6px; }
-  .pchallenge-desc { font-size: 11px; color: #6B6B85; margin: 0 0 11px; line-height: 1.4; }
-  .pchallenge-meter-row { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; margin-bottom: 5px; }
-  .pchallenge-meter-row .pct { color: #B34E1E; }
-  .pchallenge-team-line { font-size: 10.5px; color: #6B6B85; margin: 9px 0 0; }
-  .pchallenge-end-line { font-size: 10px; color: #8f8ca3; margin: 3px 0 0; }
-  .done-chip {
-    display: inline-block; font-size: 9.5px; font-weight: 700; color: #226644;
-    background: #E4F4EA; padding: 3px 8px; border-radius: 999px; margin-left: 4px;
+  /* G3 catch-up banner — small, one-time, low-key gold */
+  .catchup-banner {
+    background: #FFF8E1; border: 1.5px solid #FFDD8A; border-radius: 14px;
+    padding: 10px 13px; font-size: 11.5px; font-weight: 700; color: #7A5300;
+    display: flex; align-items: center; gap: 8px;
   }
+
+  /* R2 — session redeem code entry */
+  .code-input-group { display: flex; gap: 8px; justify-content: center; }
+  .code-block {
+    display: flex; gap: 4px;
+  }
+  .code-char {
+    width: 26px; height: 34px; border: 1.5px solid #E3DED2; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Courier New', monospace; font-weight: 700; font-size: 15px; background: #FFF;
+  }
+  .code-char.filled { border-color: #FFB800; background: #FFF8E1; }
+  .lowkey-link { font-size: 11px; color: #6B6B85; text-decoration: underline; text-align: center; margin: 2px 0 0; }
 
   .legend {
     display: flex; flex-wrap: wrap; justify-content: center; gap: 9px 16px;
-    max-width: 680px; padding: 13px 16px; background: var(--chrome-bg-alt);
+    max-width: 720px; padding: 13px 16px; background: var(--chrome-bg-alt);
     border: 1px solid var(--chrome-line); border-radius: 14px; font-size: 11.5px;
   }
   .swatch { display: flex; align-items: center; gap: 6px; color: var(--chrome-text); }
   .swatch i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
-  .fontnote { font-size: 11px; color: var(--chrome-text-muted); max-width: 680px; text-align: center; }
+  .fontnote { font-size: 11px; color: var(--chrome-text-muted); max-width: 720px; text-align: center; }
 </style>
 
 <div class="chrome-heading">
-  <p class="chrome-eyebrow">Fas 2 — tränarverktyg &amp; utmaningar</p>
-  <h1 class="chrome-title">Tränarvy, utmaningsbyggare och spelarens utmaningskort</h1>
-  <p class="chrome-sub">Statisk referens kopplad till <code>docs/design/phase2-flows.md</code> — inget API-kontrakt är fastlagt än för Fas 2 (till skillnad från <code>docs/api/phase1-contract.md</code>), se det dokumentet för anteckningar till architect/backend-developer. Palett enligt <code>docs/design/style-guide.md</code>: individuell utmaningsprogress återanvänder flame, inte en ny färg.</p>
+  <p class="chrome-eyebrow">Fas 2 — Kapten, veckans mål &amp; tappad inloggning</p>
+  <h1 class="chrome-title">Kaptenens verktyg, lagets gemensamma mål och kod-inloggning</h1>
+  <p class="chrome-sub">Statisk referens kopplad till <code>docs/design/phase2-flows.md</code> — bygg mot <code>docs/api/phase2-contract.md</code> och <code>docs/adr/0005-kapten-and-weekly-team-goal.md</code>, inte mot den här filen. Ersätter tidigare version helt (ingen tränarvy längre) — palett enligt <code>docs/design/style-guide.md</code>: lagets veckomål återanvänder <strong>gold</strong>, inte flame, eftersom det nu är en delad siffra som VM-Guld.</p>
 </div>
 
 <div class="row">
@@ -288,23 +330,18 @@
         <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
         <div class="app-header">
           <div class="wordmark">SkillStreak<small>arbetstitel</small></div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span class="coach-pill">Tränarvy</span>
-            <div class="avatar">🧑‍🏫</div>
-          </div>
+          <div class="avatar">🦊<span class="crown-badge">👑</span></div>
         </div>
         <div class="content">
-          <p class="greeting">Hej, <strong>Coach Anna</strong> — IBK Falken P13</p>
+          <p class="greeting"><strong>Laget</strong> — IBK Falken P13</p>
 
           <div class="card">
             <div class="card-head"><span class="card-title"><span class="ic">👥</span>Laget</span></div>
-            <p class="big-num">14 spelare</p>
             <div class="chip-row">
               <span class="chip approved">11 godkända ✓</span>
               <span class="chip pending">2 väntar ⏳</span>
               <span class="chip revoked">1 pausad ⏸️</span>
             </div>
-            <button class="card-link">Se laget</button>
           </div>
 
           <div class="card">
@@ -314,36 +351,23 @@
             </div>
             <div class="meter-track"><div class="meter-fill gold" style="width:64.8%"></div></div>
             <p class="card-sub">64,8 % till guldet Vår 2026</p>
-            <p class="card-sub coach-only">Senaste 7 dagarna: 9 av 14 spelare har loggat minst en gång.</p>
           </div>
 
-          <div class="card">
-            <div class="card-head"><span class="card-title"><span class="ic">🎯</span>Utmaningar</span></div>
-            <div class="chip-row" style="margin-bottom:2px;">
-              <span class="chip approved">2 aktiva</span>
-              <span class="chip pending">1 utkast</span>
-              <span class="chip revoked" style="background:#E7ECFB;color:#33518C;">3 avslutade</span>
-            </div>
-            <div class="challenge-row">
-              <div class="challenge-row-top"><span class="challenge-row-title">Zorro-finter-utmaningen</span><span class="status-pill active">Aktiv</span></div>
-              <span class="challenge-row-sub">Slutar 10 juli</span>
-            </div>
-            <div class="challenge-row">
-              <div class="challenge-row-top"><span class="challenge-row-title">Löparveckan</span><span class="status-pill draft">Utkast</span></div>
-              <span class="challenge-row-sub">Inte publicerad än</span>
-            </div>
-            <button class="new-challenge-btn">+ Ny utmaning</button>
+          <div class="captain-card">
+            <div class="captain-head">👑 Du är kapten</div>
+            <button class="captain-btn">Se laget i detalj</button>
+            <button class="captain-btn ghost">Hantera veckans mål</button>
           </div>
         </div>
         <div class="tabbar">
-          <div class="tab active"><span class="icon">🏠</span>Hem</div>
-          <div class="tab"><span class="icon">🎯</span>Utmaningar</div>
-          <div class="tab"><span class="icon">👥</span>Laget</div>
+          <div class="tab"><span class="icon">🏠</span>Hem</div>
+          <div class="tab"><span class="icon">🎯</span>Mål</div>
+          <div class="tab active"><span class="icon">👥</span>Laget</div>
           <div class="tab"><span class="icon">⚙️</span>Profil</div>
         </div>
       </div>
     </div>
-    <p class="frame-label">Tränarvy — C1<small>Roster/samtycke, VM-Guld-pott (tränarens vy) och utmaningar i ett vy — ingen extra tur-och-retur</small></p>
+    <p class="frame-label">Laget — K1<small>Samma bas för alla spelare (aggregerat, inga namn) + eget kapten-kort med genvägar</small></p>
   </div>
 
   <div class="frame-block">
@@ -353,16 +377,11 @@
         <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
         <div class="app-header">
           <div class="wordmark">SkillStreak<small>arbetstitel</small></div>
-          <span class="coach-pill">Tränarvy</span>
+          <div class="avatar">🦊<span class="crown-badge">👑</span></div>
         </div>
         <div class="content">
-          <p class="greeting"><strong>Laget</strong> — 14 spelare</p>
+          <p class="greeting"><strong>Laget i detalj</strong> — 14 spelare</p>
           <div class="card">
-            <div class="roster-row">
-              <div class="roster-avatar">🦊</div>
-              <div class="roster-info"><p class="roster-name">FloorballStar15</p><p class="roster-sub">Godkänd ✓ · Senast loggade: idag</p></div>
-              <span class="roster-actions">⋯</span>
-            </div>
             <div class="roster-row">
               <div class="roster-avatar">🐼</div>
               <div class="roster-info"><p class="roster-name">PandaPasset</p><p class="roster-sub">Väntar ⏳ · Har inte loggat än</p></div>
@@ -379,19 +398,19 @@
               <span class="roster-actions">⋯</span>
             </div>
           </div>
-          <div class="preview-callout">
-            Radåtgärd (⋯) öppnar: <strong>"Skicka påminnelse till förälder"</strong> (väntande) och <strong>"Skicka ny inloggningslänk"</strong> (alla) — se dokumentets judgment call om sessionsåterutfärdande.
+          <div class="action-sheet">
+            Radåtgärd (⋯): <strong>"Skicka påminnelse till förälder"</strong> (endast väntande) och <strong>"Visa inloggningskod"</strong> (alla — <span class="warn">kräver bekräftelse</span>, loggar ut spelaren direkt).
           </div>
         </div>
         <div class="tabbar">
           <div class="tab"><span class="icon">🏠</span>Hem</div>
-          <div class="tab"><span class="icon">🎯</span>Utmaningar</div>
+          <div class="tab"><span class="icon">🎯</span>Mål</div>
           <div class="tab active"><span class="icon">👥</span>Laget</div>
           <div class="tab"><span class="icon">⚙️</span>Profil</div>
         </div>
       </div>
     </div>
-    <p class="frame-label">Laget — C2<small>Visar spelarnamn, aldrig riktigt namn — samtyckesstatus + senaste loggning</small></p>
+    <p class="frame-label">Kaptenens laglista — K2<small>Bara kaptenen ser den här — spelarnamn, aldrig riktigt namn</small></p>
   </div>
 
   <div class="frame-block">
@@ -401,11 +420,34 @@
         <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
         <div class="app-header">
           <div class="wordmark">SkillStreak<small>arbetstitel</small></div>
-          <span class="coach-pill">Ny utmaning</span>
+          <div class="avatar">🦊<span class="crown-badge">👑</span></div>
+        </div>
+        <div class="code-screen">
+          <h1 class="form-h1">Ny kod till PandaPasset</h1>
+          <div class="code-box">H4K7 QWXP</div>
+          <p class="code-note">Visa den här för PandaPasset så de kan skriva in den och logga in igen.</p>
+          <p class="code-note">Koden går att använda en gång, fram till 10:15.</p>
+          <p class="code-warn">Deras gamla inloggning slutade fungera direkt när du visade koden.</p>
+          <div class="spacer"></div>
+          <button class="form-cta">Klar</button>
+        </div>
+      </div>
+    </div>
+    <p class="frame-label">Ny kod till lagkompis — K3<small>Koden visas, "skickas" aldrig — ingen antydan om e-post/push</small></p>
+  </div>
+
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
+        <div class="app-header">
+          <div class="wordmark">SkillStreak<small>arbetstitel</small></div>
+          <span class="chip approved" style="margin:0;">Nytt mål</span>
         </div>
         <div class="form-screen">
-          <h1 class="form-h1">Vad ska spelarna samla ihop?</h1>
-          <p class="form-body">Vi räknar loggad träningstid, inte antal moves — så välj den typ av träning som passar bäst.</p>
+          <h1 class="form-h1">Vad ska laget samla ihop — tillsammans?</h1>
+          <p class="form-body">Vi räknar allas loggade träningstid, inte antal moves — så välj den typ av träning som passar bäst.</p>
           <div class="metric-grid">
             <div class="metric-chip"><span class="ic">🏋️</span>Kondition</div>
             <div class="metric-chip selected"><span class="ic">🏑</span>Teknik/övning</div>
@@ -413,15 +455,16 @@
             <div class="metric-chip"><span class="ic">⭐</span>Annat</div>
             <div class="metric-chip full"><span class="ic">🎯</span>Totalt (alla typer)</div>
           </div>
-          <p class="form-label">Mål (minuter)</p>
-          <input class="form-input" value="30" />
-          <div class="preview-callout">Varje spelare försöker samla <strong>30 minuter teknik/övning</strong> innan utmaningen slutar.</div>
+          <p class="form-label">Mål (minuter, hela lagets summa)</p>
+          <input class="form-input" value="600" />
+          <p class="form-helper">Det här är hela lagets totalsumma, inte per spelare.</p>
+          <div class="preview-callout">Laget försöker tillsammans samla <strong>600 minuter teknik/övning</strong> innan målet slutar.</div>
           <div class="spacer"></div>
           <button class="form-cta">Nästa</button>
         </div>
       </div>
     </div>
-    <p class="frame-label">Utmaningsbyggare — CB2<small>Förvalda mål-chips (samma typer som "Vad tränade du?"), inte fritext</small></p>
+    <p class="frame-label">Kaptenens verktyg — KB2<small>Samma förvalda mål-chips som förr, men lagets totalsumma — inte per spelare</small></p>
   </div>
 
   <div class="frame-block">
@@ -431,24 +474,26 @@
         <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
         <div class="app-header">
           <div class="wordmark">SkillStreak<small>arbetstitel</small></div>
-          <span class="coach-pill">Ny utmaning</span>
+          <span class="chip approved" style="margin:0;">Nytt mål</span>
         </div>
         <div class="form-screen">
-          <h1 class="form-h1">Så här ser det ut för spelarna</h1>
-          <div class="preview-card">
-            <p class="preview-card-title">🎯 Zorro-finter-utmaningen</p>
-            <p class="preview-card-desc">Gör så många zorro-finter du kan innan fredag!</p>
-            <div class="preview-meter-row"><span>0 / 30 minuter</span><span class="pct">0 %</span></div>
-            <div class="meter-track"><div class="meter-fill flame" style="width:0%"></div></div>
-            <p class="preview-sub">Slutar 10 juli</p>
+          <h1 class="form-h1">Så här ser det ut för laget</h1>
+          <div class="goal-card">
+            <p class="goal-eyebrow">Veckans mål · Satt av lagets kapten</p>
+            <p class="goal-title">🎯 Zorro-finter-veckan</p>
+            <p class="goal-desc">Gör så många zorro-finter ni kan tillsammans innan fredag!</p>
+            <div class="goal-meter-row"><span>0 / 600 minuter</span><span class="pct">0 %</span></div>
+            <div class="meter-track"><div class="meter-fill gold" style="width:0%"></div></div>
+            <p class="goal-end-line">Slutar 12 juli</p>
           </div>
+          <div class="disabled-note">Ni har redan ett aktivt mål. Det här sparas som utkast tills det är klart, eller tills du avbryter det andra.</div>
           <div class="spacer"></div>
-          <button class="form-cta">Publicera nu</button>
+          <button class="form-cta disabled">Aktivera nu</button>
           <button class="form-cta-secondary">Spara som utkast</button>
         </div>
       </div>
     </div>
-    <p class="frame-label">Utmaningsbyggare — CB4<small>Granska med samma kort spelaren faktiskt ser, innan publicering</small></p>
+    <p class="frame-label">Kaptenens verktyg — KB4<small>"Aktivera nu" förhandsinaktiverad (inte bara ett 409-fel) när ett mål redan är aktivt</small></p>
   </div>
 
   <div class="frame-block">
@@ -463,43 +508,142 @@
         <div class="content">
           <p class="greeting">Hej, <strong>FloorballStar15</strong>!</p>
 
-          <div class="pchallenge-card">
-            <p class="pchallenge-title">🎯 Zorro-finter-utmaningen</p>
-            <p class="pchallenge-desc">Gör så många zorro-finter du kan innan fredag!</p>
-            <div class="pchallenge-meter-row"><span>18 / 30 minuter</span><span class="pct">60 %</span></div>
-            <div class="meter-track"><div class="meter-fill flame" style="width:60%"></div></div>
-            <p class="pchallenge-team-line">8 av 14 lagkompisar har redan klarat den här utmaningen!</p>
-            <p class="pchallenge-end-line">Slutar 10 juli</p>
+          <div class="goal-card">
+            <p class="goal-eyebrow">Veckans mål · Satt av lagets kapten</p>
+            <p class="goal-title">🎯 Zorro-finter-veckan</p>
+            <p class="goal-desc">Gör så många zorro-finter ni kan tillsammans innan fredag!</p>
+            <div class="goal-meter-row"><span>420 / 600 minuter</span><span class="pct">70 %</span></div>
+            <div class="meter-track"><div class="meter-fill gold" style="width:70%"></div></div>
+            <p class="goal-end-line">Slutar 12 juli</p>
           </div>
 
-          <div class="pchallenge-card">
-            <p class="pchallenge-title">🏃 Löparveckan<span class="done-chip">Klart! 🎉</span></p>
-            <p class="pchallenge-desc">Spring minst 20 minuter, valfritt tempo.</p>
-            <div class="pchallenge-meter-row"><span>22 / 20 minuter</span><span class="pct">100 %</span></div>
-            <div class="meter-track"><div class="meter-fill flame" style="width:100%"></div></div>
-            <p class="pchallenge-team-line">5 av 14 lagkompisar har redan klarat den här utmaningen!</p>
-            <p class="pchallenge-end-line">Slutar 7 juli</p>
+          <div class="captain-card">
+            <div class="captain-head">👑 Kaptenens verktyg</div>
+            <button class="captain-btn ghost">Avbryt målet</button>
           </div>
+
+          <p class="lowkey-link">Se tidigare mål</p>
         </div>
         <div class="tabbar">
           <div class="tab"><span class="icon">🏠</span>Hem</div>
-          <div class="tab active tab-dot"><span class="icon">🎯</span>Utmaningar</div>
+          <div class="tab active tab-dot"><span class="icon">🎯</span>Mål</div>
           <div class="tab"><span class="icon">👥</span>Laget</div>
           <div class="tab"><span class="icon">⚙️</span>Profil</div>
         </div>
       </div>
     </div>
-    <p class="frame-label">Utmaningar-fliken — CP1<small>Individuell progress (flame), lagräkning utan rangordning, inget nedräkningsur</small></p>
+    <p class="frame-label">Mål-fliken — G1<small>Lagets gemensamma mätare (gold, inte flame) — ingen rankning, inget nedräkningsur</small></p>
+  </div>
+
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
+        <div class="app-header">
+          <div class="wordmark">SkillStreak<small>arbetstitel</small></div>
+          <div class="avatar">🦊</div>
+        </div>
+        <div class="content" style="position: relative;">
+          <p class="greeting">Hej, <strong>FloorballStar15</strong>!</p>
+
+          <div class="celebrate-overlay">
+            <p class="celebrate-icon">🏆🎉</p>
+            <p class="celebrate-head">Laget nådde veckans mål!</p>
+            <p class="celebrate-sub">Din logg var den som knuffade laget över målet!</p>
+            <p class="celebrate-points">+65 bonuspoäng till lagets pott! 🥇</p>
+          </div>
+
+          <div class="goal-card" style="margin-top: 150px; opacity:0.5;">
+            <p class="goal-eyebrow">Veckans mål · Satt av lagets kapten</p>
+            <p class="goal-title">🎯 Zorro-finter-veckan</p>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab active"><span class="icon">🏠</span>Hem</div>
+          <div class="tab tab-dot"><span class="icon">🎯</span>Mål</div>
+          <div class="tab"><span class="icon">👥</span>Laget</div>
+          <div class="tab"><span class="icon">⚙️</span>Profil</div>
+        </div>
+      </div>
+    </div>
+    <p class="frame-label">Bonus-ögonblick, den utlösande spelaren — G2<small>Större och lagfokuserad, till skillnad från H5:s personliga ögonblick — tonar ut automatiskt efter ~3,5s</small></p>
+  </div>
+
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
+        <div class="app-header">
+          <div class="wordmark">SkillStreak<small>arbetstitel</small></div>
+          <div class="avatar">🐼</div>
+        </div>
+        <div class="content">
+          <p class="greeting">Hej, <strong>PandaPasset</strong>!</p>
+
+          <div class="catchup-banner">🎉 Laget nådde veckans mål! Laget fick +65 bonuspoäng.</div>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title"><span class="ic">🥇</span>Lagets VM-Guld-pott</span>
+              <span class="team-card-points">3 305 / 5 000</span>
+            </div>
+            <div class="meter-track"><div class="meter-fill gold" style="width:66.1%"></div></div>
+            <p class="card-sub">66,1 % till guldet Vår 2026 — alla bidrar lika mycket.</p>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab active"><span class="icon">🏠</span>Hem</div>
+          <div class="tab tab-dot"><span class="icon">🎯</span>Mål</div>
+          <div class="tab"><span class="icon">👥</span>Laget</div>
+          <div class="tab"><span class="icon">⚙️</span>Profil</div>
+        </div>
+      </div>
+    </div>
+    <p class="frame-label">Ikapp-läge för alla andra — G3<small>Litet, lugnt banderoll (inte en takeover) — visas en gång, styrt av lokalt sparad "senast sedda" bonus</small></p>
+  </div>
+
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">▲ ● ▮</span></div>
+        <div class="form-screen">
+          <h1 class="form-h1" style="text-align:center;">Har du tappat inloggningen?</h1>
+          <p class="form-body" style="text-align:center;">Be din kapten visa dig koden på sin skärm och skriv in den här.</p>
+          <p class="form-label" style="text-align:center; margin-top:8px;">Kod</p>
+          <div class="code-input-group">
+            <div class="code-block">
+              <div class="code-char filled">H</div>
+              <div class="code-char filled">4</div>
+              <div class="code-char filled">K</div>
+              <div class="code-char filled">7</div>
+            </div>
+            <div class="code-block">
+              <div class="code-char">Q</div>
+              <div class="code-char"></div>
+              <div class="code-char"></div>
+              <div class="code-char"></div>
+            </div>
+          </div>
+          <div class="spacer"></div>
+          <button class="form-cta">Logga in igen</button>
+          <p class="lowkey-link">Vilket lag kör du för? (ny spelare)</p>
+        </div>
+      </div>
+    </div>
+    <p class="frame-label">Ange kod — R1<small>Nås via en lågmäld länk från "Ange lagkod" (O1) — genererisk felkopia vid ogiltig/utgången kod</small></p>
   </div>
 
 </div>
 
 <div class="legend">
-  <span class="swatch"><i style="background:#FF6B35"></i>flame — individuell (streak + utmaningsprogress)</span>
-  <span class="swatch"><i style="background:#FFB800"></i>gold — lagets VM-Guld-pott</span>
+  <span class="swatch"><i style="background:#FF6B35"></i>flame — individuell streak (oförändrad)</span>
+  <span class="swatch"><i style="background:#FFB800"></i>gold — VM-Guld-pott och lagets veckomål (båda delade tal)</span>
   <span class="swatch"><i style="background:#1B1B3A"></i>ink — text / knappar</span>
+  <span class="swatch"><i style="background:#FFFBF0;box-shadow:inset 0 0 0 1px #FFDD8A"></i>kapten-verktyg</span>
   <span class="swatch"><i style="background:#E4F4EA;box-shadow:inset 0 0 0 1px #226644"></i>godkänd / aktiv</span>
   <span class="swatch"><i style="background:#FFF4E8;box-shadow:inset 0 0 0 1px #99610A"></i>väntar / utkast</span>
-  <span class="swatch"><i style="background:#F2EFF8;box-shadow:inset 0 0 0 1px #5A4A8C"></i>pausad</span>
 </div>
 <p class="fontnote">Typsnitt faller tillbaka på systemtypsnitt i denna statiska, fristående fil (ingen extern fonthämtning). Riktig app använder Baloo 2 / Nunito enligt <code>docs/design/style-guide.md</code>.</p>

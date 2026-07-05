@@ -140,7 +140,10 @@ export class OnboardingService {
         screenName: result.player.screenName,
         avatarId: result.player.avatarId,
         consentStatus: result.player.parentalConsentStatus,
-        sessionToken: this.playerTokenService.issueFor(result.player.id),
+        sessionToken: this.playerTokenService.issueFor(
+          result.player.id,
+          result.player.tokenVersion,
+        ),
       };
     } catch (error) {
       if (isScreenNameUniqueViolation(error)) {

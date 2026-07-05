@@ -2,7 +2,23 @@
 
 ## Status
 
-Accepted — 2026-07-05
+Accepted — 2026-07-05.
+
+**Parts 1 and 2 superseded — 2026-07-05.** The project owner pivoted Phase 2
+away from a separate adult "Coach" concept entirely (a player-captain,
+"Kapten," replaces it — see
+[`docs/adr/0005-kapten-and-weekly-team-goal.md`](0005-kapten-and-weekly-team-goal.md)).
+There is no coach login, no `COACH_JWT_SECRET`, no bcrypt dependency, and no
+`coach-auth` module. Parts 1 and 2 below are kept verbatim for the historical
+record of why password-based coach login and a separate coach/player token
+universe were the original answer — **none of it is being built.** See the
+"Addendum — 2026-07-05" section at the end of this document for the full
+explanation. **Part 3 (player `token_version` + session-reissue code) is
+unrelated to this pivot and stands unchanged** — nothing below in Part 3 is
+superseded; only *who is authorized to trigger* the reissue endpoint changes
+(a captain, not a coach), which is a contract-level change tracked in
+`docs/api/phase2-contract.md` and ADR-0005, not a change to this ADR's Part 3
+design itself.
 
 ## Context
 
@@ -28,7 +44,12 @@ Both are genuine auth-architecture decisions with security weight (children's
 accounts, a volunteer non-technical coach userbase, an existing proven mail
 pipeline), so they get an ADR rather than being inferred from a UI spec.
 
-## Decision — Part 1: Coach authentication
+## Decision — Part 1: Coach authentication — SUPERSEDED, see Addendum below
+
+> **This entire section describes a design that is not being built.** The
+> project owner pivoted to a player-captain ("Kapten") model that reuses the
+> existing player JWT — there is no coach login of any kind in Phase 2. Kept
+> for the historical record only; do not implement anything in this section.
 
 **Password-based login, with the existing consent-mail infrastructure reused
 for password reset only — not for routine login.**
@@ -119,7 +140,10 @@ explicitly rather than silently deferring it.
    mechanism for a JWT with no login step; a coach who resets a password
    simply logs in again normally on each device.
 
-## Decision — Part 2: coach/player token separation
+## Decision — Part 2: coach/player token separation — SUPERSEDED, see Addendum below
+
+> **Also not being built**, for the same reason as Part 1: there is no
+> second token universe. Kept for the historical record only.
 
 **Genuinely separate guards and token services, sharing only the underlying
 `@nestjs/jwt` library — not the same `JwtAuthGuard`/`PlayerTokenService`,
@@ -319,3 +343,83 @@ rather than built preemptively.
   combination and the password-reset flow (enumeration resistance, reset
   token handling) before this lands, per CLAUDE.md's "auth is always a
   blocking review" rule.
+
+**Everything in this Consequences section describing `Coach`/coach-auth is
+superseded — see the addendum below. Everything describing `Player`
+(`token_version`, `session_reissue_code`, the extra indexed lookup, the
+new frontend "enter your reissue code" screen) stands unchanged.**
+
+## Addendum — 2026-07-05: Coach concept replaced by player-Kapten (Parts 1 & 2 superseded)
+
+The project owner reviewed the coach-dashboard plan this ADR and
+`docs/api/phase2-contract.md` were built against and pivoted, in their own
+words: *"instead of having a Coach view, the team could set one person in
+the team to be the motivator or captain of the team. This person can set
+the team's goals for the week and this is the 'Coach view'... And if the
+team successfully reach the goal they get extra team points, +5p per team
+exercises."* Follow-up answers made this a decision, not an open option:
+the player-captain ("Kapten") **fully replaces** the adult-coach concept for
+Phase 2 — there is no separate coach login, no second JWT universe, no
+`coach-auth` module. Whoever is captain uses their **existing player
+account and existing player JWT**.
+
+**What this supersedes, and why:**
+
+- **Part 1 (password-based coach login)** is moot — there's no separate
+  credential to authenticate, because there's no separate account. A
+  captain is just a player with one extra boolean flag, authenticated the
+  exact same way every other player already is.
+- **Part 2 (separate coach/player token universe, `COACH_JWT_SECRET`,
+  `CoachAuthGuard`)** is moot for the same reason — there is only ever one
+  kind of session token in this app now. `AuthModule`/`JwtAuthGuard`/
+  `PlayerTokenService` are exactly as they were for Phase 1, with Part 3's
+  `token_version` claim, and nothing else.
+- No bcrypt dependency gets added. No `backend/src/coach-auth/` module gets
+  built. `docs/api/phase2-contract.md`'s coach-login/password-reset
+  endpoints and `CoachAuthGuard`/`CoachTeamAccessGuard` are removed from
+  that contract, not merely deprecated — see the updated contract.
+
+**What is *not* superseded:**
+
+- **Part 3 (player `token_version` + session-reissue code) stands exactly
+  as designed above.** The schema, the code format, the transaction shape,
+  the `JwtAuthGuard` verification change, the backward-compatibility
+  handling for pre-existing tokens — none of it changes. The only thing
+  that changes is *who is authorized to call*
+  `POST /.../players/:playerId/session-reissue`: a team's captain (via
+  their ordinary player JWT + a service-layer captain check), not a coach
+  (via `CoachAuthGuard`). That's a contract-level authorization change,
+  specified in `docs/api/phase2-contract.md` and
+  `docs/adr/0005-kapten-and-weekly-team-goal.md`, not a change to this
+  ADR's Part 3 design.
+- The `Coach` and `TeamCoach` entities themselves (already migrated in
+  Phase 1, holding no data — no Challenge or coach-auth CRUD was ever
+  built against them) are **not deleted**. They're left dormant: CLAUDE.md's
+  longer-term product description still mentions a coach dashboard, and a
+  real adult-coach login is plausible again in a later phase (e.g. once a
+  club wants oversight beyond a single kid-captain). Deleting working
+  schema to reintroduce it later would be exactly the kind of churn this
+  project's ADRs otherwise avoid. What *does* change is `Challenge`'s
+  `created_by_coach_id` column, which no longer has a coach to point to —
+  see ADR-0005 for the replacement (`created_by_player_id`).
+
+**Why the pivot is a reasonable call, not just a simplification for its own
+sake:** Phase 1 already established that this is a coach-facilitated but
+kid-centered app with no adult-facing account system at all — a coach
+creates teams/invite codes as a seed/admin action, same as this ADR treated
+coach account creation. Building an entire second authentication universe
+(Parts 1-2) for a role that, in this pivot, no longer exists as a distinct
+account type would have been real, unnecessary complexity: a new
+dependency (bcrypt), a new module, a new secret to manage in `.env`/`k8s/`,
+and a whole password-reset flow — for a "coach dashboard" that the project
+owner has now decided should just be "whichever player is captain, using
+the account they already have." This is the boring-option principle
+CLAUDE.md asks for, applied one level up: the *cheapest* way to give a team
+a goal-setting/roster-viewing screen is to reuse the player auth that
+already works, not stand up parallel infrastructure for a role Phase 2
+doesn't actually need as a separate identity.
+
+See `docs/adr/0005-kapten-and-weekly-team-goal.md` for the captain data
+model, the weekly-team-goal design (reusing the `Challenge` entity), and the
+goal-completion bonus mechanic — and `docs/api/phase2-contract.md` for the
+resulting endpoint contract.

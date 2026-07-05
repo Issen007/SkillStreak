@@ -74,6 +74,47 @@ export class Player {
   })
   consentTokenExpiresAt!: Date | null;
 
+  // Kapten (team captain) flag — ADR-0005 Decision 1. Assigned manually
+  // (seed/admin action, see src/scripts/seed.ts), never via an in-app
+  // election flow. "At most one active captain per team" is enforced at
+  // the DB level by a partial unique index
+  // (idx_player_one_captain_per_team ON player(team_id) WHERE is_captain =
+  // true — see the migration), not application logic alone.
+  @Column({ name: 'is_captain', type: 'boolean', default: false })
+  isCaptain!: boolean;
+
+  // ADR-0004 Part 3: bumped by exactly one action in Phase 2 — a captain's
+  // session-reissue trigger (see SessionService). JwtAuthGuard compares
+  // this to the token's own `tokenVersion` claim on every guarded request;
+  // a mismatch invalidates the token. A token minted before this column
+  // existed carries no claim at all — treated as `tokenVersion: 0` (this
+  // column's default), so rollout doesn't invalidate every session already
+  // in the wild.
+  @Column({ name: 'token_version', type: 'integer', default: 0 })
+  tokenVersion!: number;
+
+  // Single-use, short-TTL (15 min) human-typable code a captain generates
+  // for a teammate who lost their session — deliberately a different shape
+  // from consent_token (see ADR-0004 Part 3's "why a code, not a mailed
+  // link" section): the recipient is the kid in front of the captain right
+  // now, not an absent parent checking email later. Never add to a
+  // response DTO except the one-time session-reissue trigger response
+  // itself.
+  @Column({
+    name: 'session_reissue_code',
+    type: 'varchar',
+    nullable: true,
+    unique: true,
+  })
+  sessionReissueCode!: string | null;
+
+  @Column({
+    name: 'session_reissue_code_expires_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  sessionReissueCodeExpiresAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
