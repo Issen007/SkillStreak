@@ -47,6 +47,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
+        with:
+          # pnpm/action-setup auto-detects the version from a root
+          # package.json's "packageManager" field — but our Node project
+          # lives in backend/, not the repo root (defaults.run.working-directory
+          # only applies to `run:` steps, not `uses:` actions), so it can't
+          # auto-detect here. Pinned to match backend/package.json's
+          # packageManager pin.
+          version: 11.9.0
 
       - uses: actions/setup-node@v4
         with:
