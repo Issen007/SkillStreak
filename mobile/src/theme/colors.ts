@@ -16,4 +16,36 @@ export const colors = {
   success: '#3DAA6B',
   /** Text/icons on top of saturated flame/gold/ink fills. */
   white: '#FFFFFF',
+
+  // --- Supplementary neutrals (Phase 1) --------------------------------
+  // Not fixed by style-guide.md's token table, but needed for real screens
+  // (borders, muted secondary text, waiting/paused banner fills). Kept
+  // separate from the six named tokens above so that table stays the
+  // single source of truth for the "protected" brand colors; these are
+  // just plumbing to render the phase1-mockup.html reference faithfully.
+  /** Muted secondary text (labels, helper copy) on paper/white. */
+  textMuted: '#6B6B85',
+  /** Slightly darker muted body text used in onboarding form copy. */
+  textBody: '#47455C',
+  /** Default hairline border on paper/white cards and inputs. */
+  border: '#E3DED2',
+  /** "Waiting for consent" banner fill + border (pending/not_requested). */
+  pendingBg: '#FFF4E8',
+  pendingBorder: '#FFD9A8',
+  /** "Paused" banner fill + border (revoked consent). */
+  pausedBg: '#F2EFF8',
+  pausedBorder: '#D8D0EC',
+  /** Disabled CTA fill + text (e.g. locked "Jag har tränat" button). */
+  disabledBg: '#DAD6CB',
+  disabledText: '#8F8C9E',
+  /** Selected-avatar highlight fill, paired with `flame` border. */
+  flameTint: '#FFEFE7',
+  /** Inline validation/error copy (e.g. "invite code not found"). Not
+   * `flame` — style-guide.md's contrast rule reserves flame for fills
+   * only, never as a text color on paper/white. */
+  error: '#C1432F',
+  /** A darker gold-family tone usable as *text* on white (e.g. the team
+   * pool's "1 280 / 5 000" figure) — distinct from `gold` itself, which
+   * stays fill-only per the contrast rule. */
+  goldText: '#B37B00',
 } as const;
