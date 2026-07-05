@@ -355,9 +355,63 @@ already beta-testing with real kids, so this is a *blocking* review, not a
 final check.
 Do also go though the code so it is documented and reviewed, but also see if we don't have code that could be optimized or reused so we don't have to write new code for the next phase.
 
-- [ ] **backend-developer**: Go though the code and document it, and see if there are any parts that could be optimized or reused for the previous and next phase.
-- [ ] **frontend-developer**: Go though the code and document it, and see if there are any parts that could be optimized or reused for the previous and next phase.
-- [ ] **security-reviewer**: review the Phase 2 pivot and the new captain/team-goal design, and sign off before any media/social features are built. This is a blocking review, not a final check.
+- [x] **backend-developer**: added `backend/README.md` (module map, run
+      instructions, dormant-module flags, pointers to ADRs/contracts —
+      deliberately not duplicating them). Fixed several stale comments left
+      over from the pre-kapten-pivot design (`season.entity.ts`,
+      `coach.entity.ts`, `team-coach.entity.ts`, `badge-trigger-reason.enum.ts`,
+      `points.util.ts`). Genuine reuse finding acted on: `onboarding.service.ts`
+      and `weekly-goal.service.ts` each independently defined an identical
+      "is this Postgres error a unique-violation on constraint X" helper —
+      extracted into `backend/src/common/errors/postgres-error.util.ts`
+      (`isPostgresUniqueViolation`), both call sites now share it. Verified:
+      lint, build, 62/62 unit tests, 24/24 e2e tests all pass unchanged after
+      the extraction.
+- [x] **frontend-developer**: added `mobile/README.md` (module map, local-run
+      instructions including the Expo-Go SDK-version gotcha, and a "known
+      duplication / consolidation candidates" section — `CatchUpBanner`/
+      `Toast`, shared loading/error boilerplate across `HomeScreen`/
+      `TeamScreen`/`GoalScreen`/`RosterScreen`, and the `TeamPoolCard`/
+      `GoalCard` progress-bar animation — flagged for before Phase 3 adds a
+      third or fourth similar screen, not acted on now to avoid an
+      unrequested refactor). Fixed a few stale/missing comments (`AppShell.tsx`'s
+      G2/G3 suppression walkthrough, `PrimaryButton.tsx`, `AppHeader.tsx`).
+      Confirmed via grep: zero references anywhere in `mobile/src` to the
+      disabled session-reissue/redeem feature — the frontend never grew a
+      dependency on it. Verified: `npx tsc --noEmit` clean, `npx expo-doctor`
+      18/18.
+- [x] **security-reviewer**: full sign-off — **safe to continue into Phase 3
+      planning.** Re-confirmed the session-reissue disable holds end-to-end
+      (controller, service reachability, e2e coverage, and the mobile client
+      — zero live calls, zero UI affordance for it). Re-confirmed server-side
+      authorization (not client trust) gates every mutating Phase 2 endpoint,
+      no `real_name`/location exposure anywhere in the new roster/goal
+      payloads, DTO whitelisting blocks field-smuggling, and the training-log
+      write path has no IDOR (player ID always comes from the JWT, never a
+      param). Two non-blocking findings, not gating Phase 3:
+      - **Consent-reminder cooldown only bounds a 5-minute burst, not
+        sustained volume** — an authenticated captain can force a real email
+        to a teammate's parent roughly every 5 minutes indefinitely (~288/day),
+        with no daily cap and no audit trail of resend counts. Confirmed as a
+        genuine, traceable harassment vector against a real family inbox (not
+        theoretical, since it requires a deliberate, identifiable actor).
+        Recommended fix before scaling the beta wider: a daily cap per target
+        (e.g. 3/day) plus a lightweight audit record. **Still open.**
+      - **`localFlags`'s `lastSeenBonusAwardedAt` key is scoped by `goalId`
+        only, not by player** — on a shared/handed-down device, a second
+        player logging in after a first player already saw a goal's bonus
+        celebration will silently miss their own one-time G3 banner. Cosmetic
+        only (the value is just a timestamp, no PII, no cross-account data
+        exposure) — recommended fix is to key by `${playerId}.${goalId}` and
+        clear `localFlags` alongside `clearSessionToken()`. **Still open, low
+        priority.**
+
+**Phase 2.5 is complete — security-reviewer's sign-off is "safe to continue
+into Phase 3 planning."** Two non-blocking, tracked findings remain open
+(consent-reminder sustained-volume cap, `localFlags` per-player scoping);
+neither needs to be fixed before Phase 3 starts, but both should land before
+the beta scales beyond the current team. The session-reissue redesign is
+also still open (see the Phase 2 section above) and remains deferred.
 
 
 ## Phase 3 — Media & social ("Fas 3")
