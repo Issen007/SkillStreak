@@ -18,6 +18,11 @@ const DEFAULT_CODE_BY_STATUS: Record<number, string> = {
   [HttpStatus.FORBIDDEN]: 'forbidden',
   [HttpStatus.NOT_FOUND]: 'not_found',
   [HttpStatus.CONFLICT]: 'conflict',
+  // ThrottlerGuard (see AppModule/onboarding & teams controllers) throws a
+  // plain ThrottlerException — an ordinary HttpException, not an
+  // AppException — so it needs an explicit mapping here to get a stable
+  // code instead of falling through to the generic 'error'.
+  [HttpStatus.TOO_MANY_REQUESTS]: 'rate_limited',
 };
 
 function defaultCodeForStatus(status: number): string {

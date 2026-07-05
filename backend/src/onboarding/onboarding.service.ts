@@ -11,6 +11,18 @@ import { CreatePlayerDto } from './dto/create-player.dto';
 
 const POSTGRES_UNIQUE_VIOLATION = '23505';
 
+// The unique index backing Player's (team_id, screen_name) uniqueness, per
+// the @Index(['teamId', 'screenName'], { unique: true }) decorator on the
+// Player entity and its corresponding
+// `CREATE UNIQUE INDEX "IDX_b3c76b4d48cefcb7aa46feb1ee" ON "player"
+// ("team_id", "screen_name")` in the InitialSchema migration. Postgres
+// reports this index name in a 23505 error's `constraint` field even though
+// it was created as a bare unique index rather than a named `ADD CONSTRAINT
+// ... UNIQUE` — checking it here (not just the 23505 code) means a future
+// unique constraint added elsewhere in this same transaction can't be
+// silently mislabeled as `screen_name_taken_in_team`.
+const PLAYER_SCREEN_NAME_UNIQUE_CONSTRAINT = 'IDX_b3c76b4d48cefcb7aa46feb1ee';
+
 interface CreatePlayerResult {
   playerId: string;
   teamId: string;
@@ -91,7 +103,7 @@ export class OnboardingService {
         sessionToken: this.playerTokenService.issueFor(result.id),
       };
     } catch (error) {
-      if (isPostgresUniqueViolation(error)) {
+      if (isScreenNameUniqueViolation(error)) {
         throw new ScreenNameTakenException();
       }
       throw error;
@@ -99,11 +111,13 @@ export class OnboardingService {
   }
 }
 
-function isPostgresUniqueViolation(error: unknown): boolean {
+function isScreenNameUniqueViolation(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('code' in error)) {
+    return false;
+  }
+  const pgError = error as { code?: string; constraint?: string };
   return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION
+    pgError.code === POSTGRES_UNIQUE_VIOLATION &&
+    pgError.constraint === PLAYER_SCREEN_NAME_UNIQUE_CONSTRAINT
   );
 }
