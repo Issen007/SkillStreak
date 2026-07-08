@@ -1,6 +1,6 @@
 # NestJS API, built from backend/Dockerfile.
 #
-# `image: skillstreak-api:latest` below is a PLACEHOLDER. Building that
+# `image: ` below is a PLACEHOLDER. Building that
 # Dockerfile and pushing the result to a registry the cluster can pull from
 # (e.g. GHCR, Docker Hub, a private registry) is a CI/CD step not covered by
 # these manifests — swap in the real `registry/repo:tag` before applying
@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: skillstreak-api:latest # PLACEHOLDER — see comment above
+          image:  # PLACEHOLDER — see comment above
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
