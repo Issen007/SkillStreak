@@ -118,3 +118,70 @@ jobs:
       - name: Tear down stack
         if: always()
         run: docker compose down -v
+  deploy:
+    name: Deploy to Kubernetes Cluster
+    runs-on: ubuntu-latest
+    # 1. ONLY run this job if the tests AND the smoke tests pass perfectly
+    needs: [backend-test, compose-smoke-test]
+    # 2. ONLY run this job if the code is being merged/pushed into main (not on open PRs)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inject Production Secrets
+        run: |
+          echo "${{ secrets.SKILLSTREAK_SECRET_YAML }}" > k8s/secret.yaml
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Note: Instead of rebuilding the image from scratch, we build the production copy here
+      - name: Build and Push Production Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/skillstreak-api:${{ github.sha }}
+
+      - name: Update Deployment Image Tag
+        run: |
+          FULL_IMAGE_URL="ghcr.io/${{ github.repository_owner }}/skillstreak-api:${{ github.sha }}"
+          sed -i "s|image: skillstreak-api:latest|image: $FULL_IMAGE_URL|g" k8s/api-deployment.yaml
+
+      - name: Set Kubernetes Context
+        uses: azure/k8s-set-context@v4
+        with:
+          method: service-account
+          k8s-url: ${{ secrets.KUBE_URL }}
+          k8s-secret: ${{ secrets.KUBE_TOKEN }}
+
+      - name: Deploy Manifests
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/configmap.yaml
+          kubectl apply -f k8s/secret.yaml
+          kubectl apply -f k8s/postgres-pvc.yaml
+          kubectl apply -f k8s/postgres-service.yaml
+          kubectl apply -f k8s/redis-service.yaml
+          kubectl apply -f k8s/api-service.yaml
+          kubectl apply -f k8s/ingress.yaml
+          kubectl apply -f k8s/postgres-deployment.yaml
+          kubectl apply -f k8s/redis-deployment.yaml
+          kubectl apply -f k8s/api-deployment.yaml
+
+      - name: Verify Rollout Status
+        run: |
+          kubectl rollout status deployment/postgres -n skillstreak
+          kubectl rollout status deployment/redis -n skillstreak
+          kubectl rollout status deployment/api -n skillstreak
