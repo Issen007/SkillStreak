@@ -171,11 +171,22 @@ jobs:
           sed -i "s|image: skillstreak-api:latest|image: $FULL_IMAGE_URL|g" k8s/api-deployment.yaml
 
       - name: Set Kubernetes Context
-        uses: azure/k8s-set-context@v4
-        with:
-          method: service-account
-          k8s-url: ${{ secrets.KUBE_URL }}
-          k8s-secret: ${{ secrets.KUBE_TOKEN }}
+        run: |
+          # 1. Register your cluster URL and skip the problematic X509 certificate check
+          kubectl config set-cluster skillstreak-cluster --server=${{ secrets.KUBE_URL }} --insecure-skip-tls-verify=true
+          
+          # 2. Assign your secure robot token
+          kubectl config set-credentials github-actions-deployer --token=${{ secrets.KUBE_TOKEN }}
+          
+          # 3. Bind them together inside your specific namespace
+          kubectl config set-context skillstreak-context --cluster=skillstreak-cluster --user=github-actions-deployer --namespace=skillstreak
+          
+          # 4. Activate the context
+          kubectl config use-context skillstreak-context
+
+      - name: Deploy Manifests
+        run: |
+          kubectl apply -f k8s/namespace.yaml
 
       - name: Deploy Manifests
         run: |
