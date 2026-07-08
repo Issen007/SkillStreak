@@ -14,3 +14,16 @@ All data should be encrypted in the database so if the data get leaked, it will 
 
 ### Secure Authentication
 We need to implement secure authentication methods, such as two-factor authentication (2FA) and OAuth, to enhance the security of user accounts.
+
+## Team Chat — LLM-based Moderation (future release)
+Phase 2.6b ships team chat with a keyword/profanity filter plus per-message
+report/block, since that's buildable now without a new external dependency.
+A better, context-aware moderation layer (catching bullying/grooming
+patterns a keyword list can't, not just banned words) should use an LLM
+classifier on each message before it's delivered to the team — flag/hold
+suspect messages for the sending player's own parent to review rather than
+silently deleting them, matching this app's "closed team bubble, parent in
+the loop" posture. Deliberately deferred out of 2.6b's first pass: it needs
+its own design/cost/latency tradeoff discussion (sync classification before
+send vs. async post-hoc scan) and a security-reviewer pass on what "held for
+review" actually means for a child's message thread.

@@ -460,3 +460,92 @@ ADR-0005, Decision 3 — implement against that, not a re-derivation here.
   the same "edge cases: first-ever streak day, midnight rollover, missed
   day, concurrent team-pool writes" level of scrutiny Phase 1's streak/pool
   logic got, applied to goal-crossing/bonus idempotency instead.
+
+---
+
+## Addendum — 2026-07-08: Fas 2.6a captain transfer + teammates roster
+
+See [`docs/adr/0006-captain-transfer.md`](../adr/0006-captain-transfer.md)
+(read first — this assumes its design). Extends this contract; nothing
+above is superseded.
+
+### 9. `POST /api/v1/teams/:teamId/captain-transfer`
+
+Player auth + captain check (`403 not_team_captain` unless the requester is
+the team's *current* captain — self-service transfer, no other authority
+exists to do this). Same transactional/row-lock shape as `PATCH
+.../weekly-goal/:id` (ADR-0006's Decision 1).
+
+Request:
+```ts
+{ newCaptainPlayerId: string; }
+```
+
+Response `200`:
+```json
+{
+  "teamId": "uuid",
+  "previousCaptainPlayerId": "uuid",
+  "newCaptainPlayerId": "uuid",
+  "transferredAt": "2026-07-08T10:00:00Z"
+}
+```
+
+Errors:
+- `403 not_team_captain` — requester is not the team's current captain.
+- `409 captain_transfer_target_is_self` — `newCaptainPlayerId` equals the
+  requester's own id.
+- `404 player_not_found` — no such player.
+- `403 captain_transfer_target_not_on_team` — `newCaptainPlayerId` exists
+  but belongs to a different team.
+- `409 captain_transfer_conflict` — defensive backstop for the partial
+  unique index (`idx_player_one_captain_per_team`); should be unreachable
+  given the transaction's row locks, kept as a fallback the same way
+  `WeeklyGoalService` catches the equivalent violation for
+  `idx_challenge_one_active_goal_per_team`.
+
+### 10. `GET /api/v1/teams/:teamId/teammates`
+
+Player auth; `team_mismatch` check only — **open to any player on the
+team, not captain-gated** (ADR-0006 Decision 2: this is deliberately
+narrower data than endpoint 2's roster, so it doesn't need that gate).
+
+Response `200`:
+```json
+{
+  "teammates": [
+    { "playerId": "uuid", "screenName": "FloorballStar15", "avatarId": "fox", "isCaptain": true }
+  ]
+}
+```
+
+No `consentStatus`, no `lastTrainedDate`, no `realName`/`parentContact` —
+this endpoint's entire purpose is "who's on my team and who's captain,"
+nothing more. Use endpoint 2 (`GET .../roster`, still captain-gated) for
+consent/last-trained detail.
+
+### Endpoint 2 (`GET .../roster`) response — additive field
+
+Each entry in the existing captain-gated roster response gains `isCaptain:
+boolean` — additive, non-breaking. A captain no longer needs a second call
+to confirm their own status.
+
+### Notes for implementers
+
+- **backend-developer:** `PlayersService.transferCaptaincy` is new; the
+  controller endpoint is a new method on the existing `WeeklyGoalController`
+  (it already owns every other `/api/v1/teams/:teamId/...` route in this
+  contract) delegating straight to `PlayersService`, not to
+  `WeeklyGoalService` — the logic only touches `Player`, no dependency on
+  `Challenge`/`TeamSeasonPot`.
+- **frontend-developer:** the roster/teammates screen needs a "transfer
+  captaincy" action visible only when `viewerIsCaptain` (from the dashboard
+  response) is `true`, targeting another player from either endpoint 9's
+  teammates list or the existing captain-only roster.
+- **ux-designer:** whether the outgoing/incoming captain get any explicit
+  in-app notification of a transfer (vs. just seeing `viewerIsCaptain` flip
+  on next load) is not decided here — see ADR-0006's Consequences.
+- **security-reviewer:** confirm a captain who has just transferred away
+  immediately loses access to every other captain-gated action on their
+  next call (the flag is re-checked per-request, not cached) — see
+  ADR-0006's Consequences for the exact concern.

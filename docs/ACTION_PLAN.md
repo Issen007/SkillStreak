@@ -413,6 +413,69 @@ neither needs to be fixed before Phase 3 starts, but both should land before
 the beta scales beyond the current team. The session-reissue redesign is
 also still open (see the Phase 2 section above) and remains deferred.
 
+## Phase 2.6a — Capten of the team ("Fas 2.6a")
+
+In the Team ("Laget") tab, you should see the entire team and who is the capten, but also be able to assign a new capten. This is a small phase to make sure that the capten is visible and can be assigned, but also to make sure that the capten can be removed and assigned to another player.
+
+- [x] **architect**: designed the self-service transfer (current captain
+      hands off to a named teammate, no other authority exists to do this —
+      no coach account is reachable) and a new non-captain-gated "who's on
+      my team, who's captain" view, without reopening ADR-0005's `is_captain`
+      column/partial-unique-index design. →
+      `adr/0006-captain-transfer.md` (transaction/row-lock shape mirroring
+      `WeeklyGoalService.patchGoal`, deliberately not the plain two-`UPDATE`
+      sketch ADR-0005 wrote for an out-of-band admin script) and
+      `api/phase2-contract.md`'s 2026-07-08 addendum (`POST
+      /teams/:teamId/captain-transfer`, `GET /teams/:teamId/teammates`).
+      Flagged, not decided: whether either party gets an in-app notification
+      of a transfer — left to ux-designer.
+
+## Phase 2.6b — Team Chat ("Fas 2.6b")
+
+In the team it should be a team chat where they can communicate with each other, but also be able to communicate with the capten. This is a small phase to make sure that the team chat is working and that the capten can communicate with the team, but also a way to help each other to continue their streak. This is a small phase to make sure that the team chat is working and that the capten can communicate with the team, but also a way to help each other to continue their streak.
+
+- [x] **architect**: designed the message/report/block data model, a
+      pluggable (interface-based) keyword-filter seam so the deferred
+      LLM-moderation item in `docs/BACKLOG.md` can slot in later without a
+      rewrite, and a poll-based (not WebSocket) fetch — a deliberate,
+      justified "boring for this phase" call, not an oversight. →
+      `adr/0007-team-chat.md`, `api/phase2.6b-contract.md`.
+      **Explicitly flagged, not resolved**: there is no reliable, timely
+      review path between a message being reported and any human acting on
+      it — the design's best answer (best-effort, rate-limited emails to
+      the reported player's own parent and, where on file, the team's
+      dormant `Coach.email`, plus a personal per-viewer block) is a real
+      mitigation, not a fix. Two alternatives were considered and
+      deliberately rejected: auto-hiding a message after N reports, and
+      giving the captain a team-wide hide action — both hand a peer more
+      authority over another child's content than anything else in this
+      app grants a peer. **security-reviewer sign-off on this specific
+      gap is a blocking requirement before merge**, per CLAUDE.md and the
+      ADR's own framing.
+
+## Phase 2.6c — Create Goals in the team ("Fas 2.6c")
+We need a easy way to create goals in the team, but also be able to see the goals that are created. This is a small phase to make sure that the goals are being created and that the goals are being displayed, but also a way to help each other to continue their streak. This is a small phase to make sure that the goals are being created and that the goals are being displayed, but also a way to help each other to continue their streak.
+
+## Phase 2.7 - VM-Guld 
+You shouldn't have any maximum goal, instead that points should be compaired with other teams points and you should see a leading board when you click om Lagets VM-Guld-pott (that name need to be cahnged to something better). This is a small phase to make sure that the leading board is working and that the points are being compaired with other teams points, but also a way to help each other to continue their streak. This is a small phase to make sure that the leading board is working and that the points are being compaired with other teams points, but also a way to help each other to continue their streak.
+
+- [x] **architect**: designed the cross-team query (joins only
+      `team_season_pot`/`team` — structurally cannot reach `Player`/
+      `PlayerPrivateInfo`), the `GET /teams/:teamId/leaderboard` contract,
+      and the removal of `goalThreshold`/`percentComplete` from three
+      already-shipped response shapes (`GET /players/me`, the dashboard,
+      `POST /training-logs`) — a real breaking change, called out explicitly
+      rather than left for frontend-developer to discover at runtime. →
+      `adr/0008-vm-guld-cross-team-leaderboard.md`,
+      `api/phase2.7-contract.md`. Decided explicitly rather than silently
+      assumed: the per-team season-date-range mismatch
+      `team-pool/entities/season.entity.ts` already flags is an **accepted,
+      explicitly-flagged limitation** for the current beta scale, not a
+      blocker — with a stated condition for when that stops being true.
+      `TeamSeasonPot.goal_threshold` stays in the schema, dormant, not
+      dropped (same posture as `Coach`/`TeamCoach`). New button copy
+      (replacing "Lagets VM-Guld-pott") is flagged for ux-designer, not
+      picked here.
 
 ## Phase 3 — Media & social ("Fas 3")
 
