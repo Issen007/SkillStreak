@@ -129,8 +129,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-
-   steps:
+    steps:
       - uses: actions/checkout@v4
 
       # 1. New Step: Force your username to lowercase so Docker registry doesn't crash
