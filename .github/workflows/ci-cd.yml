@@ -130,13 +130,20 @@ jobs:
       contents: read
       packages: write
 
-    steps:
+   steps:
       - uses: actions/checkout@v4
 
+      # 1. New Step: Force your username to lowercase so Docker registry doesn't crash
+      - name: Downcase repository owner for Docker
+        run: |
+          echo "LOWER_IMAGE=ghcr.io/${OWNER,,}/skillstreak-api" >> $GITHUB_ENV
+        env:
+          OWNER: ${{ github.repository_owner }}
+
+      # 2. Inject Secrets securely (Our previous fix)
       - name: Inject Production Secrets
         env:
           PROD_SECRETS: ${{ secrets.SKILLSTREAK_SECRET_YAML }}
-        # 2. Tell Bash to print the variable directly without parsing special characters
         run: |
           printf '%s\n' "$PROD_SECRETS" > k8s/secret.yaml
 
@@ -147,7 +154,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Note: Instead of rebuilding the image from scratch, we build the production copy here
+      # 3. Build using the new lowercase environment variable
       - name: Build and Push Production Docker Image
         uses: docker/build-push-action@v5
         with:
@@ -155,11 +162,13 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/skillstreak-api:${{ github.sha }}
+            ${{ env.LOWER_IMAGE }}:${{ github.sha }}
 
+      # 4. Update the manifest using the new lowercase environment variable
       - name: Update Deployment Image Tag
         run: |
-          FULL_IMAGE_URL="ghcr.io/${{ github.repository_owner }}/skillstreak-api:${{ github.sha }}"
+          FULL_IMAGE_URL="${{ env.LOWER_IMAGE }}:${{ github.sha }}"
+          echo "Replacing placeholder with: $FULL_IMAGE_URL"
           sed -i "s|image: skillstreak-api:latest|image: $FULL_IMAGE_URL|g" k8s/api-deployment.yaml
 
       - name: Set Kubernetes Context
