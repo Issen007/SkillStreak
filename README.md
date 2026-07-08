@@ -1,4 +1,4 @@
-# 🔥 SkillStreak (arbetstitel)
+# 🔥 SkillStreak (arbetstitel kom på något nytt)
 
 Rörelseglädje genom gamification för ungdomslag i innebandy — se
 [docs/PROJECT.md](docs/PROJECT.md) för hela visionen bakom projektet.
