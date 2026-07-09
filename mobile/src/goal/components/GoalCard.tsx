@@ -4,6 +4,8 @@ import { Animated, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 import { formatSwedishDate } from '../../utils/formatDate';
+import { TARGET_METRIC_OPTIONS, targetMetricLabel } from '../types';
+import type { WeeklyGoalTargetMetric } from '../../api/types';
 
 interface GoalCardProps {
   title: string;
@@ -13,6 +15,12 @@ interface GoalCardProps {
   percentComplete: number;
   endDate: string;
   goalMet: boolean;
+  /** Fas 2.6c polish item 1 — which activity type counts toward this goal.
+   * `GoalCard` used to show a bare "420 / 600 minuter" with no way to tell
+   * *what kind* of training counts unless the free-text description
+   * happened to spell it out; this surfaces KB2's own icon+label chip next
+   * to the progress figure instead. */
+  targetMetric: WeeklyGoalTargetMetric;
 }
 
 const numberFormatter = new Intl.NumberFormat('sv-SE');
@@ -31,8 +39,11 @@ export function GoalCard({
   percentComplete,
   endDate,
   goalMet,
+  targetMetric,
 }: GoalCardProps) {
   const widthAnim = useRef(new Animated.Value(percentComplete)).current;
+  const metricIcon =
+    TARGET_METRIC_OPTIONS.find((option) => option.value === targetMetric)?.icon ?? '🎯';
 
   useEffect(() => {
     Animated.timing(widthAnim, {
@@ -68,9 +79,16 @@ export function GoalCard({
           style={[styles.fill, { width: goalMet ? '100%' : widthInterpolated }]}
         />
       </View>
-      <Text style={styles.progressText}>
-        {numberFormatter.format(progressMinutes)} / {numberFormatter.format(targetValue)} minuter
-      </Text>
+      <View style={styles.progressRow}>
+        <Text style={styles.progressText}>
+          {numberFormatter.format(progressMinutes)} / {numberFormatter.format(targetValue)} minuter
+        </Text>
+        <View style={styles.metricChip}>
+          <Text style={styles.metricChipText}>
+            {metricIcon} {targetMetricLabel(targetMetric)}
+          </Text>
+        </View>
+      </View>
       <Text style={styles.endDate}>Slutar {formatSwedishDate(endDate)}</Text>
     </View>
   );
@@ -136,10 +154,27 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: colors.gold,
   },
+  progressRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
   progressText: {
     fontFamily: fonts.bodyBold,
     fontSize: 11,
     color: colors.goldText,
+  },
+  metricChip: {
+    backgroundColor: '#FFF7E0',
+    borderRadius: 999,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+  },
+  metricChipText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 10,
+    color: colors.ink,
   },
   endDate: {
     fontFamily: fonts.body,

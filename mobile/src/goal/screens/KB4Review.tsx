@@ -52,6 +52,7 @@ export function KB4Review({
         percentComplete={0}
         endDate={data.endDate}
         goalMet={false}
+        targetMetric={data.targetMetric ?? 'total-minuter'}
       />
 
       {errorText ? <Text style={styles.error}>{errorText}</Text> : null}

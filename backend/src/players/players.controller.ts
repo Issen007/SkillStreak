@@ -23,13 +23,15 @@ interface PlayerMeResponse {
     lastTrainedDate: string | null;
     alreadyLoggedToday: boolean;
   };
+  // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed,
+  // rank/teamCount added — see TeamPoolService.getRankAndTeamCountOrThrow.
   teamPool: {
     seasonId: string;
     seasonLabel: string;
     pointsTotal: number;
-    goalThreshold: number;
-    percentComplete: number;
     status: string;
+    rank: number;
+    teamCount: number;
   };
 }
 
@@ -64,6 +66,9 @@ export class PlayersController {
       );
     }
 
+    const { rank, teamCount } =
+      await this.teamPoolService.getRankAndTeamCountOrThrow(player.teamId);
+
     const today = stockholmDateString();
     // Derived straight from Postgres (the source of truth), same as the
     // training-logs write path's alreadyLoggedToday — Redis's copy of this
@@ -91,12 +96,9 @@ export class PlayersController {
         seasonId: season.id,
         seasonLabel: season.label,
         pointsTotal: pot.pointsTotal,
-        goalThreshold: pot.goalThreshold,
-        percentComplete: TeamPoolService.percentComplete(
-          pot.pointsTotal,
-          pot.goalThreshold,
-        ),
         status: pot.status,
+        rank,
+        teamCount,
       },
     };
   }

@@ -21,10 +21,13 @@ export interface TrainingLogResponse {
     longestStreakCount: number;
     alreadyLoggedToday: boolean;
   };
+  // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed;
+  // rank is deliberately NOT added here (unlike the dashboard/GET
+  // /players/me teamPool blocks) — computing a system-wide rank on this
+  // app's hottest write path is an avoidable cost. A client that wants an
+  // updated rank after logging re-fetches one of those two instead.
   teamPool: {
     pointsTotal: number;
-    goalThreshold: number;
-    percentComplete: number;
   };
   // NEW in Phase 2 (docs/api/phase2-contract.md, ADR-0005 Decision 3): only
   // non-null on the one log whose insertion caused the team to cross its
@@ -160,11 +163,6 @@ export class TrainingLogsService {
       },
       teamPool: {
         pointsTotal: updatedPot.pointsTotal,
-        goalThreshold: updatedPot.goalThreshold,
-        percentComplete: TeamPoolService.percentComplete(
-          updatedPot.pointsTotal,
-          updatedPot.goalThreshold,
-        ),
       },
       goalBonus,
     };

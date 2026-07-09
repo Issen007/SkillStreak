@@ -102,6 +102,7 @@ export function RosterScreen({ teamId, onBack, onNotCaptain }: RosterScreenProps
             avatarId={player.avatarId}
             consentStatus={player.consentStatus}
             lastTrainedDate={player.lastTrainedDate}
+            isCaptain={player.isCaptain}
             onPress={() => setSheetTarget(player)}
           />
         ))}

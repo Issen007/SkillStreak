@@ -413,6 +413,346 @@ neither needs to be fixed before Phase 3 starts, but both should land before
 the beta scales beyond the current team. The session-reissue redesign is
 also still open (see the Phase 2 section above) and remains deferred.
 
+## Phase 2.6a — Capten of the team ("Fas 2.6a")
+
+In the Team ("Laget") tab, you should see the entire team and who is the capten, but also be able to assign a new capten. This is a small phase to make sure that the capten is visible and can be assigned, but also to make sure that the capten can be removed and assigned to another player.
+
+- [x] **architect**: designed the self-service transfer (current captain
+      hands off to a named teammate, no other authority exists to do this —
+      no coach account is reachable) and a new non-captain-gated "who's on
+      my team, who's captain" view, without reopening ADR-0005's `is_captain`
+      column/partial-unique-index design. →
+      `adr/0006-captain-transfer.md` (transaction/row-lock shape mirroring
+      `WeeklyGoalService.patchGoal`, deliberately not the plain two-`UPDATE`
+      sketch ADR-0005 wrote for an out-of-band admin script) and
+      `api/phase2-contract.md`'s 2026-07-08 addendum (`POST
+      /teams/:teamId/captain-transfer`, `GET /teams/:teamId/teammates`).
+      Flagged, not decided: whether either party gets an in-app notification
+      of a transfer — left to ux-designer.
+- [x] **ux-designer**: resolved the open notification question — the
+      incoming captain gets a one-time celebratory banner (Screen K5),
+      reusing `AppShell.tsx`'s existing "diff a locally persisted flag"
+      mechanism already built for the weekly-goal bonus catch-up (no new
+      backend). Teammates list becomes an always-visible baseline section
+      on K1 (not folded into captain-only K2), deliberately non-tappable —
+      the transfer action gets its own explicit entry point (K4) so a
+      casual glance at the roster can't trigger it. →
+      `design/phase2.6-2.7-flows.md` Part A,
+      `design/phase2.6-2.7-mockup.html`.
+- [x] **backend-developer**: `PlayersService.transferCaptaincy`/
+      `listTeammates`, `isCaptain` added to the existing roster response,
+      two new routes on `WeeklyGoalController`. Follows ADR-0006's exact
+      row-lock order (requester, then target); verified independently
+      (not just the implementing agent's report) by reading the
+      transaction directly and via a dedicated concurrency e2e test
+      (`captain-transfer-concurrency.e2e-spec.ts`). Lint/build/114 unit/55
+      e2e tests all pass against a genuinely fresh Postgres 18 + Redis
+      instance, re-run 4 times with no flakiness.
+
+## Phase 2.6b — Team Chat ("Fas 2.6b")
+
+In the team it should be a team chat where they can communicate with each other, but also be able to communicate with the capten. This is a small phase to make sure that the team chat is working and that the capten can communicate with the team, but also a way to help each other to continue their streak. This is a small phase to make sure that the team chat is working and that the capten can communicate with the team, but also a way to help each other to continue their streak.
+
+- [x] **architect**: designed the message/report/block data model, a
+      pluggable (interface-based) keyword-filter seam so the deferred
+      LLM-moderation item in `docs/BACKLOG.md` can slot in later without a
+      rewrite, and a poll-based (not WebSocket) fetch — a deliberate,
+      justified "boring for this phase" call, not an oversight. →
+      `adr/0007-team-chat.md`, `api/phase2.6b-contract.md`.
+      **Explicitly flagged, not resolved**: there is no reliable, timely
+      review path between a message being reported and any human acting on
+      it — the design's best answer (best-effort, rate-limited emails to
+      the reported player's own parent and, where on file, the team's
+      dormant `Coach.email`, plus a personal per-viewer block) is a real
+      mitigation, not a fix. Two alternatives were considered and
+      deliberately rejected: auto-hiding a message after N reports, and
+      giving the captain a team-wide hide action — both hand a peer more
+      authority over another child's content than anything else in this
+      app grants a peer. **security-reviewer sign-off on this specific
+      gap is a blocking requirement before merge**, per CLAUDE.md and the
+      ADR's own framing.
+- [x] **ux-designer**: designed the chat screen (new "Chatt" tab, placed
+      second in tab order by expected visit frequency), with report
+      (tap-to-reveal on a teammate's message, not long-press — findable by
+      a 9-year-old) and block (a different tap target, the sender's
+      avatar/name) kept spatially and functionally separate per the
+      contract's instruction. All copy — filter rejection, report reasons,
+      report confirmation, block confirmation — written specifically to
+      never overpromise a review guarantee ADR-0007 says this app can't
+      deliver. → `design/phase2.6-2.7-flows.md` Part B,
+      `design/phase2.6-2.7-mockup.html`. **Flagged a real contract gap**:
+      no `GET .../chat/blocks` endpoint exists, so the block-management
+      screen is client-cache-backed only (works on the device that made
+      the block, not a fresh install/new device) — flagged for architect
+      as a small, reasonable fast-follow, not invented here.
+- [x] **backend-developer**: new `team-chat/` module (message/block/report
+      entities + migration, the `ChatModerationCheck` DI seam with a
+      Swedish keyword-list implementation, all 5 endpoints, Redis rate
+      limits, the best-effort dual parent/coach notification email).
+      Verified independently: the message-list query combines the
+      `status != 'hidden'` filter and the per-viewer block filter in one
+      query (read directly, not taken on trust — this is the one place a
+      future refactor could silently leak a blocked/hidden message); the
+      keyword-matcher is word-boundary-aware and evasion-resistant
+      (Unicode-letter-aware for å/ä/ö, absorbs repeated-character and
+      inserted-punctuation evasion) — read and reasoned through directly.
+      Lint/build/unit/e2e all pass (see 2.6a's entry — one shared
+      verification run covered all three phases together).
+      **Flagged by the implementing agent, reviewed and accepted**: the
+      send-rate-limit allowance is claimed *before* the moderation check
+      (so repeated filter-probing still costs the sender's quota, not
+      free); the "already reported" 409 check happens before claiming the
+      report cooldown (a failing call doesn't burn the limit); every coach
+      on file for a team gets the notification email, not just one
+      (`TeamCoach` is many-to-many); content is trimmed before storage,
+      which matches the contract's own "1-500 chars after trim" wording,
+      not a deviation from "never mutated" (that clause is about
+      content/censorship, not whitespace hygiene).
+
+## Phase 2.6c — Create Goals in the team ("Fas 2.6c")
+We need a easy way to create goals in the team, but also be able to see the goals that are created. This is a small phase to make sure that the goals are being created and that the goals are being displayed, but also a way to help each other to continue their streak. This is a small phase to make sure that the goals are being created and that the goals are being displayed, but also a way to help each other to continue their streak.
+
+- [x] **ux-designer**: confirmed the existing goal builder/history (KB1-KB4,
+      G1) already satisfy this phase's ask, per the project owner's own
+      decision this session — proposed four small polish items instead of
+      new screens/endpoints: surface `targetMetric` on the goal card so
+      players know what training counts, promote "Se tidigare mål" above
+      captain-only actions, show the final tally + bonus on completed
+      history rows (data already in the response, just unused), and a
+      small icon on the empty-goal state. → `design/phase2.6-2.7-flows.md`
+      Part C.
+
+## Phase 2.7 - VM-Guld 
+You shouldn't have any maximum goal, instead that points should be compaired with other teams points and you should see a leading board when you click om Lagets VM-Guld-pott (that name need to be cahnged to something better). This is a small phase to make sure that the leading board is working and that the points are being compaired with other teams points, but also a way to help each other to continue their streak. This is a small phase to make sure that the leading board is working and that the points are being compaired with other teams points, but also a way to help each other to continue their streak.
+
+- [x] **architect**: designed the cross-team query (joins only
+      `team_season_pot`/`team` — structurally cannot reach `Player`/
+      `PlayerPrivateInfo`), the `GET /teams/:teamId/leaderboard` contract,
+      and the removal of `goalThreshold`/`percentComplete` from three
+      already-shipped response shapes (`GET /players/me`, the dashboard,
+      `POST /training-logs`) — a real breaking change, called out explicitly
+      rather than left for frontend-developer to discover at runtime. →
+      `adr/0008-vm-guld-cross-team-leaderboard.md`,
+      `api/phase2.7-contract.md`. Decided explicitly rather than silently
+      assumed: the per-team season-date-range mismatch
+      `team-pool/entities/season.entity.ts` already flags is an **accepted,
+      explicitly-flagged limitation** for the current beta scale, not a
+      blocker — with a stated condition for when that stops being true.
+      `TeamSeasonPot.goal_threshold` stays in the schema, dormant, not
+      dropped (same posture as `Coach`/`TeamCoach`). New button copy
+      (replacing "Lagets VM-Guld-pott") is flagged for ux-designer, not
+      picked here.
+- [x] **ux-designer**: renamed it to **"VM-Guld-tabellen"** — reuses the
+      ordinary Swedish word for a sports league table (every kid already
+      knows it from Allsvenskan/SHL), preserves the existing VM-Guld brand
+      framing rather than discarding it. Designed the rewritten top-level
+      card (number + rank, no progress bar — there's no threshold left for
+      one to represent) and the full leaderboard screen (own team
+      highlighted in natural sorted position, ties shown via simple rank
+      repetition with a one-line explanatory caption shown only when a tie
+      is present, graceful between-seasons/empty-leaderboard states). →
+      `design/phase2.6-2.7-flows.md` Part D,
+      `design/phase2.6-2.7-mockup.html`. Flagged for frontend-developer:
+      Swedish ordinal suffixes (1:a/2:a/3:e/4:e...) need a real formatting
+      helper, not a hardcoded suffix, per CLAUDE.md's i18n instruction.
+- [x] **backend-developer**: `TeamPoolService.getLeaderboard`/
+      `computeStandardCompetitionRanks`/`getRankAndTeamCountOrThrow` — the
+      query joins only `team_season_pot`/`team`, verified directly by
+      reading it (no `Player`/`PlayerPrivateInfo` join exists anywhere in
+      it, matching the ADR's hard requirement structurally, not just by
+      convention). New `GET .../leaderboard` route; breaking-change updates
+      shipped to `GET /players/me`, the dashboard, and `POST
+      /training-logs` exactly as ADR-0008 specified (`rank`/`teamCount`
+      added to the first two only, dropped entirely from the third).
+      `goal_threshold` column confirmed left in place, unused. Ranking
+      algorithm (ties share rank, next distinct score skips) verified by
+      tracing the implementation against the ADR's own worked example.
+      Test suite includes a dedicated e2e file that deliberately uses
+      well-separated point totals to stay deterministic despite the
+      leaderboard being genuinely global/shared with other e2e fixtures —
+      reviewed directly, a legitimate test-design choice, not weakened
+      assertions.
+
+- [x] **frontend-developer**: built all four sub-phases against the flow
+      doc and the real, running backend. Part A: the always-visible
+      teammates section on K1, Screen K4's captain-transfer flow (every
+      contract error branch handled), and Screen K5's celebratory banner
+      reusing `AppShell.tsx`'s existing catch-up-diff mechanism verbatim
+      (including a correct "first time ever seen on this device" baseline
+      case, so a fresh install doesn't mistake an existing captain for a
+      newly-promoted one). Part B: the new "Chatt" tab (second in order),
+      CH0-CH5 built to spec, with report/block correctly disabled on the
+      viewer's own messages (verified directly in `MessageBubble.tsx` —
+      `onPress={isOwn ? undefined : onTapBody}` and the sender row not
+      rendered at all for own messages). Part C: all four goal-screen
+      polish items. Part D: `TeamPoolCard` rewritten, the new leaderboard
+      screen, and an isolated `swedishOrdinal` helper (verified correct
+      against the 1/2/3/4/11/12/21/22/23 rule directly). Verified
+      independently: `npx tsc --noEmit` and `npx expo-doctor` (18/18) both
+      clean; the agent additionally exercised every new endpoint against a
+      real running backend (seeded team, minted session token, captain
+      transfer, chat send/poll/report/block/filter-rejection, leaderboard
+      with real multi-tie data) before handing back — a stronger
+      verification bar than a typical frontend pass in this project so far.
+      **Two judgment calls flagged and reviewed, both accepted**: the
+      "Chatt" tab's unread dot is a one-shot lightweight check in
+      `AppShell`'s existing foreground-check cycle (not a continuous poll,
+      which only runs while the tab itself is mounted) — resolves a real
+      internal contradiction in the flow doc, not a deviation from intent.
+      Screen LB1's "between-seasons, graceful card" state is currently
+      unreachable through `GET /players/me`/the dashboard in practice,
+      since `TeamPoolService.getActivePotForTeam` still throws a `500` for
+      the *requesting* team's own missing pot — confirmed by reading that
+      method directly: this is pre-existing Phase 1 behavior, unchanged by
+      ADR-0008, not a regression introduced here. The frontend still built
+      the graceful UI defensively (harmless, forward-compatible) since
+      Screen LB2's identical between-season case *is* fully reachable and
+      real (`requestingTeam: null`).
+
+- [x] **code-critic**: reviewed the full batch (concurrency logic, the chat
+      visibility query, keyword-matching regex, ranking algorithm, the
+      mobile polling lifecycle) after independently re-running lint/build/
+      unit/e2e/tsc/expo-doctor. **One CONFIRMED bug, fixed**: the keyword
+      filter's multi-word entries (e.g. "fan ta dig") flattened the
+      phrase's own spaces and rejoined every letter with the same flexible
+      separator used for within-word evasion — making the banned phrase
+      indistinguishable from the extremely common, benign Swedish idiom
+      "Fan, ta dig samman!" ("come on, pull yourself together!"), which
+      would have been rejected with `422` on a completely innocent,
+      encouraging message. Reproduced directly, then fixed: multi-word
+      entries now require genuine whitespace between their own constituent
+      words (matching real phrase boundaries) while keeping full
+      repeated-letter/inserted-punctuation absorption *within* each word
+      unchanged — accepted trade-off, documented in the code: a multi-word
+      entry can now be evaded with non-whitespace punctuation between its
+      words, which is a more deliberate evasion than this filter is
+      designed to catch on a first attempt, and squarely inside ADR-0007's
+      already-stated "catches words, not patterns" limitation. Added
+      regression test coverage (`keyword-match.util.spec.ts`) for both the
+      false positive and the real phrase/evasion cases. Everything else
+      checked out clean — no further findings.
+- [x] **security-reviewer**: **explicit sign-off — safe to merge.** No
+      confirmed vulnerability, IDOR, or child-privacy violation in any of
+      the three phases; every claim the ADRs make was independently
+      verified against the actual code (message-visibility query,
+      reporter anonymity, consent-gate parity with training-logs, the
+      `getParentContact` module-boundary widening, captain-transfer
+      race-freedom, the leaderboard query's structural inability to
+      return player data, per-player not per-IP rate limiting, no
+      recurrence of the Phase 2 session-reissue bearer-token pattern).
+      Gave a direct opinion on the question ADR-0007 posed rather than
+      just restating its hedge: the "keyword filter + anonymous report →
+      best-effort rate-limited parent/coach email + silent per-viewer
+      block + out-of-band admin hide" posture **is acceptable for the
+      current beta specifically because teams are small, closed,
+      real-world-known rosters** — explicitly **would not** sign off on
+      the same posture at general-availability scale or if teams ever
+      include players who don't already know each other in person, and
+      treats the deferred LLM-moderation backlog item as a near-term,
+      not indefinite, follow-up condition of this sign-off. One
+      PLAUSIBLE low-severity finding, fixed: the 24h report-notification
+      cooldown was claimed even when no recipient existed (no parent
+      contact, no coach on file), silently wasting that player's cooldown
+      window on a report that could never have produced an email —
+      reordered so the cooldown is only claimed once a real recipient is
+      confirmed.
+
+**Fas 2.6a/2.6b/2.7 has cleared every gate and is ready to merge.**
+Backend: lint, build, 120/120 unit tests (including new regression
+coverage for the code-critic's finding), 55/55 e2e tests, re-run multiple
+times against a genuinely fresh Postgres 18 + Redis instance with no
+flakiness. Frontend: clean typecheck/expo-doctor plus live exercise
+against that same real backend. Both the mandatory code-critic and the
+blocking security-reviewer sign-off (per ADR-0007/CLAUDE.md) are complete,
+with both reviewers' findings fixed and verified, not just noted. Two
+small, non-blocking gaps remain tracked for a future fast-follow, not
+blocking this merge: the `GET .../chat/blocks` endpoint ux-designer
+flagged (block-management is currently client-cache-backed only), and the
+`getActivePotForTeam` between-seasons `500` behavior (an existing,
+already-accepted Phase 1 gap, now slightly more visible now that a
+leaderboard exists to compare against).
+
+## Phase 2.9 — Self-service team creation
+
+The project owner's instruction: if the invite code a new person enters at
+onboarding doesn't match any team, they should be able to create a new team
+right there instead of dead-ending — becoming its first player and
+**automatically its captain**. Confirmed product decisions: the new team's
+name is checked with the same content-safety mechanism built for chat
+(`ChatModerationCheck`), since `Team.name` is now cross-team-visible via the
+VM-Guld leaderboard; and a newly self-created team gets a working
+`Season`/`TeamSeasonPot` atomically, not as a manual follow-up. This is
+fundamentally a Phase 1 onboarding contract change (branch
+`self-service-team-creation`, stacked on `phase2.6-2.7-architecture` since
+it reuses that branch's chat-moderation code), landing after later phases'
+work chronologically.
+
+- [x] **architect**: designed team creation inside `OnboardingService
+      .createPlayer`'s existing transaction (no separate `POST /teams` —
+      avoids an orphaned team if onboarding is abandoned partway through),
+      the originally-typed invite code becoming the new team's permanent
+      code (evaluated against generating one, rejected as more friction for
+      no real benefit), a new minimal `moderation/` module extracting the
+      `CHAT_MODERATION_CHECK` DI binding so team-name checks and chat reuse
+      one seam without pulling all of `TeamChatModule` into onboarding, a
+      Swedish half-year season/pot default consistent with existing seed
+      data, and an explicit `409 invite_code_taken_concurrently` for the
+      (rare) two-people-race-the-same-code case rather than a silent
+      fallback-to-join. → `adr/0009-self-service-team-creation.md`,
+      `api/phase1-contract.md`'s 2026-07-09 addendum. **Fully additive**:
+      a client that never sends the new optional `teamName` field sees
+      byte-for-byte existing Phase 1 behavior.
+      **Five adjacent risks flagged, not silently resolved** — the most
+      important: a newly self-created captain could exercise full captain
+      authority (weekly-goal management, roster/consent visibility,
+      triggering a teammate's session-reissue) *before their own parental
+      consent is approved*, since no captain-gated endpoint has ever
+      checked the *acting* captain's own consent status, only the target's
+      where relevant — this was previously unreachable (a seed captain's
+      consent is pre-approved; an ADR-0006 transfer target is always
+      already-onboarded) but is now the first realistic path where it's
+      live. **Decided, not left open**: captain-gated actions now also
+      require the acting captain's own `parentalConsentStatus ===
+      approved`, extending the same pattern that already gates training-log
+      creation and chat sends — closes the window rather than leaving a
+      still-pending child with live authority over teammates. Flagged for
+      **security-reviewer to confirm this decision**, not just implement it
+      blindly. Other flagged items, left for their respective owners:
+      team-creation abuse/rate-limit posture (the existing 10/min/IP
+      onboarding throttle now bounds a heavier action — security-reviewer),
+      permanently-orphaned self-created teams if consent is never approved
+      (accepted, consistent with this app's existing no-deletion posture),
+      the missing O1 "are you sure?" confirmation before an irreversible
+      team creation — unlike joining an existing team, which already has
+      one at O2 (ux-designer), and whether the invite code itself (not just
+      the name) should also pass the content filter, since it's now
+      potentially child-chosen and permanently repeated aloud to recruit
+      teammates (recommended by architect, decided here: yes, run the same
+      check against both fields).
+- [x] **ux-designer**: designed the three gaps ADR-0009 left open. O1's old
+      one-line `404` becomes Screen O1a — two big, equal-weight cards
+      ("Jag skrev nog fel" vs. "Vårt lag har ingen kod än"), deliberately
+      neither styled as primary so the UI doesn't nudge a kid toward
+      creating a team. A real confirmation gate (O1b name entry → O1c
+      confirm) sits immediately after naming, before O3-O5's personal-info
+      screens — mirroring exactly where O2 already sits for the join path,
+      so a kid backs out before typing a birth year or parent contact, not
+      after. New copy for `422 team_name_rejected_by_filter` (non-
+      judgmental, typed text preserved, same posture as chat's filter
+      rejection) and `409 invite_code_taken_concurrently`. A distinct
+      👑🎉 founding-captain celebration variant of Screen O6, built
+      **strictly off the response's `teamCreated`/`isCaptain` fields, not
+      which UI path was taken** — a real, correct catch: per ADR-0009
+      Decision 8's race handling, a kid who tapped "create" at O1c can
+      still legitimately land on the ordinary "joined" variant with zero
+      error if someone else's request won the same code first in the
+      interim; building O6 off a locally-remembered "I came from create"
+      flag instead would show the wrong celebration in that case. →
+      `design/phase1-flows.md` (extended in place, continuing its O-prefix
+      scheme), `design/phase1-mockup.html`. Also designed (speculatively,
+      since the invite-code-filter decision above postdates this pass) the
+      recovery copy for an invite-code filter rejection — confirmed
+      consistent with the decision now that it's been made.
 
 ## Phase 3 — Media & social ("Fas 3")
 

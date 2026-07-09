@@ -30,3 +30,27 @@ export function formatSwedishDate(isoDate: string): string {
   }
   return `${day} ${SWEDISH_MONTHS[month - 1]}`;
 }
+
+/** Fas 2.6b, Screen CH1's message timestamps — "clock time only for
+ * today's messages, date + time if older" per the flow doc. Manual
+ * formatting (not `Intl.DateTimeFormat`), same Hermes/ICU reasoning as
+ * `formatSwedishDate` above. */
+export function formatChatTimestamp(isoTimestamp: string): string {
+  const date = new Date(isoTimestamp);
+  if (Number.isNaN(date.getTime())) return isoTimestamp;
+
+  const now = new Date();
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const clockTime = `${hours}:${minutes}`;
+
+  if (isToday) return clockTime;
+
+  const isoDate = date.toISOString().slice(0, 10);
+  return `${formatSwedishDate(isoDate)} ${clockTime}`;
+}

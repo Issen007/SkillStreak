@@ -10,6 +10,7 @@ import { ActivitySheet } from './components/ActivitySheet';
 import { SuccessOverlay } from './components/SuccessOverlay';
 import { GoalBonusTakeover } from './components/GoalBonusTakeover';
 import { Toast } from '../components/Toast';
+import { LeaderboardScreen } from '../leaderboard/LeaderboardScreen';
 import { getMe, postTrainingLog } from '../api/endpoints';
 import { ApiError, isConsentRequiredError } from '../api/ApiError';
 import { clearSessionToken } from '../api/authStorage';
@@ -54,6 +55,10 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
   const [successMoment, setSuccessMoment] = useState<SuccessMoment | null>(null);
   const [goalBonusMoment, setGoalBonusMoment] = useState<{ awardedPoints: number } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Screen LB1/LB2 (Fas 2.7) — a local view toggle to reach the full
+  // leaderboard, same lightweight "no navigation library" pattern
+  // GoalScreen/TeamScreen already use for their own sub-views.
+  const [view, setView] = useState<'home' | 'leaderboard'>('home');
 
   const hasLoadedOnce = useRef(false);
 
@@ -137,8 +142,11 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
               teamPool: {
                 ...prev.teamPool,
                 pointsTotal: response.teamPool.pointsTotal,
-                goalThreshold: response.teamPool.goalThreshold,
-                percentComplete: response.teamPool.percentComplete,
+                // Fas 2.7 (ADR-0008 Decision 3): rank is deliberately not
+                // in the training-log response (hot-path reasoning) — this
+                // device's rank/teamCount go stale until the next `me`/
+                // dashboard fetch, same as every other post-log state this
+                // screen doesn't patch synchronously.
               },
             }
           : prev,
@@ -209,6 +217,10 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
     );
   }
 
+  if (view === 'leaderboard') {
+    return <LeaderboardScreen teamId={me.team.teamId} onBack={() => setView('home')} />;
+  }
+
   const isApproved = me.player.consentStatus === 'approved';
 
   return (
@@ -249,9 +261,9 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
 
         <TeamPoolCard
           pointsTotal={me.teamPool.pointsTotal}
-          goalThreshold={me.teamPool.goalThreshold}
-          percentComplete={me.teamPool.percentComplete}
-          seasonLabel={me.teamPool.seasonLabel}
+          rank={me.teamPool.rank}
+          teamCount={me.teamPool.teamCount}
+          onPress={() => setView('leaderboard')}
         />
       </View>
 

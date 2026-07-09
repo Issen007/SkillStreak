@@ -99,8 +99,12 @@ async function run(): Promise<void> {
         status: TeamSeasonPotStatus.ACTIVE,
       }),
     );
+    // Fas 2.7 (ADR-0008 Decision 4): goal_threshold is still a required
+    // column (kept, unused, per the ADR) but no response surfaces a
+    // "percent toward it" framing anymore — the printed summary shouldn't
+    // imply otherwise.
     console.log(
-      `Created active TeamSeasonPot ${pot.id} (goal ${pot.goalThreshold})`,
+      `Created active TeamSeasonPot ${pot.id} (points_total=0, goal_threshold=${pot.goalThreshold} [unused dormant column, see ADR-0008])`,
     );
   } else {
     console.log(

@@ -48,4 +48,11 @@ export const colors = {
    * pool's "1 280 / 5 000" figure) — distinct from `gold` itself, which
    * stays fill-only per the contrast rule. */
   goldText: '#B37B00',
+  /** Fas 2.7 — VM-Guld-tabellen's (Screen LB2) own-team row highlight fill
+   * + border, matching docs/design/phase2.6-2.7-mockup.html's `.lb-row.me`
+   * exactly. A light gold tint, distinct from the saturated `gold` fill
+   * token, so a highlighted row reads as "this one" without competing with
+   * an actual gold-filled element on the same screen. */
+  goldRowTint: '#FFF7E0',
+  goldRowBorder: '#FFD873',
 } as const;
