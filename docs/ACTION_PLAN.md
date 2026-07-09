@@ -609,17 +609,66 @@ You shouldn't have any maximum goal, instead that points should be compaired wit
       Screen LB2's identical between-season case *is* fully reachable and
       real (`requestingTeam: null`).
 
-**Fas 2.6a/2.6b/2.7 is functionally complete end to end and independently
-verified** (backend: lint, build, 114/114 unit tests, 55/55 e2e tests,
-re-run 4 times against a genuinely fresh Postgres 18 + Redis instance with
-no flakiness; frontend: clean typecheck/expo-doctor plus live exercise
-against that same real backend). **Still open before any of this can
-merge**: the mandatory code-critic + security-reviewer pass — team chat
-(2.6b) is explicitly blocking on security-reviewer sign-off, per ADR-0007
-and CLAUDE.md. Two small, non-blocking gaps remain tracked, not yet built:
-the `GET .../chat/blocks` endpoint ux-designer flagged (block-management
-is currently client-cache-backed only), and the `getActivePotForTeam`
-between-seasons `500` behavior just re-confirmed above (an existing,
+- [x] **code-critic**: reviewed the full batch (concurrency logic, the chat
+      visibility query, keyword-matching regex, ranking algorithm, the
+      mobile polling lifecycle) after independently re-running lint/build/
+      unit/e2e/tsc/expo-doctor. **One CONFIRMED bug, fixed**: the keyword
+      filter's multi-word entries (e.g. "fan ta dig") flattened the
+      phrase's own spaces and rejoined every letter with the same flexible
+      separator used for within-word evasion — making the banned phrase
+      indistinguishable from the extremely common, benign Swedish idiom
+      "Fan, ta dig samman!" ("come on, pull yourself together!"), which
+      would have been rejected with `422` on a completely innocent,
+      encouraging message. Reproduced directly, then fixed: multi-word
+      entries now require genuine whitespace between their own constituent
+      words (matching real phrase boundaries) while keeping full
+      repeated-letter/inserted-punctuation absorption *within* each word
+      unchanged — accepted trade-off, documented in the code: a multi-word
+      entry can now be evaded with non-whitespace punctuation between its
+      words, which is a more deliberate evasion than this filter is
+      designed to catch on a first attempt, and squarely inside ADR-0007's
+      already-stated "catches words, not patterns" limitation. Added
+      regression test coverage (`keyword-match.util.spec.ts`) for both the
+      false positive and the real phrase/evasion cases. Everything else
+      checked out clean — no further findings.
+- [x] **security-reviewer**: **explicit sign-off — safe to merge.** No
+      confirmed vulnerability, IDOR, or child-privacy violation in any of
+      the three phases; every claim the ADRs make was independently
+      verified against the actual code (message-visibility query,
+      reporter anonymity, consent-gate parity with training-logs, the
+      `getParentContact` module-boundary widening, captain-transfer
+      race-freedom, the leaderboard query's structural inability to
+      return player data, per-player not per-IP rate limiting, no
+      recurrence of the Phase 2 session-reissue bearer-token pattern).
+      Gave a direct opinion on the question ADR-0007 posed rather than
+      just restating its hedge: the "keyword filter + anonymous report →
+      best-effort rate-limited parent/coach email + silent per-viewer
+      block + out-of-band admin hide" posture **is acceptable for the
+      current beta specifically because teams are small, closed,
+      real-world-known rosters** — explicitly **would not** sign off on
+      the same posture at general-availability scale or if teams ever
+      include players who don't already know each other in person, and
+      treats the deferred LLM-moderation backlog item as a near-term,
+      not indefinite, follow-up condition of this sign-off. One
+      PLAUSIBLE low-severity finding, fixed: the 24h report-notification
+      cooldown was claimed even when no recipient existed (no parent
+      contact, no coach on file), silently wasting that player's cooldown
+      window on a report that could never have produced an email —
+      reordered so the cooldown is only claimed once a real recipient is
+      confirmed.
+
+**Fas 2.6a/2.6b/2.7 has cleared every gate and is ready to merge.**
+Backend: lint, build, 120/120 unit tests (including new regression
+coverage for the code-critic's finding), 55/55 e2e tests, re-run multiple
+times against a genuinely fresh Postgres 18 + Redis instance with no
+flakiness. Frontend: clean typecheck/expo-doctor plus live exercise
+against that same real backend. Both the mandatory code-critic and the
+blocking security-reviewer sign-off (per ADR-0007/CLAUDE.md) are complete,
+with both reviewers' findings fixed and verified, not just noted. Two
+small, non-blocking gaps remain tracked for a future fast-follow, not
+blocking this merge: the `GET .../chat/blocks` endpoint ux-designer
+flagged (block-management is currently client-cache-backed only), and the
+`getActivePotForTeam` between-seasons `500` behavior (an existing,
 already-accepted Phase 1 gap, now slightly more visible now that a
 leaderboard exists to compare against).
 

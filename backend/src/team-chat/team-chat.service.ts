@@ -438,17 +438,6 @@ export class TeamChatService {
     messageContent: string,
   ): Promise<void> {
     try {
-      const claimed =
-        await this.redisService.tryClaimChatReportNotifyCooldown(
-          reportedPlayerId,
-        );
-      if (!claimed) {
-        this.logger.log(
-          `Chat-report notification for player ${reportedPlayerId} suppressed by the 24h cooldown.`,
-        );
-        return;
-      }
-
       const recipients: string[] = [];
       const parentContact =
         await this.playerPrivateInfoService.getParentContact(reportedPlayerId);
@@ -460,6 +449,22 @@ export class TeamChatService {
       if (recipients.length === 0) {
         this.logger.warn(
           `No parent/coach contact on file for chat report on player ${reportedPlayerId} — no email sent.`,
+        );
+        return;
+      }
+
+      // Claimed only once we know there's actually an email to send — a
+      // report against a player with no contact on file must not burn this
+      // player's 24h window for a *future* report that might have a real
+      // recipient (security-reviewer finding, Phase 2.6b pass: the cooldown
+      // key should track "an email was sent," not "a report was processed").
+      const claimed =
+        await this.redisService.tryClaimChatReportNotifyCooldown(
+          reportedPlayerId,
+        );
+      if (!claimed) {
+        this.logger.log(
+          `Chat-report notification for player ${reportedPlayerId} suppressed by the 24h cooldown.`,
         );
         return;
       }

@@ -73,4 +73,52 @@ describe('buildKeywordPattern / containsBannedWord', () => {
     expect(pattern.flags).toContain('i');
     expect(pattern.flags).toContain('u');
   });
+
+  // Regression coverage for a confirmed code-critic finding (Phase 2.6b
+  // review): multi-word entries used to flatten their own spaces away and
+  // rejoin every letter with the same fully-flexible NON_LETTER_RUN used
+  // within a word, which made a 3-word banned phrase indistinguishable from
+  // an entirely unrelated sentence that merely contains those same three
+  // words in sequence with ordinary punctuation between them.
+  describe('multi-word entries', () => {
+    const phraseWordlist = ['fan ta dig'];
+
+    it('matches the exact phrase', () => {
+      expect(containsBannedWord('fan ta dig', phraseWordlist)).toBe(true);
+    });
+
+    it('matches the phrase embedded in a sentence', () => {
+      expect(containsBannedWord('fan ta dig din idiot', phraseWordlist)).toBe(
+        true,
+      );
+    });
+
+    it('absorbs repeated-character evasion within each word of the phrase', () => {
+      expect(containsBannedWord('faaan taaa diiig', phraseWordlist)).toBe(true);
+    });
+
+    it('absorbs inserted punctuation within a single word of the phrase', () => {
+      expect(containsBannedWord('f.a.n ta d.i.g', phraseWordlist)).toBe(true);
+    });
+
+    it(
+      'does NOT flag the common, benign Swedish idiom "Fan, ta dig samman!" ' +
+        '(the confirmed false positive) -- a comma where the phrase requires ' +
+        'real whitespace between its own words must break the match',
+      () => {
+        expect(
+          containsBannedWord(
+            'Fan, ta dig samman, vi kör vidare!',
+            phraseWordlist,
+          ),
+        ).toBe(false);
+      },
+    );
+
+    it("does NOT flag the phrase's words appearing with unrelated words between them", () => {
+      expect(
+        containsBannedWord('fan är det sant att du har en dig', phraseWordlist),
+      ).toBe(false);
+    });
+  });
 });
