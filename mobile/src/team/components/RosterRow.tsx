@@ -11,6 +11,10 @@ interface RosterRowProps {
   avatarId: string;
   consentStatus: ConsentStatus;
   lastTrainedDate: string | null;
+  /** ADR-0006 Decision 2 — additive on the roster response. A small crown,
+   * same treatment as Screen K1's teammates list, so the captain doesn't
+   * need a second screen to confirm their own status either. */
+  isCaptain: boolean;
   onPress: () => void;
 }
 
@@ -31,6 +35,7 @@ export function RosterRow({
   avatarId,
   consentStatus,
   lastTrainedDate,
+  isCaptain,
   onPress,
 }: RosterRowProps) {
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
@@ -47,7 +52,10 @@ export function RosterRow({
         <Text style={styles.avatarEmoji}>{emoji}</Text>
       </View>
       <View style={styles.textBlock}>
-        <Text style={styles.screenName}>{screenName}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.screenName}>{screenName}</Text>
+          {isCaptain ? <Text style={styles.crown}>👑</Text> : null}
+        </View>
         <Text style={styles.subLine}>
           {lastTrainedDate
             ? `Senast loggade: ${formatSwedishDate(lastTrainedDate)}`
@@ -86,10 +94,18 @@ const styles = StyleSheet.create({
   textBlock: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   screenName: {
     fontFamily: fonts.bodyBold,
     fontSize: 14,
     color: colors.ink,
+  },
+  crown: {
+    fontSize: 13,
   },
   subLine: {
     fontFamily: fonts.body,

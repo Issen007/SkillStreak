@@ -51,10 +51,12 @@ export interface TrainingLogResponse {
     longestStreakCount: number;
     alreadyLoggedToday: boolean;
   };
+  // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed —
+  // there's no fixed maximum anymore. Deliberately no `rank` here either
+  // (see the contract's hot-path reasoning) — a client wanting an updated
+  // rank re-fetches GET /players/me or the dashboard after logging.
   teamPool: {
     pointsTotal: number;
-    goalThreshold: number;
-    percentComplete: number;
   };
   // NEW in Phase 2 (docs/api/phase2-contract.md, ADR-0005 Decision 3): only
   // non-null on the one log whose insertion caused the team to cross its
@@ -86,13 +88,23 @@ export interface PlayerMeResponse {
     lastTrainedDate: string | null;
     alreadyLoggedToday: boolean;
   };
+  // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed,
+  // rank/teamCount added — see docs/api/phase2.7-contract.md. `rank`/
+  // `teamCount` are typed as optional here even though the current backend
+  // always returns them together with a successful response (it 500s
+  // instead of omitting them for a team with no active pot, per
+  // TeamPoolService.getActivePotForTeam) — kept optional defensively so
+  // `TeamPoolCard`'s "between seasons" rendering path (Screen LB1) is
+  // forward-compatible if that 500-on-missing-pot behavior is ever
+  // softened, without a second breaking type change. See this task's final
+  // report for the flagged discrepancy.
   teamPool: {
     seasonId: string;
     seasonLabel: string;
     pointsTotal: number;
-    goalThreshold: number;
-    percentComplete: number;
     status: string;
+    rank?: number;
+    teamCount?: number;
   };
 }
 
@@ -141,13 +153,16 @@ export interface TeamDashboardResponse {
     pendingCount: number;
     revokedCount: number;
   };
+  // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed,
+  // rank/teamCount added — see the equivalent note on PlayerMeResponse
+  // above (same optional-defensively rationale).
   teamPool: {
     seasonId: string;
     seasonLabel: string;
     pointsTotal: number;
-    goalThreshold: number;
-    percentComplete: number;
     status: string;
+    rank?: number;
+    teamCount?: number;
     last7DaysLoggedCount: number;
   };
   weeklyGoal: {
@@ -166,6 +181,9 @@ export interface RosterPlayer {
   avatarId: string;
   consentStatus: ConsentStatus;
   lastTrainedDate: string | null;
+  // ADR-0006 Decision 2 — additive, non-breaking: a captain no longer needs
+  // a second call (the teammates endpoint) to confirm their own status.
+  isCaptain: boolean;
 }
 
 export interface TeamRosterResponse {
@@ -262,6 +280,120 @@ export interface EditableGoalFields {
   targetValue: number;
   startDate: string;
   endDate: string;
+}
+
+// --- Fas 2.6a shapes, mirroring docs/adr/0006-captain-transfer.md +
+// docs/api/phase2-contract.md's 2026-07-08 addendum exactly -----------------
+
+/** endpoint 10, `GET .../teammates` — deliberately narrower than
+ * `RosterPlayer` (no consentStatus/lastTrainedDate), open to every
+ * teammate, not just the captain. Backs Screen K1's baseline "Spelare i
+ * laget" section and Screen K4's transfer-target list. */
+export interface TeammateEntry {
+  playerId: string;
+  screenName: string;
+  avatarId: string;
+  isCaptain: boolean;
+}
+
+export interface TeammatesResponse {
+  teammates: TeammateEntry[];
+}
+
+export interface CaptainTransferRequest {
+  newCaptainPlayerId: string;
+}
+
+export interface CaptainTransferResponse {
+  teamId: string;
+  previousCaptainPlayerId: string;
+  newCaptainPlayerId: string;
+  transferredAt: string;
+}
+
+// --- Fas 2.6b shapes, mirroring docs/api/phase2.6b-contract.md exactly -----
+
+export type ChatReportReason =
+  | 'bullying'
+  | 'inappropriate_language'
+  | 'spam'
+  | 'other';
+
+/** endpoint 2, `GET .../chat/messages` row shape — also the shape of
+ * endpoint 1's `POST .../chat/messages` response, minus `reportedByMe`
+ * (a message the sender just posted couldn't have been reported by them
+ * yet, so the client can safely default it to `false` locally). */
+export interface ChatMessage {
+  id: string;
+  senderPlayerId: string;
+  senderScreenName: string;
+  senderAvatarId: string;
+  content: string;
+  createdAt: string;
+  reportedByMe: boolean;
+}
+
+export interface ChatMessagesResponse {
+  messages: ChatMessage[];
+}
+
+export interface PostChatMessageRequest {
+  content: string;
+}
+
+export interface PostChatMessageResponse {
+  id: string;
+  teamId: string;
+  senderPlayerId: string;
+  senderScreenName: string;
+  senderAvatarId: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface ReportChatMessageRequest {
+  reason: ChatReportReason;
+  note?: string;
+}
+
+export interface ReportChatMessageResponse {
+  reportId: string;
+  messageId: string;
+  createdAt: string;
+}
+
+export interface BlockChatPlayerRequest {
+  blockedPlayerId: string;
+}
+
+export interface BlockChatPlayerResponse {
+  blockedPlayerId: string;
+  createdAt: string;
+}
+
+export interface UnblockChatPlayerResponse {
+  blockedPlayerId: string;
+  unblocked: boolean;
+}
+
+// --- Fas 2.7 shapes, mirroring docs/api/phase2.7-contract.md exactly ------
+
+export interface LeaderboardEntry {
+  rank: number;
+  teamId: string;
+  teamName: string;
+  pointsTotal: number;
+  isRequestingTeam: boolean;
+}
+
+export interface LeaderboardResponse {
+  requestingTeam: {
+    teamId: string;
+    teamName: string;
+    pointsTotal: number;
+    rank: number;
+  } | null;
+  leaderboard: LeaderboardEntry[];
 }
 
 // --- Error envelope -----------------------------------------------------------

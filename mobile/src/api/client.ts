@@ -4,7 +4,7 @@ import { ApiError } from './ApiError';
 import type { ApiErrorBody } from './types';
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH';
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
   /** Attach `Authorization: Bearer <sessionToken>` — omit for the two
    * unauthenticated onboarding endpoints (invite preview, create player). */

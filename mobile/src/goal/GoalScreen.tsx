@@ -181,6 +181,12 @@ export function GoalScreen({ teamId }: GoalScreenProps) {
               <Text style={styles.historyDates}>
                 {formatSwedishDate(item.startDate)} – {formatSwedishDate(item.endDate)}
               </Text>
+              {item.status === 'completed' ? (
+                <Text style={styles.historyTally}>
+                  {item.progressMinutes} / {item.targetValue} minuter · +
+                  {item.bonusPointsAwarded ?? 0}p bonus
+                </Text>
+              ) : null}
             </View>
           ))
         ) : (
@@ -206,13 +212,21 @@ export function GoalScreen({ teamId }: GoalScreenProps) {
           percentComplete={goal.percentComplete}
           endDate={goal.endDate}
           goalMet={goal.goalMet}
+          targetMetric={goal.targetMetric}
         />
       ) : !data.viewerIsCaptain ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyHeading}>Inget mål just nu</Text>
+          <Text style={styles.emptyHeading}>🎯 Inget mål just nu</Text>
           <Text style={styles.emptySub}>Er kapten sätter snart ett nytt mål för laget!</Text>
         </View>
       ) : null}
+
+      {/* Fas 2.6c polish item 2 — promoted above captain-only actions and
+          upgraded to SecondaryButton (from a plain text link), since
+          "see the goals that are created" is Fas 2.6c's own first-class
+          ask, not a footnote; same destination, just consistently
+          prominent regardless of who's looking. */}
+      <SecondaryButton label="Se tidigare mål" onPress={() => void handleOpenHistory()} />
 
       {data.viewerIsCaptain ? (
         <View style={styles.captainActions}>
@@ -247,8 +261,6 @@ export function GoalScreen({ teamId }: GoalScreenProps) {
           ) : null}
         </View>
       ) : null}
-
-      <SecondaryLink label="Se tidigare mål" onPress={() => void handleOpenHistory()} />
 
       {toastMessage ? <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} /> : null}
     </ScrollView>
@@ -331,6 +343,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 11.5,
     color: colors.textMuted,
+  },
+  historyTally: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    color: colors.goldText,
   },
   emptyText: {
     fontFamily: fonts.body,

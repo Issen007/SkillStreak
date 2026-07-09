@@ -573,14 +573,55 @@ You shouldn't have any maximum goal, instead that points should be compaired wit
       reviewed directly, a legitimate test-design choice, not weakened
       assertions.
 
-**Fas 2.6a/2.6b/2.7 backend + design work is complete and independently
-verified** (lint, build, 114/114 unit tests, 55/55 e2e tests, re-run 4
-times against a genuinely fresh Postgres 18 + Redis instance with no
-flakiness). **Still open before any of this can merge**: frontend
-implementation, and the mandatory code-critic + security-reviewer pass —
-team chat (2.6b) is explicitly blocking on security-reviewer sign-off, per
-ADR-0007 and CLAUDE.md. The `GET .../chat/blocks` gap ux-designer flagged
-is a real, small fast-follow, not yet built.
+- [x] **frontend-developer**: built all four sub-phases against the flow
+      doc and the real, running backend. Part A: the always-visible
+      teammates section on K1, Screen K4's captain-transfer flow (every
+      contract error branch handled), and Screen K5's celebratory banner
+      reusing `AppShell.tsx`'s existing catch-up-diff mechanism verbatim
+      (including a correct "first time ever seen on this device" baseline
+      case, so a fresh install doesn't mistake an existing captain for a
+      newly-promoted one). Part B: the new "Chatt" tab (second in order),
+      CH0-CH5 built to spec, with report/block correctly disabled on the
+      viewer's own messages (verified directly in `MessageBubble.tsx` —
+      `onPress={isOwn ? undefined : onTapBody}` and the sender row not
+      rendered at all for own messages). Part C: all four goal-screen
+      polish items. Part D: `TeamPoolCard` rewritten, the new leaderboard
+      screen, and an isolated `swedishOrdinal` helper (verified correct
+      against the 1/2/3/4/11/12/21/22/23 rule directly). Verified
+      independently: `npx tsc --noEmit` and `npx expo-doctor` (18/18) both
+      clean; the agent additionally exercised every new endpoint against a
+      real running backend (seeded team, minted session token, captain
+      transfer, chat send/poll/report/block/filter-rejection, leaderboard
+      with real multi-tie data) before handing back — a stronger
+      verification bar than a typical frontend pass in this project so far.
+      **Two judgment calls flagged and reviewed, both accepted**: the
+      "Chatt" tab's unread dot is a one-shot lightweight check in
+      `AppShell`'s existing foreground-check cycle (not a continuous poll,
+      which only runs while the tab itself is mounted) — resolves a real
+      internal contradiction in the flow doc, not a deviation from intent.
+      Screen LB1's "between-seasons, graceful card" state is currently
+      unreachable through `GET /players/me`/the dashboard in practice,
+      since `TeamPoolService.getActivePotForTeam` still throws a `500` for
+      the *requesting* team's own missing pot — confirmed by reading that
+      method directly: this is pre-existing Phase 1 behavior, unchanged by
+      ADR-0008, not a regression introduced here. The frontend still built
+      the graceful UI defensively (harmless, forward-compatible) since
+      Screen LB2's identical between-season case *is* fully reachable and
+      real (`requestingTeam: null`).
+
+**Fas 2.6a/2.6b/2.7 is functionally complete end to end and independently
+verified** (backend: lint, build, 114/114 unit tests, 55/55 e2e tests,
+re-run 4 times against a genuinely fresh Postgres 18 + Redis instance with
+no flakiness; frontend: clean typecheck/expo-doctor plus live exercise
+against that same real backend). **Still open before any of this can
+merge**: the mandatory code-critic + security-reviewer pass — team chat
+(2.6b) is explicitly blocking on security-reviewer sign-off, per ADR-0007
+and CLAUDE.md. Two small, non-blocking gaps remain tracked, not yet built:
+the `GET .../chat/blocks` endpoint ux-designer flagged (block-management
+is currently client-cache-backed only), and the `getActivePotForTeam`
+between-seasons `500` behavior just re-confirmed above (an existing,
+already-accepted Phase 1 gap, now slightly more visible now that a
+leaderboard exists to compare against).
 
 ## Phase 3 — Media & social ("Fas 3")
 
