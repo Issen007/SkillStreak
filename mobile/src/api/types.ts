@@ -24,11 +24,27 @@ export interface CreatePlayerRequest {
   avatarId: string;
   birthYear: number;
   parentContact: string;
+  // NEW (docs/adr/0009-self-service-team-creation.md / phase1-contract.md's
+  // 2026-07-09 addendum) — present if and only if a prior
+  // GET /teams/invite/:inviteCode 404'd and the player chose to create a
+  // team instead of retrying. Absent -> byte-for-byte the previous
+  // behavior (join-only, existing 404 if the code doesn't match).
+  teamName?: string;
 }
 
 export interface CreatePlayerResponse {
   playerId: string;
   teamId: string;
+  // NEW, same addendum — the joined-or-created team's actual name; the
+  // create path has no O2-equivalent preview, so this is the client's only
+  // server-confirmed copy of the accepted name.
+  teamName: string;
+  // NEW — true only when this exact request is the one that created the
+  // team (not merely "this team happens to be recently created"). Kept
+  // separate from `isCaptain` deliberately, per ADR-0009 Decision 2.
+  teamCreated: boolean;
+  // NEW — always present now; true iff `teamCreated` is true, for Phase 1.
+  isCaptain: boolean;
   screenName: string;
   avatarId: string;
   consentStatus: ConsentStatus;

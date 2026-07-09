@@ -783,6 +783,34 @@ work chronologically.
       after a fresh container start, not reproduced across 4 subsequent
       clean runs — consistent with this suite's already-documented
       shared-Postgres/parallel-execution characteristics, not a new bug).
+- [x] **frontend-developer**: built Screens O1a/O1b/O1c, O5's two new error
+      branches, and O6's celebration variant against the live backend.
+      Screen O6 confirmed built strictly off the `201` response's
+      `teamCreated`/`isCaptain` fields (traced directly: `data.teamCreated`/
+      `data.isCaptain` are set from `response.teamCreated`/`response
+      .isCaptain` at the point of the API call, never from any locally-
+      tracked "which screen did I come from" state) — the correctness
+      property the flow doc most cared about. Verified live against a real
+      backend: `201` team creation, the `409` race (fired two genuinely
+      concurrent requests), and `422` filter rejection (using a real
+      wordlist entry) all matched the contract byte-for-byte; `tsc`/
+      `expo-doctor` clean; a full Metro bundle compiled with no errors.
+      Could not do a literal simulator/Expo-Go tap-through (no
+      iOS Simulator/Android emulator in this Linux environment) —
+      deliberately avoided driving the desktop's GUI to get a screenshot
+      instead, since doing so risked capturing the project owner's other
+      open windows; flagged as a real, not-fully-closed verification gap
+      rather than glossed over.
+      **One real gap found on review, fixed before commit**: the backend's
+      `TeamsService.createTeam` checks both the team name and the invite
+      code against the content filter but throws the identical
+      `422 team_name_rejected_by_filter` for either — the original
+      frontend copy ("Lagnamnet gick inte att spara...") only blamed the
+      name, which would have misdirected a kid whose *code* was actually
+      the problem into repeatedly retyping an already-fine name. Not a
+      dead end (the "Byt kod" link was always present on Screen O1b) but
+      genuinely misleading — copy corrected to name both possibilities and
+      point at "Byt kod" explicitly.
 
 ## Phase 3 — Media & social ("Fas 3")
 
