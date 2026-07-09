@@ -11,7 +11,10 @@ which this contract assumes).
 Out of scope for Phase 1 (don't build against these yet):
 - Coach self-serve team/invite-code creation (Phase 2's coach dashboard).
   For Phase 1, assume a `Team` + `invite_code` already exists via a
-  backend-developer seed/admin step.
+  backend-developer seed/admin step. **Superseded for the "no matching
+  team" case by the 2026-07-09 addendum below** — the invite-code preview
+  step's `404` no longer has to be a dead end; ordinary seed/admin team
+  creation is otherwise unchanged.
 - Challenges (`challengeId` is accepted as an optional field below since
   the column exists per ADR-0002, but no challenge-management endpoints
   exist yet).
@@ -47,8 +50,10 @@ Out of scope for Phase 1 (don't build against these yet):
 ## Onboarding sequence
 
 1. Coach shares the team's `invite_code` out of band (spoken/written at
-   practice) — no endpoint needed for this in Phase 1.
-2. App calls `GET /teams/invite/:inviteCode` to preview the team
+   practice) — no endpoint needed for this in Phase 1. **Or**, per the
+   2026-07-09 addendum below, a player whose code doesn't match anything
+   can create a new team instead, becoming its first player and captain.
+2. App calls `GET /api/v1/teams/invite/:inviteCode` to preview the team
    ("Ansluter du till IBK Falken?") before committing to anything.
 3. Kid picks a `screenName` + `avatarId`; app also collects `birthYear`
    and a `parentContact` (coach-facilitated — exact UX of *whose* device
@@ -76,8 +81,8 @@ Out of scope for Phase 1 (don't build against these yet):
 
 ### 1. `GET /api/v1/teams/invite/:inviteCode`
 
-Preview a team before joining. No auth (a device doesn't have a token
-yet at this point).
+Preview a team before joining. No auth (a device doesn't have a token yet
+at this point).
 
 Response `200`:
 ```json
@@ -89,6 +94,10 @@ hint whether a code is "close" to valid:
 ```json
 { "error": { "code": "invite_code_not_found", "message": "..." } }
 ```
+
+**Unchanged by the 2026-07-09 addendum** — see that section for why this
+`404`'s existing meaning ("no team matches this code") already doubles as
+"this code is available to create a team with," with no new field needed.
 
 ### 2. `POST /api/v1/players`
 
@@ -120,6 +129,12 @@ Response `201`:
 
 Errors: `404 invite_code_not_found`, `409 screen_name_taken_in_team`,
 `400` validation (e.g. `birthYear` out of a sane range).
+
+**See the 2026-07-09 addendum below for this endpoint's self-service-team-
+creation extension** (a new optional request field, three new response
+fields, two new error codes) — kept here only in its original Phase 1
+shape for historical clarity; the addendum is the current, additive
+superset.
 
 ### 3. `POST /api/v1/training-logs`
 
@@ -227,3 +242,125 @@ not the actual enforcement point).
   + streak/pool update, then Redis update) should follow ADR-0002's
   Postgres-then-Redis pattern; the `403 consent_required` check happens
   before that transaction starts, not after.
+
+## Addendum — 2026-07-09: self-service team creation
+
+Per [`docs/adr/0009-self-service-team-creation.md`](../adr/0009-self-service-team-creation.md).
+Closes O1's previous dead end: if `inviteCode` doesn't match any team, the
+person onboarding can create one instead, becoming its first player and
+automatic captain. **Fully additive/backward-compatible** — a client that
+never sends `teamName` sees exactly the Phase 1 behavior above, including
+the existing `404`. This is a Phase 1 onboarding contract change (not a
+Phase 2 one), even though it's landing alongside later phases' work.
+
+### `GET /api/v1/teams/invite/:inviteCode` — unchanged
+
+No new field, no new status code. This endpoint's `404` has exactly one
+cause (no team matches the code), so it already unambiguously means "this
+code is available" — see ADR-0009 Decision 4. Any "create a new team
+instead" affordance off this response is a frontend/UX decision built on
+information the client already has, not a backend contract change.
+
+### `POST /api/v1/players` — request gains one optional field
+
+```ts
+{
+  inviteCode: string;
+  screenName: string;
+  avatarId: string;
+  birthYear: number;
+  parentContact: string;
+  teamName?: string;       // NEW — set only when the client already knows
+                            // (from a prior 404 on the invite-code preview)
+                            // that inviteCode doesn't match any team, and
+                            // the player has chosen to create one instead
+                            // of retrying. Bounded length (see
+                            // implementer note below); rejected if it
+                            // fails the same content-safety check chat
+                            // messages use (ADR-0009 Decision 5).
+}
+```
+
+Behavior:
+- `teamName` **absent** — byte-for-byte today's behavior. `inviteCode` must
+  match an existing team or the request `404`s exactly as before.
+- `teamName` **present** and `inviteCode` matches an existing team — the
+  player simply joins that team; `teamName` is ignored (ADR-0009 Decision 2
+  explains why this is a silent no-op rather than a new error).
+- `teamName` **present** and `inviteCode` matches no team — a new `Team` is
+  created with `inviteCode` as its permanent invite code (ADR-0009
+  Decision 3) and `teamName` as its name (subject to the content-safety
+  check), together with an active `Season`/`TeamSeasonPot` (ADR-0009
+  Decision 6), and this player is created with `isCaptain: true` — the only
+  place in the onboarding flow that ever sets it.
+
+### `POST /api/v1/players` — response gains three fields
+
+```json
+{
+  "playerId": "uuid",
+  "teamId": "uuid",
+  "teamName": "IBK Falken P13",
+  "teamCreated": false,
+  "isCaptain": false,
+  "screenName": "FloorballStar15",
+  "avatarId": "fox",
+  "consentStatus": "pending",
+  "sessionToken": "eyJ..."
+}
+```
+
+- `teamName` — the joined-or-created team's actual name. New: the previous
+  shape never echoed this back (the join path already showed it at O2's
+  preview; the create path has no equivalent preview, so this is the
+  client's only server-confirmed copy of the accepted name).
+- `teamCreated` — `true` only when this exact request is the one that
+  created the team (not merely "this team happens to have been recently
+  created by someone else"). Deliberately a separate field from `isCaptain`
+  rather than something the client infers from it — see ADR-0009 Decision 2.
+- `isCaptain` — `true` if and only if `teamCreated` is `true`, for Phase 1.
+  Always present now (previously absent from this response entirely),
+  defaulting `false` for the ordinary join path.
+
+### `POST /api/v1/players` — new errors
+
+- **`422 team_name_rejected_by_filter`** — `teamName` was supplied but
+  failed the same keyword-based content-safety check used for team chat
+  (`ChatModerationCheck`, ADR-0007 Decision 2 / ADR-0009 Decision 5). Only
+  reachable when creation was actually attempted (i.e. `inviteCode` didn't
+  match an existing team). Client should return the player to the
+  team-naming step with a generic, non-judgmental message — exact copy is
+  ux-designer's call, same posture as chat's `message_rejected_by_filter`.
+- **`409 invite_code_taken_concurrently`** — an extremely rare race: another
+  request created a team with the identical `inviteCode` between this
+  device's O1 preview and this `POST /players` call. ADR-0009 Decision 8
+  explains why this is a hard error rather than a silent fallback-to-join.
+  Client should return to O1 ("Screen O1 — Ange lagkod") so the player can
+  re-check the code, mirroring the existing "code became invalid between O1
+  and now" edge case already documented for the join path.
+- Existing `404 invite_code_not_found`, `409 screen_name_taken_in_team`, and
+  `400` validation errors are unchanged in meaning; `400` validation now
+  also covers `teamName`'s length/non-empty constraints when present.
+
+### Implementer notes
+
+- **backend-developer:** `teamName`, like `screenName`, needs a sane
+  `MaxLength` (recommend 60 — no existing cap on `Team.name` today,
+  first one being introduced here) validated at the DTO boundary, same
+  posture as every other free-text onboarding field. Separately, flagging
+  that `inviteCode` itself has **no** `MaxLength` today, even though it may
+  now be persisted permanently as a `Team.invite_code` rather than only
+  ever compared against existing rows — worth adding a bound (e.g. 30) as
+  part of this change, not a pre-existing gap to leave as-is now that the
+  field has a new, permanent consequence.
+- **ux-designer:** O1's existing `404` copy/flow needs a new branch offering
+  "create a new team instead," and — per ADR-0009's flagged risk #4 — a
+  real confirmation step before that creation actually happens (this app's
+  only other irreversible-ish onboarding action, joining an *existing*
+  team, already gets one at O2; creating a brand-new one currently
+  wouldn't, without a deliberate design pass to add it). Not designed in
+  this contract doc.
+- **frontend-developer:** `teamCreated`/`isCaptain` on the `201` response
+  are the hook for a distinct "you created your team!" O6-equivalent
+  celebration moment, separate from the ordinary "you joined {teamName}"
+  copy — exact copy/flow is ux-designer's call, not fixed here.

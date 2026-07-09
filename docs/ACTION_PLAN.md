@@ -672,6 +672,64 @@ flagged (block-management is currently client-cache-backed only), and the
 already-accepted Phase 1 gap, now slightly more visible now that a
 leaderboard exists to compare against).
 
+## Phase 2.9 — Self-service team creation
+
+The project owner's instruction: if the invite code a new person enters at
+onboarding doesn't match any team, they should be able to create a new team
+right there instead of dead-ending — becoming its first player and
+**automatically its captain**. Confirmed product decisions: the new team's
+name is checked with the same content-safety mechanism built for chat
+(`ChatModerationCheck`), since `Team.name` is now cross-team-visible via the
+VM-Guld leaderboard; and a newly self-created team gets a working
+`Season`/`TeamSeasonPot` atomically, not as a manual follow-up. This is
+fundamentally a Phase 1 onboarding contract change (branch
+`self-service-team-creation`, stacked on `phase2.6-2.7-architecture` since
+it reuses that branch's chat-moderation code), landing after later phases'
+work chronologically.
+
+- [x] **architect**: designed team creation inside `OnboardingService
+      .createPlayer`'s existing transaction (no separate `POST /teams` —
+      avoids an orphaned team if onboarding is abandoned partway through),
+      the originally-typed invite code becoming the new team's permanent
+      code (evaluated against generating one, rejected as more friction for
+      no real benefit), a new minimal `moderation/` module extracting the
+      `CHAT_MODERATION_CHECK` DI binding so team-name checks and chat reuse
+      one seam without pulling all of `TeamChatModule` into onboarding, a
+      Swedish half-year season/pot default consistent with existing seed
+      data, and an explicit `409 invite_code_taken_concurrently` for the
+      (rare) two-people-race-the-same-code case rather than a silent
+      fallback-to-join. → `adr/0009-self-service-team-creation.md`,
+      `api/phase1-contract.md`'s 2026-07-09 addendum. **Fully additive**:
+      a client that never sends the new optional `teamName` field sees
+      byte-for-byte existing Phase 1 behavior.
+      **Five adjacent risks flagged, not silently resolved** — the most
+      important: a newly self-created captain could exercise full captain
+      authority (weekly-goal management, roster/consent visibility,
+      triggering a teammate's session-reissue) *before their own parental
+      consent is approved*, since no captain-gated endpoint has ever
+      checked the *acting* captain's own consent status, only the target's
+      where relevant — this was previously unreachable (a seed captain's
+      consent is pre-approved; an ADR-0006 transfer target is always
+      already-onboarded) but is now the first realistic path where it's
+      live. **Decided, not left open**: captain-gated actions now also
+      require the acting captain's own `parentalConsentStatus ===
+      approved`, extending the same pattern that already gates training-log
+      creation and chat sends — closes the window rather than leaving a
+      still-pending child with live authority over teammates. Flagged for
+      **security-reviewer to confirm this decision**, not just implement it
+      blindly. Other flagged items, left for their respective owners:
+      team-creation abuse/rate-limit posture (the existing 10/min/IP
+      onboarding throttle now bounds a heavier action — security-reviewer),
+      permanently-orphaned self-created teams if consent is never approved
+      (accepted, consistent with this app's existing no-deletion posture),
+      the missing O1 "are you sure?" confirmation before an irreversible
+      team creation — unlike joining an existing team, which already has
+      one at O2 (ux-designer), and whether the invite code itself (not just
+      the name) should also pass the content filter, since it's now
+      potentially child-chosen and permanently repeated aloud to recruit
+      teammates (recommended by architect, decided here: yes, run the same
+      check against both fields).
+
 ## Phase 3 — Media & social ("Fas 3")
 
 This phase is the highest privacy risk (video, a feed, tagging teammates) —
