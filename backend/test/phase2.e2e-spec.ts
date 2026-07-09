@@ -126,15 +126,21 @@ describe('Phase 2 API (e2e)', () => {
   }
 
   /** Directly creates an approved, is_captain player for a team — mirrors
-   * seed.ts's manual-assignment posture, no onboarding round-trip needed. */
-  async function createCaptain(teamId: string) {
+   * seed.ts's manual-assignment posture, no onboarding round-trip needed.
+   * `consentStatus` defaults to approved (every existing caller's implicit
+   * assumption, unchanged) — overridable for docs/ACTION_PLAN.md's Phase
+   * 2.9 acting-captain consent-gate coverage below. */
+  async function createCaptain(
+    teamId: string,
+    consentStatus: ParentalConsentStatus = ParentalConsentStatus.APPROVED,
+  ) {
     const player = await dataSource.getRepository(Player).save(
       dataSource.getRepository(Player).create({
         teamId,
         screenName: `Kapten${randomUUID().slice(0, 6)}`,
         avatarId: 'fox',
         birthYear: 2012,
-        parentalConsentStatus: ParentalConsentStatus.APPROVED,
+        parentalConsentStatus: consentStatus,
         isCaptain: true,
       }),
     );
@@ -517,6 +523,126 @@ describe('Phase 2 API (e2e)', () => {
       expect((response.body as ApiErrorBody).error.code).toBe(
         'not_team_captain',
       );
+    });
+
+    it("rejects a captain whose own consent is still pending with 403 captain_consent_required (docs/ACTION_PLAN.md's Phase 2.9 decision)", async () => {
+      const { teamId } = await createTeamFixture();
+      const { sessionToken: pendingCaptainToken } = await createCaptain(
+        teamId,
+        ParentalConsentStatus.PENDING,
+      );
+      const { playerId } = await createTeamMember(
+        teamId,
+        ParentalConsentStatus.PENDING,
+      );
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/players/${playerId}/consent-reminder`)
+        .set('Authorization', `Bearer ${pendingCaptainToken}`)
+        .expect(403);
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'captain_consent_required',
+      );
+    });
+  });
+
+  describe("Acting-captain's own consent gate (docs/ACTION_PLAN.md's Phase 2.9 decision) — weekly-goal management and roster", () => {
+    it('a captain with is_captain=true but their own consent still pending is blocked from creating a weekly goal', async () => {
+      const { teamId } = await createTeamFixture();
+      const { sessionToken: pendingCaptainToken } = await createCaptain(
+        teamId,
+        ParentalConsentStatus.PENDING,
+      );
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/weekly-goal`)
+        .set('Authorization', `Bearer ${pendingCaptainToken}`)
+        .send({
+          title: 'Ett mål',
+          description: '...',
+          targetMetric: 'total-minuter',
+          targetValue: 50,
+          startDate: '2026-07-06',
+          endDate: '2026-07-12',
+          status: 'draft',
+        })
+        .expect(403);
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'captain_consent_required',
+      );
+    });
+
+    it('a captain whose own consent is later revoked is blocked from patching a goal they created while still approved (the gate is re-checked per request, never cached)', async () => {
+      const { teamId } = await createTeamFixture();
+      const { playerId: captainId, sessionToken: captainToken } =
+        await createCaptain(teamId);
+      const created = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/weekly-goal`)
+        .set('Authorization', `Bearer ${captainToken}`)
+        .send({
+          title: 'Ett mål',
+          description: '...',
+          targetMetric: 'total-minuter',
+          targetValue: 50,
+          startDate: '2026-07-06',
+          endDate: '2026-07-12',
+          status: 'draft',
+        })
+        .expect(201);
+      const goal = created.body as GoalBody;
+
+      // Consent revoked after the goal was already created — a real,
+      // reachable state (consent can be revoked after approval), used here
+      // to isolate patchGoal's own gate from createGoal's without needing a
+      // second captain (only one is allowed per team).
+      await dataSource
+        .getRepository(Player)
+        .update(
+          { id: captainId },
+          { parentalConsentStatus: ParentalConsentStatus.REVOKED },
+        );
+
+      const response = await request(app.getHttpServer())
+        .patch(`/api/v1/teams/${teamId}/weekly-goal/${goal.id}`)
+        .set('Authorization', `Bearer ${captainToken}`)
+        .send({ title: 'Uppdaterad titel' })
+        .expect(403);
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'captain_consent_required',
+      );
+    });
+
+    it('a captain with pending consent is blocked from the captain-only roster endpoint', async () => {
+      const { teamId } = await createTeamFixture();
+      const { sessionToken: pendingCaptainToken } = await createCaptain(
+        teamId,
+        ParentalConsentStatus.PENDING,
+      );
+
+      const response = await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/roster`)
+        .set('Authorization', `Bearer ${pendingCaptainToken}`)
+        .expect(403);
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'captain_consent_required',
+      );
+    });
+
+    it('dashboard/teammates (not captain-gated) remain open to the same pending-consent captain', async () => {
+      const { teamId } = await createTeamFixture();
+      const { sessionToken: pendingCaptainToken } = await createCaptain(
+        teamId,
+        ParentalConsentStatus.PENDING,
+      );
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/dashboard`)
+        .set('Authorization', `Bearer ${pendingCaptainToken}`)
+        .expect(200);
+      await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/teammates`)
+        .set('Authorization', `Bearer ${pendingCaptainToken}`)
+        .expect(200);
     });
   });
 

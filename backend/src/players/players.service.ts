@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
+  CaptainConsentRequiredException,
   CaptainTransferConflictException,
   CaptainTransferTargetNotOnTeamException,
   CaptainTransferToSelfException,
@@ -20,6 +21,11 @@ export interface CreatePlayerShellInput {
   screenName: string;
   avatarId: string;
   birthYear: number;
+  // docs/adr/0009-self-service-team-creation.md's Server-side algorithm —
+  // true for exactly one call site (OnboardingService.createPlayer, only
+  // when this exact request just created the team); every other existing
+  // caller omits it, which defaults to false, unchanged.
+  isCaptain?: boolean;
 }
 
 export interface CaptainTransferResult {
@@ -61,6 +67,7 @@ export class PlayersService {
       avatarId: input.avatarId,
       birthYear: input.birthYear,
       parentalConsentStatus: ParentalConsentStatus.PENDING,
+      isCaptain: input.isCaptain ?? false,
     });
     return repository.save(player);
   }
@@ -148,6 +155,17 @@ export class PlayersService {
    * The captain check (ADR-0005 Decision 1: "no new CaptainGuard class,
    * a service-layer check is enough"). Layers on top of
    * assertTeamMembership rather than duplicating the team lookup.
+   *
+   * Also requires the *acting* captain's own parentalConsentStatus to be
+   * approved (docs/ACTION_PLAN.md's Phase 2.9 section, prompted by
+   * docs/adr/0009-self-service-team-creation.md's flagged risk #1): before
+   * self-service team creation, every captain reaching this check already
+   * had approved consent by construction (a seed captain's consent is
+   * pre-approved; an ADR-0006 transfer target is always already-onboarded)
+   * — so this was previously a no-op distinction. A self-created team's
+   * captain is the first realistic case where that's no longer true (their
+   * own consent can still be `pending` immediately after the onboarding
+   * shell commits), so it's checked explicitly now rather than assumed.
    */
   async assertIsCaptainOfTeam(
     playerId: string,
@@ -156,6 +174,9 @@ export class PlayersService {
     const player = await this.assertTeamMembership(playerId, teamId);
     if (!player.isCaptain) {
       throw new NotTeamCaptainException();
+    }
+    if (player.parentalConsentStatus !== ParentalConsentStatus.APPROVED) {
+      throw new CaptainConsentRequiredException();
     }
     return player;
   }
@@ -190,6 +211,13 @@ export class PlayersService {
       }
       if (!requester.isCaptain) {
         throw new NotTeamCaptainException();
+      }
+      // Same acting-captain consent gate as assertIsCaptainOfTeam (see its
+      // comment) — transferCaptaincy does its own inline captain check
+      // (row-locked, not via assertIsCaptainOfTeam) so this needs its own
+      // copy of the same rule.
+      if (requester.parentalConsentStatus !== ParentalConsentStatus.APPROVED) {
+        throw new CaptainConsentRequiredException();
       }
       if (newCaptainPlayerId === requesterId) {
         throw new CaptainTransferToSelfException();

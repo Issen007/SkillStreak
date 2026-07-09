@@ -6,6 +6,12 @@ import { OnboardingService } from './onboarding.service';
 interface CreatePlayerResponse {
   playerId: string;
   teamId: string;
+  // docs/adr/0009-self-service-team-creation.md /
+  // docs/api/phase1-contract.md's 2026-07-09 addendum — three new,
+  // additive fields.
+  teamName: string;
+  teamCreated: boolean;
+  isCaptain: boolean;
   screenName: string;
   avatarId: string;
   consentStatus: string;

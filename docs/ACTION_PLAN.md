@@ -753,6 +753,36 @@ work chronologically.
       since the invite-code-filter decision above postdates this pass) the
       recovery copy for an invite-code filter rejection — confirmed
       consistent with the decision now that it's been made.
+- [x] **backend-developer**: implemented ADR-0009 end to end —
+      `OnboardingService.createPlayer`'s `resolveTeam` helper matches the
+      ADR's algorithm exactly (including silently ignoring a redundant
+      `teamName` when the invite code already matched a real team);
+      `TeamsService.createTeam` checks both `name` and `inviteCode` against
+      the content filter before saving; a new minimal `moderation/` module
+      extracts the `CHAT_MODERATION_CHECK` binding so team-name checks
+      reuse chat's already-shipped filter without pulling in
+      `TeamChatModule`'s unrelated entities/imports (verified: no circular
+      import, `TeamChatModule` and `TeamsModule` both depend on
+      `ModerationModule` independently); the acting-captain consent gate
+      decided above is implemented in both `assertIsCaptainOfTeam` (covers
+      weekly-goal create/patch/roster, consent-reminder-resend,
+      session-reissue-trigger — every caller, confirmed by grep) and
+      `transferCaptaincy`'s own inline row-locked check; a new partial
+      unique index (`idx_team_season_pot_one_active_per_team`) backstops
+      the first real non-seed pot-creation path; the invite-code-race case
+      is an explicit `409 invite_code_taken_concurrently`, not a silent
+      fallback, covered by a dedicated concurrency e2e test that also
+      confirms the loser's transaction fully rolls back (no orphan
+      team/season/pot/player). Independently verified (not just the
+      implementing agent's report): read the consent-gate, transaction
+      algorithm, moderation-check call sites, module wiring, and season-date
+      computation directly; lint/build/131 unit tests/71 e2e tests all pass
+      against a genuinely fresh Postgres 18 + Redis instance (5 migrations
+      applied cleanly, including the new index), re-run 5 times total (one
+      transient "connection terminated" flake on the very first run right
+      after a fresh container start, not reproduced across 4 subsequent
+      clean runs — consistent with this suite's already-documented
+      shared-Postgres/parallel-execution characteristics, not a new bug).
 
 ## Phase 3 — Media & social ("Fas 3")
 

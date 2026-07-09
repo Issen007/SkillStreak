@@ -1,8 +1,11 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
+import { stockholmDateString } from '../common/time/stockholm-date.util';
 import { Team } from '../teams/entities/team.entity';
+import { computeHalfYearSeason } from './half-year-season.util';
 import { Season } from './entities/season.entity';
+import { DEFAULT_TEAM_SEASON_POT_GOAL_THRESHOLD } from './team-season-pot-defaults';
 import { TeamSeasonPot } from './entities/team-season-pot.entity';
 import { TeamSeasonPotStatus } from './team-season-pot-status.enum';
 
@@ -58,6 +61,48 @@ export class TeamPoolService {
       ? manager.getRepository(Season)
       : this.seasonRepository;
     return repository.findOne({ where: { id: seasonId } });
+  }
+
+  /**
+   * docs/adr/0009-self-service-team-creation.md Decision 6 — called only
+   * from OnboardingService.createPlayer's transaction, only when that
+   * request just created a brand-new team (never for an ordinary join, and
+   * never touching an existing team's pot). Closes "a self-created team can
+   * be born without a pot" — the exact failure mode getActivePotForTeam
+   * above already guards against with a 500. label/startDate/endDate are
+   * computed from *today's* Europe/Stockholm calendar date via the same
+   * fixed Jan-Jun/Jul-Dec grid src/scripts/seed.ts already hard-codes for
+   * its own seeded season, not a floating "today + N days" window (see the
+   * ADR for why: keeping every team's season aligned to the same calendar
+   * grid is what keeps ADR-0008's cross-team leaderboard comparison from
+   * gaining a second season-shape variable). goalThreshold reuses the
+   * seed's own constant, not a second hardcoded number.
+   */
+  async createInitialSeasonAndPot(
+    manager: EntityManager,
+    teamId: string,
+  ): Promise<{ season: Season; pot: TeamSeasonPot }> {
+    const { label, startDate, endDate } = computeHalfYearSeason(
+      stockholmDateString(),
+    );
+
+    const seasonRepository = manager.getRepository(Season);
+    const season = await seasonRepository.save(
+      seasonRepository.create({ teamId, label, startDate, endDate }),
+    );
+
+    const potRepository = manager.getRepository(TeamSeasonPot);
+    const pot = await potRepository.save(
+      potRepository.create({
+        teamId,
+        seasonId: season.id,
+        pointsTotal: 0,
+        goalThreshold: DEFAULT_TEAM_SEASON_POT_GOAL_THRESHOLD,
+        status: TeamSeasonPotStatus.ACTIVE,
+      }),
+    );
+
+    return { season, pot };
   }
 
   /**

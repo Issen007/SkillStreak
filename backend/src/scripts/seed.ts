@@ -18,6 +18,7 @@ import { TeamCoach } from '../teams/entities/team-coach.entity';
 import { Season } from '../team-pool/entities/season.entity';
 import { TeamSeasonPot } from '../team-pool/entities/team-season-pot.entity';
 import { TeamSeasonPotStatus } from '../team-pool/team-season-pot-status.enum';
+import { DEFAULT_TEAM_SEASON_POT_GOAL_THRESHOLD } from '../team-pool/team-season-pot-defaults';
 
 const SEED_INVITE_CODE = 'FALKEN13';
 const SEED_TEAM_NAME = 'IBK Falken P13';
@@ -95,7 +96,7 @@ async function run(): Promise<void> {
         teamId: team.id,
         seasonId: season.id,
         pointsTotal: 0,
-        goalThreshold: 5000,
+        goalThreshold: DEFAULT_TEAM_SEASON_POT_GOAL_THRESHOLD,
         status: TeamSeasonPotStatus.ACTIVE,
       }),
     );
