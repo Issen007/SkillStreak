@@ -1,0 +1,13 @@
+node_modules/
+.svelte-kit/
+build/
+.env
+.env.*
+!.env.example
+
+# The repo root .gitignore has a blanket `lib/` (Python-venv boilerplate,
+# kept for a future Fas 3+ Python service per docs/adr/0003) that also
+# unintentionally matches SvelteKit's own `src/lib/` convention directory
+# here -- un-ignore it explicitly rather than touching the shared root file.
+!src/lib/
+!src/lib/**
