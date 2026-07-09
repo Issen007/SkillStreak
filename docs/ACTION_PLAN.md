@@ -429,6 +429,16 @@ In the Team ("Laget") tab, you should see the entire team and who is the capten,
       /teams/:teamId/captain-transfer`, `GET /teams/:teamId/teammates`).
       Flagged, not decided: whether either party gets an in-app notification
       of a transfer — left to ux-designer.
+- [x] **ux-designer**: resolved the open notification question — the
+      incoming captain gets a one-time celebratory banner (Screen K5),
+      reusing `AppShell.tsx`'s existing "diff a locally persisted flag"
+      mechanism already built for the weekly-goal bonus catch-up (no new
+      backend). Teammates list becomes an always-visible baseline section
+      on K1 (not folded into captain-only K2), deliberately non-tappable —
+      the transfer action gets its own explicit entry point (K4) so a
+      casual glance at the roster can't trigger it. →
+      `design/phase2.6-2.7-flows.md` Part A,
+      `design/phase2.6-2.7-mockup.html`.
 
 ## Phase 2.6b — Team Chat ("Fas 2.6b")
 
@@ -452,9 +462,33 @@ In the team it should be a team chat where they can communicate with each other,
       app grants a peer. **security-reviewer sign-off on this specific
       gap is a blocking requirement before merge**, per CLAUDE.md and the
       ADR's own framing.
+- [x] **ux-designer**: designed the chat screen (new "Chatt" tab, placed
+      second in tab order by expected visit frequency), with report
+      (tap-to-reveal on a teammate's message, not long-press — findable by
+      a 9-year-old) and block (a different tap target, the sender's
+      avatar/name) kept spatially and functionally separate per the
+      contract's instruction. All copy — filter rejection, report reasons,
+      report confirmation, block confirmation — written specifically to
+      never overpromise a review guarantee ADR-0007 says this app can't
+      deliver. → `design/phase2.6-2.7-flows.md` Part B,
+      `design/phase2.6-2.7-mockup.html`. **Flagged a real contract gap**:
+      no `GET .../chat/blocks` endpoint exists, so the block-management
+      screen is client-cache-backed only (works on the device that made
+      the block, not a fresh install/new device) — flagged for architect
+      as a small, reasonable fast-follow, not invented here.
 
 ## Phase 2.6c — Create Goals in the team ("Fas 2.6c")
 We need a easy way to create goals in the team, but also be able to see the goals that are created. This is a small phase to make sure that the goals are being created and that the goals are being displayed, but also a way to help each other to continue their streak. This is a small phase to make sure that the goals are being created and that the goals are being displayed, but also a way to help each other to continue their streak.
+
+- [x] **ux-designer**: confirmed the existing goal builder/history (KB1-KB4,
+      G1) already satisfy this phase's ask, per the project owner's own
+      decision this session — proposed four small polish items instead of
+      new screens/endpoints: surface `targetMetric` on the goal card so
+      players know what training counts, promote "Se tidigare mål" above
+      captain-only actions, show the final tally + bonus on completed
+      history rows (data already in the response, just unused), and a
+      small icon on the empty-goal state. → `design/phase2.6-2.7-flows.md`
+      Part C.
 
 ## Phase 2.7 - VM-Guld 
 You shouldn't have any maximum goal, instead that points should be compaired with other teams points and you should see a leading board when you click om Lagets VM-Guld-pott (that name need to be cahnged to something better). This is a small phase to make sure that the leading board is working and that the points are being compaired with other teams points, but also a way to help each other to continue their streak. This is a small phase to make sure that the leading board is working and that the points are being compaired with other teams points, but also a way to help each other to continue their streak.
@@ -476,6 +510,19 @@ You shouldn't have any maximum goal, instead that points should be compaired wit
       dropped (same posture as `Coach`/`TeamCoach`). New button copy
       (replacing "Lagets VM-Guld-pott") is flagged for ux-designer, not
       picked here.
+- [x] **ux-designer**: renamed it to **"VM-Guld-tabellen"** — reuses the
+      ordinary Swedish word for a sports league table (every kid already
+      knows it from Allsvenskan/SHL), preserves the existing VM-Guld brand
+      framing rather than discarding it. Designed the rewritten top-level
+      card (number + rank, no progress bar — there's no threshold left for
+      one to represent) and the full leaderboard screen (own team
+      highlighted in natural sorted position, ties shown via simple rank
+      repetition with a one-line explanatory caption shown only when a tie
+      is present, graceful between-seasons/empty-leaderboard states). →
+      `design/phase2.6-2.7-flows.md` Part D,
+      `design/phase2.6-2.7-mockup.html`. Flagged for frontend-developer:
+      Swedish ordinal suffixes (1:a/2:a/3:e/4:e...) need a real formatting
+      helper, not a hardcoded suffix, per CLAUDE.md's i18n instruction.
 
 ## Phase 3 — Media & social ("Fas 3")
 
