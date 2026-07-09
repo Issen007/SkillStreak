@@ -729,6 +729,30 @@ work chronologically.
       potentially child-chosen and permanently repeated aloud to recruit
       teammates (recommended by architect, decided here: yes, run the same
       check against both fields).
+- [x] **ux-designer**: designed the three gaps ADR-0009 left open. O1's old
+      one-line `404` becomes Screen O1a — two big, equal-weight cards
+      ("Jag skrev nog fel" vs. "Vårt lag har ingen kod än"), deliberately
+      neither styled as primary so the UI doesn't nudge a kid toward
+      creating a team. A real confirmation gate (O1b name entry → O1c
+      confirm) sits immediately after naming, before O3-O5's personal-info
+      screens — mirroring exactly where O2 already sits for the join path,
+      so a kid backs out before typing a birth year or parent contact, not
+      after. New copy for `422 team_name_rejected_by_filter` (non-
+      judgmental, typed text preserved, same posture as chat's filter
+      rejection) and `409 invite_code_taken_concurrently`. A distinct
+      👑🎉 founding-captain celebration variant of Screen O6, built
+      **strictly off the response's `teamCreated`/`isCaptain` fields, not
+      which UI path was taken** — a real, correct catch: per ADR-0009
+      Decision 8's race handling, a kid who tapped "create" at O1c can
+      still legitimately land on the ordinary "joined" variant with zero
+      error if someone else's request won the same code first in the
+      interim; building O6 off a locally-remembered "I came from create"
+      flag instead would show the wrong celebration in that case. →
+      `design/phase1-flows.md` (extended in place, continuing its O-prefix
+      scheme), `design/phase1-mockup.html`. Also designed (speculatively,
+      since the invite-code-filter decision above postdates this pass) the
+      recovery copy for an invite-code filter rejection — confirmed
+      consistent with the decision now that it's been made.
 
 ## Phase 3 — Media & social ("Fas 3")
 

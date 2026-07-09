@@ -2,16 +2,27 @@
 
 Status: draft, ux-designer-owned, for frontend-developer to build against.
 Built directly against `docs/api/phase1-contract.md` (including ADR-0002's
-2026-07-03 addendum) — every screen state below is driven by a real request/
+2026-07-03 addendum and its own **2026-07-09 addendum** for self-service
+team creation) — every screen state below is driven by a real request/
 response shape from that contract, and every `consentStatus` value the
 contract defines has a corresponding screen state (see the mapping table in
 Part 1). Visual starting point is `docs/design/home-screen-mockup.html`
 (Phase 0.5) and `docs/design/style-guide.md` — this doc doesn't redesign the
 visual identity, it extends it with real states.
 
+**2026-07-09 update:** Screens O1a/O1b/O1c below are new — the ux-designer
+follow-through [`docs/adr/0009-self-service-team-creation.md`](../adr/0009-self-service-team-creation.md)
+explicitly left open (its Decision 4 and its "Flagged — adjacent risks"
+item 4). They extend Screen O1's old dead-end `404`; O2 through O6 are
+unchanged in structure, except O6 now has a second copy variant and O5
+gains two new error branches — both noted inline below, not as a separate
+doc, since this is a branch off an existing flow, not a new one.
+
 Companion static mockup: `docs/design/phase1-mockup.html` (same phone-frame
 pattern as the Phase 0.5 mockup), covering the states where a picture earns
-its keep — see "Where a mockup exists" callouts below.
+its keep — see "Where a mockup exists" callouts below. Two frames were
+added alongside this update: Screen O1a's branch cards, and Screen O6's
+"you created your team" variant.
 
 ## How to read this document
 
@@ -47,20 +58,152 @@ Copy:
 - Input placeholder: **"T.ex. FALKEN24"**
 - Primary button: **"Hitta mitt lag"**
 
-Error state (`404 invite_code_not_found`) — shown inline under the input,
-input stays filled so the kid can just edit it:
-- **"Vi hittade ingen lag med den koden. Dubbelkolla med din tränare!"**
+**Next:**
+- `200` response → Screen O2, carrying `teamId`/`teamName` in memory (not
+  yet persisted — nothing's created server-side yet).
+- `404 invite_code_not_found` → Screen O1a. **No longer a dead end.** Per
+  ADR-0009, an unmatched code is deliberately generic per the contract
+  ("doesn't hint whether a code is close to valid") — the UI still must not
+  add its own hinting on top (no "did you mean…"), but it now offers a real
+  next step instead of just a blocked input. See O1a for why this is a full
+  branch screen rather than the old one-line inline error.
 
-(Deliberately generic per the contract's "doesn't hint whether a code is
-close to valid" — the UI must not add its own hinting on top, e.g. no
-"did you mean...".)
+---
 
-**Next:** `200` response → Screen O2, carrying `teamId`/`teamName` in
-memory (not yet persisted — nothing's created server-side yet).
+### Screen O1a — Inget lag hittades (branch: fel kod, eller nytt lag?)
+
+**Trigger:** `404 invite_code_not_found` from
+`GET /teams/invite/:inviteCode`.
+**API:** none — this screen only presents a choice; nothing needs
+re-fetching.
+
+**Why a full screen, not the old inline error line:** the same `404` now
+covers two genuinely different situations that only the player can tell
+apart — a coach who genuinely hasn't set the team's code up yet, and a kid
+who mistyped a real code — and per the brief, that choice needs to be
+legible without an adult standing there to explain it. Two big, equal-
+weight tappable cards read more clearly to this age group than an inline
+error line plus a text link competing for attention with the input field
+above it.
+
+**Judgment call:** the copy below is what's fixed; whether
+frontend-developer implements this as a full navigated screen or an inline
+expanding panel under O1's input is a lower-stakes implementation choice —
+either satisfies "two big, clear, equal-weight options," this doc doesn't
+mandate the transition mechanism.
+
+Copy:
+- Heading: **"Vi hittade inget lag med koden {inviteCode}"** (the typed
+  code echoed back, e.g. in a small monospace/badge chip, so the kid can
+  see exactly what didn't match)
+- Sub: **"Ingen fara — välj det som stämmer för dig:"**
+
+Two full-width option cards, stacked, deliberately equal visual weight —
+neither is styled as "primary," so the UI doesn't nudge a kid toward
+creating a team just because that option happens to look more inviting:
+
+**Card A**
+- Icon: 🔍
+- Title: **"Jag skrev nog fel"**
+- Sub: **"Testa koden igen"**
+- Tap → back to Screen O1, with the input **pre-filled with the code just
+  typed, text selected** (ready to be overtyped with one keystroke) —
+  deliberately different from O2's "Nej, testa en annan kod" below, which
+  clears the input: that button means "this is definitely the wrong team,"
+  this one means "I probably just fat-fingered a character."
+
+**Card B**
+- Icon: ✨
+- Title: **"Vårt lag har ingen kod än"**
+- Sub: **"Skapa ett nytt lag med den här koden"**
+- Tap → Screen O1b, carrying `inviteCode` (the exact string just typed,
+  unchanged) in memory.
+
+Small, muted reassurance line below both cards (not required reading,
+doesn't block either choice): **"Osäker? Fråga din tränare innan du
+skapar ett nytt lag."** — a safety valve for the kid who genuinely doesn't
+know, without gatekeeping the kid who does.
+
+**Next:** see per-card behavior above.
+
+---
+
+### Screen O1b — Namnge ditt nya lag
+
+**Trigger:** "Skapa ett nytt lag med den här koden" tapped on O1a.
+**API:** none yet — client-side form state only, same posture as O3's
+`screenName`: there's no "check this name" endpoint in the contract, so
+nothing is validated (including the content-safety filter) until the final
+`POST /players` at the end of O5. This screen can't promise the name or
+code will actually be accepted — that's exactly why O1c exists next, as an
+explicit "here's what we're about to try" moment before the kid invests
+time in O3-O5's personal-info screens.
+
+Copy:
+- Small chip at the top, not editable in place: **"Lagkod: {inviteCode}"**,
+  with an adjacent small text link **"Byt kod"** → back to Screen O1
+  (input pre-filled with the current code, editable) — the same recovery
+  path reused if the code itself ever gets rejected by the content filter
+  at final submit (see O5's error handling below).
+- Heading: **"Vad ska ert lag heta?"**
+- Sub: **"Du blir lagets första spelare — och kapten! Välj ett namn som
+  resten av laget kan vara stolta över."**
+- Input label: **"Lagnamn"**, placeholder: **"T.ex. IBK Falken P13"**
+- Helper text (small, muted): **"Andra lag kan se namnet på topplistan."**
+  (transparency about `Team.name`'s cross-team visibility per ADR-0008 —
+  short enough not to read as a legal disclaimer, but the kid should know
+  before naming it, not discover it later.)
+- Primary button (disabled until non-empty): **"Nästa"**
+
+**Next:** → Screen O1c.
+
+---
+
+### Screen O1c — Bekräfta nytt lag
+
+**Trigger:** team name entered at O1b.
+**API:** none — this is the confirmation gate ADR-0009 flagged as missing
+("Flagged — adjacent risks" item 4): joining an *existing* team already
+gets a "wait, are you sure?" moment at O2 before anything is created; this
+screen is that same moment for the create path, placed **immediately after
+naming, before O3-O5's personal-info screens** — mirroring exactly where
+O2 sits relative to O3-O5 in the join path, so a kid who has second
+thoughts finds out before typing a birth year or a parent's contact info,
+not after.
+
+Because there is genuinely no `POST /teams` endpoint (ADR-0009 Decision 1
+— creation only ever happens inside the final `POST /players` call), this
+screen can't server-verify anything; it's a gate on the kid's own stated
+intent, not a preview of confirmed server state the way O2 is. The copy is
+written to make the *permanence* explicit, since that's the actual risk
+this screen exists to close (a fat-fingered code becoming a permanent
+duplicate/junk team).
+
+Copy:
+- Heading: **"Skapa {teamName}?"**
+- Sub: **"Lagkod: {inviteCode} — dela den med lagkompisar så de kan gå med
+  sen."**
+- Highlighted tip row (small icon, not alarming — 💡, not ⚠️): **"Namnet
+  och koden går inte att ändra sen, så dubbelkolla att allt stämmer!"**
+- Primary button: **"Ja, skapa laget!"**
+- Secondary button (text-style, low visual weight): **"Nej, ändra
+  namnet"** → back to Screen O1b, name field pre-filled and focused.
+
+**Next:** primary tap → Screen O3, carrying `teamName` (and an in-memory
+"this is a create, not a join" flag) alongside the existing `inviteCode`.
+**No API call happens here** — per ADR-0009 Decision 1, the team itself
+isn't created until the final `POST /players` succeeds at the end of O5;
+this screen only locks in the kid's intent, it doesn't make anything
+permanent server-side yet.
 
 ---
 
 ### Screen O2 — Bekräfta lag (team preview confirmation)
+
+**Continues from Screen O1's `200` response — join path only.** The create
+path (O1a's Card B) detours through O1b→O1c instead and rejoins the flow
+directly at O3, skipping this screen entirely since there's no existing
+team to preview.
 
 **Trigger:** `200` from `GET /teams/invite/:inviteCode`.
 **API:** none (read-only preview, already fetched).
@@ -83,7 +226,13 @@ Copy:
 
 ### Screen O3 — Välj ditt spelarnamn och din avatar
 
-**Trigger:** confirmed team from O2.
+**Shared by both onboarding paths, unchanged content either way.** Reached
+from O2 (join) or from O1c (create) — no copy below differs between the
+two; if the player is creating a team, `teamName` simply continues riding
+along in memory alongside `inviteCode` all the way to O5's final submit,
+per the contract (ADR-0009 Decision 1: creation isn't a separate step).
+
+**Trigger:** confirmed team from O2, or confirmed new team from O1c.
 **API:** none yet (client-side form state) — validated server-side at
 final submit (O5→`POST /players`); a duplicate name only surfaces as a
 409 at that point, since there's no "check availability" endpoint in this
@@ -178,16 +327,56 @@ targets" brief) while not pretending an adult isn't usually present for
 this specific step.
 
 **Next:** primary tap → `POST /api/v1/players` with
-`{ inviteCode, screenName, avatarId, birthYear, parentContact }`.
+`{ inviteCode, screenName, avatarId, birthYear, parentContact, teamName? }`
+— `teamName` is present only if the player came through O1a's "create a
+new team" branch.
 
-- **`201`** → Screen O6.
+- **`201`** → Screen O6, whose copy now branches on the response's
+  `teamCreated`/`isCaptain` fields — see O6 below.
 - **`409 screen_name_taken_in_team`** → stay on this screen's flow but
   jump back to O3 with the name field pre-focused and an inline error:
   **"Det namnet är upptaget i laget — testa ett annat!"** (avatar, birth
   year, and parent contact stay filled; only the name needs to change).
 - **`404 invite_code_not_found`** (edge case: code became invalid between
-  O1 and now, e.g. a coach retired it) → back to O1 with: **"Lagkoden
-  fungerar inte längre. Fråga din tränare om en ny kod."**
+  O1 and now, e.g. a coach retired it — join path only, `teamName` absent)
+  → back to O1 with: **"Lagkoden fungerar inte längre. Fråga din tränare om
+  en ny kod."**
+- **`422 team_name_rejected_by_filter`** *(new, create path only)* → back
+  to Screen O1b, team-name field pre-focused, **typed text stays in the
+  input** (nothing cleared) — same posture as team chat's filter rejection
+  (`docs/design/phase2.6-2.7-flows.md`'s `message_rejected_by_filter`
+  copy): non-judgmental, no "banned"/"olagligt" language, since a first
+  attempt might trip it on an entirely innocent word:
+  > **"Lagnamnet gick inte att spara — det innehöll ord som inte funkar
+  > här. Skriv om det så går det bra! ✍️"**
+
+  Screen name, avatar, birth year, and parent contact all stay filled —
+  only the team name needs to change.
+- **`409 invite_code_taken_concurrently`** *(new, create path only — an
+  extremely rare race, ADR-0009 Decision 8)* → back to Screen O1, input
+  cleared (the code is now genuinely gone, there's nothing left to edit),
+  with every other already-entered field (screen name, avatar, birth year,
+  parent contact) preserved in memory so the kid doesn't have to redo
+  O3-O5 once a new code resolves:
+  > **"Åh nej — någon hann skapa ett lag med den koden precis före dig!
+  > Testa en annan kod, så ordnar vi resten direkt."**
+- **Invite-code rejected by the content filter — flagged, not yet in the
+  contract** *(create path only)*: ADR-0009 Decision 3 explicitly leaves
+  open whether `inviteCode` itself should also run through the content
+  filter, separate from `teamName` (which is confirmed). **Designing the
+  recovery path anyway**, since a rejected code can't be "edited" the way
+  a rejected name can — the kid needs an entirely different code, not a
+  tweak to this one. Proposed shape: → back to Screen O1, input cleared,
+  same field-preservation as the race case above, with:
+  > **"Den koden funkar inte som lagkod — testa en annan!"**
+
+  Deliberately as unspecific as chat's filter copy about *why*, same
+  reasoning: don't spotlight the flagged word. **Flagged for
+  architect/backend-developer:** this needs a real, confirmed error code
+  (and a decision on whether the check exists at all) before this branch
+  can actually ship — the copy is ready the moment that's resolved, it
+  isn't blocking anything else in this doc, and this restarts the flow
+  from O1 exactly as the task's brief asked for.
 
 ---
 
@@ -195,23 +384,75 @@ this specific step.
 
 **Trigger:** `201` from `POST /players`.
 **API response fields used:** `sessionToken` (stored in Expo SecureStore
-immediately), `consentStatus` ("pending"), `screenName`, `avatarId`.
+immediately), `consentStatus` ("pending"), `screenName`, `avatarId`,
+`teamName`, `teamCreated`, `isCaptain` *(three new fields, ADR-0009's
+response addendum)*.
 
 A short, single confirmation screen — not the home screen yet — so the
 "what happens next" message actually gets read once, rather than being
 buried under the home screen's other content on first load.
 
-Copy:
-- Big check/wave icon (no photo, matches the no-photo identity rule)
-- Heading: **"Klart, {screenName}!"**
-- Body: **"Vi har skickat en fråga till en förälder eller
-  vårdnadshavare. Så fort de säger ja kan du börja logga träningar och
-  tjäna poäng till laget."**
-- Primary button: **"Nu kör vi"**
+**Two copy variants, driven strictly by the response's `teamCreated`
+field — not by which screen (O1a/O1c vs O2) the client took to get here.**
+See the callout below the table for exactly why that distinction matters:
+
+| `teamCreated` | Moment | Icon | Heading | Body |
+|---|---|---|---|---|
+| `false` (joined an existing team) | ordinary welcome | check/wave (no photo, matches the no-photo identity rule) | **"Klart, {screenName}!"** | **"Du är med i {teamName}! Vi har skickat en fråga till en förälder eller vårdnadshavare. Så fort de säger ja kan du börja logga träningar och tjäna poäng till laget."** |
+| `true` (created a brand-new team — `isCaptain` is always `true` here) | founding-captain celebration | 👑🎉 | **"Grattis, {screenName}! Du skapade {teamName}!"** | **"Du är lagets första spelare — och kapten! Så fort en förälder eller vårdnadshavare säger ja kan du börja logga träningar och bjuda in lagkompisar."** |
+
+The `teamCreated: true` variant also shows a small code chip below the
+body — the kid's only durable, in-app reminder of the code they now need
+to actually recruit teammates with: **"Lagkod: {inviteCode} — dela den med
+dina lagkompisar!"**
+
+Primary button, both variants: **"Nu kör vi"**
+
+**Edge case, no error involved, but it's exactly why O6 must be
+response-driven, not path-driven:** per ADR-0009 Decision 2, a kid who
+confirmed "create" at O1c can still land on the `teamCreated: false` /
+joined-team variant with zero error shown, if — in the multi-screen window
+between O1c and the final `POST /players` — someone else's request already
+created a real team with that exact code first (that request's `teamName`,
+not this kid's). This is deliberately silent per the ADR, not a bug to
+patch here. If O6 were built off a locally-remembered "I came from the
+create branch" flag instead of the live response fields, a kid could see
+the captain-celebration screen for a team they didn't actually end up
+creating — frontend-developer should build this screen strictly off
+`teamCreated`/`isCaptain` from the `201` response, every time.
+
+**Why this is a full screen, not a transient banner like Screen K5 or
+G2:** those patterns exist because their trigger (a captain transfer, a
+team goal being hit) is discovered *asynchronously* — the app diffs a
+freshly fetched value against a locally-stored "last known" flag to notice
+a change happened after the fact. Becoming a founding captain isn't
+asynchronous here: it's known **synchronously**, in the exact same `201`
+response that ends onboarding. There's nothing to detect on a later app
+open, so there's no K5-style local-flag mechanism to build — O6 *is* the
+moment, in full, right now. This also means **no second captain
+announcement is designed for the first real home-screen open that
+follows** — showing it again immediately after O6 would just repeat the
+same fact, not mark a new one.
+
+**Not overclaiming what's actually gated:** ADR-0009 flags (under
+"Flagged — adjacent risks," item 1, unresolved) that a brand-new captain
+can exercise every captain-only action immediately, *before* their own
+parental consent is approved — today's backend gates captain actions on
+team membership + the `isCaptain` flag only, never on the acting
+captain's own `consentStatus`. The body copy above deliberately only
+promises what's actually true today (logging training is consent-gated;
+captain tools currently are not) rather than implying captain tools are
+locked until approval too. **If security-reviewer's eventual answer to
+that flagged risk changes what's actually gated, this copy needs a
+matching update** — noted here so the two don't silently drift apart.
+
+**Where a mockup exists:** the `teamCreated: true` variant is in
+`phase1-mockup.html`.
 
 **Next:** tap → navigates into the app shell, home screen, which
 immediately renders the waiting-for-approval state (Screen O7) because
-`consentStatus` is `"pending"`.
+`consentStatus` is `"pending"` — true for both variants; a founding
+captain waits for their own consent exactly like anyone else.
 
 ---
 
@@ -517,6 +758,49 @@ equally momentous.
    If/when that lands, it's a change to *who* receives the consent link
    (parent vs. player), not a new consentStatus value or a new screen —
    the O7/H4 waiting state and its copy should still hold either way.
+8. **O1a as a full navigated screen, not an inline reveal under O1's
+   input** — chosen for legibility given the audience (two big, equal
+   cards read more clearly than an inline error + link competing with a
+   text input the kid is still looking at). The copy is what's fixed;
+   frontend-developer can build it as an inline expanding panel instead
+   if that measures better, as long as the two options stay equal-weight
+   and full-size.
+9. **O1a's "wrong code" card pre-fills and selects the input, instead of
+   clearing it like O2's "wrong team" button does** — a deliberate,
+   different recovery for a deliberately different situation: O2's "no"
+   means "this is definitely not my team," clearing makes sense; O1a's
+   "I probably mistyped" means the kid likely just needs to fix one
+   character, so pre-filling (selected, ready to overtype) is less
+   re-typing for the same outcome.
+10. **The create-path confirmation (O1c) sits immediately after naming
+    (O1b), before O3-O5** — one of two shapes ADR-0009 explicitly left
+    open ("its own screen right after" vs. "folded into a final review
+    before O5→submit"). Chosen because it mirrors exactly where O2 sits
+    relative to O3-O5 for the join path, and because it means a kid who
+    has second thoughts finds out *before* typing a birth year or a
+    parent's contact info, not after filling in four more screens only
+    to back out at the last moment.
+11. **O6's "joined an existing team" copy now names `teamName` in the
+    body** ("Du är med i {teamName}!"), which the original Phase 1 copy
+    didn't do — a small, optional enhancement made possible by
+    `teamName` now being reliably present on every `201` response (not
+    just inferred from the O2 preview, which never ran for the create
+    path). Low-risk, but flagging it as a change to previously-shipped
+    copy, not something ADR-0009 asked for directly.
+12. **No K5-style "async catch-up" mechanism for the new-captain
+    moment** — unlike K5 (an existing captain discovers a transfer on a
+    *later* app open, via a locally-diffed flag), a founding captain's
+    status is known synchronously in the same `201` response that ends
+    onboarding, so O6 alone carries the celebration; no second mechanism
+    is designed for a later home-screen open. See the callout under O6
+    for the full reasoning.
+13. **Invite-code content-filter rejection copy is designed ahead of a
+    confirmed contract decision** — ADR-0009 Decision 3 explicitly left
+    open whether `inviteCode` (not just `teamName`) runs through the
+    moderation check. The recovery flow and copy are drafted at O5's
+    error list so this doesn't block a future implementation, but the
+    error code itself, and whether the check exists at all, needs
+    architect/backend-developer sign-off before it ships.
 
 ## Open question for security-reviewer
 
@@ -525,3 +809,25 @@ confirm the age-band self-consent nuance (judgment call #7 above) before
 this phase is considered done — this doc assumes the current
 "parent/vårdnadshavare always approves" copy, which may need a variant
 once that's resolved.
+
+## Open questions carried over from ADR-0009, not resolved by this doc
+
+Per CLAUDE.md's "surface, don't silently pick" rule — these are explicitly
+not this doc's call, listed here so they aren't lost between the ADR and
+implementation:
+
+- **Whether `inviteCode` runs through the content-safety filter at
+  creation, alongside `teamName`** (ADR-0009 Decision 3, "flagged, not
+  decided"). Judgment call #13 above designs the recovery path
+  speculatively; the actual product/architecture decision is still open.
+- **Whether captain-only actions should also require the acting
+  captain's own parental consent to be `approved`** (ADR-0009, "Flagged —
+  adjacent risks" item 1) — referenced explicitly in O6's copy above,
+  since a founding captain's `consentStatus` is `pending` at the exact
+  moment they're first told they're captain. security-reviewer sign-off
+  needed; O6's body copy will need a matching update if this changes.
+- **Team-creation abuse/rate-limit posture** (ADR-0009, "Flagged —
+  adjacent risks" item 2) — no UI consequence identified for this pass
+  (the existing `POST /players` throttle behavior is invisible to the
+  player either way), but noted here so it isn't assumed silently closed
+  just because this doc doesn't design anything for it.
