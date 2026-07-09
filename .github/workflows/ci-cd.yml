@@ -163,10 +163,11 @@ jobs:
           tags: |
             ${{ env.LOWER_IMAGE }}:${{ github.sha }}
 
-      # 4. Update the manifest using the new lowercase environment variable
+      # 4. Update the manifest using native Bash environment variables
       - name: Update Deployment Image Tag
         run: |
-          FULL_IMAGE_URL="${{ env.LOWER_IMAGE }}:${{ github.sha }}"
+          # By using $LOWER_IMAGE and $GITHUB_SHA, Bash reads the variables directly
+          FULL_IMAGE_URL="${LOWER_IMAGE}:${GITHUB_SHA}"
           echo "Replacing placeholder with: $FULL_IMAGE_URL"
           sed -i "s|image: skillstreak-api:latest|image: $FULL_IMAGE_URL|g" k8s/api-deployment.yaml
 
