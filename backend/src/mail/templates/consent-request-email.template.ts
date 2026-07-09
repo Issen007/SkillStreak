@@ -8,6 +8,8 @@
 // clear link. No urgency/pressure language — this app's audience is
 // children's parents, per CLAUDE.md's non-negotiable constraints.
 
+import { escapeHtml } from './html-escape.util';
+
 export interface ConsentRequestEmailInput {
   screenName: string;
   teamName: string;
@@ -18,15 +20,6 @@ export interface RenderedEmail {
   subject: string;
   html: string;
   text: string;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 export function buildConsentRequestEmail(

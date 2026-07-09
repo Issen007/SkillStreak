@@ -160,6 +160,97 @@ export class InvalidOrExpiredCodeException extends AppException {
   }
 }
 
+// --- Fas 2.6a (captain transfer) -------------------------------------------
+// docs/adr/0006-captain-transfer.md / docs/api/phase2-contract.md's
+// 2026-07-08 addendum.
+
+export class CaptainTransferToSelfException extends AppException {
+  constructor() {
+    super(
+      'captain_transfer_target_is_self',
+      'newCaptainPlayerId must be a different player than the requesting captain.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class CaptainTransferTargetNotOnTeamException extends AppException {
+  constructor() {
+    super(
+      'captain_transfer_target_not_on_team',
+      'newCaptainPlayerId exists but does not belong to this team.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class CaptainTransferConflictException extends AppException {
+  constructor() {
+    // Defensive backstop for idx_player_one_captain_per_team — should be
+    // unreachable given transferCaptaincy's row locks (see ADR-0006), kept
+    // for the same reason WeeklyGoalService catches the equivalent
+    // violation for idx_challenge_one_active_goal_per_team.
+    super(
+      'captain_transfer_conflict',
+      'Captain transfer could not be completed due to a concurrent update.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+// --- Fas 2.6b (team chat) ---------------------------------------------------
+// docs/adr/0007-team-chat.md / docs/api/phase2.6b-contract.md.
+
+export class ChatMessageRejectedByFilterException extends AppException {
+  constructor() {
+    super(
+      'message_rejected_by_filter',
+      'Message contains a disallowed term.',
+      HttpStatus.UNPROCESSABLE_ENTITY,
+    );
+  }
+}
+
+export class ChatSendRateLimitedException extends AppException {
+  constructor() {
+    super(
+      'chat_send_rate_limited',
+      'Too many chat messages sent recently; try again shortly.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+export class ChatMessageNotFoundException extends AppException {
+  constructor() {
+    super(
+      'chat_message_not_found',
+      'No such chat message on this team.',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+export class ChatMessageAlreadyReportedException extends AppException {
+  constructor() {
+    super(
+      'chat_message_already_reported_by_you',
+      'You have already reported this message.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class ChatReportRateLimitedException extends AppException {
+  constructor() {
+    super(
+      'chat_report_rate_limited',
+      'Too many reports submitted recently; try again shortly.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
 export class SessionReissueDisabledException extends AppException {
   constructor() {
     // Disabled 2026-07-05 per a security review finding: the reissue code

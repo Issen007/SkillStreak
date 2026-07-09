@@ -3,6 +3,12 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "assets": [
+      {
+        "include": "team-chat/swedish-filter-wordlist.json",
+        "outDir": "dist"
+      }
+    ]
   }
 }

@@ -439,6 +439,15 @@ In the Team ("Laget") tab, you should see the entire team and who is the capten,
       casual glance at the roster can't trigger it. →
       `design/phase2.6-2.7-flows.md` Part A,
       `design/phase2.6-2.7-mockup.html`.
+- [x] **backend-developer**: `PlayersService.transferCaptaincy`/
+      `listTeammates`, `isCaptain` added to the existing roster response,
+      two new routes on `WeeklyGoalController`. Follows ADR-0006's exact
+      row-lock order (requester, then target); verified independently
+      (not just the implementing agent's report) by reading the
+      transaction directly and via a dedicated concurrency e2e test
+      (`captain-transfer-concurrency.e2e-spec.ts`). Lint/build/114 unit/55
+      e2e tests all pass against a genuinely fresh Postgres 18 + Redis
+      instance, re-run 4 times with no flakiness.
 
 ## Phase 2.6b — Team Chat ("Fas 2.6b")
 
@@ -476,6 +485,29 @@ In the team it should be a team chat where they can communicate with each other,
       screen is client-cache-backed only (works on the device that made
       the block, not a fresh install/new device) — flagged for architect
       as a small, reasonable fast-follow, not invented here.
+- [x] **backend-developer**: new `team-chat/` module (message/block/report
+      entities + migration, the `ChatModerationCheck` DI seam with a
+      Swedish keyword-list implementation, all 5 endpoints, Redis rate
+      limits, the best-effort dual parent/coach notification email).
+      Verified independently: the message-list query combines the
+      `status != 'hidden'` filter and the per-viewer block filter in one
+      query (read directly, not taken on trust — this is the one place a
+      future refactor could silently leak a blocked/hidden message); the
+      keyword-matcher is word-boundary-aware and evasion-resistant
+      (Unicode-letter-aware for å/ä/ö, absorbs repeated-character and
+      inserted-punctuation evasion) — read and reasoned through directly.
+      Lint/build/unit/e2e all pass (see 2.6a's entry — one shared
+      verification run covered all three phases together).
+      **Flagged by the implementing agent, reviewed and accepted**: the
+      send-rate-limit allowance is claimed *before* the moderation check
+      (so repeated filter-probing still costs the sender's quota, not
+      free); the "already reported" 409 check happens before claiming the
+      report cooldown (a failing call doesn't burn the limit); every coach
+      on file for a team gets the notification email, not just one
+      (`TeamCoach` is many-to-many); content is trimmed before storage,
+      which matches the contract's own "1-500 chars after trim" wording,
+      not a deviation from "never mutated" (that clause is about
+      content/censorship, not whitespace hygiene).
 
 ## Phase 2.6c — Create Goals in the team ("Fas 2.6c")
 We need a easy way to create goals in the team, but also be able to see the goals that are created. This is a small phase to make sure that the goals are being created and that the goals are being displayed, but also a way to help each other to continue their streak. This is a small phase to make sure that the goals are being created and that the goals are being displayed, but also a way to help each other to continue their streak.
@@ -523,6 +555,32 @@ You shouldn't have any maximum goal, instead that points should be compaired wit
       `design/phase2.6-2.7-mockup.html`. Flagged for frontend-developer:
       Swedish ordinal suffixes (1:a/2:a/3:e/4:e...) need a real formatting
       helper, not a hardcoded suffix, per CLAUDE.md's i18n instruction.
+- [x] **backend-developer**: `TeamPoolService.getLeaderboard`/
+      `computeStandardCompetitionRanks`/`getRankAndTeamCountOrThrow` — the
+      query joins only `team_season_pot`/`team`, verified directly by
+      reading it (no `Player`/`PlayerPrivateInfo` join exists anywhere in
+      it, matching the ADR's hard requirement structurally, not just by
+      convention). New `GET .../leaderboard` route; breaking-change updates
+      shipped to `GET /players/me`, the dashboard, and `POST
+      /training-logs` exactly as ADR-0008 specified (`rank`/`teamCount`
+      added to the first two only, dropped entirely from the third).
+      `goal_threshold` column confirmed left in place, unused. Ranking
+      algorithm (ties share rank, next distinct score skips) verified by
+      tracing the implementation against the ADR's own worked example.
+      Test suite includes a dedicated e2e file that deliberately uses
+      well-separated point totals to stay deterministic despite the
+      leaderboard being genuinely global/shared with other e2e fixtures —
+      reviewed directly, a legitimate test-design choice, not weakened
+      assertions.
+
+**Fas 2.6a/2.6b/2.7 backend + design work is complete and independently
+verified** (lint, build, 114/114 unit tests, 55/55 e2e tests, re-run 4
+times against a genuinely fresh Postgres 18 + Redis instance with no
+flakiness). **Still open before any of this can merge**: frontend
+implementation, and the mandatory code-critic + security-reviewer pass —
+team chat (2.6b) is explicitly blocking on security-reviewer sign-off, per
+ADR-0007 and CLAUDE.md. The `GET .../chat/blocks` gap ux-designer flagged
+is a real, small fast-follow, not yet built.
 
 ## Phase 3 — Media & social ("Fas 3")
 

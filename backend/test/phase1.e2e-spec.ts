@@ -37,10 +37,10 @@ interface TrainingLogBody {
     longestStreakCount: number;
     alreadyLoggedToday: boolean;
   };
+  // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed,
+  // and rank is deliberately not added on this hot-path response either.
   teamPool: {
     pointsTotal: number;
-    goalThreshold: number;
-    percentComplete: number;
   };
 }
 
@@ -58,13 +58,15 @@ interface PlayerMeBody {
     lastTrainedDate: string | null;
     alreadyLoggedToday: boolean;
   };
+  // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed,
+  // rank/teamCount added.
   teamPool: {
     seasonId: string;
     seasonLabel: string;
     pointsTotal: number;
-    goalThreshold: number;
-    percentComplete: number;
     status: string;
+    rank: number;
+    teamCount: number;
   };
 }
 
@@ -324,6 +326,19 @@ describe('Phase 1 API (e2e)', () => {
         alreadyLoggedToday: true,
       });
       expect(me.teamPool.pointsTotal).toBe(35);
+      // Fas 2.7: the leaderboard is genuinely cross-team/global (by design
+      // — ADR-0008), so this suite shares Postgres with every other e2e
+      // fixture team ever created; only shape/plausibility is asserted
+      // here, not an exact rank/teamCount (see phase2.7-leaderboard.e2e-
+      // spec.ts for the real ranking-behavior coverage, which uses its own
+      // very-large, well-separated point totals to stay deterministic
+      // against that shared state).
+      expect(Number.isInteger(me.teamPool.rank)).toBe(true);
+      expect(me.teamPool.rank).toBeGreaterThanOrEqual(1);
+      expect(me.teamPool.teamCount).toBeGreaterThanOrEqual(1);
+      expect(me.teamPool.rank).toBeLessThanOrEqual(me.teamPool.teamCount);
+      expect(me.teamPool).not.toHaveProperty('goalThreshold');
+      expect(me.teamPool).not.toHaveProperty('percentComplete');
     });
   });
 });

@@ -1,19 +1,39 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
+  CaptainTransferConflictException,
+  CaptainTransferTargetNotOnTeamException,
+  CaptainTransferToSelfException,
   NotTeamCaptainException,
   PlayerNotFoundException,
   TeamMismatchException,
 } from '../common/errors/exceptions';
+import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
 import { ParentalConsentStatus } from './player-consent-status.enum';
 import { Player } from './entities/player.entity';
+
+const ONE_CAPTAIN_PER_TEAM_CONSTRAINT = 'idx_player_one_captain_per_team';
 
 export interface CreatePlayerShellInput {
   teamId: string;
   screenName: string;
   avatarId: string;
   birthYear: number;
+}
+
+export interface CaptainTransferResult {
+  teamId: string;
+  previousCaptainPlayerId: string;
+  newCaptainPlayerId: string;
+  transferredAt: Date;
+}
+
+export interface TeammateEntry {
+  playerId: string;
+  screenName: string;
+  avatarId: string;
+  isCaptain: boolean;
 }
 
 // Deliberately never imports anything from PlayerPrivateInfoModule — this
@@ -24,6 +44,7 @@ export interface CreatePlayerShellInput {
 @Injectable()
 export class PlayersService {
   constructor(
+    private readonly dataSource: DataSource,
     @InjectRepository(Player)
     private readonly playerRepository: Repository<Player>,
   ) {}
@@ -137,6 +158,94 @@ export class PlayersService {
       throw new NotTeamCaptainException();
     }
     return player;
+  }
+
+  /**
+   * ADR-0006 Decision 1 — self-service captain handoff, the current
+   * captain's own action, targeting a named teammate. No new guard class;
+   * this *is* the concurrency-sensitive authorization boundary (see the
+   * ADR's "Transaction shape" section), not just a column update, so the
+   * captain check happens *inside* the transaction, under a row lock, not
+   * just via assertIsCaptainOfTeam beforehand.
+   *
+   * Fixed lock order on every call — requester row, then target row — is
+   * what prevents two concurrent transfer attempts from the same (still-)
+   * captain from deadlocking on each other; they serialize on the
+   * requester's own row lock instead. Re-checking `requester.isCaptain`
+   * after acquiring that lock (not trusting the caller's JWT-derived
+   * assumption) is what closes the race: a transfer that loses the
+   * serialization order sees `isCaptain: false` under its own lock and
+   * fails with `not_team_captain`, rather than racing the unique index
+   * below.
+   */
+  async transferCaptaincy(
+    teamId: string,
+    requesterId: string,
+    newCaptainPlayerId: string,
+  ): Promise<CaptainTransferResult> {
+    return this.dataSource.transaction(async (manager) => {
+      const requester = await this.findByIdForUpdate(manager, requesterId);
+      if (requester.teamId !== teamId) {
+        throw new TeamMismatchException();
+      }
+      if (!requester.isCaptain) {
+        throw new NotTeamCaptainException();
+      }
+      if (newCaptainPlayerId === requesterId) {
+        throw new CaptainTransferToSelfException();
+      }
+
+      // findByIdForUpdate already throws PlayerNotFoundException if
+      // newCaptainPlayerId doesn't exist at all.
+      const target = await this.findByIdForUpdate(manager, newCaptainPlayerId);
+      if (target.teamId !== teamId) {
+        throw new CaptainTransferTargetNotOnTeamException();
+      }
+
+      const repository = manager.getRepository(Player);
+      requester.isCaptain = false;
+      await repository.save(requester);
+      target.isCaptain = true;
+      try {
+        await repository.save(target);
+      } catch (error) {
+        if (isPostgresUniqueViolation(error, ONE_CAPTAIN_PER_TEAM_CONSTRAINT)) {
+          // Should be unreachable given the locks above — kept as a
+          // backstop, same posture as WeeklyGoalService's equivalent catch
+          // for idx_challenge_one_active_goal_per_team.
+          throw new CaptainTransferConflictException();
+        }
+        throw error;
+      }
+
+      return {
+        teamId,
+        previousCaptainPlayerId: requester.id,
+        newCaptainPlayerId: target.id,
+        transferredAt: new Date(),
+      };
+    });
+  }
+
+  /**
+   * ADR-0006 Decision 2 — "who's on my team, who's captain," open to any
+   * teammate (team-membership check only, not captain-gated). Deliberately
+   * narrower than listByTeam's captain-only consumers (roster): only
+   * playerId/screenName/avatarId/isCaptain, per the contract's "nothing
+   * else" — no consentStatus/lastTrainedDate here.
+   */
+  async listTeammates(
+    teamId: string,
+    requesterId: string,
+  ): Promise<TeammateEntry[]> {
+    await this.assertTeamMembership(requesterId, teamId);
+    const players = await this.listByTeam(teamId);
+    return players.map((player) => ({
+      playerId: player.id,
+      screenName: player.screenName,
+      avatarId: player.avatarId,
+      isCaptain: player.isCaptain,
+    }));
   }
 
   /**

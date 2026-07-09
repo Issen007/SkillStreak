@@ -99,6 +99,9 @@ export interface RosterEntry {
   avatarId: string;
   consentStatus: ParentalConsentStatus;
   lastTrainedDate: string | null;
+  // ADR-0006 Decision 2 — additive, non-breaking: a captain no longer needs
+  // a second call (the teammates endpoint) to confirm their own status.
+  isCaptain: boolean;
 }
 
 export interface DashboardResponse {
@@ -109,13 +112,17 @@ export interface DashboardResponse {
     pendingCount: number;
     revokedCount: number;
   };
+  // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed —
+  // there's no fixed maximum to be a percentage of anymore. rank/teamCount
+  // replace it, computed by the same shared TeamPoolService query the
+  // leaderboard endpoint and GET /players/me both reuse.
   teamPool: {
     seasonId: string;
     seasonLabel: string;
     pointsTotal: number;
-    goalThreshold: number;
-    percentComplete: number;
     status: string;
+    rank: number;
+    teamCount: number;
     last7DaysLoggedCount: number;
   };
   weeklyGoal: {
@@ -131,10 +138,31 @@ export interface DashboardResponse {
   };
 }
 
+// Fas 2.7 (ADR-0008 Decision 3, docs/api/phase2.7-contract.md endpoint 1).
+export interface LeaderboardEntry {
+  rank: number;
+  teamId: string;
+  teamName: string;
+  pointsTotal: number;
+  isRequestingTeam: boolean;
+}
+
+export interface LeaderboardResponse {
+  requestingTeam: {
+    teamId: string;
+    teamName: string;
+    pointsTotal: number;
+    rank: number;
+  } | null;
+  leaderboard: LeaderboardEntry[];
+}
+
 function percentOf(numerator: number, denominator: number): number {
   if (denominator <= 0) return 0;
-  // One decimal place, matching TeamPoolService.percentComplete's contract
-  // example (25.6) and docs/api/phase2-contract.md's weekly-goal examples.
+  // One decimal place, matching docs/api/phase2-contract.md's weekly-goal
+  // progress examples (this is the goal-progress percentage, unrelated to
+  // the team-pool "percent toward a threshold" framing Fas 2.7 removed —
+  // see ADR-0008 Decision 4).
   return Math.round((numerator / denominator) * 1000) / 10;
 }
 
@@ -454,6 +482,8 @@ export class WeeklyGoalService {
         `TeamSeasonPot ${pot.id} references missing season ${pot.seasonId}`,
       );
     }
+    const { rank, teamCount } =
+      await this.teamPoolService.getRankAndTeamCountOrThrow(teamId);
     const last7DaysLoggedCount = await this.countRecentLogs(teamId, 7);
 
     const currentGoal = await this.findCurrentGoalForTeam(teamId);
@@ -489,15 +519,48 @@ export class WeeklyGoalService {
         seasonId: season.id,
         seasonLabel: season.label,
         pointsTotal: pot.pointsTotal,
-        goalThreshold: pot.goalThreshold,
-        percentComplete: TeamPoolService.percentComplete(
-          pot.pointsTotal,
-          pot.goalThreshold,
-        ),
         status: pot.status,
+        rank,
+        teamCount,
         last7DaysLoggedCount,
       },
       weeklyGoal: { current, pastCount },
+    };
+  }
+
+  /**
+   * ADR-0008 Decision 3 / docs/api/phase2.7-contract.md endpoint 1 — the
+   * requesting team's own rank plus the full sorted list, one call, no
+   * second round-trip. `requestingTeam` is null if the calling team
+   * currently has no active pot (more graceful than getDashboard's
+   * 500-on-missing-pot posture — see the ADR).
+   */
+  async getLeaderboard(
+    teamId: string,
+    requesterId: string,
+  ): Promise<LeaderboardResponse> {
+    await this.playersService.assertTeamMembership(requesterId, teamId);
+
+    const rows = await this.teamPoolService.getLeaderboard();
+    const leaderboard: LeaderboardEntry[] = rows.map((row) => ({
+      rank: row.rank,
+      teamId: row.teamId,
+      teamName: row.teamName,
+      pointsTotal: row.pointsTotal,
+      isRequestingTeam: row.teamId === teamId,
+    }));
+
+    const mine = leaderboard.find((row) => row.isRequestingTeam);
+    return {
+      requestingTeam: mine
+        ? {
+            teamId: mine.teamId,
+            teamName: mine.teamName,
+            pointsTotal: mine.pointsTotal,
+            rank: mine.rank,
+          }
+        : null,
+      leaderboard,
     };
   }
 
@@ -510,6 +573,7 @@ export class WeeklyGoalService {
       avatarId: player.avatarId,
       consentStatus: player.parentalConsentStatus,
       lastTrainedDate: player.lastTrainedDate,
+      isCaptain: player.isCaptain,
     }));
   }
 
