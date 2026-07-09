@@ -186,10 +186,6 @@ jobs:
 
       - name: Deploy Manifests
         run: |
-          kubectl apply -f k8s/namespace.yaml
-
-      - name: Deploy Manifests
-        run: |
           kubectl apply -f k8s/configmap.yaml
           kubectl apply -f k8s/secret.yaml
           kubectl apply -f k8s/postgres-pvc.yaml

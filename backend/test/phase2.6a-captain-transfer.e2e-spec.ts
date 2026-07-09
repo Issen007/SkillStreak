@@ -97,14 +97,20 @@ describe('Fas 2.6a: captain transfer + teammates (e2e)', () => {
     return { teamId: team.id };
   }
 
-  async function createCaptain(teamId: string) {
+  /** `consentStatus` defaults to approved (every existing caller's implicit
+   * assumption, unchanged) — overridable for docs/ACTION_PLAN.md's Phase
+   * 2.9 acting-captain consent-gate coverage below. */
+  async function createCaptain(
+    teamId: string,
+    consentStatus: ParentalConsentStatus = ParentalConsentStatus.APPROVED,
+  ) {
     const player = await dataSource.getRepository(Player).save(
       dataSource.getRepository(Player).create({
         teamId,
         screenName: `Kapten${randomUUID().slice(0, 6)}`,
         avatarId: 'fox',
         birthYear: 2012,
-        parentalConsentStatus: ParentalConsentStatus.APPROVED,
+        parentalConsentStatus: consentStatus,
         isCaptain: true,
       }),
     );
@@ -272,6 +278,30 @@ describe('Fas 2.6a: captain transfer + teammates (e2e)', () => {
       expect((response.body as ApiErrorBody).error.code).toBe(
         'validation_error',
       );
+    });
+
+    it("rejects a captain whose own consent is still pending with 403 captain_consent_required (docs/ACTION_PLAN.md's Phase 2.9 decision — checked before the self-transfer/target checks)", async () => {
+      const { teamId } = await createTeamFixture();
+      const { sessionToken: pendingCaptainToken } = await createCaptain(
+        teamId,
+        ParentalConsentStatus.PENDING,
+      );
+      const { playerId: targetId } = await createTeamMember(teamId);
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/captain-transfer`)
+        .set('Authorization', `Bearer ${pendingCaptainToken}`)
+        .send({ newCaptainPlayerId: targetId })
+        .expect(403);
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'captain_consent_required',
+      );
+
+      // Never partially applied: the target never gained captaincy.
+      const targetRow = await dataSource
+        .getRepository(Player)
+        .findOneOrFail({ where: { id: targetId } });
+      expect(targetRow.isCaptain).toBe(false);
     });
   });
 

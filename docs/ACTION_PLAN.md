@@ -753,6 +753,64 @@ work chronologically.
       since the invite-code-filter decision above postdates this pass) the
       recovery copy for an invite-code filter rejection — confirmed
       consistent with the decision now that it's been made.
+- [x] **backend-developer**: implemented ADR-0009 end to end —
+      `OnboardingService.createPlayer`'s `resolveTeam` helper matches the
+      ADR's algorithm exactly (including silently ignoring a redundant
+      `teamName` when the invite code already matched a real team);
+      `TeamsService.createTeam` checks both `name` and `inviteCode` against
+      the content filter before saving; a new minimal `moderation/` module
+      extracts the `CHAT_MODERATION_CHECK` binding so team-name checks
+      reuse chat's already-shipped filter without pulling in
+      `TeamChatModule`'s unrelated entities/imports (verified: no circular
+      import, `TeamChatModule` and `TeamsModule` both depend on
+      `ModerationModule` independently); the acting-captain consent gate
+      decided above is implemented in both `assertIsCaptainOfTeam` (covers
+      weekly-goal create/patch/roster, consent-reminder-resend,
+      session-reissue-trigger — every caller, confirmed by grep) and
+      `transferCaptaincy`'s own inline row-locked check; a new partial
+      unique index (`idx_team_season_pot_one_active_per_team`) backstops
+      the first real non-seed pot-creation path; the invite-code-race case
+      is an explicit `409 invite_code_taken_concurrently`, not a silent
+      fallback, covered by a dedicated concurrency e2e test that also
+      confirms the loser's transaction fully rolls back (no orphan
+      team/season/pot/player). Independently verified (not just the
+      implementing agent's report): read the consent-gate, transaction
+      algorithm, moderation-check call sites, module wiring, and season-date
+      computation directly; lint/build/131 unit tests/71 e2e tests all pass
+      against a genuinely fresh Postgres 18 + Redis instance (5 migrations
+      applied cleanly, including the new index), re-run 5 times total (one
+      transient "connection terminated" flake on the very first run right
+      after a fresh container start, not reproduced across 4 subsequent
+      clean runs — consistent with this suite's already-documented
+      shared-Postgres/parallel-execution characteristics, not a new bug).
+- [x] **frontend-developer**: built Screens O1a/O1b/O1c, O5's two new error
+      branches, and O6's celebration variant against the live backend.
+      Screen O6 confirmed built strictly off the `201` response's
+      `teamCreated`/`isCaptain` fields (traced directly: `data.teamCreated`/
+      `data.isCaptain` are set from `response.teamCreated`/`response
+      .isCaptain` at the point of the API call, never from any locally-
+      tracked "which screen did I come from" state) — the correctness
+      property the flow doc most cared about. Verified live against a real
+      backend: `201` team creation, the `409` race (fired two genuinely
+      concurrent requests), and `422` filter rejection (using a real
+      wordlist entry) all matched the contract byte-for-byte; `tsc`/
+      `expo-doctor` clean; a full Metro bundle compiled with no errors.
+      Could not do a literal simulator/Expo-Go tap-through (no
+      iOS Simulator/Android emulator in this Linux environment) —
+      deliberately avoided driving the desktop's GUI to get a screenshot
+      instead, since doing so risked capturing the project owner's other
+      open windows; flagged as a real, not-fully-closed verification gap
+      rather than glossed over.
+      **One real gap found on review, fixed before commit**: the backend's
+      `TeamsService.createTeam` checks both the team name and the invite
+      code against the content filter but throws the identical
+      `422 team_name_rejected_by_filter` for either — the original
+      frontend copy ("Lagnamnet gick inte att spara...") only blamed the
+      name, which would have misdirected a kid whose *code* was actually
+      the problem into repeatedly retyping an already-fine name. Not a
+      dead end (the "Byt kod" link was always present on Screen O1b) but
+      genuinely misleading — copy corrected to name both possibilities and
+      point at "Byt kod" explicitly.
 
 ## Phase 3 — Media & social ("Fas 3")
 

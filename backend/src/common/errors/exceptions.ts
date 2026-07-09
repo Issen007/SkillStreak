@@ -251,6 +251,60 @@ export class ChatReportRateLimitedException extends AppException {
   }
 }
 
+// --- Fas 2.9 (self-service team creation) -----------------------------------
+// docs/adr/0009-self-service-team-creation.md /
+// docs/api/phase1-contract.md's 2026-07-09 addendum.
+
+export class TeamNameRejectedByFilterException extends AppException {
+  constructor() {
+    // Mirrors ChatMessageRejectedByFilterException's shape (ADR-0009
+    // Decision 5) — thrown whether the team *name* or the (also-checked,
+    // per ACTION_PLAN.md's Phase 2.9 decision) invite *code* fails the
+    // filter; the contract doesn't need to distinguish which field failed.
+    super(
+      'team_name_rejected_by_filter',
+      'Team name (or invite code) contains a disallowed term.',
+      HttpStatus.UNPROCESSABLE_ENTITY,
+    );
+  }
+}
+
+export class InviteCodeTakenConcurrentlyException extends AppException {
+  constructor() {
+    // ADR-0009 Decision 8 — an explicit error, not a silent fallback to
+    // joining the team the other request just created: two onboarding
+    // sessions raced to create a team with the identical not-yet-existing
+    // invite code, and this request lost.
+    super(
+      'invite_code_taken_concurrently',
+      'Another request just created a team with this invite code; please check the code again.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class CaptainConsentRequiredException extends AppException {
+  constructor() {
+    // Decided in docs/ACTION_PLAN.md's Phase 2.9 section, prompted by
+    // ADR-0009's flagged risk #1: a self-created team's captain can exist
+    // with their own parental consent still pending (unlike every prior
+    // captain — seed-created or ADR-0006-transferred — whose consent was
+    // always already approved by construction). Every captain-gated action
+    // (PlayersService.assertIsCaptainOfTeam and the inline check in
+    // transferCaptaincy) now also requires the *acting* captain's own
+    // parentalConsentStatus === approved, not just the isCaptain flag and
+    // team membership. Distinct from the generic ConsentRequiredException
+    // (used for training-log/chat-send) so a client can tell "you're not
+    // captain" apart from "you're captain but your own consent isn't
+    // approved yet".
+    super(
+      'captain_consent_required',
+      "This action requires the acting captain's own parental consent to be approved.",
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
 export class SessionReissueDisabledException extends AppException {
   constructor() {
     // Disabled 2026-07-05 per a security review finding: the reissue code
