@@ -1,0 +1,49 @@
+# Routes the root domain (marketing/product page) and the try. subdomain
+# (hosted "try it" demo — the Expo web export) to the same site Service;
+# nginx inside the pod picks the right content by Host header (see
+# site/nginx.conf). The backend API lives on its own api. subdomain (see
+# ingress.yaml) — a bare API isn't something a browser visitor should
+# land on at the root domain.
+#
+# Both hostnames need their own DNS records pointing at the same
+# ingress-nginx external IP as api.skillstreak.app2.isstech.io.
+#
+# TLS via cert-manager, same staging-first posture as ingress.yaml — see
+# that file's header comment and the warning in k8s/README.md for the
+# staging-to-prod cutover steps. One Certificate covers both hostnames
+# (multi-SAN), since they share the same backend.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: site
+  namespace: skillstreak
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - skillstreak.app2.isstech.io
+        - try.skillstreak.app2.isstech.io
+      secretName: site-tls
+  rules:
+    - host: skillstreak.app2.isstech.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: site
+                port:
+                  number: 80
+    - host: try.skillstreak.app2.isstech.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: site
+                port:
+                  number: 80

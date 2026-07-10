@@ -1,0 +1,19 @@
+# Repo-root .dockerignore -- only used by site/Dockerfile, which is the
+# one service whose build needs files from two subdirectories at once
+# (mobile/ for the Expo web export, site/ for the marketing page) and so
+# is the only Dockerfile with `context: .` in docker-compose.yml/k8s
+# builds. Every other service (backend/, tools/lab-access/) scopes its
+# own build context to its own subdirectory and isn't affected by this
+# file.
+node_modules
+**/node_modules
+.git
+temp/
+k8s/
+docs/
+coverage
+.expo
+**/.expo
+dist
+**/dist
+*.log

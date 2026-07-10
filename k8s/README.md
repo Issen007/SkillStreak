@@ -3,20 +3,36 @@
 Plain Kubernetes YAML (no Helm), pulled forward ahead of the normal Fas 4
 roadmap position to prepare for an external beta deployment. Mirrors
 `docker-compose.yml`: one `api` (NestJS), one Postgres, one Redis, all
-scoped to the `skillstreak` namespace.
+scoped to the `skillstreak` namespace — plus one `site` (the public
+marketing page + hosted "try it" demo, built from `../site/`, not part of
+the compose setup since it's a beta-specific addition).
 
-> ## 🛑 DO NOT apply `ingress.yaml` against a real domain without adding TLS first
-> This is not a generic "add HTTPS eventually" nice-to-have. The
-> parental-consent email (`docs/api/phase1-contract.md`) links to
+Three public hostnames, three separate DNS records needed (all pointing
+at the same ingress-nginx external IP):
+- `skillstreak.app2.isstech.io` — marketing/product page (`site-ingress.yaml`)
+- `try.skillstreak.app2.isstech.io` — hosted Expo web export, the "try it" demo (`site-ingress.yaml`)
+- `api.skillstreak.app2.isstech.io` — the backend API (`ingress.yaml`)
+
+> ## 🛑 Don't let real parental-consent emails go out before the PROD cert is Ready
+> The parental-consent email (`docs/api/phase1-contract.md`) links to
 > `${APP_PUBLIC_URL}/api/v1/consent/:token` — that URL's token **is the
 > credential** that approves a child's account (see
 > `backend/src/players/consent-token.util.ts`). Serving it over plain HTTP
-> means that link, mailed to a real parent, is interceptable on the network
-> and lands in plaintext in any proxy/ingress access log. Add a `tls:`
-> block (cert-manager or equivalent) to `ingress.yaml` *before* this is ever
-> applied against a domain real parents will actually receive links for —
-> not after, not "for the next iteration." Flagged as CONFIRMED/High in the
-> pre-beta security review (see `docs/ACTION_PLAN.md`).
+> or an untrusted cert means that link, mailed to a real parent, is
+> interceptable or gets rejected/warned-on by their mail client. TLS is now
+> wired via cert-manager (`cluster-issuer.yaml`, `ingress.yaml`), but
+> **currently pointed at `letsencrypt-staging`** — deliberately, to confirm
+> the HTTP01 challenge flow works (DNS, ingress-nginx reachability,
+> cert-manager itself) without risking Let's Encrypt's production rate
+> limits on the first attempt. Staging certs are untrusted by real
+> browsers/mail clients. Before any real parent receives a consent email:
+> confirm `kubectl describe certificate api-tls -n skillstreak` shows
+> `Ready`, switch `ingress.yaml`'s `cert-manager.io/cluster-issuer`
+> annotation to `letsencrypt-prod`, delete the stale `api-tls` Secret so
+> cert-manager reissues a trusted one, and confirm *that* one is also
+> `Ready` before MailService actually sends anything real. Originally
+> flagged as CONFIRMED/High in the pre-beta security review (see
+> `docs/ACTION_PLAN.md`) back when there was no TLS story at all.
 
 **Not yet verified against a real cluster.** There is no cluster available
 in this environment to `kubectl apply` these manifests against. What *was*
@@ -43,7 +59,11 @@ tested one.
 | `redis-service.yaml` | ClusterIP only, same reasoning as Postgres's Service. |
 | `api-deployment.yaml` | The NestJS API. Uses a placeholder image (`skillstreak-api:latest`) — building/pushing the real image is a CI/CD step not covered here. Reads config from the ConfigMap + Secret; `/health` for readiness/liveness. |
 | `api-service.yaml` | ClusterIP for the api Pods — the real external entry point is the Ingress, not this Service directly. |
-| `ingress.yaml` | Routes external traffic to the api Service via ingress-nginx. No TLS/cert-manager yet — there's no real domain to issue a cert for. |
+| `cluster-issuer.yaml` | Two cert-manager `ClusterIssuer`s (`letsencrypt-staging`, `letsencrypt-prod`), HTTP01-solved through the existing ingress-nginx controller. Cluster-scoped, apply once. |
+| `ingress.yaml` | Routes `api.skillstreak.app2.isstech.io` to the api Service via ingress-nginx, with TLS from cert-manager. Currently annotated for `letsencrypt-staging` — see the warning above before switching to prod. |
+| `site-deployment.yaml` | The marketing page + hosted "try it" demo, built from `../site/Dockerfile`. Uses a placeholder image, same as `api-deployment.yaml` — no CI job builds/pushes this yet. |
+| `site-service.yaml` | ClusterIP for the site Pods — external entry point is `site-ingress.yaml`, not this Service directly. |
+| `site-ingress.yaml` | Routes both `skillstreak.app2.isstech.io` (root) and `try.skillstreak.app2.isstech.io` to the site Service — nginx inside the pod picks the right content by Host header (see `../site/nginx.conf`). One multi-SAN cert covers both hostnames. |
 
 ## Deploy order
 
@@ -54,7 +74,9 @@ kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/postgres-pvc.yaml -f k8s/postgres-deployment.yaml -f k8s/postgres-service.yaml
 kubectl apply -f k8s/redis-deployment.yaml -f k8s/redis-service.yaml
 kubectl apply -f k8s/api-deployment.yaml -f k8s/api-service.yaml
-kubectl apply -f k8s/ingress.yaml
+kubectl apply -f k8s/site-deployment.yaml -f k8s/site-service.yaml
+kubectl apply -f k8s/cluster-issuer.yaml
+kubectl apply -f k8s/ingress.yaml -f k8s/site-ingress.yaml
 ```
 
 (`kubectl apply -f k8s/` applying everything at once also works, since
@@ -64,12 +86,21 @@ the order above is easier to reason about and debug on a first attempt.)
 
 ## Known gaps / deliberate TODOs
 
-- **No real image yet.** `skillstreak-api:latest` in `api-deployment.yaml`
-  is a placeholder — needs an actual CI/CD step to build `backend/Dockerfile`
-  and push to a registry the cluster can pull from.
-- **No domain/TLS yet.** `ingress.yaml`'s `host` is a placeholder, and there's
-  no TLS/cert-manager config — both are marked TODO for whoever sets up the
-  real domain.
+- **No real image yet, for either deployment.** `api-deployment.yaml`'s
+  and `site-deployment.yaml`'s images are both placeholders — only
+  `backend/Dockerfile` has a CI job building/pushing it
+  (`.github/workflows/ci-cd.yml`); `site/Dockerfile` needs to be built and
+  pushed by hand for now (see `site-deployment.yaml`'s header comment for
+  the exact command).
+- **The hosted demo's browser-tab title says "SkillStreak (dev)"** —
+  that's `mobile/app.json`'s `name` field, shared with the native app
+  builds. Cosmetic only, not worth a special-case for one export target
+  while the project doesn't have a final name yet anyway (see root
+  `CLAUDE.md`'s naming banner).
+- **TLS is on staging, not prod, until verified.** `ingress.yaml` currently
+  issues certs via `letsencrypt-staging` (untrusted by real
+  browsers/clients) — see the warning at the top of this file for the
+  cutover steps to `letsencrypt-prod` before this is used for real.
 - **Migration race with `replicas: 2` on the api.** `backend/docker-entrypoint.sh`
   runs TypeORM migrations on every container start; with more than one
   replica, a rolling restart can run `migration:run` from two pods at once.
