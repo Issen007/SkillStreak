@@ -169,7 +169,20 @@ jobs:
           # By using $LOWER_IMAGE and $GITHUB_SHA, Bash reads the variables directly
           FULL_IMAGE_URL="${LOWER_IMAGE}:${GITHUB_SHA}"
           echo "Replacing placeholder with: $FULL_IMAGE_URL"
-          sed -i "s|image: skillstreak-api:latest|image: $FULL_IMAGE_URL|g" k8s/api-deployment.yaml
+          # k8s/api-deployment.yaml's actual placeholder is a bare `image:`
+          # (see the file's own header comment) — NOT the literal string
+          # "image: skillstreak-api:latest" this used to look for, which
+          # never matched anything and left the field empty, so every
+          # deploy failed with "spec.template.spec.containers[0].image:
+          # Required value". Match any `image:` line instead, and verify
+          # the substitution actually landed so a future mismatch fails
+          # loudly here instead of three steps later as a confusing k8s
+          # validation error.
+          sed -i "s|^\([[:space:]]*\)image:.*|\1image: ${FULL_IMAGE_URL}|" k8s/api-deployment.yaml
+          grep -qF "image: ${FULL_IMAGE_URL}" k8s/api-deployment.yaml || {
+            echo "::error::Failed to set the image on k8s/api-deployment.yaml — placeholder pattern didn't match."
+            exit 1
+          }
 
       - name: Set Kubernetes Context
         run: |

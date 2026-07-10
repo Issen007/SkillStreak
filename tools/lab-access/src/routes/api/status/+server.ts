@@ -1,12 +1,15 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { checkApiHealth } from '$lib/server/health';
+import { checkApiHealth, checkUrlReachable } from '$lib/server/health';
 import { listNetworkCandidates, pickLikelyPrimary } from '$lib/server/network';
 
 // SkillStreak's own established local-dev ports (docker-compose.yml,
 // mobile/README.md) -- this tool assumes the backend and Expo are already
 // running, it doesn't start them.
 const API_PORT = 3000;
+// Expo's web target (`expo start --web`) is served by the same Metro dev
+// server as native, on the same port -- there is no separate web port to
+// track.
 const EXPO_METRO_PORT = 8081;
 
 export interface StatusResponse {
@@ -15,6 +18,8 @@ export interface StatusResponse {
   expoUrl: string | null;
   apiUrl: string | null;
   apiHealthy: boolean;
+  webUrl: string | null;
+  webHealthy: boolean;
   checkedAt: string;
 }
 
@@ -39,13 +44,19 @@ export const GET: RequestHandler = async ({ url }) => {
         expoUrl: null,
         apiUrl: null,
         apiHealthy: false,
+        webUrl: null,
+        webHealthy: false,
         checkedAt: new Date().toISOString(),
       } satisfies StatusResponse,
     );
   }
 
   const apiUrl = `http://${selected.address}:${API_PORT}`;
-  const apiHealthy = await checkApiHealth(apiUrl);
+  const webUrl = `http://${selected.address}:${EXPO_METRO_PORT}`;
+  const [apiHealthy, webHealthy] = await Promise.all([
+    checkApiHealth(apiUrl),
+    checkUrlReachable(webUrl),
+  ]);
 
   return json(
     {
@@ -54,6 +65,8 @@ export const GET: RequestHandler = async ({ url }) => {
       expoUrl: `exp://${selected.address}:${EXPO_METRO_PORT}`,
       apiUrl,
       apiHealthy,
+      webUrl,
+      webHealthy,
       checkedAt: new Date().toISOString(),
     } satisfies StatusResponse,
   );

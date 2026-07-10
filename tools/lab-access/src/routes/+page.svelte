@@ -81,12 +81,10 @@
   <title>SkillStreak — Lab Access</title>
 </svelte:head>
 
-<main>
-  <h1>🥍 SkillStreak — Lab Access</h1>
-  <p class="subtitle">
-    Håll den här sidan öppen under en demo — QR-koden uppdateras automatiskt
-    om du byter nätverk.
-  </p>
+<p class="subtitle">
+  Håll den här sidan öppen under en demo — QR-koden uppdateras automatiskt om
+  du byter nätverk.
+</p>
 
   {#if fetchError}
     <p class="error">{fetchError}</p>
@@ -170,31 +168,8 @@
   {:else}
     <p class="loading">Letar efter nätverk…</p>
   {/if}
-</main>
 
 <style>
-  :global(body) {
-    margin: 0;
-    background: #14141f;
-    color: #f4f4f8;
-    font-family:
-      system-ui,
-      -apple-system,
-      'Segoe UI',
-      sans-serif;
-  }
-
-  main {
-    max-width: 640px;
-    margin: 0 auto;
-    padding: 40px 20px 80px;
-  }
-
-  h1 {
-    font-size: 22px;
-    margin-bottom: 4px;
-  }
-
   .subtitle {
     color: #a5a5b8;
     font-size: 14px;
