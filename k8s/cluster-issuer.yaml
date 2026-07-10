@@ -1,0 +1,48 @@
+# cert-manager ClusterIssuers for Let's Encrypt, solved via HTTP01 through
+# the cluster's existing ingress-nginx controller — no extra DNS-provider
+# API credentials needed, since cert-manager just needs to answer an
+# HTTP challenge on the same Ingress this app already uses.
+#
+# Two issuers, on purpose: `letsencrypt-staging` first (untrusted-by-
+# browsers certs, but no rate limits worth worrying about) to confirm the
+# whole HTTP01 flow actually works — DNS resolves, ingress-nginx is
+# reachable from the internet on :80, cert-manager can complete the
+# challenge — before pointing real parents at this domain. Once a staging
+# cert issues successfully (`kubectl describe certificate api-tls -n
+# skillstreak` shows Ready), switch ingress.yaml's
+# `cert-manager.io/cluster-issuer` annotation to `letsencrypt-prod` and
+# delete the now-stale Secret it created (cert-manager will re-issue a
+# real one). Going straight to prod risks burning into Let's Encrypt's
+# production rate limits (5 duplicate certs/week per exact set of
+# hostnames) if anything's misconfigured on the first attempt.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    # ACME expiry/problem notifications go here — must be a real,
+    # monitored inbox, not a noreply address.
+    email: christian.petersson@isstech.io
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: christian.petersson@isstech.io
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx

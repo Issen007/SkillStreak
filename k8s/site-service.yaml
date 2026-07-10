@@ -1,0 +1,17 @@
+# ClusterIP — internal entry point for the site Pods. External access is
+# via site-ingress.yaml, not by exposing this Service directly (same
+# pattern as api-service.yaml).
+apiVersion: v1
+kind: Service
+metadata:
+  name: site
+  namespace: skillstreak
+  labels:
+    app: site
+spec:
+  type: ClusterIP
+  selector:
+    app: site
+  ports:
+    - port: 80
+      targetPort: 80

@@ -1,0 +1,65 @@
+# The public marketing/product page (skillstreak.app2.isstech.io) and the
+# hosted "try it" demo (try.skillstreak.app2.isstech.io) — one image, two
+# nginx virtual hosts distinguished by the Host header (see
+# site/nginx.conf). Built from site/Dockerfile.
+#
+# `image:` below is a PLACEHOLDER, same convention as api-deployment.yaml —
+# there's no CI job building/pushing this image yet (only backend/Dockerfile
+# is wired into .github/workflows/ci-cd.yml so far). Build it yourself:
+#   docker build -f site/Dockerfile \
+#     --build-arg EXPO_PUBLIC_API_URL=https://api.skillstreak.app2.isstech.io \
+#     -t <your-registry>/skillstreak-site:<tag> .
+#   docker push <your-registry>/skillstreak-site:<tag>
+# and swap the tag in before applying.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: site
+  namespace: skillstreak
+  labels:
+    app: site
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: site
+  template:
+    metadata:
+      labels:
+        app: site
+    spec:
+      containers:
+        - name: site
+          image: # PLACEHOLDER — see comment above
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+              httpHeaders:
+                - name: Host
+                  value: skillstreak.app2.isstech.io
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+              httpHeaders:
+                - name: Host
+                  value: skillstreak.app2.isstech.io
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

@@ -2,22 +2,36 @@
 # is already installed on the target cluster (ingressClassName: nginx) —
 # swap the class if the cluster uses a different ingress controller.
 #
-# TODO (whoever sets up the real domain): this intentionally has no TLS/
-# cert-manager config yet — there's no real public domain for this app
-# yet, just a placeholder in configmap.yaml's APP_PUBLIC_URL.
-# Once a domain exists:
-#   - replace `host` below with the real domain
-#   - add a `tls:` section referencing a cert-manager-issued Secret (or
-#     other TLS termination) so this isn't served over plain HTTP
+# Host is `api.skillstreak.app2.isstech.io` — the root domain now belongs
+# to the new marketing/product page + hosted app demo (see
+# site-ingress.yaml), since a bare API isn't something a browser visitor
+# should land on. Needs its own DNS record pointing at the same
+# ingress-nginx external IP as the root domain.
+#
+# TLS via cert-manager (see cluster-issuer.yaml): currently pointed at
+# `letsencrypt-staging` — issues untrusted-by-browsers certs, but confirms
+# the HTTP01 challenge flow actually works before risking Let's Encrypt's
+# production rate limits. Once `kubectl describe certificate api-tls -n
+# skillstreak` shows Ready, switch the annotation below to
+# `letsencrypt-prod` and delete the `api-tls` Secret so cert-manager
+# reissues a real one — do this before real parents ever receive a
+# parental-consent link pointing at this host (see the big warning in
+# k8s/README.md about that token being a bearer credential).
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: api
   namespace: skillstreak
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.skillstreak.app2.isstech.io
+      secretName: api-tls
   rules:
-    - host: skillstreak.example.todo # TODO: replace with the real domain
+    - host: api.skillstreak.app2.isstech.io
       http:
         paths:
           - path: /

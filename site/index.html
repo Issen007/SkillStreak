@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SkillStreak — Gör träningen till ett spel</title>
+<meta name="description" content="SkillStreak gör den dagliga träningen till ett spel för unga innebandyspelare — personliga streaks och ett gemensamt lagmål, inspirerat av det bästa från spelen kidsen redan älskar." />
+<style>
+  :root {
+    color-scheme: light dark;
+    --ink: #1a1a2e;
+    --paper: #fffdf8;
+    --flame: #ff6b35;
+    --flame-dark: #e2551f;
+    --gold: #f6c744;
+    --card-bg: #ffffff;
+    --card-border: #eee2d0;
+    --text-body: #4a4a5a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #f4f4f8;
+      --paper: #14141f;
+      --card-bg: #1e1e2c;
+      --card-border: #2c2c3d;
+      --text-body: #b8b8c8;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 20px 80px;
+  }
+  .beta-tag {
+    display: inline-block;
+    background: var(--gold);
+    color: #1a1a2e;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    line-height: 1.15;
+    margin: 0 0 12px;
+  }
+  .lede {
+    font-size: 18px;
+    color: var(--text-body);
+    max-width: 56ch;
+    margin: 0 0 40px;
+  }
+  .modes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .card h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+  }
+  .card p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-body);
+  }
+  .icon { font-size: 22px; margin-bottom: 8px; display: block; }
+
+  .try-it {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    padding: 32px;
+    display: flex;
+    gap: 28px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 40px;
+  }
+  .try-it h2 {
+    margin: 0 0 8px;
+    font-size: 22px;
+  }
+  .try-it p {
+    margin: 0 0 16px;
+    color: var(--text-body);
+    font-size: 15px;
+    max-width: 42ch;
+  }
+  .try-it .qr {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 12px;
+    flex-shrink: 0;
+  }
+  .try-it .qr img,
+  .try-it .qr svg {
+    display: block;
+    width: 160px;
+    height: 160px;
+  }
+  .try-it-text { flex: 1; min-width: 240px; }
+  .cta {
+    display: inline-block;
+    background: var(--flame);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-size: 15px;
+  }
+  .cta:hover { background: var(--flame-dark); }
+
+  .privacy {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+  .privacy .item {
+    font-size: 13px;
+    color: var(--text-body);
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .privacy .item .icon {
+    font-size: 16px;
+    margin: 0;
+  }
+
+  footer {
+    font-size: 12px;
+    color: var(--text-body);
+    border-top: 1px solid var(--card-border);
+    padding-top: 20px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <span class="beta-tag">Tidig betaversion</span>
+    <h1>Gör den dagliga träningen till ett spel 🔥</h1>
+    <p class="lede">
+      SkillStreak är byggt av en innebandytränare för att vända ungdomars
+      skärmtid till rörelseglädje — samma sug efter att komma tillbaka som
+      TikTok och Snapchat har, fast riktat mot fysträning och
+      innebandyövningar hemma.
+    </p>
+
+    <div class="modes">
+      <div class="card">
+        <span class="icon">🔥</span>
+        <h3>Individuell streak</h3>
+        <p>
+          Logga minst 10–15 minuters träning om dagen och bygg din egen
+          "streak" — precis som i Duolingo. Du tävlar mot dig själv, inte
+          mot lagkompisarna.
+        </p>
+      </div>
+      <div class="card">
+        <span class="icon">🏆</span>
+        <h3>Lagets VM-guld</h3>
+        <p>
+          Allas träningspass läggs till en gemensam pott — oavsett ålder
+          eller nivå. Kan laget samla tillräckligt för att bärga ett
+          virtuellt VM-guld tillsammans?
+        </p>
+      </div>
+    </div>
+
+    <div class="try-it">
+      <div class="qr">
+        <img src="assets/qr.svg" alt="QR-kod till SkillStreak-demot" width="160" height="160" />
+      </div>
+      <div class="try-it-text">
+        <h2>Testa själv — inget att installera</h2>
+        <p>
+          Skanna QR-koden med kameran på din telefon, eller tryck på
+          knappen nedan. Demot öppnas direkt i din webbläsare.
+        </p>
+        <a class="cta" href="https://try.skillstreak.app2.isstech.io">Öppna demot</a>
+      </div>
+    </div>
+
+    <div class="privacy">
+      <div class="item"><span class="icon">🔒</span><span>Slutna lagbubblor — inget syns utanför ditt eget verifierade lag.</span></div>
+      <div class="item"><span class="icon">🎭</span><span>Skärmnamn istället för riktiga namn — anonymt som standard.</span></div>
+      <div class="item"><span class="icon">✉️</span><span>Föräldragodkännande krävs innan något media kan laddas upp.</span></div>
+      <div class="item"><span class="icon">📍</span><span>Ingen platsspårning — vi loggar bara <em>att</em> du tränat, aldrig var.</span></div>
+    </div>
+
+    <footer>
+      SkillStreak (arbetstitel) — ett öppen källkods-projekt.
+      Den här sidan visar en tidig betaversion; funktioner och innehåll
+      kan ändras.
+    </footer>
+  </div>
+</body>
+</html>
