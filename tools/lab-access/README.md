@@ -44,6 +44,27 @@ obviously-wrong ones by name but isn't infallible. Expand "Fel nätverk
 valt?" below the QR code to pick the right one manually; the page keeps
 polling with your choice until you switch back to "Auto."
 
+## Simulator tab
+
+A second tab (`/simulator`) shows the actual live app — not a mockup —
+inside a simple CSS iPhone/Android frame, via an iframe pointed at Expo's
+web target (`expo start --web`, same Metro dev server, same port as the
+`exp://` link above). A green/red dot shows whether that address is
+actually responding before it tries to load the frame.
+
+The address is editable, not just auto-detected: type any host/IP/port
+(or a full URL) into the field and click "Använd" to point the frame at
+it, or "Auto" to snap back to the detected LAN address. This is what
+makes it work for cases auto-detection can't reach on its own — a
+different Wi-Fi network, a phone hotspot, or (see
+[`mobile/README.md`](../../mobile/README.md)'s "Testing from a different
+network" section) a `https://*.exp.direct` tunnel URL from `expo start
+--tunnel --web`, which needs no shared network with this laptop at all.
+A manually-entered address gets its own client-side reachability check
+(a `no-cors` fetch — good enough to tell "responds" from "doesn't", not
+meant to read the actual response) since it wasn't one of the addresses
+this tool detected itself.
+
 ## Why SvelteKit, not a plain static page
 
 The core capability — reading this machine's actual network interfaces —
@@ -57,12 +78,19 @@ frontend/backend split needed for something this small.
 
 ## Layout
 
-- `src/routes/+page.svelte` — the whole UI: polls `/api/status` every 3s,
+- `src/routes/+layout.svelte` — shared shell (dark theme, page title) and
+  the QR-kod/Simulator tab nav.
+- `src/routes/+page.svelte` — the QR tab: polls `/api/status` every 3s,
   renders the QR client-side via the `qrcode` package (regenerated only
   when the URL actually changes, not on every poll tick, so an idle screen
   doesn't flicker), and the manual network-override picker.
+- `src/routes/simulator/+page.svelte` — the Simulator tab: the
+  iPhone/Android CSS frame, the editable URL field (falls back to
+  `/api/status`'s detected `webUrl` until overridden), and its own
+  client-side reachability probe for manually-entered addresses.
 - `src/routes/api/status/+server.ts` — the one API route. Detects network
-  candidates, picks a likely primary, probes that candidate's `/health`.
+  candidates, picks a likely primary, probes that candidate's `/health`
+  and the Expo web port.
 - `src/lib/server/network.ts` — pure, unit-testable interface-detection
   logic (`os.networkInterfaces()` passed in as a parameter, not called
   internally, precisely so it can be tested without mocking `node:os`).

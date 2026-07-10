@@ -85,6 +85,30 @@ phone" walkthrough. The mobile-specific pieces:
   the machine running `expo start`, then scan the QR code the CLI prints
   (or enter the `exp://<your-lan-ip>:8081` URL manually if your Expo Go
   build has no scan option on its landing screen).
+- **Testing from a different network (no shared Wi-Fi needed)** — the
+  LAN-IP approach above breaks the moment the phone/viewer isn't on the
+  same network as this machine (a different Wi-Fi, a guest network with
+  client isolation, a coffee-shop demo, etc.), and the IP itself changes
+  across networks — this project's `tools/lab-access` exists specifically
+  to re-detect it, but that only helps for the *same*-network case. For a
+  stable, network-independent alternative, tunnel both halves through a
+  public relay instead of a raw IP:
+  ```bash
+  # In backend/ — tunnels the API via Cloudflare's free "quick tunnel"
+  # (no account needed; requires the cloudflared binary — see
+  # https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
+  pnpm run tunnel
+  # → prints a https://<random>.trycloudflare.com URL; copy it
+
+  # In mobile/ — tunnels Metro/Expo Go via Expo's own ngrok-based relay
+  EXPO_PUBLIC_API_URL="https://<the-trycloudflare-url-above>" pnpm run web:tunnel
+  ```
+  Both URLs are random and only stable for the life of that tunnel process
+  (a restart gets a new one) — not meant as a permanent address, just one
+  that works regardless of which network either side is on. The
+  `tools/lab-access` Simulator tab's URL field (see its README) accepts
+  the resulting `https://*.exp.direct` URL directly if you want the
+  phone-frame preview over the tunnel too.
 - **The SDK-version gotcha** — Expo Go only supports *one* SDK version per
   app-store release; there's no way to pin an older Expo Go build
   yourself. If a device's installed Expo Go is on a different SDK than

@@ -77,5 +77,27 @@ services:
     # meant to be safe to lose and rebuild, so we don't pretend otherwise
     # by persisting it.
 
+  lab-access:
+    build:
+      context: ./tools/lab-access
+      dockerfile: Dockerfile
+    # network_mode: host (Linux-only) instead of a published port: this
+    # tool's whole job is auto-detecting the machine's real LAN IP via
+    # os.networkInterfaces() so a phone on the same Wi-Fi can reach Expo.
+    # Docker's default bridge network puts it in its own network
+    # namespace instead, where it would only see the container's private
+    # docker0/eth0 address -- and since that interface is *named* eth0,
+    # this tool's own "looks like Wi-Fi" heuristic would silently treat it
+    # as correct, handing out a QR code no phone could ever reach. Host
+    # networking is what makes it see the same interfaces as when this
+    # tool is run manually with `pnpm run dev`. Only this one small dev
+    # tool uses host networking -- api/postgres/redis stay on the
+    # isolated default bridge network.
+    network_mode: host
+    restart: unless-stopped
+    # Standalone dev/demo tool (see tools/lab-access/README.md) -- it
+    # tolerates the API or Expo not being up yet (shows a red status dot
+    # instead), so it doesn't need to wait on api's healthcheck.
+
 volumes:
   postgres_data:

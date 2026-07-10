@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsInt,
   IsNotEmpty,
@@ -8,6 +9,14 @@ import {
   Min,
 } from 'class-validator';
 import { IsEmailOrPhone } from './is-email-or-phone.validator';
+
+// class-validator's IsNotEmpty only rejects the exact empty string, not a
+// whitespace-only one — trim first (same pattern as
+// team-chat/dto/create-chat-message.dto.ts) so " " can't slip past
+// IsNotEmpty and the content-safety filter to become a permanently-persisted
+// blank Team.name/invite_code (teams have no rename/delete).
+const trimString = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
 
 // Sane birth-year range: oldest plausible active youth player vs. today.
 // Loose on purpose (this is a coarse sanity check, not age gating logic) —
@@ -35,6 +44,7 @@ const MAX_INVITE_CODE_LENGTH = 30;
 const MAX_TEAM_NAME_LENGTH = 60;
 
 export class CreatePlayerDto {
+  @Transform(trimString)
   @IsString()
   @IsNotEmpty()
   @MaxLength(MAX_INVITE_CODE_LENGTH)
@@ -74,6 +84,7 @@ export class CreatePlayerDto {
   // TeamsService.createTeam, not here — DTO validation only enforces
   // shape/length, not content.
   @IsOptional()
+  @Transform(trimString)
   @IsString()
   @IsNotEmpty()
   @MaxLength(MAX_TEAM_NAME_LENGTH)

@@ -25,7 +25,8 @@
     "seed": "ts-node -r tsconfig-paths/register src/scripts/seed.ts",
     "redis:rebuild": "ts-node -r tsconfig-paths/register src/scripts/rebuild-redis-cache.ts",
     "verify:smtp": "ts-node -r tsconfig-paths/register src/scripts/verify-smtp.ts",
-    "send:test-consent-email": "ts-node -r tsconfig-paths/register src/scripts/send-test-consent-email.ts"
+    "send:test-consent-email": "ts-node -r tsconfig-paths/register src/scripts/send-test-consent-email.ts",
+    "tunnel": "cloudflared tunnel --url http://localhost:3000"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

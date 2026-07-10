@@ -811,6 +811,78 @@ work chronologically.
       dead end (the "Byt kod" link was always present on Screen O1b) but
       genuinely misleading — copy corrected to name both possibilities and
       point at "Byt kod" explicitly.
+- [x] **code-critic**: reviewed the full backend+mobile diff after
+      independently re-running lint/build/unit/e2e (fresh Postgres 18 +
+      Redis) and the mobile typecheck/expo-doctor. **One CONFIRMED bug,
+      fixed**: `class-validator`'s `@IsNotEmpty()` on `inviteCode`/
+      `teamName` (`create-player.dto.ts`) only rejects the exact empty
+      string, not a whitespace-only one — a request with
+      `inviteCode: "   "` passed validation *and* the content-safety
+      filter (a string containing no banned word trivially "passes") and
+      got permanently persisted as a blank `Team.name`/`invite_code`, with
+      no rename/delete feature to recover it, and no way for the mobile
+      client (which trims client-side) to ever reproduce the exact
+      untrimmed code again to invite teammates through the app. Reproduced
+      live against real Postgres/Redis, then fixed: both fields now go
+      through a trimming `@Transform` before `@IsNotEmpty`/the filter check
+      — the same convention already used in
+      `team-chat/dto/create-chat-message.dto.ts` — so whitespace-only input
+      is rejected and legitimate input has its incidental leading/trailing
+      whitespace trimmed before it's ever persisted or filter-checked.
+      Regression coverage added in a new
+      `phase2.9-whitespace-validation.e2e-spec.ts` (not the existing
+      `phase2.9-self-service-team-creation.e2e-spec.ts` file, which was
+      already sitting at that file's shared-app-instance `POST /players`
+      throttle limit — `@Throttle({ limit: 10, ttl: 60_000 })` — so a fresh
+      app instance was needed for a fresh throttle bucket). Verified
+      independently: lint/build clean, 131/131 unit tests, 74/74 e2e tests
+      (71 existing + 3 new) against a genuinely fresh Postgres 18 + Redis
+      instance. Everything else checked — transaction atomicity, the
+      unique-violation catch scoping, `assertIsCaptainOfTeam` coverage
+      across every captain-gated call site, moderation-module DI wiring,
+      the half-year season-boundary math, and the mobile confirmation
+      screen's `teamCreated`/`isCaptain` derivation — came back clean.
+- [x] **security-reviewer**: **safe to merge.** Independently re-verified
+      (not taken on trust): re-ran `pnpm run test`/`test:e2e` against a
+      genuinely fresh Postgres 18 + Redis instance (131/131 unit, 74/74
+      e2e), confirmed the whitespace-trim fix runs before `@IsNotEmpty()`
+      by reading `main.ts`'s `ValidationPipe({ transform: true })` config
+      (not just trusting the test result), traced every
+      `assertIsCaptainOfTeam` call site (weekly-goal create/patch/roster,
+      consent-reminder-resend, session-reissue-trigger) plus
+      `transferCaptaincy`'s separate inline copy of the same consent gate,
+      confirmed `TeamsService.createTeam` is the only code path that ever
+      constructs a `Team` row and checks both `name`/`inviteCode` against
+      the filter with no bypass, confirmed no IDOR (every endpoint
+      re-derives `teamId` from the JWT, `CreatePlayerDto` has no `isCaptain`
+      field and `forbidNonWhitelisted: true` blocks injecting one), and
+      confirmed no location/PII field was added anywhere in the feature.
+      Also confirmed, correcting the ADR's own text: the "no confirmation
+      before irreversible team creation" gap ADR-0009 flagged as still open
+      was in fact already closed by ux-designer/frontend-developer's Screen
+      O1c. **One MEDIUM, non-blocking finding, tracked not fixed now**: the
+      `10/min/IP` throttle on `POST /players` uses `ThrottlerModule`'s
+      default in-memory storage (not Redis-backed, despite Redis already
+      being a dependency) while `k8s/api-deployment.yaml` runs `replicas:
+      2` — the counter is per-pod, so a real multi-replica deployment gives
+      roughly double the advertised ceiling on an unauthenticated endpoint
+      that, after this phase, can create a full permanent
+      Team+Season+TeamSeasonPot per call rather than just a junk Player row.
+      Pre-existing gap (unchanged throttle shape from Phase 1), not
+      introduced by this PR's diff — but this phase is what makes the
+      endpoint heavy enough for it to matter. **Required before the k8s
+      manifests carry real external-beta traffic** (Redis-backed throttler
+      storage, or `replicas: 1` until then) — tracked in Phase 4's
+      production-hardening pass, not blocking this merge.
+
+**Fas 2.9 has cleared every gate and is ready to merge.** Backend: lint,
+build, 131/131 unit tests, 74/74 e2e tests (71 existing + 3 new regression
+tests for the whitespace-only `inviteCode`/`teamName` fix), re-run against a
+genuinely fresh Postgres 18 + Redis instance. Both the mandatory code-critic
+and blocking security-reviewer sign-off are complete, with the one CONFIRMED
+code-critic finding fixed and independently re-verified by security-reviewer,
+not just noted. One non-blocking follow-up remains tracked (the in-memory/
+multi-replica throttler gap above) for before real external-beta traffic.
 
 ## Phase 3 — Media & social ("Fas 3")
 
