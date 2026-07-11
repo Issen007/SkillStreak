@@ -1,0 +1,57 @@
+# The ServiceAccount .github/workflows/ci-cd.yml's deploy job authenticates
+# as (see its "Set Kubernetes Context" step). This was never actually
+# created on the cluster — every CI deploy since at least PR #15 failed at
+# the first `kubectl apply` with "the server has asked for the client to
+# provide credentials", because the KUBE_TOKEN secret it was using didn't
+# correspond to any real ServiceAccount here. Root-caused during the
+# alpha-test deploy investigation (see k8s/README.md's "Alpha access").
+#
+# Cluster-scoped RBAC objects, but the RoleBinding only grants rights
+# inside the skillstreak namespace — mirrors temp/deployer-service-account.yaml's
+# skillstreak-deployer (same permission set, same "no RBAC
+# self-modification, nothing cluster-wide" posture), just for CI instead
+# of an interactive kubeconfig. Not applied by CI itself (chicken-and-egg,
+# and a deployer shouldn't be able to grant itself more rights) — apply
+# this once by hand with a kubeconfig that has broader rights, per
+# k8s/README.md's deploy order, same bootstrap step as cluster-issuer.yaml.
+#
+# After applying, generate a long-lived token for the GitHub Actions
+# KUBE_TOKEN secret with:
+#   kubectl apply -f k8s/github-actions-deployer-token.yaml   # see that file
+#   kubectl get secret github-actions-deployer-token -n skillstreak \
+#     -o jsonpath='{.data.token}' | base64 -d
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: github-actions-deployer
+  namespace: skillstreak
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: github-actions-deployer
+  namespace: skillstreak
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services", "configmaps", "secrets", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: github-actions-deployer
+  namespace: skillstreak
+subjects:
+  - kind: ServiceAccount
+    name: github-actions-deployer
+    namespace: skillstreak
+roleRef:
+  kind: Role
+  name: github-actions-deployer
+  apiGroup: rbac.authorization.k8s.io

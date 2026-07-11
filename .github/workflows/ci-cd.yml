@@ -92,11 +92,13 @@ jobs:
       # site/Dockerfile's context is the repo root (needs mobile/ + site/
       # together, see that file's header comment) — not ./site like the
       # backend build. EXPO_PUBLIC_API_URL is baked in at build time, so CI
-      # uses the same real beta domain the deploy job pushes with.
+      # uses the same alpha-test URL the deploy job pushes with (see
+      # k8s/configmap.yaml's APP_PUBLIC_URL comment for why this is
+      # localhost rather than a real domain right now).
       - name: Build site image
         run: |
           docker build -f site/Dockerfile \
-            --build-arg EXPO_PUBLIC_API_URL=https://api.skillstreak.app2.isstech.io \
+            --build-arg EXPO_PUBLIC_API_URL=http://localhost:3000 \
             -t skillstreak-site:ci .
 
   compose-smoke-test:
@@ -176,8 +178,12 @@ jobs:
 
       # site/Dockerfile's build context is the repo root, not ./site (see
       # that file's header comment — it needs mobile/ + site/ together).
-      # EXPO_PUBLIC_API_URL is baked in at build time and must point at the
-      # real public API host, matching k8s/ingress.yaml.
+      # EXPO_PUBLIC_API_URL is baked in at build time and must point at
+      # wherever the api is actually reachable. This cluster currently has
+      # no working external ingress path (see k8s/configmap.yaml's
+      # APP_PUBLIC_URL comment), so alpha access is via
+      # `kubectl port-forward svc/api 3000:80 -n skillstreak` and this must
+      # match that port. Update once a real public API host exists again.
       - name: Build and Push Site Docker Image
         uses: docker/build-push-action@v5
         with:
@@ -185,7 +191,7 @@ jobs:
           file: ./site/Dockerfile
           push: true
           build-args: |
-            EXPO_PUBLIC_API_URL=https://api.skillstreak.app2.isstech.io
+            EXPO_PUBLIC_API_URL=http://localhost:3000
           tags: |
             ${{ env.LOWER_SITE_IMAGE }}:${{ github.sha }}
 
@@ -239,6 +245,18 @@ jobs:
           # description of its permissions) and can't manage cluster-scoped
           # resources. Apply that one manually, once, with a kubeconfig
           # that has broader rights (see k8s/README.md's deploy order).
+          #
+          # ingress.yaml/site-ingress.yaml are deliberately NOT applied
+          # here either, for now: this cluster has no working external
+          # ingress path (LoadBalancer Services can't get an IP, and the
+          # cluster's one public IP only serves :6443) so their Ingress
+          # hosts can never resolve/complete a cert-manager HTTP01
+          # challenge — applying them just leaves Certificates stuck
+          # Pending forever. Alpha access is via
+          # `kubectl port-forward svc/api 3000:80 -n skillstreak` and
+          # `kubectl port-forward svc/site 8080:80 -n skillstreak` instead.
+          # Re-add these two lines once a real external ingress path
+          # exists (see k8s/README.md's "Alpha access" section).
           kubectl apply -f k8s/configmap.yaml
           kubectl apply -f k8s/secret.yaml
           kubectl apply -f k8s/postgres-pvc.yaml
@@ -246,8 +264,6 @@ jobs:
           kubectl apply -f k8s/redis-service.yaml
           kubectl apply -f k8s/api-service.yaml
           kubectl apply -f k8s/site-service.yaml
-          kubectl apply -f k8s/ingress.yaml
-          kubectl apply -f k8s/site-ingress.yaml
           kubectl apply -f k8s/postgres-deployment.yaml
           kubectl apply -f k8s/redis-deployment.yaml
           kubectl apply -f k8s/api-deployment.yaml
