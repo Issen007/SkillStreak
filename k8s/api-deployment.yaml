@@ -42,10 +42,15 @@ spec:
             - configMapRef:
                 name: skillstreak-config
           env:
-            # Individual Postgres pieces, used only to compose DATABASE_URL
-            # below — the API itself reads a single DATABASE_URL connection
-            # string (see backend/src/config/env.validation.ts), not
-            # separate host/user/password vars.
+            # Individual Postgres pieces — docker-entrypoint.sh assembles
+            # DATABASE_URL from these at container start (with proper
+            # URL-encoding of user/password) rather than a raw
+            # $(POSTGRES_USER):$(POSTGRES_PASSWORD)@... string interpolated
+            # here, since a real generated password can contain characters
+            # that aren't valid unescaped in a URL (this broke every
+            # deploy with "Invalid URL" until fixed — see that script's
+            # comment). The API itself still only ever reads DATABASE_URL
+            # (see backend/src/config/env.validation.ts).
             - name: POSTGRES_USER
               valueFrom:
                 configMapKeyRef:
@@ -61,8 +66,10 @@ spec:
                 configMapKeyRef:
                   name: skillstreak-config
                   key: POSTGRES_DB
-            - name: DATABASE_URL
-              value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)"
+            - name: POSTGRES_HOST
+              value: "postgres"
+            - name: POSTGRES_PORT
+              value: "5432"
             - name: REDIS_URL
               value: "redis://redis:6379"
             - name: JWT_SECRET
