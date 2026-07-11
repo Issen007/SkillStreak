@@ -19,12 +19,15 @@ data:
   SMTP_HOST: "smtp-relay.gmail.com"
   SMTP_PORT: "587"
   SMTP_FROM: "SkillStreak <noreply@yourdomain.example>"
-  # Real beta API domain, matching ingress.yaml's host (the api subdomain,
-  # not the root domain — see site-ingress.yaml for what the root domain
-  # serves now). Parental-consent email links point here — do NOT let real
-  # parent-facing emails go out (MailService actually sending, not just
-  # this being applied) until ingress.yaml's cert-manager annotation has
-  # been switched from `letsencrypt-staging` to `letsencrypt-prod` and
-  # confirmed Ready; until then this domain is only reachable with an
-  # untrusted-by-default cert.
-  APP_PUBLIC_URL: "https://api.skillstreak.app2.isstech.io"
+  # Alpha-test value, NOT the real beta domain. This cluster currently has
+  # no working external ingress path (LoadBalancer Services can't get an
+  # IP — the cloud-controller-manager here runs with the service-lb
+  # controller disabled — and the cluster's one public IP only serves the
+  # k8s API on :6443, nothing on :80/:443). Until that's resolved, alpha
+  # access is via `kubectl port-forward svc/api 3000:80 -n skillstreak`,
+  # so this must match that port. Parental-consent email links point here
+  # — do NOT let real parent-facing emails go out until this is a real,
+  # TLS-covered public domain again (see ingress.yaml/site-ingress.yaml,
+  # currently not applied for the same reason, and the warning in
+  # k8s/README.md about the consent token being a bearer credential).
+  APP_PUBLIC_URL: "http://localhost:3000"

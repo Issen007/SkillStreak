@@ -1,0 +1,14 @@
+# A long-lived token for github-actions-deployer (see
+# github-actions-deployer.yaml) — the annotation is what tells Kubernetes
+# to mint and keep populating a non-expiring-by-default token in this
+# Secret for that ServiceAccount (the pre-1.24-style mechanism; CI can't
+# use `kubectl create token` since that's short-lived and meant to be run
+# interactively, not baked into a GitHub secret).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-actions-deployer-token
+  namespace: skillstreak
+  annotations:
+    kubernetes.io/service-account.name: github-actions-deployer
+type: kubernetes.io/service-account-token

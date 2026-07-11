@@ -4,13 +4,17 @@
 # site/nginx.conf). Built from site/Dockerfile.
 #
 # `image:` below is a PLACEHOLDER, same convention as api-deployment.yaml —
-# there's no CI job building/pushing this image yet (only backend/Dockerfile
-# is wired into .github/workflows/ci-cd.yml so far). Build it yourself:
+# .github/workflows/ci-cd.yml's deploy job builds/pushes this image and
+# fills this field at deploy time; the committed file is never updated with
+# a real tag. To build it by hand instead:
 #   docker build -f site/Dockerfile \
-#     --build-arg EXPO_PUBLIC_API_URL=https://api.skillstreak.app2.isstech.io \
+#     --build-arg EXPO_PUBLIC_API_URL=http://localhost:3000 \
 #     -t <your-registry>/skillstreak-site:<tag> .
 #   docker push <your-registry>/skillstreak-site:<tag>
-# and swap the tag in before applying.
+# and swap the tag in before applying. EXPO_PUBLIC_API_URL is
+# `http://localhost:3000` for now (alpha test, no external ingress path on
+# this cluster yet — see k8s/README.md's "Alpha access" section); it's
+# baked in at build time, so it must be rebuilt once a real API URL exists.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
