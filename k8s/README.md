@@ -57,11 +57,11 @@ tested one.
 | `postgres-service.yaml` | ClusterIP only — never expose Postgres externally (no LoadBalancer/NodePort/Ingress for it, matching the compose setup's `127.0.0.1`-only binding). |
 | `redis-deployment.yaml` | Redis 7-alpine, single replica, deliberately no PVC (cache/accelerator over Postgres per ADR-0002 — safe to lose and rebuild). |
 | `redis-service.yaml` | ClusterIP only, same reasoning as Postgres's Service. |
-| `api-deployment.yaml` | The NestJS API. Uses a placeholder image (`skillstreak-api:latest`) — building/pushing the real image is a CI/CD step not covered here. Reads config from the ConfigMap + Secret; `/health` for readiness/liveness. |
+| `api-deployment.yaml` | The NestJS API. Ships with a blank placeholder `image:` — `.github/workflows/ci-cd.yml`'s deploy job builds/pushes the real image and `sed`-fills this field at deploy time; the committed file is never updated with a real tag. Reads config from the ConfigMap + Secret; `/health` for readiness/liveness. |
 | `api-service.yaml` | ClusterIP for the api Pods — the real external entry point is the Ingress, not this Service directly. |
 | `cluster-issuer.yaml` | Two cert-manager `ClusterIssuer`s (`letsencrypt-staging`, `letsencrypt-prod`), HTTP01-solved through the existing ingress-nginx controller. Cluster-scoped, apply once. |
 | `ingress.yaml` | Routes `api.skillstreak.app2.isstech.io` to the api Service via ingress-nginx, with TLS from cert-manager. Currently annotated for `letsencrypt-staging` — see the warning above before switching to prod. |
-| `site-deployment.yaml` | The marketing page + hosted "try it" demo, built from `../site/Dockerfile`. Uses a placeholder image, same as `api-deployment.yaml` — no CI job builds/pushes this yet. |
+| `site-deployment.yaml` | The marketing page + hosted "try it" demo, built from `../site/Dockerfile`. Ships with a blank placeholder `image:`, same convention as `api-deployment.yaml` — `.github/workflows/ci-cd.yml`'s deploy job now builds/pushes this image and fills the field at deploy time too. |
 | `site-service.yaml` | ClusterIP for the site Pods — external entry point is `site-ingress.yaml`, not this Service directly. |
 | `site-ingress.yaml` | Routes both `skillstreak.app2.isstech.io` (root) and `try.skillstreak.app2.isstech.io` to the site Service — nginx inside the pod picks the right content by Host header (see `../site/nginx.conf`). One multi-SAN cert covers both hostnames. |
 
@@ -86,12 +86,12 @@ the order above is easier to reason about and debug on a first attempt.)
 
 ## Known gaps / deliberate TODOs
 
-- **No real image yet, for either deployment.** `api-deployment.yaml`'s
-  and `site-deployment.yaml`'s images are both placeholders — only
-  `backend/Dockerfile` has a CI job building/pushing it
-  (`.github/workflows/ci-cd.yml`); `site/Dockerfile` needs to be built and
-  pushed by hand for now (see `site-deployment.yaml`'s header comment for
-  the exact command).
+- **`cluster-issuer.yaml` isn't applied by CI.** It's cluster-scoped
+  (`ClusterIssuer`), and `github-actions-deployer` (the service account
+  `.github/workflows/ci-cd.yml` deploys with) is deliberately scoped to
+  the `skillstreak` namespace only — same posture as `temp/`'s
+  `skillstreak-deployer` (see `temp/README.md`). Apply it once by hand
+  with a kubeconfig that has broader rights, per the deploy order above.
 - **The hosted demo's browser-tab title says "SkillStreak (dev)"** —
   that's `mobile/app.json`'s `name` field, shared with the native app
   builds. Cosmetic only, not worth a special-case for one export target

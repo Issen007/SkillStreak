@@ -81,13 +81,23 @@ jobs:
         run: pnpm run test:e2e
 
   docker-build:
-    name: Backend Docker image builds
+    name: Docker image builds
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Build backend image
         run: docker build -t skillstreak-api:ci ./backend
+
+      # site/Dockerfile's context is the repo root (needs mobile/ + site/
+      # together, see that file's header comment) — not ./site like the
+      # backend build. EXPO_PUBLIC_API_URL is baked in at build time, so CI
+      # uses the same real beta domain the deploy job pushes with.
+      - name: Build site image
+        run: |
+          docker build -f site/Dockerfile \
+            --build-arg EXPO_PUBLIC_API_URL=https://api.skillstreak.app2.isstech.io \
+            -t skillstreak-site:ci .
 
   compose-smoke-test:
     name: docker-compose smoke test
@@ -136,6 +146,7 @@ jobs:
       - name: Downcase repository owner for Docker
         run: |
           echo "LOWER_IMAGE=ghcr.io/${OWNER,,}/skillstreak-api" >> $GITHUB_ENV
+          echo "LOWER_SITE_IMAGE=ghcr.io/${OWNER,,}/skillstreak-site" >> $GITHUB_ENV
         env:
           OWNER: ${{ github.repository_owner }}
 
@@ -163,24 +174,46 @@ jobs:
           tags: |
             ${{ env.LOWER_IMAGE }}:${{ github.sha }}
 
-      # 4. Update the manifest using native Bash environment variables
-      - name: Update Deployment Image Tag
+      # site/Dockerfile's build context is the repo root, not ./site (see
+      # that file's header comment — it needs mobile/ + site/ together).
+      # EXPO_PUBLIC_API_URL is baked in at build time and must point at the
+      # real public API host, matching k8s/ingress.yaml.
+      - name: Build and Push Site Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./site/Dockerfile
+          push: true
+          build-args: |
+            EXPO_PUBLIC_API_URL=https://api.skillstreak.app2.isstech.io
+          tags: |
+            ${{ env.LOWER_SITE_IMAGE }}:${{ github.sha }}
+
+      # 4. Update the manifests using native Bash environment variables
+      - name: Update Deployment Image Tags
         run: |
-          # By using $LOWER_IMAGE and $GITHUB_SHA, Bash reads the variables directly
+          # By using $LOWER_IMAGE/$LOWER_SITE_IMAGE and $GITHUB_SHA, Bash reads the variables directly
           FULL_IMAGE_URL="${LOWER_IMAGE}:${GITHUB_SHA}"
+          FULL_SITE_IMAGE_URL="${LOWER_SITE_IMAGE}:${GITHUB_SHA}"
           echo "Replacing placeholder with: $FULL_IMAGE_URL"
-          # k8s/api-deployment.yaml's actual placeholder is a bare `image:`
-          # (see the file's own header comment) — NOT the literal string
-          # "image: skillstreak-api:latest" this used to look for, which
-          # never matched anything and left the field empty, so every
-          # deploy failed with "spec.template.spec.containers[0].image:
-          # Required value". Match any `image:` line instead, and verify
-          # the substitution actually landed so a future mismatch fails
-          # loudly here instead of three steps later as a confusing k8s
-          # validation error.
+          echo "Replacing placeholder with: $FULL_SITE_IMAGE_URL"
+          # k8s/api-deployment.yaml's and k8s/site-deployment.yaml's actual
+          # placeholders are a bare `image:` (see each file's own header
+          # comment) — NOT the literal string "image: skillstreak-api:latest"
+          # this used to look for, which never matched anything and left the
+          # field empty, so every deploy failed with
+          # "spec.template.spec.containers[0].image: Required value". Match
+          # any `image:` line instead, and verify the substitution actually
+          # landed so a future mismatch fails loudly here instead of three
+          # steps later as a confusing k8s validation error.
           sed -i "s|^\([[:space:]]*\)image:.*|\1image: ${FULL_IMAGE_URL}|" k8s/api-deployment.yaml
           grep -qF "image: ${FULL_IMAGE_URL}" k8s/api-deployment.yaml || {
             echo "::error::Failed to set the image on k8s/api-deployment.yaml — placeholder pattern didn't match."
+            exit 1
+          }
+          sed -i "s|^\([[:space:]]*\)image:.*|\1image: ${FULL_SITE_IMAGE_URL}|" k8s/site-deployment.yaml
+          grep -qF "image: ${FULL_SITE_IMAGE_URL}" k8s/site-deployment.yaml || {
+            echo "::error::Failed to set the image on k8s/site-deployment.yaml — placeholder pattern didn't match."
             exit 1
           }
 
@@ -200,19 +233,29 @@ jobs:
 
       - name: Deploy Manifests
         run: |
+          # cluster-issuer.yaml (ClusterIssuer, cluster-scoped) is
+          # deliberately NOT applied here — github-actions-deployer is
+          # scoped to the skillstreak namespace only (see temp/README.md's
+          # description of its permissions) and can't manage cluster-scoped
+          # resources. Apply that one manually, once, with a kubeconfig
+          # that has broader rights (see k8s/README.md's deploy order).
           kubectl apply -f k8s/configmap.yaml
           kubectl apply -f k8s/secret.yaml
           kubectl apply -f k8s/postgres-pvc.yaml
           kubectl apply -f k8s/postgres-service.yaml
           kubectl apply -f k8s/redis-service.yaml
           kubectl apply -f k8s/api-service.yaml
+          kubectl apply -f k8s/site-service.yaml
           kubectl apply -f k8s/ingress.yaml
+          kubectl apply -f k8s/site-ingress.yaml
           kubectl apply -f k8s/postgres-deployment.yaml
           kubectl apply -f k8s/redis-deployment.yaml
           kubectl apply -f k8s/api-deployment.yaml
+          kubectl apply -f k8s/site-deployment.yaml
 
       - name: Verify Rollout Status
         run: |
           kubectl rollout status deployment/postgres -n skillstreak
           kubectl rollout status deployment/redis -n skillstreak
           kubectl rollout status deployment/api -n skillstreak
+          kubectl rollout status deployment/site -n skillstreak
