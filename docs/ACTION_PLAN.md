@@ -927,7 +927,7 @@ treat `security-reviewer` involvement as blocking, not a final check.
       existing chat block should also suppress a teammate's clips; exact
       numeric caps (retention window, file/duration limits, rate limits)
       are recommended but explicitly tunable, not fixed by this ADR.
-- [ ] **security-reviewer**: reviewed the architecture (ADR-0010 +
+- [x] **security-reviewer**: reviewed the architecture (ADR-0010 +
       `phase3-contract.md`) *before* any code exists, per this phase's
       explicit sequencing. **Verdict: safe with required changes — not a
       full sign-off yet.** The structural team-scoping (bucket has zero
@@ -939,7 +939,7 @@ treat `security-reviewer` involvement as blocking, not a final check.
       all independently check out — no IDOR path found across the 5
       endpoints, no `real_name`/report-identity leak, no cross-team
       reachability. Two findings, one blocking:
-      - [ ] **CONFIRMED, BLOCKING — no video metadata (GPS/EXIF-equivalent)
+      - [x] **CONFIRMED, BLOCKING — no video metadata (GPS/EXIF-equivalent)
             stripping anywhere in the design.** Decision 3 explicitly rules
             out re-encoding/deep inspection of uploaded video, and neither
             the ADR nor the contract mentions removing embedded location
@@ -961,7 +961,7 @@ treat `security-reviewer` involvement as blocking, not a final check.
             be added to ADR-0010 Decision 3 as a third, mandatory check
             alongside the existing technical-validity checks, not left
             implicit.
-      - [ ] **PLAUSIBLE, required before build — presigned-PUT size isn't
+      - [x] **PLAUSIBLE, required before build — presigned-PUT size isn't
             actually enforced, and `pending_upload` rows/objects have no
             cleanup path.** A raw S3-API presigned PUT (as opposed to a
             presigned POST with policy conditions) generally can't enforce
@@ -990,12 +990,11 @@ treat `security-reviewer` involvement as blocking, not a final check.
         before any human review has occurred. Recommend neutral,
         provisional-sounding copy in that email (ux-designer's call), not a
         design change.
-      **Not yet safe to hand to backend-developer as-is** — the metadata-
-      stripping gap is a direct, non-theoretical path to exactly the
-      location exposure CLAUDE.md prohibits, and must be added to ADR-0010
-      before implementation starts. Once both required-fix items above are
-      added to the ADR/contract, the rest of the architecture is sound and
-      this can be re-reviewed quickly (it's an addition, not a redesign).
+      **RESOLVED 2026-07-22** — both items above closed by architect's
+      follow-up (commit `f9a27b4`, entry below) and confirmed in
+      security-reviewer's focused re-review (entry further below): **full
+      sign-off**, superseding the "not yet safe to hand to backend-developer
+      as-is" verdict originally recorded here.
 - [x] **architect follow-up (2026-07-22)**: closed both required findings
       above, same day, before any implementation started. Decision 3 of
       `adr/0010-video-storage-and-serving.md` now specifies the
@@ -1018,6 +1017,57 @@ treat `security-reviewer` involvement as blocking, not a final check.
       explicit revision note dating this change. **Re-requesting
       security-reviewer sign-off against the revised version — not
       self-certified as resolved.**
+- [x] **security-reviewer re-review (2026-07-22)**: focused re-review of
+      architect's follow-up (`f9a27b4`) against the two required findings
+      above, not a full re-review from scratch. **Full sign-off — safe for
+      ux-designer/backend-developer to build against `adr/0010` +
+      `phase3-contract.md` as they now stand.**
+      - **Metadata stripping**: confirmed `ffmpeg -map_metadata -1 -c copy`
+        is the correct, standard technique for removing exactly the
+        container-level location atoms named in the original finding
+        (QuickTime's `com.apple.quicktime.location.ISO6709`, Android's
+        `loci`/`xyz`) — these are ordinary format-level metadata tags, which
+        `-map_metadata -1` strips; a stream-copy remux (no decode/re-encode)
+        is the standard, lossless, low-cost way to do this and doesn't
+        conflict with Decision 3's separate "no ML/deep content inspection"
+        scope, since remuxing container metadata and decoding video frames
+        for classification are unrelated operations. Confirmed the ordering
+        genuinely prevents an unstripped file from ever becoming reachable:
+        `status` only flips to `published` after the remux succeeds, the
+        feed query (endpoint 3) only ever returns `published` clips, and
+        `complete`'s own response only includes `playbackUrl` on the
+        success path (never on the new `422 clip_processing_failed` path)
+        — there is no documented code path that mints a playback URL before
+        the remux has run, and a failed remux leaves the clip permanently
+        `pending_upload` (never silently published unstripped).
+        **Minor, non-blocking refinement for backend-developer, not gating
+        this sign-off**: the exact command should explicitly `-map` only
+        the video/audio streams (e.g. `-map 0:v:0 -map 0:a:0`) rather than
+        relying on default stream selection, so an exotic action-camera
+        telemetry/GPS data track (e.g. GoPro's GPMF format, a dedicated
+        stream rather than container metadata) is guaranteed dropped too,
+        not just assumed dropped by default stream-selection behavior —
+        edge case beyond this app's realistic ordinary-phone-video threat
+        model, doesn't change the verdict.
+      - **`pending_upload` exhaustion**: confirmed the ~1 hour TTL + hourly
+        sweep bounds standing storage to a rolling window sized by the
+        upload-frequency rate limit rather than growing unboundedly over
+        time, and the new bucket-level max-object-size config closes the
+        gap where a raw presigned PUT can't itself enforce
+        `Content-Length`. Together these close both halves of the original
+        finding (unenforced size, and no cleanup for abandoned uploads).
+        **Minor, non-blocking note**: the ADR doesn't explicitly restate
+        the daily sweep's "delete object before row, safer failure
+        direction" ordering for the new `pending_upload` sweep (it says the
+        mechanism is reused/parameterized, which reasonably implies the
+        same ordering, but doesn't say so in as many words) — worth
+        code-critic/backend-developer confirming directly during
+        implementation rather than assuming, same spirit as the original
+        contract's own "confirm directly rather than take this contract's
+        word for it" instruction.
+      Neither refinement above is required before backend-developer starts;
+      both are implementation-detail hardening notes for backend-developer/
+      code-critic to keep in mind, not new blocking findings.
 - [ ] **ux-designer**: design the safe feed and the "tag a teammate to
       challenge them" flow.
 - [ ] **backend-developer**: upload endpoint gated on parental consent;
