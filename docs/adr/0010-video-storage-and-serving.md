@@ -11,6 +11,20 @@ app so far — real video of real children, not text or a duration/count
 field — and this ADR treats it that way throughout, not as "team chat with
 a file attached."
 
+**Revised 2026-07-22, same day, before implementation started**: a first
+security-reviewer pass returned "safe with required changes, not a full
+sign-off" — the core architecture (structural team-scoping, consent-gated
+reads, retention/deletion) needed no redesign, but two gaps had to be closed
+before backend-developer builds anything: (1) a **blocking** finding that
+nothing stripped embedded GPS/location metadata that phone cameras write
+into video containers by default — a real, concrete way this design would
+have violated CLAUDE.md's no-location-tracking constraint despite the app
+never asking for location itself; and (2) a storage-exhaustion path via
+uncompleted `pending_upload` rows/objects with no TTL. Both are now closed
+in Decision 3 and Decision 5 below — this is not a new revision cycle after
+sign-off, it's the same first review round, addressed before re-requesting
+sign-off.
+
 ## Context
 
 `docs/PROJECT.md`'s original pitch: "En intern, säker feed där spelare kan
@@ -92,6 +106,18 @@ listing) — **not** the security boundary. Nothing about a private bucket
 enforces per-prefix access control by itself; Decision 2 is what actually
 does that.
 
+**Required, not optional (security-reviewer finding): configure the
+bucket/policy with a maximum object size matching Decision 3's declared
+`fileSizeBytes` cap** (e.g. ~25MB, plus a small margin). A presigned PUT
+URL cannot itself enforce `Content-Length` server-side — a client (or
+anyone who obtains the URL within its short validity window) could PUT an
+arbitrarily large object regardless of what `fileSizeBytes` was declared at
+step 1. This is defense in depth, not the primary control (the primary
+control is that the API only ever hands out one presigned URL per
+declared-and-validated request, rate-limited per player) — but it's cheap
+to configure and closes an otherwise-real gap between "what the contract
+says the file should be" and "what the storage layer will actually accept."
+
 ## Decision — 2: access is scoped structurally, not by convention — mirrors ADR-0008's join-avoidance bar
 
 ADR-0008 set the bar for this app's cross-boundary data: the leaderboard
@@ -159,8 +185,8 @@ same shape as `blockedPlayerId` on `TeamChatBlock` or `challengeId` on
 `TrainingLogEntry` — an ordinary foreign-key reference, not a
 computer-vision problem.
 
-**"Clip validity" splits into two genuinely different questions, and only
-one is in scope now:**
+**"Clip validity" splits into three genuinely different questions. Two are
+in scope now as deterministic checks; the third is deliberately deferred:**
 
 - **Technical validity** ("is this actually a short, playable video file
   within our size/format limits") — a **deterministic** check: allow-listed
@@ -173,6 +199,45 @@ one is in scope now:**
   it's the same class of check `class-validator` DTOs already do for every
   other input in this app, just against object-storage metadata instead of
   a request body.
+- **Location-metadata stripping — mandatory, and the third check at the
+  `complete` step, not optional/deferred (security-reviewer finding,
+  blocking).** Ordinary phone camera apps embed container-level GPS
+  metadata by default whenever location services are on for the camera app
+  — e.g. QuickTime's `com.apple.quicktime.location.ISO6709` atom, or
+  Android's `loci`/`xyz` atoms. Nothing about "no deep re-encoding" (the
+  previous paragraph's scope limit) should be read as skipping this: a
+  child's clip recorded at home would otherwise carry home GPS coordinates
+  straight through to the whole team's presigned playback, a direct,
+  concrete violation of CLAUDE.md's no-location-tracking constraint — worse
+  than a gap, since the app never even asks for location and would still be
+  leaking it. **Decision: at the `complete` step, before a clip is ever
+  marked `published` (i.e. before it becomes reachable via any presigned
+  playback URL), run a metadata-stripping **remux** — `ffmpeg -map_metadata
+  -1 -c copy` or equivalent — that drops all container/stream metadata
+  (location, device model, timestamps beyond what this app itself tracks,
+  etc.) while re-muxing the existing encoded video/audio streams
+  losslessly, without re-encoding them.** This is cheap (no transcode, no
+  quality loss, sub-second for a ~20s clip) and consistent with Decision 3's
+  "no deep re-encoding" scope: a remux copies compressed frame data
+  byte-for-byte, it doesn't decode/re-encode it — the constraint this ADR
+  originally meant was "don't build a transcoding pipeline," not "never
+  touch the container," and this is the one mandatory exception to state
+  explicitly. The remuxed file **replaces** the originally-uploaded object
+  at the same `storage_key` (the client-uploaded original is never itself
+  exposed via a playback URL) before `status` flips to `published`. If the
+  remux step fails for any reason, `complete` fails outright
+  (`422 clip_processing_failed` — see the API contract) rather than
+  publishing an unprocessed file — a stripped clip or no clip, never an
+  unstripped one visible to the team.
+  **Non-blocking, folded in since it's essentially free once this pass
+  exists**: the same tool used for stripping (`ffprobe`/equivalent) can
+  cheaply report the object's *actual* duration, which the `complete` step
+  can use as an extra integrity signal against the client-declared
+  `durationSeconds` (e.g. reject or flag a mismatch beyond a small
+  tolerance) — this is not a hard requirement of this ADR, but a natural,
+  low-cost extension of the same processing step; backend-developer's call
+  whether to wire the check up as a hard rejection or just a logged
+  discrepancy for now.
 - **Content validity** ("does this video actually show floorball
   training and not something inappropriate/unrelated") — this **would**
   need real ML (video classification) to automate. **Decision: not built
@@ -187,6 +252,12 @@ one is in scope now:**
   Decision 4 below (auto-hide-on-report) is this phase's actual mitigation
   for bad content reaching the feed — a human-in-the-loop safety net, not a
   preventative filter, the same trade this app already makes for chat text.
+  **This is a different kind of check from location-metadata stripping
+  above and doesn't get folded into it**: stripping metadata is
+  deterministic and mandatory precisely because it needs no judgment call
+  about content, whereas content classification is the genuinely deferred,
+  ML-requiring piece — conflating the two would understate how settled the
+  first one is or overstate how settled the second one is.
 
 **Consequence for ADR-0003's package-manager convention:** no Python
 service is introduced by this ADR. `uv` remains the standing convention
@@ -336,6 +407,30 @@ one replica, this sweep needs the same kind of single-runner guard that gap
 already requires solving (a Postgres advisory lock, or designating one
 replica), not a new problem invented here.
 
+### `pending_upload` rows/objects get their own, shorter TTL — required before build (security-reviewer finding)
+
+The mechanism above only ever runs against `published` clips (`expiresAt` is
+set at `complete`, per the mechanism just above). That leaves a real gap: a
+`VideoClip` row created at `upload-url` (Decision 2) but never completed —
+an abandoned upload, a client that crashed mid-PUT, or a deliberately
+oversized/garbage PUT sent straight to a leaked presigned URL — has **no**
+`expiresAt` and nothing sweeps it. On a single-replica MinIO pod, an
+unbounded accumulation of orphaned `pending_upload` objects is a real
+storage-exhaustion path, not a theoretical one.
+
+**Decision: `pending_upload` rows get a short, fixed TTL — recommend ~1
+hour from creation** (comfortably longer than any real upload should take
+for a ~20s clip, short enough to bound the exposure window). A **more
+frequent** sweep than the daily retention job above (recommend hourly,
+same `@nestjs/schedule` mechanism, not new infra) finds `VideoClip` rows
+still `pending_upload` past that TTL and deletes both the row and the
+underlying object **if one exists** (a `HEAD`/delete-if-exists — most
+abandoned uploads never got any bytes at all, so this is usually just a row
+delete). This can reuse the exact same job/mechanism as the daily retention
+sweep (parameterized by status/TTL) rather than being a second, separate
+piece of infrastructure — the "boring, no new primitive" reasoning given
+for the daily sweep above applies equally to both.
+
 ### Self-service delete: the uploader can remove their own clip immediately, any time
 
 `DELETE .../clips/:clipId`, uploader-only (no captain/coach override — same
@@ -424,6 +519,27 @@ written.
   short entry for deferred video content moderation, mirroring the existing
   LLM-chat-moderation entry, so this "not now" is visible, not silently
   dropped.
+- **Mandatory metadata-stripping remux at the `complete` step (Decision 3,
+  security-reviewer finding, blocking)** — every published clip has had its
+  container-level metadata (GPS location, device identifiers, etc.)
+  stripped via a lossless remux before it's ever reachable by a playback
+  URL; publishing without this step running successfully is not an allowed
+  path (`complete` fails outright rather than publishing unprocessed
+  bytes). This is the concrete, structural closure of a real
+  no-location-tracking violation this design would otherwise have shipped
+  with, despite the app never asking for location itself.
+- **`pending_upload` rows/objects get a short TTL and their own sweep
+  (Decision 5, security-reviewer finding, required before build)** — closes
+  a real storage-exhaustion path (abandoned uploads, or a client PUTting an
+  oversized file straight to a leaked presigned URL) that the original
+  design left unbounded. Reuses the same in-process scheduled-task
+  mechanism as the daily retention sweep, just parameterized differently
+  (shorter TTL, targets `pending_upload` instead of `published`).
+- **Bucket-level max-object-size configuration (Decision 1, security-
+  reviewer finding)** — defense in depth against a presigned PUT's inherent
+  inability to enforce `Content-Length` server-side; configured to match
+  Decision 3's declared size cap, not a substitute for the rate-limited,
+  validated request that hands out the URL in the first place.
 - **Reading the feed is gated on parental consent, not just uploading** — a
   deliberate divergence from ADR-0007's "chat-read is ungated" precedent,
   reasoned through in the API contract doc's conventions section: video of

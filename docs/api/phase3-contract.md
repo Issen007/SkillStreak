@@ -16,6 +16,14 @@ before backend-developer builds against it**, per CLAUDE.md and
 `docs/ACTION_PLAN.md`'s explicit Phase 3 sequencing — this is real video of
 real children.
 
+**Revised 2026-07-22**: endpoint 2 (`complete`) and the implementer notes
+below were updated to close two required findings from security-reviewer's
+first pass (mandatory location-metadata stripping; a TTL/sweep for
+abandoned `pending_upload` rows) — see
+[`docs/adr/0010-video-storage-and-serving.md`](../adr/0010-video-storage-and-serving.md)'s
+own revision note for the full reasoning. Re-requesting sign-off against
+this version.
+
 ## Conventions
 
 - Base path: `/api/v1` (unchanged).
@@ -80,7 +88,11 @@ Response `201`:
 Server creates a `VideoClip` row (`status: 'pending_upload'`), generates a
 **server-chosen** `storage_key` (`clips/{teamId}/{clipId}.<ext>` — never
 client-supplied, per ADR-0010 Decision 1), and returns a short-lived (~5
-min) presigned PUT scoped to exactly that key.
+min) presigned PUT scoped to exactly that key. A row left in
+`pending_upload` (never `complete`d) is automatically cleaned up ~1 hour
+later by the retention sweep's `pending_upload` TTL (ADR-0010 Decision 5)
+— not something the client needs to handle, but worth knowing a `clipId`
+from this response isn't valid forever if `complete` is never called.
 
 Errors:
 - `403 consent_required`.
@@ -99,10 +111,26 @@ clip's own `uploaderPlayerId` + clip must currently be `pending_upload`.
 
 Request: none (empty body).
 
-Server does a `HEAD` against the object in MinIO to confirm it actually
-arrived and its real size/content-type are consistent with what was
-declared at step 1 (ADR-0010 Decision 3's "technical validity" check — no
-deep inspection, no ML). Sets `status: 'published'`,
+Server does the following before this clip can ever become `published`
+(ADR-0010 Decision 3 — no deep content inspection, no ML; steps 1-2 are
+mandatory, step 3 is optional/backend-developer's call):
+
+1. A `HEAD` against the object in MinIO to confirm it actually arrived and
+   its real size/content-type are consistent with what was declared at
+   step 1 ("technical validity").
+2. **A metadata-stripping remux** (`ffmpeg -map_metadata -1 -c copy` or
+   equivalent) that overwrites the object at the same `storage_key` with a
+   version stripped of all container/stream metadata — **this is where
+   embedded GPS/location data that phone cameras write by default gets
+   removed, before the clip is ever reachable via any playback URL.** This
+   is **not optional and not skippable** — see ADR-0010 Decision 3. If this
+   step fails for any reason, `complete` fails with `422
+   clip_processing_failed` rather than publishing an unprocessed file.
+3. (Non-blocking, backend-developer's call) the same tool can cheaply
+   report the object's actual duration as an extra integrity signal against
+   the client-declared `durationSeconds`.
+
+Only after steps 1-2 succeed does the server set `status: 'published'`,
 `expiresAt = now() + retentionWindow` (ADR-0010 Decision 5).
 
 Response `200`:
@@ -125,6 +153,12 @@ Errors:
   the presigned window (the `HEAD` check failed). Client should retry from
   endpoint 1 (a fresh `clipId`/upload URL), not retry `complete` again for
   the same one.
+- `422 clip_processing_failed` — the object arrived, but the mandatory
+  metadata-stripping remux (step 2 above) failed. The clip stays
+  `pending_upload` (not published, not silently published-unstripped);
+  client should treat this like `upload_not_found` and retry from endpoint
+  1 with a fresh upload — a clip that failed to strip is never a clip
+  that's allowed to publish anyway.
 
 ### 3. `GET /api/v1/teams/:teamId/clips`
 
@@ -265,6 +299,27 @@ implementing, not just this shape):**
   a new scheduled task, not an endpoint in this contract — implement with
   `@nestjs/schedule`, delete the MinIO object before the Postgres row (see
   ADR-0010 for the failure-mode reasoning on that ordering).
+- **backend-developer:** a **second, more frequent** scheduled task (recommend
+  hourly) sweeps `pending_upload` rows past their ~1 hour TTL (ADR-0010
+  Decision 5) — deletes the underlying object if one exists, then the row.
+  Can share implementation with the daily retention sweep (same mechanism,
+  parameterized by status/TTL), not a second separate piece of
+  infrastructure. This is required before launch, not a nice-to-have — it's
+  the fix for an otherwise-unbounded storage-exhaustion path on the
+  single-replica MinIO pod.
+- **backend-developer:** endpoint 2 (`complete`)'s metadata-stripping remux
+  is **mandatory, not optional** — don't ship a version of `complete` that
+  sets `status: 'published'` without it having run successfully first. This
+  is the fix for a real no-location-tracking violation (phone cameras embed
+  GPS in video containers by default), not a nice-to-have hardening pass;
+  see ADR-0010 Decision 3 for the exact `ffmpeg` invocation and the
+  reasoning for why a remux doesn't conflict with this ADR's "no deep
+  re-encoding" scope.
+- **backend-developer:** configure the MinIO bucket/policy with a max
+  object size matching the declared `fileSizeBytes` cap (ADR-0010 Decision
+  1) — a presigned PUT can't enforce `Content-Length` server-side on its
+  own, so this is real defense in depth, not redundant with the request-time
+  validation at endpoint 1.
 - **backend-developer:** `storage_key` is never accepted from a client on
   any endpoint — it's generated server-side at endpoint 1 and never exposed
   in any response (the client only ever sees `uploadUrl`/`playbackUrl`,
@@ -300,6 +355,20 @@ implementing, not just this shape):**
   ordering doesn't leave a reachable-but-should-be-gone object anywhere
   (it shouldn't — bucket access requires a live row to mint a URL — but
   confirm directly rather than take this contract's word for it).
+  **Additionally, once implemented**: confirm the metadata-stripping remux
+  (endpoint 2) actually runs — and actually removes location data — on a
+  real device-recorded file with GPS embedded (not just a synthetic test
+  file with no metadata to begin with), and that there is no code path that
+  sets `status: 'published'` without that step having succeeded first;
+  confirm the `pending_upload` TTL sweep actually reclaims both the object
+  and the row, not just one of them, on a genuinely abandoned upload.
+- **ux-designer:** the parent-notification email copy for a clip report
+  (ADR-0010 Decision 4) should read as neutral/informational, not
+  accusatory — a single, unverified report both hides the clip and
+  triggers this email, so the copy shouldn't imply guilt has already been
+  established (security-reviewer's note, non-blocking but worth getting
+  right in the first draft rather than fixing after a parent reads an
+  accusatory-sounding email about their child).
 - **code-critic:** the feed query's `status`/`team_id` filtering (endpoint
   3) and the report/auto-hide/rate-limit logic (endpoint 5) are the two
   places worth the most scrutiny, same posture as the chat contract's

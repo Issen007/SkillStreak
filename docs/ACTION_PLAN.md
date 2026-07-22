@@ -996,6 +996,28 @@ treat `security-reviewer` involvement as blocking, not a final check.
       before implementation starts. Once both required-fix items above are
       added to the ADR/contract, the rest of the architecture is sound and
       this can be re-reviewed quickly (it's an addition, not a redesign).
+- [x] **architect follow-up (2026-07-22)**: closed both required findings
+      above, same day, before any implementation started. Decision 3 of
+      `adr/0010-video-storage-and-serving.md` now specifies the
+      metadata-stripping remux (`ffmpeg -map_metadata -1 -c copy` or
+      equivalent) as a **mandatory** third check at the `complete` step —
+      publishing without it succeeding first is not an allowed path
+      (`422 clip_processing_failed` otherwise); folded in the non-blocking
+      duration-verification suggestion as an optional extension of the same
+      pass. Decision 5 gained a **required** `pending_upload` TTL (~1 hour)
+      with its own, more frequent sweep (reusing the daily retention job's
+      mechanism, not new infrastructure) so abandoned/never-completed
+      uploads can't accumulate unbounded on the single-replica MinIO pod;
+      Decision 1 gained a bucket-level max-object-size configuration note as
+      defense in depth against a presigned PUT's inability to enforce
+      `Content-Length` server-side. `api/phase3-contract.md`'s endpoint 2
+      and implementer notes updated to match (new `422
+      clip_processing_failed` error, the second scheduled-sweep note, the
+      bucket-size config note); also folded in the non-blocking
+      parent-notification-copy note for ux-designer. Both docs carry an
+      explicit revision note dating this change. **Re-requesting
+      security-reviewer sign-off against the revised version — not
+      self-certified as resolved.**
 - [ ] **ux-designer**: design the safe feed and the "tag a teammate to
       challenge them" flow.
 - [ ] **backend-developer**: upload endpoint gated on parental consent;
