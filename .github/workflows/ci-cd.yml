@@ -39,11 +39,43 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # Fas 3's video-clip e2e suite exercises a real MinIO instance (the
+      # object-storage/metadata-stripping path is the whole point of that
+      # suite, not something to stub out). GitHub Actions job "services"
+      # can't override a container's command/args, so this uses
+      # bitnami/minio (not the official minio/minio image docker-
+      # compose.yml/k8s use) — bitnami's image is designed to boot the
+      # server from env vars alone, no command override needed, which is
+      # exactly what a service container requires.
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: ci-minio-user
+          MINIO_ROOT_PASSWORD: ci-minio-password
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgres://app:app@localhost:5432/app_dev
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-only-test-secret
+      MINIO_ENDPOINT: http://localhost:9000
+      MINIO_ACCESS_KEY: ci-minio-user
+      MINIO_SECRET_KEY: ci-minio-password
+      MINIO_BUCKET: clips
     steps:
+      # ubuntu-latest ships ffmpeg by default, but pinning this step makes
+      # that an explicit, verified fact for this workflow rather than an
+      # assumption about the runner image that could silently change —
+      # docs/adr/0010-video-storage-and-serving.md's metadata-stripping
+      # remux (VideoProcessingService) needs both ffmpeg and ffprobe on
+      # PATH for its own e2e coverage to mean anything.
+      - name: Ensure ffmpeg is present
+        run: command -v ffmpeg && command -v ffprobe && ffmpeg -version | head -1
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
@@ -262,10 +294,15 @@ jobs:
           kubectl apply -f k8s/postgres-pvc.yaml
           kubectl apply -f k8s/postgres-service.yaml
           kubectl apply -f k8s/redis-service.yaml
+          # Fas 3 (docs/adr/0010-video-storage-and-serving.md) — MinIO gets
+          # the identical Deployment+PVC+ClusterIP treatment as Postgres.
+          kubectl apply -f k8s/minio-pvc.yaml
+          kubectl apply -f k8s/minio-service.yaml
           kubectl apply -f k8s/api-service.yaml
           kubectl apply -f k8s/site-service.yaml
           kubectl apply -f k8s/postgres-deployment.yaml
           kubectl apply -f k8s/redis-deployment.yaml
+          kubectl apply -f k8s/minio-deployment.yaml
           kubectl apply -f k8s/api-deployment.yaml
           kubectl apply -f k8s/site-deployment.yaml
 
@@ -273,5 +310,6 @@ jobs:
         run: |
           kubectl rollout status deployment/postgres -n skillstreak
           kubectl rollout status deployment/redis -n skillstreak
+          kubectl rollout status deployment/minio -n skillstreak
           kubectl rollout status deployment/api -n skillstreak
           kubectl rollout status deployment/site -n skillstreak

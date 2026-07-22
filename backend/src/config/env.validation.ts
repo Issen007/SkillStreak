@@ -57,6 +57,38 @@ class EnvironmentVariables {
   @IsOptional()
   @IsNotEmpty()
   APP_PUBLIC_URL?: string;
+
+  // --- Fas 3 (video clips / MinIO) -------------------------------------------
+  // docs/adr/0010-video-storage-and-serving.md Decision 1 — MinIO gets the
+  // identical "required stateful dependency" treatment as
+  // DATABASE_URL/REDIS_URL, not mail's optional-degrade treatment: a video
+  // feature this app now ships can't silently no-op the way an unconfigured
+  // SMTP relay can.
+  @IsNotEmpty()
+  MINIO_ENDPOINT!: string;
+
+  @IsNotEmpty()
+  MINIO_ACCESS_KEY!: string;
+
+  @IsNotEmpty()
+  MINIO_SECRET_KEY!: string;
+
+  // Optional — ObjectStorageService defaults to 'clips' (ADR-0010's bucket
+  // layout) if unset.
+  @IsOptional()
+  @IsNotEmpty()
+  MINIO_BUCKET?: string;
+
+  // Tunable product config, per ADR-0010's own framing ("a config value...
+  // not architecturally rigid") — all optional with the ADR's recommended
+  // defaults applied in code (see video-clips.constants.ts).
+  @IsOptional()
+  @IsNumberString()
+  CLIP_RETENTION_DAYS?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  CLIP_PENDING_UPLOAD_TTL_MINUTES?: string;
 }
 
 // Fails fast on boot rather than surfacing a confusing runtime error the

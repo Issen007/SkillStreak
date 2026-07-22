@@ -91,13 +91,16 @@ tested one.
 | File | What it is |
 |---|---|
 | `namespace.yaml` | The `skillstreak` namespace everything else lives in. |
-| `configmap.yaml` | Non-secret API config (`NODE_ENV`, `PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `JWT_EXPIRES_IN`, SMTP host/port/from, `APP_PUBLIC_URL`). |
-| `secret.yaml.example` | Template for the real Secret — copy to `secret.yaml` and fill in. `secret.yaml` itself is git-ignored and must never be committed. |
+| `configmap.yaml` | Non-secret API config (`NODE_ENV`, `PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `JWT_EXPIRES_IN`, SMTP host/port/from, `APP_PUBLIC_URL`, and — since Fas 3 — `MINIO_ENDPOINT`/`MINIO_BUCKET`/`CLIP_RETENTION_DAYS`/`CLIP_PENDING_UPLOAD_TTL_MINUTES`). |
+| `secret.yaml.example` | Template for the real Secret — copy to `secret.yaml` and fill in. `secret.yaml` itself is git-ignored and must never be committed. Since Fas 3, also holds `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`. |
 | `postgres-pvc.yaml` | PersistentVolumeClaim so Postgres data survives pod restarts. |
 | `postgres-deployment.yaml` | Postgres 16-alpine, single replica, `Recreate` rollout strategy (safe for a ReadWriteOnce PVC). |
 | `postgres-service.yaml` | ClusterIP only — never expose Postgres externally (no LoadBalancer/NodePort/Ingress for it, matching the compose setup's `127.0.0.1`-only binding). |
 | `redis-deployment.yaml` | Redis 7-alpine, single replica, deliberately no PVC (cache/accelerator over Postgres per ADR-0002 — safe to lose and rebuild). |
 | `redis-service.yaml` | ClusterIP only, same reasoning as Postgres's Service. |
+| `minio-pvc.yaml` | PersistentVolumeClaim so video-clip bytes survive pod restarts (docs/adr/0010-video-storage-and-serving.md Decision 1) — sized larger than Postgres's (20Gi) since this holds actual video, not just rows. |
+| `minio-deployment.yaml` | MinIO (self-hosted S3-API object store), single replica, `Recreate` rollout strategy — the *identical* Deployment+PVC+ClusterIP shape as Postgres, per ADR-0010's explicit "no new deployment paradigm" framing. |
+| `minio-service.yaml` | ClusterIP only, same reasoning as Postgres's/Redis's Service — never an Ingress/NodePort/LoadBalancer for it (ADR-0010 Decision 2: the bucket has zero public/anonymous read access, and a public MinIO endpoint would defeat that boundary entirely). |
 | `api-deployment.yaml` | The NestJS API. Ships with a blank placeholder `image:` — `.github/workflows/ci-cd.yml`'s deploy job builds/pushes the real image and `sed`-fills this field at deploy time; the committed file is never updated with a real tag. Reads config from the ConfigMap + Secret; `/health` for readiness/liveness. |
 | `api-service.yaml` | ClusterIP for the api Pods — the real external entry point is the Ingress, not this Service directly. |
 | `cluster-issuer.yaml` | Two cert-manager `ClusterIssuer`s (`letsencrypt-staging`, `letsencrypt-prod`), HTTP01-solved through the existing ingress-nginx controller. Cluster-scoped, apply once. |
@@ -120,6 +123,7 @@ kubectl apply -f k8s/secret.yaml       # copied from secret.yaml.example, real v
 kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/postgres-pvc.yaml -f k8s/postgres-deployment.yaml -f k8s/postgres-service.yaml
 kubectl apply -f k8s/redis-deployment.yaml -f k8s/redis-service.yaml
+kubectl apply -f k8s/minio-pvc.yaml -f k8s/minio-deployment.yaml -f k8s/minio-service.yaml
 kubectl apply -f k8s/api-deployment.yaml -f k8s/api-service.yaml
 kubectl apply -f k8s/site-deployment.yaml -f k8s/site-service.yaml
 

@@ -1,0 +1,26 @@
+# ClusterIP only, on purpose — same rule as postgres-service.yaml/
+# redis-service.yaml, restated per ADR-0010 Decision 2: the bucket has zero
+# public/anonymous read access, and the ONLY way to reach an object's bytes
+# is a presigned URL minted by the API after its own team-scoping check.
+# Do not change this to NodePort/LoadBalancer or add an Ingress rule for it
+# — a public MinIO endpoint would defeat that entire structural boundary.
+# Includes the console port (9001) for `kubectl port-forward` admin
+# debugging only; still ClusterIP-only, never externally routable.
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: skillstreak
+  labels:
+    app: minio
+spec:
+  type: ClusterIP
+  selector:
+    app: minio
+  ports:
+    - name: api
+      port: 9000
+      targetPort: 9000
+    - name: console
+      port: 9001
+      targetPort: 9001

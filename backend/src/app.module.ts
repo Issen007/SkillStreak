@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppConfigModule } from './config/app-config.module';
 import { ConsentModule } from './consent/consent.module';
@@ -14,12 +15,20 @@ import { TeamChatModule } from './team-chat/team-chat.module';
 import { TeamPoolModule } from './team-pool/team-pool.module';
 import { TeamsModule } from './teams/teams.module';
 import { TrainingLogsModule } from './training-logs/training-logs.module';
+import { VideoClipsModule } from './video-clips/video-clips.module';
 import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
 
 @Module({
   imports: [
     AppConfigModule,
     DatabaseModule,
+    // Phase 3 (docs/adr/0010-video-storage-and-serving.md Decision 5) — the
+    // daily retention sweep + hourly pending_upload TTL sweep run as
+    // in-process @Cron tasks (ClipRetentionService), not a new Kubernetes
+    // CronJob. Registered once, here, at the root (ScheduleModule.forRoot
+    // is a singleton registration point, same as ThrottlerModule.forRoot
+    // below).
+    ScheduleModule.forRoot(),
     // Global default is deliberately generous — it's a backstop, not the
     // control that matters. The two genuinely open (unauthenticated)
     // routes — POST /players and GET /teams/invite/:inviteCode — override
@@ -45,6 +54,7 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     WeeklyGoalModule,
     SessionModule,
     TeamChatModule,
+    VideoClipsModule,
   ],
   providers: [
     {

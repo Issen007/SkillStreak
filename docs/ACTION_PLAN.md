@@ -1101,8 +1101,80 @@ treat `security-reviewer` involvement as blocking, not a final check.
       report-notification email copy per security-reviewer's specific ask
       (explicitly pre-empts the "guilt already established" reading a
       single unverified report could otherwise imply).
-- [ ] **backend-developer**: upload endpoint gated on parental consent;
-      team-scoped feed API.
+- [x] **backend-developer**: new `backend/src/video-clips/` module — `VideoClip`/
+      `ClipReport` entities + migration (per ADR-0010's exact field lists:
+      `tagged_player_id` `ON DELETE SET NULL`, `uploader_player_id` `ON
+      DELETE RESTRICT`, `clip_report.clip_id` nullable `ON DELETE SET
+      NULL` + denormalized `reported_uploader_player_id`, `team_id`
+      denormalized on `VideoClip` at upload time), all 5
+      `phase3-contract.md` endpoints, an `ObjectStorageService`
+      (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` talking to a
+      new MinIO service), a `VideoProcessingService` that shells out to
+      `ffmpeg`/`ffprobe` for the mandatory metadata-stripping remux at
+      `complete` (explicitly `-map`ping only the first video/audio streams
+      per security-reviewer's non-blocking refinement), and a
+      `ClipRetentionService` with the two required `@nestjs/schedule`
+      sweeps (daily 90-day expiry, hourly `pending_upload` TTL,
+      object-then-row deletion order, sharing one mechanism). Added the
+      `TeamChatBlock` feed-filter `phase3-contract.md` endpoint 3 was
+      missing (per ux-designer's flag) directly to that doc as part of
+      this pass. New `k8s/minio-deployment.yaml`/`minio-pvc.yaml`/
+      `minio-service.yaml` (identical Deployment+PVC+ClusterIP shape to
+      Postgres, ClusterIP-only, never an Ingress/NodePort/LoadBalancer),
+      new `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` entries in
+      `k8s/secret.yaml.example`, `MINIO_ENDPOINT`/`MINIO_BUCKET`/
+      `CLIP_RETENTION_DAYS`/`CLIP_PENDING_UPLOAD_TTL_MINUTES` in
+      `k8s/configmap.yaml`, `k8s/README.md`'s file table/deploy-order
+      updated, `.github/workflows/ci-cd.yml`'s deploy job and its
+      `backend-test` job's service containers updated to match (a
+      `bitnami/minio` CI service container, since GitHub Actions service
+      containers can't override a command the way `docker-compose.yml`/
+      `k8s/`'s official `minio/minio` image needs). `backend/Dockerfile`'s
+      runtime image now installs `ffmpeg` (`apk add`); `docker-compose.yml`
+      gained a `minio` service matching this shape, wired into the `api`
+      service's `depends_on`/env.
+      **Verified independently, not just by inspection**: brought up a
+      genuinely fresh Postgres 18 + Redis + MinIO via `docker-compose`, ran
+      migrations clean, and exercised the real pipeline end-to-end — a
+      synthetic clip with injected `location`/`title` container metadata
+      was uploaded via a real presigned PUT to a real MinIO instance,
+      `complete` ran the actual `ffmpeg` remux, and the bytes served back
+      from the fresh presigned GET were confirmed (via `ffprobe`) to have
+      that metadata actually stripped — the mandatory no-location-tracking
+      fix is real, not asserted. Also verified the `422
+      clip_processing_failed` path against a genuinely corrupt upload (clip
+      stays `pending_upload`, bad object deleted), the `409
+      upload_not_found` path (never PUT anything), and the `TeamChatBlock`
+      feed-filter end-to-end (a blocked uploader's clip is absent from the
+      blocker's feed, present for everyone else). Lint/build clean;
+      171 unit tests (up from 131) and 98 e2e tests (up from 74) pass
+      against fresh datastores, re-run 4 times with no flakiness. Includes
+      a dedicated concurrency e2e test
+      (`phase3-video-clips-report-concurrency.e2e-spec.ts`, mirroring
+      `captain-transfer-concurrency.e2e-spec.ts`'s convention) for the
+      report path's pre-check/insert/cooldown-claim race — 8 genuinely
+      concurrent identical report requests from one reporter always
+      produce exactly one persisted `ClipReport` row and exactly one
+      `201`, regardless of which request wins.
+      **One real, verified finding flagged for security-reviewer/the
+      project owner, not glossed over**: the bucket-level max-object-size
+      *policy* (ADR-0010 Decision 1's defense-in-depth ask) does not
+      currently work against MinIO — confirmed live, independently, both
+      via `ObjectStorageService`'s own `PutBucketPolicyCommand` call and
+      directly via `mc admin policy create`, that MinIO's policy engine
+      rejects the `s3:content-length-range` condition key outright as "an
+      invalid condition key," not a silent no-op. The attempt is kept
+      (harmless, logged-on-failure, and it's a real, working AWS S3
+      mechanism if this project ever moves off self-hosted MinIO per
+      ADR-0010's own portability framing) but **the only currently-active
+      control against an oversized PUT to a leaked presigned URL is the
+      primary one the ADR already names** — the API only ever hands out
+      one rate-limited, validated presigned URL per request. See
+      `ObjectStorageService.configureMaxObjectSizePolicy`'s own comment for
+      the full account; a dedicated unit test
+      (`object-storage.service.spec.ts`) locks in that this failure mode
+      degrades gracefully (logs, doesn't throw, doesn't block boot) rather
+      than regressing silently later.
 - [ ] **frontend-developer**: capture/upload UI, feed screen.
 - [ ] **code-critic** + **security-reviewer**: final review before merge.
 

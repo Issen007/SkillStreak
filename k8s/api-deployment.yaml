@@ -87,6 +87,19 @@ spec:
                 secretKeyRef:
                   name: skillstreak-secret
                   key: SMTP_PASSWORD
+            # Fas 3 (docs/adr/0010-video-storage-and-serving.md) — MinIO
+            # credentials. MINIO_ENDPOINT/BUCKET/CLIP_* come from the
+            # ConfigMap via envFrom above.
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: MINIO_ROOT_USER
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: MINIO_ROOT_PASSWORD
           readinessProbe:
             httpGet:
               path: /health

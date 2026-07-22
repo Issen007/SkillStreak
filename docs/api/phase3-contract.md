@@ -200,6 +200,15 @@ Response `200`:
   in this same query, not as client-side post-processing (identical
   reasoning to `phase2.6b-contract.md` endpoint 2's message-visibility
   query).
+- **Also excludes any clip whose `uploaderPlayerId` the requesting viewer
+  has blocked via an existing `TeamChatBlock`** — per
+  `docs/design/phase3-flows.md`'s "does blocking a teammate in chat also
+  hide their clips?" decision, a block is a single per-viewer preference
+  spanning both chat and clips, not two independent settings. Filtered on
+  `uploaderPlayerId`, not `taggedPlayerId` (a blocked player's own uploads
+  never show; being tagged by them in someone *else's* clip still does),
+  and applied in this same query alongside the `status` filter, not as a
+  second, separate pass.
 - `playbackUrl` is a **fresh presigned GET minted for this exact response**
   — never cached/reused from `complete`'s response, never valid indefinitely
   (ADR-0010 Decision 2).

@@ -31,3 +31,12 @@ data:
   # currently not applied for the same reason, and the warning in
   # k8s/README.md about the consent token being a bearer credential).
   APP_PUBLIC_URL: "http://localhost:3000"
+  # Fas 3 (docs/adr/0010-video-storage-and-serving.md) — the in-cluster
+  # MinIO Service (minio-service.yaml), never a public endpoint.
+  MINIO_ENDPOINT: "http://minio:9000"
+  MINIO_BUCKET: "clips"
+  # Tunable product config (ADR-0010 Decision 5), not architecturally
+  # fixed — see that ADR's own "flagged, not silently decided as final"
+  # framing for these two numbers.
+  CLIP_RETENTION_DAYS: "90"
+  CLIP_PENDING_UPLOAD_TTL_MINUTES: "60"

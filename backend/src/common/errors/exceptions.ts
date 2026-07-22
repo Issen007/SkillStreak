@@ -305,6 +305,102 @@ export class CaptainConsentRequiredException extends AppException {
   }
 }
 
+// --- Fas 3 (video clips & the team feed) ------------------------------------
+// docs/adr/0010-video-storage-and-serving.md / docs/api/phase3-contract.md.
+
+export class ClipUploadRateLimitedException extends AppException {
+  constructor() {
+    super(
+      'clip_upload_rate_limited',
+      'Too many clip uploads started recently; try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+export class CaptionRejectedByFilterException extends AppException {
+  constructor() {
+    // Same shape as ChatMessageRejectedByFilterException — reuses
+    // ChatModerationCheck (docs/api/phase3-contract.md endpoint 1).
+    super(
+      'caption_rejected_by_filter',
+      'Caption contains a disallowed term.',
+      HttpStatus.UNPROCESSABLE_ENTITY,
+    );
+  }
+}
+
+export class ClipNotFoundException extends AppException {
+  constructor() {
+    // Deliberately generic per the contract — covers "no such clipId",
+    // "not on this team", "not owned by this uploader" and (for `complete`)
+    // "not in pending_upload state" without distinguishing which, same
+    // posture as ChatMessageNotFoundException.
+    super(
+      'clip_not_found',
+      'No such video clip for this team/uploader (or not in the expected state).',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+export class UploadNotFoundException extends AppException {
+  constructor() {
+    // docs/api/phase3-contract.md endpoint 2 — the HEAD check against MinIO
+    // found nothing within the presigned PUT's validity window. Client
+    // should retry from endpoint 1 with a fresh clipId, not retry `complete`
+    // for this one.
+    super(
+      'upload_not_found',
+      'The uploaded object was not found in storage — retry the upload from a fresh upload-url request.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class ClipProcessingFailedException extends AppException {
+  constructor() {
+    // ADR-0010 Decision 3 (blocking, security-reviewer finding) — the
+    // mandatory metadata-stripping remux failed. The clip stays
+    // pending_upload; it is never published unstripped.
+    super(
+      'clip_processing_failed',
+      'The uploaded clip could not be processed (metadata-stripping failed) and was not published.',
+      HttpStatus.UNPROCESSABLE_ENTITY,
+    );
+  }
+}
+
+export class NotYourClipException extends AppException {
+  constructor() {
+    super(
+      'not_your_clip',
+      'Only the uploader can perform this action on a clip.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class ClipAlreadyReportedException extends AppException {
+  constructor() {
+    super(
+      'clip_already_reported_by_you',
+      'You have already reported this clip.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class ClipReportRateLimitedException extends AppException {
+  constructor() {
+    super(
+      'clip_report_rate_limited',
+      'Too many reports submitted recently; try again shortly.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
 export class SessionReissueDisabledException extends AppException {
   constructor() {
     // Disabled 2026-07-05 per a security review finding: the reissue code
