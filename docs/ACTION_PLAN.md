@@ -1068,8 +1068,39 @@ treat `security-reviewer` involvement as blocking, not a final check.
       Neither refinement above is required before backend-developer starts;
       both are implementation-detail hardening notes for backend-developer/
       code-critic to keep in mind, not new blocking findings.
-- [ ] **ux-designer**: design the safe feed and the "tag a teammate to
-      challenge them" flow.
+- [x] **ux-designer**: designed the feed (new "Klipp" tab, placed third —
+      Hem, Chatt, Klipp, Mål, Laget — by realistic visit frequency), the
+      two-phase upload flow (pick/record → caption + optional
+      tag-a-teammate → progress → published, with every contract error
+      case handled including `422 caption_rejected_by_filter`'s
+      typed-caption preservation), the report flow (tap-to-reveal, not
+      long-press; `appears_without_consent` listed first among the five
+      reasons; confirmation copy that states the immediate auto-hide
+      plainly without promising a review timeline this app can't
+      guarantee), and self-service delete (one confirmation step, using
+      this app's reserved destructive/red button, since clip deletion is
+      genuinely irreversible unlike K4's captain transfer or CH4's block).
+      → `design/phase3-flows.md`, `design/phase3-mockup.html`.
+      **Deliberate framing decision, directly against CLAUDE.md's "borrow
+      the hook, not the dark pattern" instruction**: the feed is a
+      tap-to-play card list with an explicit "Visa fler klipp" button, not
+      a TikTok-style autoplay/swipe-to-next/infinite-scroll stack — even
+      though the contract's `before` cursor would technically support
+      auto-loading. **Resolved the contract's explicitly left-open
+      question**: yes, an existing `TeamChatBlock` now also suppresses
+      that teammate's clips (filtered on `uploaderPlayerId`, not
+      `taggedPlayerId`) — a single per-viewer "block this person"
+      preference spanning both surfaces, not two independent settings;
+      flagged for architect/backend-developer to add this filtering rule
+      explicitly to `phase3-contract.md` endpoint 3, and for
+      frontend-developer that CH4's already-shipped block-confirmation
+      copy needs a small update to mention clips too. Also designed: a
+      client-only "you were challenged" banner reusing the existing
+      K5/G3 local-flag-diff mechanism (no new backend, honest about its
+      no-push limitation), and neutral/informational parent+coach
+      report-notification email copy per security-reviewer's specific ask
+      (explicitly pre-empts the "guilt already established" reading a
+      single unverified report could otherwise imply).
 - [ ] **backend-developer**: upload endpoint gated on parental consent;
       team-scoped feed API.
 - [ ] **frontend-developer**: capture/upload UI, feed screen.
