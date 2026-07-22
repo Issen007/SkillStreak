@@ -927,8 +927,75 @@ treat `security-reviewer` involvement as blocking, not a final check.
       existing chat block should also suppress a teammate's clips; exact
       numeric caps (retention window, file/duration limits, rate limits)
       are recommended but explicitly tunable, not fixed by this ADR.
-- [ ] **security-reviewer**: sign off on the storage/access design *before*
-      backend-developer builds it, not after.
+- [ ] **security-reviewer**: reviewed the architecture (ADR-0010 +
+      `phase3-contract.md`) *before* any code exists, per this phase's
+      explicit sequencing. **Verdict: safe with required changes — not a
+      full sign-off yet.** The structural team-scoping (bucket has zero
+      public/anonymous read path; every read re-checks `clip.teamId ===
+      requestingPlayer.teamId` and mints a fresh, short-lived presigned URL
+      per request, never cached/reused), the consent gate correctly
+      extended to reads (not just uploads), the retention/self-delete
+      design, and the `ClipReport` denormalization-survives-deletion pattern
+      all independently check out — no IDOR path found across the 5
+      endpoints, no `real_name`/report-identity leak, no cross-team
+      reachability. Two findings, one blocking:
+      - [ ] **CONFIRMED, BLOCKING — no video metadata (GPS/EXIF-equivalent)
+            stripping anywhere in the design.** Decision 3 explicitly rules
+            out re-encoding/deep inspection of uploaded video, and neither
+            the ADR nor the contract mentions removing embedded location
+            metadata before an object is stored or served. Phone-recorded
+            video routinely embeds GPS coordinates in the container itself
+            (e.g. QuickTime's `com.apple.quicktime.location.ISO6709` atom,
+            Android camera apps' `loci`/`xyz` atoms) whenever the recording
+            device had location services on — this is the literal "EXIF
+            data in uploaded clips" case CLAUDE.md's no-location-tracking
+            constraint calls out by name. As designed, a child's clip
+            recorded at home would carry their home's GPS coordinates
+            straight through to every teammate's presigned playback,
+            unnoticed by anything in this pipeline. **Required fix before
+            backend-developer builds the `complete` endpoint**: strip all
+            container-level metadata (a fast remux, e.g.
+            `ffmpeg -map_metadata -1 -c copy`, not a full re-encode — cheap
+            enough to run synchronously in the same step as the existing
+            `HEAD` check) before setting `status: 'published'`. This should
+            be added to ADR-0010 Decision 3 as a third, mandatory check
+            alongside the existing technical-validity checks, not left
+            implicit.
+      - [ ] **PLAUSIBLE, required before build — presigned-PUT size isn't
+            actually enforced, and `pending_upload` rows/objects have no
+            cleanup path.** A raw S3-API presigned PUT (as opposed to a
+            presigned POST with policy conditions) generally can't enforce
+            a max content-length server-side, so a client can PUT far more
+            than the declared `fileSizeBytes` to MinIO; combined with
+            `expires_at` only being set at `complete` time, a client that
+            calls `upload-url` repeatedly and never (or only sometimes)
+            calls `complete` leaves orphaned objects/stale `pending_upload`
+            rows that the 90-day retention sweep never reaches (it only
+            queries `published` rows with an `expires_at`) — a storage-
+            exhaustion path on the single-replica, PVC-backed MinIO pod.
+            Needs either a presigned POST with a content-length-range
+            condition, or a periodic sweep for stale `pending_upload` rows
+            (e.g. older than the presigned-PUT expiry window), or both.
+      - Non-blocking, flagged for ux-designer, not gating backend-developer:
+        declared `durationSeconds` is never independently verified (the
+        `complete` `HEAD` check only compares size/content-type against
+        what MinIO reports, not actual media duration) — folding a
+        duration check into the same ffmpeg/ffprobe pass used for metadata
+        stripping above would close this almost for free. Also: the
+        auto-hide-on-report divergence (ADR-0010 Decision 4) is reasoned
+        soundly and is judged an acceptable trade at this beta's scale, but
+        note it compounds slightly worse than chat's version — a single,
+        unverified report both hides the clip *and* triggers a
+        parent-facing email framed around "your child was reported"
+        before any human review has occurred. Recommend neutral,
+        provisional-sounding copy in that email (ux-designer's call), not a
+        design change.
+      **Not yet safe to hand to backend-developer as-is** — the metadata-
+      stripping gap is a direct, non-theoretical path to exactly the
+      location exposure CLAUDE.md prohibits, and must be added to ADR-0010
+      before implementation starts. Once both required-fix items above are
+      added to the ADR/contract, the rest of the architecture is sound and
+      this can be re-reviewed quickly (it's an addition, not a redesign).
 - [ ] **ux-designer**: design the safe feed and the "tag a teammate to
       challenge them" flow.
 - [ ] **backend-developer**: upload endpoint gated on parental consent;
