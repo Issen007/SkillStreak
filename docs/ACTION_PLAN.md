@@ -889,10 +889,44 @@ multi-replica throttler gap above) for before real external-beta traffic.
 This phase is the highest privacy risk (video, a feed, tagging teammates) —
 treat `security-reviewer` involvement as blocking, not a final check.
 
-- [ ] **architect**: ADR for video storage/serving (where clips live, how
-      access is scoped to a single team, retention/deletion), and — if the
-      validity/tagging feature actually needs local ML — the new Python
-      service's shape, built with uv per `adr/0003-package-managers.md`.
+- [x] **architect**: designed video storage on this project's *actual*
+      infra (a shared internal PaaS with no confirmed cloud object storage,
+      per `k8s/README.md`/`temp/HANDOFF.md`) rather than assuming AWS
+      S3/GCS: a self-hosted, S3-API-compatible MinIO pod, deployed with the
+      same Deployment+PVC+ClusterIP shape this repo already uses for
+      Postgres. Access is scoped structurally, mirroring ADR-0008's
+      join-avoidance bar for the leaderboard: the bucket has zero public
+      read access, and the backend only ever mints a short-lived presigned
+      URL after re-checking `clip.teamId === requestingPlayer.teamId` on
+      every single request — never cached, never reused. →
+      `adr/0010-video-storage-and-serving.md`, `api/phase3-contract.md`.
+      **Decided the tagging/local-ML question explicitly, not left
+      hedging**: "tag a teammate to challenge them" is an ordinary FK
+      reference (no ML needed); "clip validity" splits into a deterministic
+      technical check (file type/size/duration — built now) and content
+      classification (does this actually show floorball training — would
+      need real ML, **explicitly deferred**, no Python/uv service built
+      this phase, mirroring ADR-0007's chat-moderation deferral reasoning;
+      tracked in `docs/BACKLOG.md`). **One deliberate divergence from
+      ADR-0007's chat precedent, reasoned through rather than copied**: a
+      single report **auto-hides** a clip immediately (chat explicitly
+      rejected auto-hide-on-report) — justified by video's different harm
+      asymmetry (a false-positive hide costs little; a false-negative
+      leaves a child's actual likeness visible to the team) and by this
+      app having no way to verify a "you filmed me without consent" claim
+      before acting on it. Retention: clips are ephemeral by default (a
+      recommended, tunable 90-day rolling window, hard-deleted; not tied to
+      `Season`'s already-flagged inconsistent boundaries), uploader
+      self-delete is immediate and unconditional (this phase's real answer
+      to "please take this video down," without needing the full
+      account-erasure feature this app still doesn't have — flagged as an
+      inherited, now-higher-stakes gap, not solved here), and `ClipReport`
+      survives a clip's own deletion via a nullable FK + denormalized
+      uploader id, same durability pattern as `ParentalConsentRecord`.
+      **Left open, flagged for ux-designer/backend-developer**: whether an
+      existing chat block should also suppress a teammate's clips; exact
+      numeric caps (retention window, file/duration limits, rate limits)
+      are recommended but explicitly tunable, not fixed by this ADR.
 - [ ] **security-reviewer**: sign off on the storage/access design *before*
       backend-developer builds it, not after.
 - [ ] **ux-designer**: design the safe feed and the "tag a teammate to

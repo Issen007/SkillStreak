@@ -27,3 +27,19 @@ the loop" posture. Deliberately deferred out of 2.6b's first pass: it needs
 its own design/cost/latency tradeoff discussion (sync classification before
 send vs. async post-hoc scan) and a security-reviewer pass on what "held for
 review" actually means for a child's message thread.
+
+## Video Clip Content Moderation (future release)
+Phase 3 (`docs/adr/0010-video-storage-and-serving.md`) ships the team video
+feed with deterministic technical validation only (file type/size/duration
+checks — no ML) plus a human-in-the-loop safety net (any report
+immediately auto-hides a clip, pending best-effort parent/coach email
+follow-up). It deliberately does **not** build automated content
+classification ("does this clip actually show floorball training, is it
+appropriate") — that would need a real video-classification model, its own
+Python/uv service (per `docs/adr/0003-package-managers.md`), and a sync-
+vs-async latency/cost tradeoff discussion, none of which this phase has
+evidence it needs yet at this project's current small-closed-team beta
+scale. Revisit if teams stop being small/real-world-known rosters, or if
+the report/auto-hide posture proves insufficient in practice — the same
+trigger condition `docs/adr/0007-team-chat.md` already states for its own
+deferred LLM-moderation item.
