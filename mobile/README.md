@@ -126,7 +126,9 @@ phone" walkthrough. The mobile-specific pieces:
   lockfile alongside it.
 - `npx tsc --noEmit` and `npx expo-doctor` are the two quick sanity checks
   worth running before calling a change done; neither replaces actually
-  opening the app in Expo Go/simulator.
+  opening the app in Expo Go/simulator. Both now also run in CI on every PR
+  (`.github/workflows/ci-cd.yml`'s `mobile-typecheck` job) — previously this
+  only happened if whoever made the change ran them by hand.
 
 ## Known duplication / consolidation candidates (tracked, not yet acted on)
 

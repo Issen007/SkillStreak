@@ -80,6 +80,48 @@ jobs:
       - name: E2E tests
         run: pnpm run test:e2e
 
+  mobile-typecheck:
+    name: Mobile typecheck + expo-doctor
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    # mobile/README.md names these two as "the quick sanity checks worth
+    # running before calling a change done" — every prior phase's
+    # frontend-developer pass has run them by hand, but nothing enforced it
+    # in CI, so a change that skipped that manual step (or a non-agent PR)
+    # could merge with a broken build unnoticed. This job automates exactly
+    # those two checks, nothing more — it doesn't attempt a simulator/device
+    # run (none exists in CI any more than in this project's own dev
+    # sandbox, per mobile/README.md's own noted gap).
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          # mobile/package.json pins a different pnpm version than
+          # backend/package.json — pnpm/action-setup can't auto-detect a
+          # "packageManager" field outside the repo root (defaults.run
+          # .working-directory only applies to `run:` steps), so this is
+          # pinned to match mobile/package.json's own pin explicitly,
+          # mirroring the backend-test job's identical comment/pattern.
+          version: 11.11.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: expo-doctor
+        run: npx expo-doctor
+
   docker-build:
     name: Docker image builds
     runs-on: ubuntu-latest
