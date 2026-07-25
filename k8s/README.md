@@ -156,12 +156,14 @@ the order above is easier to reason about and debug on a first attempt.)
   issues certs via `letsencrypt-staging` (untrusted by real
   browsers/clients) — see the warning at the top of this file for the
   cutover steps to `letsencrypt-prod` before this is used for real.
-- **Migration race with `replicas: 2` on the api.** `backend/docker-entrypoint.sh`
+- **Migration race with multiple api replicas.** `backend/docker-entrypoint.sh`
   runs TypeORM migrations on every container start; with more than one
-  replica, a rolling restart can run `migration:run` from two pods at once.
-  Not solved here (would need a separate Job/init-container with locking) —
-  flagged in a comment in `api-deployment.yaml`. Drop to `replicas: 1` if
-  this is a concern before that's addressed.
+  replica, a rolling restart can run `migration:run` from two pods at once —
+  this is exactly what stalled the first real alpha deploy (rollout stuck at
+  "1 out of 2 new replicas" until the progress deadline, on 2026-07-11).
+  `api-deployment.yaml` now runs `replicas: 1` as a direct fix for that, not
+  a precaution. Not properly solved (would need a separate Job/init-container
+  with locking) — go back to more than 1 replica only once that's built.
 - **No HPA, NetworkPolicy, or multi-region setup** — intentionally out of
   scope for a small youth-sports app's first beta (that's Fas 4 territory,
   not this pass).

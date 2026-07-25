@@ -10,11 +10,13 @@
 # KNOWN LIMITATION: backend/docker-entrypoint.sh runs TypeORM migrations on
 # every container start before the app boots (see docs/adr/0002-data-model.md
 # — schema changes go through migrations, never manual edits). That's fine
-# with docker-compose's single api container, but with replicas: 2 here,
-# both pods can run `migration:run` concurrently on a rolling restart. Small
-# race window; not solved in this first cut (would mean moving migrations
-# into a separate Job/init step with locking). If that's a concern before a
-# real cluster exists, drop replicas to 1 until it's addressed.
+# with docker-compose's single api container, but two concurrent replicas
+# running `migration:run` on the same rollout was exactly what stalled the
+# first real alpha deploy on the cluster (rollout stuck at "1 out of 2 new
+# replicas" until the progress deadline). replicas is 1 here as a direct
+# result of hitting that, not just a theoretical precaution — go back to 2
+# only once migrations are moved into a separate Job/init step with locking
+# (not solved in this cut).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,7 +25,7 @@ metadata:
   labels:
     app: api
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: api
