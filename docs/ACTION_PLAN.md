@@ -1175,7 +1175,96 @@ treat `security-reviewer` involvement as blocking, not a final check.
       (`object-storage.service.spec.ts`) locks in that this failure mode
       degrades gracefully (logs, doesn't throw, doesn't block boot) rather
       than regressing silently later.
-- [ ] **frontend-developer**: capture/upload UI, feed screen.
+- [x] **frontend-developer**: built the new "Klipp" tab (fifth, placed
+      third — Hem, Chatt, Klipp, Mål, Laget, per the flow doc's realistic-
+      visit-frequency ordering) end to end against `docs/design/
+      phase3-flows.md` and `docs/api/phase3-contract.md`: Screen V0's
+      one-time intro, V1's consent-gated *whole-tab* waiting/paused state
+      (not just a disabled upload button — `GET .../clips` itself 403s a
+      non-approved player), V2's tap-to-play card feed with three
+      physically separate tap zones per card (avatar/name -> the existing
+      CH4 block sheet; video -> play/pause only, muted by default; caption/
+      timestamp/"⋯" -> reveals report or delete), explicit "Visa fler
+      klipp" pagination (no infinite scroll/autoplay, per CLAUDE.md's own
+      anti-dark-pattern instruction — deliberately not using the
+      `before`-cursor capability for scroll-triggered auto-loading), and
+      Screen V3's "you were challenged" banner reusing `Toast` directly
+      (see `mobile/README.md`'s "Known duplication" update) rather than a
+      new overlay. Screens V4-V7's full two-phase upload flow
+      (`clips/upload/`): client-side pre-check against the same
+      duration/size/format caps the backend enforces
+      (`clipValidation.ts`), `createClipUploadUrl` -> a direct `PUT` of the
+      raw bytes to the presigned `uploadUrl` via `expo-file-system`'s
+      upload task (real progress events, not a fake animation) ->
+      `completeClipUpload` — confirmed the second call is never skipped,
+      matching this project's own history of code-critic catching
+      "skip step 2" bugs in similar flows. Every contract error case
+      handled: `403 consent_required` (whole-tab state, plus the upload
+      flow's own stale-state recovery), `422 caption_rejected_by_filter`
+      (typed caption preserved, same convention as chat's
+      `message_rejected_by_filter`), `400` validation (the pre-check
+      catches most; the `taggedPlayerId`-no-longer-a-teammate race gets its
+      own inline recovery), `429` on both upload and report, `422
+      clip_processing_failed`/`409 upload_not_found` (both trigger the same
+      automatic retry-from-scratch with a fresh `clipId`, per the flow
+      doc). Report flow (V9/V10, tap-to-reveal not long-press,
+      `appears_without_consent` listed first) and self-delete (V11, the
+      first real use of a new `DangerButton` component — this app's
+      reserved destructive/red treatment, since clip deletion is the first
+      genuinely, unconditionally irreversible action built so far).
+      `TeamChatBlock`-affects-clips implemented (filters the local feed
+      list immediately on block, matching the backend's own query) and
+      `BlockSheet`/`BlockedListScreen`'s copy updated to mention clips, per
+      the flow doc's flagged "already-shipped copy needs a small update"
+      note. **Verified independently, not just by inspection**: `npx tsc
+      --noEmit` and `npx expo-doctor` (18/18, after bumping the `expo`
+      patch version to close an unrelated pre-existing drift) both clean; a
+      full Metro bundle (`npx expo export`) compiled with no errors (718
+      modules). Brought up the existing `docker-compose` stack (api/
+      postgres/redis/minio, already running/healthy) and exercised every
+      new endpoint for real from a container attached to the compose
+      network (so presigned MinIO URLs, whose host is `minio` per
+      `MINIO_ENDPOINT`, resolve correctly) — a synthetic clip with injected
+      `location`/`title` metadata (generated via the api container's own
+      `ffmpeg`) went through a real `upload-url` -> `PUT` -> `complete`
+      round trip, and the returned `playbackUrl` was independently fetched
+      and confirmed reachable; the clip appeared in a teammate's feed with
+      the correct tag; a report immediately hid it from *both* the
+      reporter and the uploader's own feed (ADR-0010 Decision 4);
+      self-delete removed it permanently and a repeat delete 404'd; a
+      `TeamChatBlock` hid the blocked uploader's clips from the blocker
+      specifically while a third, unrelated teammate still saw them;
+      consent-gated reads were confirmed for both a never-approved player
+      and a player whose consent was revoked mid-session (both 403
+      `consent_required` on the feed `GET` itself); `422
+      caption_rejected_by_filter`, `400` (bad `taggedPlayerId`, over-cap
+      duration), `409 upload_not_found`, and both `429` codes (upload
+      daily-allowance burst, report per-reporter cooldown) all matched the
+      contract exactly. Consent approval/revocation was simulated via
+      direct SQL against the same Postgres instance (mirroring how
+      backend's own e2e suite bypasses the real parent-email round trip)
+      rather than sending real email through the project's live SMTP
+      relay. **One real, verified finding, flagged for backend-developer/
+      code-critic, not silently worked around**: tracing
+      `VideoClipsService.reportClip`'s actual check order (clip-must-be-
+      published check, then the existing-report check, then the
+      per-reporter Redis cooldown claim, then the insert) shows `409
+      clip_already_reported_by_you` is effectively unreachable for clips
+      specifically, unlike chat — because a report always immediately
+      hides the clip (ADR-0010 Decision 4), any *sequential* repeat report
+      404s (`clip_not_found`) before ever reaching the "already reported"
+      check, and in a genuinely concurrent race the atomic per-reporter
+      cooldown claim (not the unique-report constraint) is what decides
+      the race, so a loser gets `429`/`404`, not `409`. The mobile client
+      still correctly handles the documented `409` code (harmless, correct
+      defense for what the contract states), but the contract/ADR may want
+      to note this reachability gap explicitly rather than leave `409`
+      looking equally reachable to `429`/`404`. **Known, honestly-stated
+      verification gap**: no iOS Simulator/Android emulator exists in this
+      Linux sandbox, so the camera/picker/playback UI itself was never
+      tap-through-tested on a real device — the live-backend exercise above
+      substitutes for that, but is not the same thing, matching this
+      project's prior phases' same honest gap.
 - [ ] **code-critic** + **security-reviewer**: final review before merge.
 
 ## Phase 4 — Kubernetes & public launch ("Fas 4")

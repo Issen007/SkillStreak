@@ -21,7 +21,13 @@ interface BlockedListScreenProps {
  * no `GET .../chat/blocks` endpoint, so this list is only ever as complete
  * as this device's own block history. `DELETE .../chat/blocks/:id` is
  * still the real, durable unblock — the cache is just how this screen
- * knows what to *offer* unblocking for. */
+ * knows what to *offer* unblocking for.
+ *
+ * Fas 3 addendum: the heading/empty-state copy doesn't need to change (per
+ * docs/design/phase3-flows.md, it's already generic), but a small muted sub
+ * line was added under the heading so a player understands one block now
+ * covers both the chat and the Klipp feed (the same `TeamChatBlock` row,
+ * not two independent settings). */
 export function BlockedListScreen({ teamId, onBack }: BlockedListScreenProps) {
   const [blocks, setBlocks] = useState<CachedChatBlock[] | null>(null);
   const [unblockingId, setUnblockingId] = useState<string | null>(null);
@@ -54,6 +60,7 @@ export function BlockedListScreen({ teamId, onBack }: BlockedListScreenProps) {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>Blockerade lagkompisar</Text>
+        <Text style={styles.headingSub}>En blockering gäller både lagchatten och Klipp.</Text>
 
         {blocks === null ? (
           <ActivityIndicator color={colors.flame} />
@@ -101,6 +108,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.headingBold,
     fontSize: 20,
     color: colors.ink,
+  },
+  headingSub: {
+    fontFamily: fonts.body,
+    fontSize: 11.5,
+    color: colors.textMuted,
+    marginTop: -6,
   },
   emptyText: {
     fontFamily: fonts.body,
