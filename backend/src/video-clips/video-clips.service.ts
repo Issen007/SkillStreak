@@ -43,6 +43,7 @@ import { ObjectStorageService } from './object-storage.service';
 import { VideoProcessingService } from './video-processing.service';
 import {
   CLIP_DURATION_MISMATCH_TOLERANCE_SECONDS,
+  CLIP_MAX_FILE_SIZE_BYTES,
   CLIP_PLAYBACK_URL_EXPIRES_SECONDS,
   CLIP_UPLOAD_URL_EXPIRES_SECONDS,
   ClipMimeType,
@@ -230,12 +231,15 @@ export class VideoClipsService {
    * team membership; 2) the clip must exist, belong to this team/uploader,
    * and still be pending_upload (else 404 clip_not_found — deliberately
    * generic, doesn't distinguish which condition failed); 3) HEAD the
-   * object in MinIO (else 409 upload_not_found); 4) download, probe, remux
-   * (the mandatory metadata-stripping step — any failure here is 422
-   * clip_processing_failed, and the clip is left pending_upload, never
-   * published unstripped); 5) upload the remuxed bytes back to the same
-   * storage_key; 6) flip status to published with expiresAt set; 7) mint a
-   * fresh presigned GET and return.
+   * object in MinIO (else 409 upload_not_found); 4) spot-check the HEAD
+   * result's real size/content-type against the declared upload (422
+   * clip_processing_failed, object deleted, if it fails — see the inline
+   * comment below for why this step is load-bearing, not decorative); 5)
+   * download, probe, remux (the mandatory metadata-stripping step — any
+   * failure here is also 422 clip_processing_failed, and the clip is left
+   * pending_upload, never published unstripped); 6) upload the remuxed
+   * bytes back to the same storage_key; 7) flip status to published with
+   * expiresAt set; 8) mint a fresh presigned GET and return.
    */
   async completeUpload(
     teamId: string,
@@ -259,6 +263,45 @@ export class VideoClipsService {
     const head = await this.objectStorageService.headObject(clip.storageKey);
     if (!head) {
       throw new UploadNotFoundException();
+    }
+
+    // Post-upload technical-validity spot-check (ADR-0010 Decision 3 /
+    // phase3-contract.md endpoint 2 step 1 — "confirm ... its real
+    // size/content-type are consistent with what was declared at step 1")
+    // — code-critic finding, confirmed missing entirely before this fix.
+    // Neither of this app's two other size/type controls actually reaches
+    // this far: `CreateUploadUrlDto`'s `@Max(fileSizeBytes)` only validates
+    // the client's own *declared* number, and the presigned PUT URL doesn't
+    // bind the client to it (confirmed directly against a real MinIO
+    // instance: the signed URL's `X-Amz-SignedHeaders` is `host` only —
+    // neither Content-Length nor Content-Type is part of the signature);
+    // the bucket-level max-object-size policy
+    // (ObjectStorageService.configureMaxObjectSizePolicy) is separately
+    // confirmed non-functional against MinIO. Without this check, a player
+    // could declare a small fileSizeBytes and then PUT an arbitrarily large
+    // object straight to the presigned URL: completeUpload would otherwise
+    // buffer the *entire* object into memory a few lines below
+    // (getObjectBuffer) on this single-replica API pod before ever
+    // rejecting it — a real memory-exhaustion, not just storage-
+    // exhaustion, path bounded only by the daily upload-count rate limit,
+    // not by size. Rejecting here, before getObjectBuffer is ever called,
+    // closes both risks. Reuses the same 422 clip_processing_failed
+    // path/cleanup as a failed remux (delete the bad object, leave the row
+    // pending_upload) rather than inventing a new error code — the mobile
+    // client's existing "retry from a fresh upload" handling for that code
+    // already covers this case correctly with no client change needed.
+    if (
+      head.sizeBytes > CLIP_MAX_FILE_SIZE_BYTES ||
+      (head.contentType !== null && head.contentType !== clip.mimeType)
+    ) {
+      this.logger.warn(
+        `Clip ${clip.id}: object at ${clip.storageKey} failed the post-upload ` +
+          `technical-validity spot-check (reported size=${head.sizeBytes}B, ` +
+          `contentType=${head.contentType ?? 'null'}; declared mimeType=` +
+          `${clip.mimeType}, max allowed size=${CLIP_MAX_FILE_SIZE_BYTES}B).`,
+      );
+      await this.objectStorageService.deleteObjectIfExists(clip.storageKey);
+      throw new ClipProcessingFailedException();
     }
 
     let inputPath: string | null = null;

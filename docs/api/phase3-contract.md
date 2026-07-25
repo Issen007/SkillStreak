@@ -24,6 +24,14 @@ abandoned `pending_upload` rows) — see
 own revision note for the full reasoning. Re-requesting sign-off against
 this version.
 
+**Revised 2026-07-25 (code-critic pre-merge pass)**: endpoint 2's `422
+clip_processing_failed` error description updated — the first
+implementation never actually performed step 1's declared HEAD-based size/
+content-type spot-check (only checked that the object existed at all),
+despite this doc already describing it correctly. Fixed in
+`VideoClipsService.completeUpload`; no request/response shape changed. See
+`docs/ACTION_PLAN.md`'s Phase 3 code-critic entry for the full finding.
+
 ## Conventions
 
 - Base path: `/api/v1` (unchanged).
@@ -153,12 +161,18 @@ Errors:
   the presigned window (the `HEAD` check failed). Client should retry from
   endpoint 1 (a fresh `clipId`/upload URL), not retry `complete` again for
   the same one.
-- `422 clip_processing_failed` — the object arrived, but the mandatory
-  metadata-stripping remux (step 2 above) failed. The clip stays
-  `pending_upload` (not published, not silently published-unstripped);
-  client should treat this like `upload_not_found` and retry from endpoint
-  1 with a fresh upload — a clip that failed to strip is never a clip
-  that's allowed to publish anyway.
+- `422 clip_processing_failed` — the object arrived, but either (a) step
+  1's spot-check found its real, HEAD-reported size/content-type
+  inconsistent with what was declared at endpoint 1 (**code-critic
+  finding, fixed 2026-07-25**: this branch of the check was missing from
+  the first implementation — see `docs/ACTION_PLAN.md`'s Phase 3
+  code-critic entry), or (b) the mandatory metadata-stripping remux (step
+  2 above) failed. The clip stays `pending_upload` (not published, not
+  silently published-unstripped); client should treat this like
+  `upload_not_found` and retry from endpoint 1 with a fresh upload — a
+  clip that fails either check is never a clip that's allowed to publish
+  anyway. The response body doesn't distinguish (a) from (b) — same
+  generic-error posture as `clip_not_found` above.
 
 ### 3. `GET /api/v1/teams/:teamId/clips`
 
