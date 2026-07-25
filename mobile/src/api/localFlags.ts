@@ -116,3 +116,61 @@ export async function removeCachedChatBlock(
   const next = existing.filter((entry) => entry.blockedPlayerId !== blockedPlayerId);
   await SecureStore.setItemAsync(chatBlocksKeyFor(teamId), JSON.stringify(next));
 }
+
+// --- Fas 3: Screen V0's one-time first-open guardrail explainer ------------
+// Shown once regardless of consentStatus, per docs/design/phase3-flows.md —
+// same mechanism as CHAT_INTRO_SEEN_KEY above.
+const CLIP_INTRO_SEEN_KEY = 'skillstreak.hasSeenClipIntro';
+
+export async function getHasSeenClipIntro(): Promise<boolean> {
+  return (await SecureStore.getItemAsync(CLIP_INTRO_SEEN_KEY)) === 'true';
+}
+
+export async function setHasSeenClipIntro(): Promise<void> {
+  await SecureStore.setItemAsync(CLIP_INTRO_SEEN_KEY, 'true');
+}
+
+// --- Fas 3: unread-dot bookkeeping for the "Klipp" tab ----------------------
+// Identical shape to chatLastViewedKeyFor above, per the flow doc's
+// "Unread indicator" note (same tab-dot convention as Chatt).
+function clipLastViewedKeyFor(teamId: string): string {
+  return `skillstreak.clipLastViewedAt.${teamId}`;
+}
+
+export async function getClipLastViewedAt(teamId: string): Promise<string | null> {
+  return SecureStore.getItemAsync(clipLastViewedKeyFor(teamId));
+}
+
+export async function setClipLastViewedAt(teamId: string, value: string): Promise<void> {
+  await SecureStore.setItemAsync(clipLastViewedKeyFor(teamId), value);
+}
+
+// --- Fas 3: Screen V3's "you were challenged" one-time notice --------------
+// Reuses the K5/G3 "diff a locally persisted flag" mechanism verbatim, per
+// the flow doc's judgment call 6 — but since a player can be tagged in more
+// than one clip, this tracks a *set* of clipIds already shown (not a single
+// timestamp diff like K5/G3), persisted the moment the banner is *shown*
+// (not dismissed), same "a killed app doesn't re-show it" rule.
+function seenChallengeClipIdsKeyFor(teamId: string): string {
+  return `skillstreak.seenChallengeClipIds.${teamId}`;
+}
+
+export async function getSeenChallengeClipIds(teamId: string): Promise<string[]> {
+  const raw = await SecureStore.getItemAsync(seenChallengeClipIdsKeyFor(teamId));
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function addSeenChallengeClipId(teamId: string, clipId: string): Promise<void> {
+  const existing = await getSeenChallengeClipIds(teamId);
+  if (existing.includes(clipId)) return;
+  await SecureStore.setItemAsync(
+    seenChallengeClipIdsKeyFor(teamId),
+    JSON.stringify([...existing, clipId]),
+  );
+}

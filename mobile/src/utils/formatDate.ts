@@ -54,3 +54,32 @@ export function formatChatTimestamp(isoTimestamp: string): string {
   const isoDate = date.toISOString().slice(0, 10);
   return `${formatSwedishDate(isoDate)} ${clockTime}`;
 }
+
+/** Fas 3, Screen V2's clip timestamps — "för 2 timmar sedan"/"igår", no
+ * exact clock time (per the flow doc: "no exact clock needed, this isn't a
+ * conversation" — a deliberate difference from `formatChatTimestamp` above,
+ * which does show clock time since chat replies are time-sensitive). Manual
+ * arithmetic, same Hermes/ICU reasoning as the other helpers in this file. */
+export function formatClipRelativeTime(isoTimestamp: string): string {
+  const date = new Date(isoTimestamp);
+  if (Number.isNaN(date.getTime())) return isoTimestamp;
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / (60 * 1000));
+
+  if (diffMinutes < 1) return 'just nu';
+  if (diffMinutes < 60) return `för ${diffMinutes} minut${diffMinutes === 1 ? '' : 'er'} sedan`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `för ${diffHours} timm${diffHours === 1 ? 'e' : 'ar'} sedan`;
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round((startOfToday.getTime() - startOfDate.getTime()) / (24 * 60 * 60 * 1000));
+
+  if (diffDays === 1) return 'igår';
+  if (diffDays < 7) return `för ${diffDays} dagar sedan`;
+
+  return formatSwedishDate(date.toISOString().slice(0, 10));
+}

@@ -283,6 +283,90 @@ describe('VideoClipsService.completeUpload', () => {
     ).rejects.toBeInstanceOf(UploadNotFoundException);
   });
 
+  it('rejects with clip_processing_failed and deletes the object when the HEAD-reported size exceeds the max cap, without ever buffering the object (getObjectBuffer never called)', async () => {
+    const { service, videoClipRepository, objectStorageService } =
+      buildService();
+    videoClipRepository.findOne.mockResolvedValue({
+      id: 'clip-1',
+      teamId: 'team-1',
+      uploaderPlayerId: 'player-1',
+      storageKey: 'clips/team-1/clip-1.mp4',
+      mimeType: 'video/mp4',
+      durationSeconds: 10,
+      createdAt: new Date(),
+      caption: null,
+      taggedPlayerId: null,
+    });
+    // A client can declare a small fileSizeBytes at upload-url time and
+    // still PUT an arbitrarily large object to the presigned URL (neither
+    // the signature nor the bucket policy enforces this — see the inline
+    // comment in VideoClipsService.completeUpload) — this is exactly that
+    // scenario, caught by the HEAD-based spot-check.
+    objectStorageService.headObject.mockResolvedValue({
+      sizeBytes: 999_999_999,
+      contentType: 'video/mp4',
+    });
+
+    await expect(
+      service.completeUpload('team-1', 'player-1', 'clip-1'),
+    ).rejects.toBeInstanceOf(ClipProcessingFailedException);
+
+    expect(objectStorageService.deleteObjectIfExists).toHaveBeenCalledWith(
+      'clips/team-1/clip-1.mp4',
+    );
+    expect(objectStorageService.getObjectBuffer).not.toHaveBeenCalled();
+    expect(videoClipRepository.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects with clip_processing_failed when the HEAD-reported content-type does not match the declared mimeType', async () => {
+    const { service, videoClipRepository, objectStorageService } =
+      buildService();
+    videoClipRepository.findOne.mockResolvedValue({
+      id: 'clip-1',
+      teamId: 'team-1',
+      uploaderPlayerId: 'player-1',
+      storageKey: 'clips/team-1/clip-1.mp4',
+      mimeType: 'video/mp4',
+      durationSeconds: 10,
+      createdAt: new Date(),
+      caption: null,
+      taggedPlayerId: null,
+    });
+    objectStorageService.headObject.mockResolvedValue({
+      sizeBytes: 1000,
+      contentType: 'application/octet-stream',
+    });
+
+    await expect(
+      service.completeUpload('team-1', 'player-1', 'clip-1'),
+    ).rejects.toBeInstanceOf(ClipProcessingFailedException);
+    expect(objectStorageService.getObjectBuffer).not.toHaveBeenCalled();
+  });
+
+  it('allows a null HEAD content-type through to the remux step (no assertion possible, not treated as a mismatch)', async () => {
+    const { service, videoClipRepository, objectStorageService } =
+      buildService();
+    videoClipRepository.findOne.mockResolvedValue({
+      id: 'clip-1',
+      teamId: 'team-1',
+      uploaderPlayerId: 'player-1',
+      storageKey: 'clips/team-1/clip-1.mp4',
+      mimeType: 'video/mp4',
+      durationSeconds: 10,
+      createdAt: new Date(),
+      caption: null,
+      taggedPlayerId: null,
+    });
+    objectStorageService.headObject.mockResolvedValue({
+      sizeBytes: 1000,
+      contentType: null,
+    });
+
+    await expect(
+      service.completeUpload('team-1', 'player-1', 'clip-1'),
+    ).resolves.toMatchObject({ status: 'published' });
+  });
+
   it('rejects with clip_processing_failed when the metadata-stripping remux fails, deletes the bad object, and never flips status to published', async () => {
     const {
       service,

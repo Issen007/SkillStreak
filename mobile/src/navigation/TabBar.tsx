@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 
-export type TabKey = 'home' | 'chat' | 'goal' | 'team';
+export type TabKey = 'home' | 'chat' | 'clips' | 'goal' | 'team';
 
 interface TabDef {
   key: TabKey;
@@ -16,10 +16,15 @@ interface TabDef {
 // docs/design/phase2.6-2.7-flows.md's judgment call 5): Hem is the daily
 // core loop; Chatt is the one surface a kid plausibly opens several times
 // a day; Mål is a weekly check-in at most; Laget (roster/captain
-// tools/leaderboard entry) is opened least often of all.
+// tools/leaderboard entry) is opened least often of all. Fas 3 adds "Klipp"
+// as a fifth tab, placed *third* (between Chatt and Mål) — per
+// docs/design/phase3-flows.md's judgment call 1, a real, frequently-checked
+// pull, but a small roster realistically posts new clips less often than
+// new chat messages, so it sits just behind Chatt rather than tied with it.
 const TABS: TabDef[] = [
   { key: 'home', icon: '🏠', label: 'Hem' },
   { key: 'chat', icon: '💬', label: 'Chatt' },
+  { key: 'clips', icon: '🎬', label: 'Klipp' },
   { key: 'goal', icon: '🎯', label: 'Mål' },
   { key: 'team', icon: '👥', label: 'Laget' },
 ];
@@ -33,17 +38,30 @@ interface TabBarProps {
    * same "presence, not count" dot pattern, per the flow doc's "Unread
    * indicator" note. */
   chatTabDot?: boolean;
+  /** Fas 3's unread-clip dot on the "Klipp" tab — identical "presence, not
+   * count" convention, per docs/design/phase3-flows.md's "Unread
+   * indicator" note. */
+  clipsTabDot?: boolean;
 }
 
 /** A plain bottom tab bar — not a navigation library, matching AppRoot's
  * and OnboardingFlow's existing "just a state machine" posture for an app
  * this size. */
-export function TabBar({ activeTab, onSelect, goalTabDot = false, chatTabDot = false }: TabBarProps) {
+export function TabBar({
+  activeTab,
+  onSelect,
+  goalTabDot = false,
+  chatTabDot = false,
+  clipsTabDot = false,
+}: TabBarProps) {
   return (
     <View style={styles.bar}>
       {TABS.map((tab) => {
         const active = tab.key === activeTab;
-        const showDot = (tab.key === 'goal' && goalTabDot) || (tab.key === 'chat' && chatTabDot);
+        const showDot =
+          (tab.key === 'goal' && goalTabDot) ||
+          (tab.key === 'chat' && chatTabDot) ||
+          (tab.key === 'clips' && clipsTabDot);
         return (
           <Pressable
             key={tab.key}

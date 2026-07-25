@@ -5,12 +5,14 @@ import { HomeScreen } from './home/HomeScreen';
 import { TeamScreen } from './team/TeamScreen';
 import { GoalScreen } from './goal/GoalScreen';
 import { ChatScreen } from './chat/ChatScreen';
+import { ClipsScreen } from './clips/ClipsScreen';
 import { TabBar, TabKey } from './navigation/TabBar';
 import { CatchUpBanner } from './components/CatchUpBanner';
 import { CaptainBanner } from './components/CaptainBanner';
-import { getChatMessages, getMe, getTeamDashboard, getWeeklyGoal } from './api/endpoints';
+import { getChatMessages, getClips, getMe, getTeamDashboard, getWeeklyGoal } from './api/endpoints';
 import {
   getChatLastViewedAt,
+  getClipLastViewedAt,
   getLastKnownIsCaptain,
   getLastSeenBonusAwardedAt,
   setLastKnownIsCaptain,
@@ -25,9 +27,10 @@ interface AppShellProps {
 
 type CaptainBannerState = { variant: 'promoted' | 'demoted' };
 
-/** Wraps the Phase 2.6b tab bar (Hem / Chatt / Mål / Laget) around a plain
- * `activeTab` state — same "not a navigation library" posture as AppRoot
- * and OnboardingFlow, appropriate for this app's size per CLAUDE.md.
+/** Wraps the tab bar (Hem / Chatt / Klipp / Mål / Laget, Fas 3 inserting
+ * "Klipp" third) around a plain `activeTab` state — same "not a navigation
+ * library" posture as AppRoot and OnboardingFlow, appropriate for this
+ * app's size per CLAUDE.md.
  *
  * Owns several cross-tab concerns no single tab screen can own by itself:
  * - `teamId`/`playerId`, which every tab besides Home needs (for its own
@@ -73,6 +76,7 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
   const [catchUpBanner, setCatchUpBanner] = useState<{ awardedPoints: number } | null>(null);
   const [captainBanner, setCaptainBanner] = useState<CaptainBannerState | null>(null);
   const [chatUnread, setChatUnread] = useState(false);
+  const [clipsUnread, setClipsUnread] = useState(false);
 
   // Set right before a G2 takeover's own weekly-goal re-check (see
   // `handleGoalBonusTriggered`) so the *triggering* player's own device
@@ -188,6 +192,26 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
     }
   }, []);
 
+  // Fas 3's "Klipp" tab unread dot — identical shape/purpose to
+  // checkForUnreadChat above: a single lightweight check per foreground/
+  // open (not a continuous poll — Klipp only fetches on open/foreground/
+  // pull-to-refresh per the flow doc, never polled), asking "is there
+  // anything newer than what this device last viewed." A non-`approved`
+  // consent status makes `getClips` 403 — swallowed by the same catch as
+  // every other non-critical check here, same posture as `checkForUnreadChat`.
+  const checkForUnreadClips = useCallback(async (resolvedTeamId: string) => {
+    try {
+      const lastViewed = await getClipLastViewedAt(resolvedTeamId);
+      const response = await getClips(resolvedTeamId, { limit: 1 });
+      const newest = response.clips[0];
+      if (newest && (!lastViewed || newest.createdAt > lastViewed)) {
+        setClipsUnread(true);
+      }
+    } catch {
+      // Non-critical — same posture as the other foreground checks above.
+    }
+  }, []);
+
   const runForegroundChecks = useCallback(async () => {
     const identity = await ensureIdentity();
     if (!identity) return;
@@ -195,8 +219,9 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
       checkForCatchUp(identity.teamId),
       checkForCaptainBanner(identity.teamId),
       checkForUnreadChat(identity.teamId),
+      checkForUnreadClips(identity.teamId),
     ]);
-  }, [ensureIdentity, checkForCatchUp, checkForCaptainBanner, checkForUnreadChat]);
+  }, [ensureIdentity, checkForCatchUp, checkForCaptainBanner, checkForUnreadChat, checkForUnreadClips]);
 
   useEffect(() => {
     hasRunOnce.current = true;
@@ -250,6 +275,20 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
           )
         ) : null}
 
+        {activeTab === 'clips' ? (
+          teamId && playerId ? (
+            <ClipsScreen
+              teamId={teamId}
+              viewerPlayerId={playerId}
+              onOpened={() => setClipsUnread(false)}
+            />
+          ) : (
+            <View style={styles.centered}>
+              <ActivityIndicator color={colors.flame} size="large" />
+            </View>
+          )
+        ) : null}
+
         {activeTab === 'goal' ? (
           teamId ? (
             <GoalScreen teamId={teamId} />
@@ -290,6 +329,7 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
         onSelect={setActiveTab}
         goalTabDot={catchUpBanner !== null}
         chatTabDot={chatUnread}
+        clipsTabDot={clipsUnread}
       />
     </View>
   );
