@@ -1,0 +1,357 @@
+<title>SkillStreak — Fas 3: Klippflöde, uppladdning &amp; rapportering</title>
+<style>
+  :root {
+    --chrome-bg: #F1EFEA;
+    --chrome-bg-alt: #E8E4DC;
+    --chrome-text: #1B1B3A;
+    --chrome-text-muted: #6B6B85;
+    --chrome-line: #D8D4CA;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --chrome-bg: #16151C;
+      --chrome-bg-alt: #1E1D26;
+      --chrome-text: #F1EFEA;
+      --chrome-text-muted: #9A97AC;
+      --chrome-line: #322F3C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --chrome-bg: #16151C;
+    --chrome-bg-alt: #1E1D26;
+    --chrome-text: #F1EFEA;
+    --chrome-text-muted: #9A97AC;
+    --chrome-line: #322F3C;
+  }
+  :root[data-theme="light"] {
+    --chrome-bg: #F1EFEA;
+    --chrome-bg-alt: #E8E4DC;
+    --chrome-text: #1B1B3A;
+    --chrome-text-muted: #6B6B85;
+    --chrome-line: #D8D4CA;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--chrome-bg);
+    color: var(--chrome-text);
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    padding: 40px 20px 64px;
+  }
+
+  .chrome-heading { text-align: center; max-width: 760px; margin-bottom: 6px; }
+  .chrome-eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--chrome-text-muted); margin: 0 0 6px;
+  }
+  .chrome-title {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 26px; margin: 0 0 8px; text-wrap: balance;
+  }
+  .chrome-sub { font-size: 14px; color: var(--chrome-text-muted); margin: 0; line-height: 1.5; }
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 28px;
+    max-width: 1500px;
+  }
+
+  .frame-block { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .frame-label {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 14px;
+    text-align: center;
+    max-width: 300px;
+    color: var(--chrome-text);
+  }
+  .frame-label small { display: block; font-weight: 400; font-size: 11.5px; color: var(--chrome-text-muted); margin-top: 3px; }
+
+  /* ---- phone frame ---- */
+  .phone {
+    width: 300px;
+    height: 650px;
+    border-radius: 38px;
+    background: #0d0c14;
+    padding: 11px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 24px 48px -18px rgba(0,0,0,0.45);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    border-radius: 28px;
+    background: #FAFAF7;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+    color: #1B1B3A;
+  }
+  .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 96px; height: 20px; background: #0d0c14; border-radius: 0 0 14px 14px; z-index: 5;
+  }
+  .statusbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px 3px; font-size: 12px; font-weight: 700;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .statusbar .icons { display: flex; gap: 4px; align-items: center; opacity: 0.85; }
+
+  .content {
+    flex: 1; overflow-y: auto; padding: 4px 18px 16px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  .page-heading {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 20px; margin: 6px 0 0;
+  }
+
+  .card {
+    background: #fff; border: 1px solid #E3DED2; border-radius: 18px;
+    padding: 14px; display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .btn {
+    border-radius: 14px; padding: 12px 14px; text-align: center;
+    font-weight: 700; font-size: 13.5px; border: none;
+  }
+  .btn-primary { background: #FF6B35; color: #fff; }
+  .btn-gold { background: #FFB800; color: #1B1B3A; }
+  .btn-secondary { background: #fff; color: #1B1B3A; border: 1.5px solid #1B1B3A; }
+  .btn-disabled { background: #DAD6CB; color: #8F8C9E; }
+  .btn-destructive { background: #C1432F; color: #fff; }
+
+  /* Clip card */
+  .clip-card { background: #fff; border: 1px solid #E3DED2; border-radius: 18px; overflow: hidden; }
+  .clip-header { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px; }
+  .row-avatar {
+    width: 30px; height: 30px; border-radius: 50%; background: #FFEFE7;
+    display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;
+  }
+  .clip-name { font-weight: 700; font-size: 12.5px; flex: 1; }
+  .clip-time { font-size: 10px; color: #6B6B85; }
+  .clip-video {
+    margin: 0 12px; height: 210px; border-radius: 14px; background: linear-gradient(160deg,#1B1B3A,#3A3866);
+    display: flex; align-items: center; justify-content: center; position: relative;
+  }
+  .play-icon { font-size: 30px; color: rgba(255,255,255,0.9); }
+  .mute-icon {
+    position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%;
+    background: rgba(0,0,0,0.4); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px;
+  }
+  .clip-caption { padding: 8px 12px 4px; font-size: 12.5px; line-height: 1.4; }
+  .clip-chip {
+    margin: 0 12px 4px; align-self: flex-start; background: #FFF7E0; color: #B37B00;
+    font-size: 10px; font-weight: 700; border-radius: 999px; padding: 3px 9px;
+  }
+  .clip-actions { padding: 2px 12px 10px; font-size: 11px; font-weight: 700; color: #C1432F; }
+
+  .fab {
+    position: absolute; right: 16px; bottom: 74px; width: 52px; height: 52px; border-radius: 50%;
+    background: #FF6B35; color: #fff; display: flex; align-items: center; justify-content: center;
+    font-size: 26px; box-shadow: 0 8px 18px -6px rgba(255,107,53,0.6);
+  }
+
+  .tab-bar { display: flex; border-top: 1px solid #E3DED2; background: #fff; flex-shrink: 0; }
+  .tab-item { flex: 1; text-align: center; padding: 8px 0 10px; font-size: 9px; font-weight: 700; color: #6B6B85; position: relative; }
+  .tab-item.active { color: #1B1B3A; }
+  .tab-icon { font-size: 16px; display: block; margin-bottom: 2px; }
+  .tab-dot { position: absolute; top: 3px; right: 30%; width: 6px; height: 6px; border-radius: 50%; background: #FF6B35; }
+
+  /* Sheet overlay */
+  .sheet-overlay {
+    position: absolute; inset: 0; background: rgba(27,27,58,0.35);
+    display: flex; align-items: flex-end; z-index: 20;
+  }
+  .sheet {
+    width: 100%; background: #FAFAF7; border-radius: 22px 22px 0 0;
+    padding: 18px 18px 22px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .sheet-heading { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 15px; text-align: left; }
+  .sheet-body { font-size: 12.5px; color: #47455C; line-height: 1.5; text-align: left; font-style: italic; }
+
+  /* Challenge chips row */
+  .chip-row { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0; }
+  .teammate-chip {
+    display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; width: 58px;
+  }
+  .teammate-chip .row-avatar { width: 40px; height: 40px; font-size: 18px; }
+  .teammate-chip.selected .row-avatar { border: 2.5px solid #FFB800; }
+  .teammate-chip span { font-size: 9.5px; font-weight: 700; text-align: center; }
+
+  .caption-input {
+    border-radius: 14px; border: 1px solid #E3DED2; background: #fff;
+    padding: 10px 12px; font-size: 12.5px; color: #6B6B85; min-height: 54px;
+  }
+
+  .waiting-icon { font-size: 40px; text-align: center; margin-top: 40px; }
+  .waiting-heading { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 19px; text-align: center; }
+  .waiting-body { font-size: 13px; color: #47455C; text-align: center; line-height: 1.5; padding: 0 6px; }
+</style>
+
+<div class="chrome-heading">
+  <p class="chrome-eyebrow">Design mockup — companion to phase3-flows.md</p>
+  <h1 class="chrome-title">Fas 3: Klippflöde, uppladdning &amp; rapportering</h1>
+  <p class="chrome-sub">Fyra representativa vyer, inte en fullständig redraw av varje state — se
+  flödesdokumentet för Trigger/API/Copy/Next per skärm.</p>
+</div>
+
+<div class="row">
+
+  <!-- SCREEN 1: V1 waiting-for-consent -->
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">●●●</span></div>
+        <div class="content">
+          <h2 class="page-heading">Klipp 🎬</h2>
+          <div class="waiting-icon">⏳</div>
+          <div class="waiting-heading">Väntar på godkännande</div>
+          <div class="waiting-body">En förälder eller vårdnadshavare behöver säga ja innan du kan
+            se eller ladda upp klipp. Så fort de godkänner låser vi upp Klipp-fliken.</div>
+          <div style="text-align:center; margin-top:6px;">
+            <button class="btn btn-secondary" style="display:inline-block; padding:8px 16px;">Kolla igen</button>
+          </div>
+        </div>
+        <div class="fab" style="background:#DAD6CB; color:#8F8C9E;">🔒</div>
+        <div class="tab-bar">
+          <div class="tab-item"><span class="tab-icon">🏠</span>Hem</div>
+          <div class="tab-item"><span class="tab-icon">💬</span>Chatt</div>
+          <div class="tab-item active"><span class="tab-icon">🎬</span>Klipp</div>
+          <div class="tab-item"><span class="tab-icon">🎯</span>Mål</div>
+          <div class="tab-item"><span class="tab-icon">👥</span>Laget</div>
+        </div>
+      </div>
+    </div>
+    <div class="frame-label">V1 — Väntar på godkännande
+      <small>Konsent gäller läsning också, inte bara uppladdning — hela fliken visar det här läget.</small>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: V2 feed -->
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">●●●</span></div>
+        <div class="content">
+          <h2 class="page-heading">Klipp 🎬</h2>
+
+          <div class="clip-card">
+            <div class="clip-header">
+              <div class="row-avatar">🦊</div>
+              <div class="clip-name">FloorballStar15</div>
+              <div class="clip-time">för 2 timmar sedan</div>
+            </div>
+            <div class="clip-video">
+              <div class="play-icon">▶</div>
+              <div class="mute-icon">🔇</div>
+            </div>
+            <div class="clip-caption">Zorro-fint #47! 🏑</div>
+            <div class="clip-chip">🎯 Utmanar ZorroKing09</div>
+            <div class="clip-actions">🚩 Rapportera</div>
+          </div>
+
+          <div class="clip-card">
+            <div class="clip-header">
+              <div class="row-avatar">🐼</div>
+              <div class="clip-name">SnabbaBenet</div>
+              <div class="clip-time">igår</div>
+            </div>
+            <div class="clip-video" style="height:150px;">
+              <div class="play-icon">▶</div>
+              <div class="mute-icon">🔇</div>
+            </div>
+            <div class="clip-caption">Löpteknik idag 🏃</div>
+          </div>
+        </div>
+        <div class="fab">+</div>
+        <div class="tab-bar">
+          <div class="tab-item"><span class="tab-icon">🏠</span>Hem</div>
+          <div class="tab-item"><span class="tab-icon">💬</span>Chatt</div>
+          <div class="tab-item active"><span class="tab-icon">🎬</span>Klipp<span class="tab-dot"></span></div>
+          <div class="tab-item"><span class="tab-icon">🎯</span>Mål</div>
+          <div class="tab-item"><span class="tab-icon">👥</span>Laget</div>
+        </div>
+      </div>
+    </div>
+    <div class="frame-label">V2 — Klippflödet
+      <small>Tre separata tryckytor per kort: avatar/namn, video (bara play/paus), bildtext (visar rapportera/ta bort).</small>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: V5 caption + challenge -->
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">●●●</span></div>
+        <div class="content">
+          <h2 class="page-heading">Bildtext &amp; utmaning</h2>
+          <div class="clip-video" style="height:160px; margin:0;">
+            <div class="play-icon" style="font-size:22px;">▶</div>
+          </div>
+          <div class="caption-input">Lägg till en bildtext (frivilligt)…</div>
+          <div class="section-label" style="font-weight:700; font-size:12px;">Utmana en lagkompis? (frivilligt)</div>
+          <div class="chip-row">
+            <div class="teammate-chip selected">
+              <div class="row-avatar">🐨</div>
+              <span>ZorroKing09</span>
+            </div>
+            <div class="teammate-chip">
+              <div class="row-avatar">🦉</div>
+              <span>SnabbaBenet</span>
+            </div>
+            <div class="teammate-chip">
+              <div class="row-avatar">🐼</div>
+              <span>Pandemonium</span>
+            </div>
+          </div>
+          <div style="font-size:11px; color:#6B6B85;">ZorroKing09 ser att du utmanat dem nästa gång de öppnar Klipp.</div>
+          <button class="btn btn-primary" style="margin-top:6px;">Ladda upp</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-label">V5 — Bildtext &amp; utmana en lagkompis
+      <small>Tagg är en frivillig FK-referens, ingen push — bara synlig nästa gång den taggade öppnar fliken.</small>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: V9 report reason sheet -->
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">●●●</span></div>
+        <div class="content" style="justify-content:flex-end; padding:0;"></div>
+        <div class="sheet" style="position:absolute; bottom:0; left:0; right:0;">
+          <div class="sheet-heading">Varför rapporterar du det här klippet?</div>
+          <button class="btn btn-secondary" style="text-align:left;">Jag är med i klippet och ville inte vara det</button>
+          <button class="btn btn-secondary" style="text-align:left;">Mobbning</button>
+          <button class="btn btn-secondary" style="text-align:left;">Olämpligt innehåll</button>
+          <button class="btn btn-secondary" style="text-align:left;">Har inget med träning att göra</button>
+          <button class="btn btn-secondary" style="text-align:left;">Annat</button>
+          <button class="btn btn-primary">Skicka rapport</button>
+          <button class="btn" style="background:transparent; color:#6B6B85;">Avbryt</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-label">V9 — Rapportera klipp
+      <small>Videospecifik anledning ("Jag är med i klippet...") listas överst, inte längst ner.</small>
+    </div>
+  </div>
+
+</div>

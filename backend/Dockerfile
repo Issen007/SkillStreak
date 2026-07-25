@@ -22,6 +22,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 RUN corepack enable
 
+# ffmpeg (+ ffprobe, bundled in the same Alpine package) is required, not
+# optional, for Fas 3's video-clip `complete` step — the mandatory
+# metadata-stripping remux (docs/adr/0010-video-storage-and-serving.md
+# Decision 3) shells out to both. Alpine's community repo (enabled by
+# default in this base image) carries it, so no extra repo config needed.
+RUN apk add --no-cache ffmpeg
+
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 

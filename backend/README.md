@@ -25,6 +25,7 @@ surrounding decision has changed.
 | `moderation/` | Owns *only* the `CHAT_MODERATION_CHECK` DI binding (ADR-0009 Decision 5) — extracted out of `team-chat/` so `teams/` can reuse the same content-safety check without importing all of `team-chat/`'s unrelated entities/imports. The interface/implementation/wordlist themselves stay in `team-chat/`, unmoved. |
 | `coaches/` | Just the `Coach` entity. **Dormant** since Phase 2's kapten pivot — no coach login, no coach-facing endpoint anywhere reads/writes it; only `scripts/seed.ts` still creates one row to satisfy a foreign key. See that entity's file comment before building anything new against it. |
 | `team-pool/` | The team-wide, season-long point pool (`TeamSeasonPot`, `Season`) — Postgres is authoritative, atomic `increment()` writes, Redis only caches the gauge. Deliberately separate from individual streak logic (different reset rules/storage), per `CLAUDE.md`. Season/pot creation is otherwise still seed-only (no rollover UI exists yet); `createInitialSeasonAndPot` (ADR-0009) is the one non-seed exception, called only from `onboarding/`'s self-service-team-creation path. |
+| `video-clips/` | Fas 3's team video-clip feed — `VideoClip`/`ClipReport` entities + migration, all 5 `docs/api/phase3-contract.md` endpoints (presigned upload-url/complete/feed/delete/report), `ObjectStorageService` (the MinIO S3-API client: presigned PUT/GET, HEAD, delete-if-exists, a best-effort bucket max-object-size policy — see that service's own comment for a verified MinIO limitation), `VideoProcessingService` (shells out to `ffmpeg`/`ffprobe` for the mandatory metadata-stripping remux at `complete` — the only place in this codebase that invokes an external binary), and `ClipRetentionService` (`@nestjs/schedule` `@Cron` jobs: the daily 90-day-default expiry sweep + the hourly `pending_upload` TTL sweep, sharing one mechanism parameterized by status/cutoff). `PlayerPrivateInfoModule` is imported here as this module's *third* legitimate caller of `getParentContact` (ADR-0010's documented widening, after `onboarding/` and `team-chat/`). `TeamChatBlock`/`TeamCoach`/`Coach` are registered directly via `TypeOrmModule.forFeature` (not a full module import) — the feed query's block-filter and the report-notification coach-email lookup, same "grab just the entity" precedent `team-chat/` already set for `Coach`/`TeamCoach`. See `docs/adr/0010-video-storage-and-serving.md`/`docs/api/phase3-contract.md`. |
 | `training-logs/` | The "Jag har tränat" write path — `POST /training-logs`. The one Postgres transaction that touches streak fields, the team pool, and (since Phase 2) the goal-completion bonus check, then updates Redis after commit. See `training-logs.service.ts`'s class comment for the write-order contract. |
 | `weekly-goal/` | "Veckans mål" — the captain-authored weekly team goal, its CRUD/state machine, team-wide progress aggregate, dashboard, and roster. Reuses the `challenges/` `Challenge` entity/table rather than a new one. |
 | `challenges/` | Just the `Challenge` entity (table name unchanged from an earlier "coach challenge" design; the product language is "weekly goal" now — see `weekly-goal/`). |
@@ -57,10 +58,15 @@ cp backend/.env.example backend/.env
 docker compose up -d --build
 ```
 
-This builds the API image, starts Postgres 18 + Redis, and runs pending
-TypeORM migrations automatically via `docker-entrypoint.sh` (migrations
-only — **not** the seed script, deliberately, see that entrypoint's
-comment). Seed a team + invite code + captain player separately:
+This builds the API image, starts Postgres 18 + Redis + MinIO (Fas 3's
+video-clip object store, `docs/adr/0010-video-storage-and-serving.md`),
+and runs pending TypeORM migrations automatically via
+`docker-entrypoint.sh` (migrations only — **not** the seed script,
+deliberately, see that entrypoint's comment). `backend/Dockerfile`'s
+runtime image also installs `ffmpeg`/`ffprobe` (required, not optional —
+the mandatory metadata-stripping remux at `POST .../clips/:clipId/complete`
+shells out to both). Seed a team + invite code + captain player
+separately:
 
 ```bash
 docker compose exec api node dist/scripts/seed.js
@@ -88,12 +94,28 @@ node dist/scripts/<name>.js` against the running container):
 
 ```bash
 pnpm run test        # unit tests (Jest, colocated *.spec.ts files)
-pnpm run test:e2e     # e2e tests (test/*.e2e-spec.ts) — needs Postgres/Redis up
+pnpm run test:e2e     # e2e tests (test/*.e2e-spec.ts) — needs Postgres/Redis/MinIO up
 ```
 
 `test/training-logs-concurrency.e2e-spec.ts` is the regression test for the
 row-lock/idempotency pattern described below — worth reading before
-changing anything in that area.
+changing anything in that area. `test/phase3-video-clips-report-concurrency
+.e2e-spec.ts` is the equivalent regression test for the clip-report
+race (`VideoClipsService.reportClip`'s pre-check + insert + Redis-cooldown
+claim).
+
+**`video-clips/video-processing.service.spec.ts` and
+`test/phase3-video-clips.e2e-spec.ts` shell out to real `ffmpeg`/`ffprobe`**
+(they generate a synthetic clip with injected metadata, run the actual
+remux, and assert the metadata is gone — not a mocked assertion) —
+gracefully skipped if neither is on `PATH` (a plain `pnpm test` on a host
+without them installed still passes, just without that coverage), but both
+tools are present in `backend/Dockerfile`'s image and on `ubuntu-latest`
+CI runners by default, so this coverage is real, not aspirational, in both
+places that matter. `test/phase3-video-clips.e2e-spec.ts` also needs a
+reachable MinIO (`MINIO_ENDPOINT` etc., same env vars as the app itself) —
+it PUTs real bytes to a real presigned URL and reads them back to confirm
+the served object was actually re-muxed.
 
 ## Where the real decisions live (not duplicated here)
 
@@ -102,7 +124,9 @@ changing anything in that area.
 - [`docs/adr/0003-package-managers.md`](../docs/adr/0003-package-managers.md) — pnpm/uv.
 - [`docs/adr/0004-coach-auth-and-session-reissue.md`](../docs/adr/0004-coach-auth-and-session-reissue.md) (+ its 2026-07-05 addendum) — why coach auth is dormant, and the session-reissue mechanism's original design.
 - [`docs/adr/0005-kapten-and-weekly-team-goal.md`](../docs/adr/0005-kapten-and-weekly-team-goal.md) — the Phase 2 pivot: captain flag, weekly-goal state machine, the goal-completion bonus formula.
-- [`docs/api/phase1-contract.md`](../docs/api/phase1-contract.md) / [`docs/api/phase2-contract.md`](../docs/api/phase2-contract.md) — the actual request/response contracts this code implements.
+- [`docs/adr/0007-team-chat.md`](../docs/adr/0007-team-chat.md) — the moderation/report/block model `video-clips/` reuses/extends.
+- [`docs/adr/0010-video-storage-and-serving.md`](../docs/adr/0010-video-storage-and-serving.md) — Fas 3: MinIO storage, structural team-scoping, the mandatory metadata-stripping remux, retention/deletion.
+- [`docs/api/phase1-contract.md`](../docs/api/phase1-contract.md) / [`docs/api/phase2-contract.md`](../docs/api/phase2-contract.md) / [`docs/api/phase3-contract.md`](../docs/api/phase3-contract.md) — the actual request/response contracts this code implements.
 - [`docs/ACTION_PLAN.md`](../docs/ACTION_PLAN.md) — what's done, what's deferred, and why, phase by phase.
 
 ## A few patterns worth recognizing before you extend them
@@ -136,3 +160,22 @@ reusing it instead of reinventing a slightly different version.
   reusable template-rendering shape (plain functions in → `{ subject, html,
   text }` out, with `escapeHtml` on every interpolated value) for any future
   transactional email.
+- **Combined visibility filter, one query** (`TeamChatService.listMessages`,
+  `VideoClipsService.listClips`): a status filter (`!= 'hidden'`/
+  `= 'published'`) and a per-viewer `NOT EXISTS` block filter both live in
+  the *same* query-builder chain, never two layered post-processing passes
+  — the one place a future refactor could silently leak a blocked/hidden
+  row if split apart.
+- **Shelling out to a real binary for a mandatory processing step**
+  (`VideoProcessingService`'s `ffmpeg`/`ffprobe` remux): write the input to
+  a temp file, run the tool via `child_process.execFile` (never a shell
+  string — no injection surface), throw on any nonzero exit/empty output,
+  clean up temp files in a `finally`. `backend/Dockerfile`'s runtime image
+  installs the binary explicitly (`apk add`) rather than assuming it's
+  present — check/update that file for any future external-tool
+  dependency, the same way this one required it.
+- **Scheduled sweeps, not new infra** (`ClipRetentionService`'s two
+  `@Cron` jobs): an in-process `@nestjs/schedule` task over a new
+  Kubernetes `CronJob`, sharing one delete-object-then-delete-row helper
+  parameterized by status/cutoff — the general shape for "periodically
+  reclaim rows/objects past some age," not a new pattern per sweep.

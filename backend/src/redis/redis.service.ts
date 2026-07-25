@@ -37,6 +37,18 @@ function chatReportNotifyCooldownKey(reportedPlayerId: string): string {
   return `chat-report-notify:${reportedPlayerId}:cooldown`;
 }
 
+function clipUploadRateLimitKey(playerId: string): string {
+  return `clip-upload:${playerId}:window`;
+}
+
+function clipReportCooldownKey(playerId: string): string {
+  return `clip-report:${playerId}:cooldown`;
+}
+
+function clipReportNotifyCooldownKey(uploaderPlayerId: string): string {
+  return `clip-report-notify:${uploaderPlayerId}:cooldown`;
+}
+
 // docs/api/phase2-contract.md endpoint 3: "rate-limited per player" — a
 // per-IP @Throttle() (as used elsewhere in this codebase) doesn't express
 // that on its own, since a captain's IP isn't the thing being limited, the
@@ -67,6 +79,29 @@ const CHAT_REPORT_COOLDOWN_SECONDS = 30;
 // into a single email" — deliberately the daily-cap shape the Phase 2.5
 // security review asked for, not the old 5-minute-burst-only cooldown.
 const CHAT_REPORT_NOTIFY_COOLDOWN_SECONDS = 60 * 60 * 24;
+
+// docs/api/phase3-contract.md endpoint 1: "a per-player upload-frequency
+// rate limit... recommend something generous like a handful per day, this
+// is a slow, deliberate action, not chat." A fixed-window daily counter,
+// same shape as the chat-send allowance but a much longer window/lower cap
+// — uploading a clip is a deliberate, multi-step action (pick/record ->
+// caption -> two HTTP round trips + a real file PUT), nothing like chat's
+// "one tap per thought" cadence.
+const CLIP_UPLOAD_RATE_LIMIT_WINDOW_SECONDS = 60 * 60 * 24;
+const CLIP_UPLOAD_RATE_LIMIT_MAX_PER_WINDOW = 10;
+
+// docs/adr/0010-video-storage-and-serving.md Decision 4 — same per-reporter
+// cooldown shape/reasoning as ADR-0007 Decision 3's chat report cooldown:
+// bounds mass-reporting as a harassment tool against the *uploader* (a
+// report here auto-hides the clip, so this cooldown matters even more than
+// chat's non-hiding equivalent).
+const CLIP_REPORT_COOLDOWN_SECONDS = 30;
+
+// Same "at most one email per rolling 24 hours, aggregating multiple
+// reports in that window" shape as ADR-0007 Decision 3 / the Phase 2.5
+// fix — ADR-0010 Decision 4 explicitly reuses this mechanism for the
+// uploader's parent + coach notification.
+const CLIP_REPORT_NOTIFY_COOLDOWN_SECONDS = 60 * 60 * 24;
 
 @Injectable()
 export class RedisService {
@@ -210,6 +245,54 @@ export class RedisService {
   ): Promise<boolean> {
     const result = await this.client.set(
       chatReportNotifyCooldownKey(reportedPlayerId),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
+  }
+
+  /** Fixed-window daily burst allowance for clip uploads (docs/api/phase3-
+   * contract.md endpoint 1) — same INCR+EXPIRE-on-first-increment shape as
+   * tryClaimChatSendAllowance, just a daily window instead of a minute. */
+  async tryClaimClipUploadAllowance(
+    playerId: string,
+    maxPerWindow: number = CLIP_UPLOAD_RATE_LIMIT_MAX_PER_WINDOW,
+    windowSeconds: number = CLIP_UPLOAD_RATE_LIMIT_WINDOW_SECONDS,
+  ): Promise<boolean> {
+    const key = clipUploadRateLimitKey(playerId);
+    const count = await this.client.incr(key);
+    if (count === 1) {
+      await this.client.expire(key, windowSeconds);
+    }
+    return count <= maxPerWindow;
+  }
+
+  /** Per-reporter cooldown for clip reports (ADR-0010 Decision 4). */
+  async tryClaimClipReportCooldown(
+    playerId: string,
+    ttlSeconds: number = CLIP_REPORT_COOLDOWN_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      clipReportCooldownKey(playerId),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
+  }
+
+  /** Per-uploader, 24h notification cooldown (ADR-0010 Decision 4) — gates
+   * whether the best-effort parent/coach email actually sends, never
+   * whether the report itself is persisted or the clip is hidden. */
+  async tryClaimClipReportNotifyCooldown(
+    uploaderPlayerId: string,
+    ttlSeconds: number = CLIP_REPORT_NOTIFY_COOLDOWN_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      clipReportNotifyCooldownKey(uploaderPlayerId),
       '1',
       'EX',
       ttlSeconds,

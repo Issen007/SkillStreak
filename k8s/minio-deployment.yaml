@@ -1,0 +1,79 @@
+# Single-instance MinIO — the self-hosted S3-API object store for video
+# clips (docs/adr/0010-video-storage-and-serving.md Decision 1). Deployed
+# with the EXACT SAME Deployment+PVC+ClusterIP shape this repo already uses
+# for Postgres (postgres-deployment.yaml/postgres-pvc.yaml/
+# postgres-service.yaml) — no new deployment paradigm, no new PaaS
+# capability required beyond what Postgres already proves works on this
+# cluster (a ReadWriteOnce PVC bound to a single-replica stateful pod).
+# `Recreate` strategy for the identical reason Postgres's Deployment uses
+# it: avoids two pods ever trying to mount the same ReadWriteOnce PVC at
+# once during a rollout.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: skillstreak
+  labels:
+    app: minio
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+        - name: minio
+          image: minio/minio:latest
+          args: ["server", "/data", "--console-address", ":9001"]
+          ports:
+            - name: api
+              containerPort: 9000
+            - name: console
+              containerPort: 9001
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: MINIO_ROOT_PASSWORD
+          volumeMounts:
+            - name: minio-data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: minio-data
+          persistentVolumeClaim:
+            claimName: minio-data
