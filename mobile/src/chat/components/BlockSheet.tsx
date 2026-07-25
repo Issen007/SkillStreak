@@ -18,7 +18,14 @@ interface BlockSheetProps {
  * "Blockera," never "Sluta blockera" (see Screen CH5 for the reverse).
  * "Blockera" is styled as an ordinary secondary action, not a red/
  * destructive one — a personal, protective tool, not a punitive one, per
- * the flow doc's judgment call 9. */
+ * the flow doc's judgment call 9.
+ *
+ * Copy updated for Fas 3 (docs/design/phase3-flows.md's "does blocking a
+ * teammate in chat also hide their clips?" decision): a `TeamChatBlock` is
+ * one per-viewer "I don't want to see this person" preference spanning both
+ * chat *and* the Klipp feed, not two independent settings — this body copy
+ * needs to say so, since it previously only mentioned messages and would
+ * now understate what blocking actually does. */
 export function BlockSheet({ visible, screenName, loading, onConfirm, onClose }: BlockSheetProps) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -26,8 +33,8 @@ export function BlockSheet({ visible, screenName, loading, onConfirm, onClose }:
       <View style={styles.sheet}>
         <Text style={styles.heading}>{screenName}</Text>
         <Text style={styles.body}>
-          Om du blockerar {screenName} slutar du se deras meddelanden i lagchatten. {screenName}{' '}
-          får inte veta att du har blockerat dem.
+          Om du blockerar {screenName} slutar du se deras meddelanden i lagchatten och deras klipp
+          i Klippflödet. {screenName} får inte veta att du har blockerat dem.
         </Text>
         <SecondaryButton label={`Blockera ${screenName}`} loading={loading} onPress={onConfirm} />
         <SecondaryLink label="Avbryt" onPress={onClose} />

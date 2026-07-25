@@ -91,13 +91,16 @@ tested one.
 | File | What it is |
 |---|---|
 | `namespace.yaml` | The `skillstreak` namespace everything else lives in. |
-| `configmap.yaml` | Non-secret API config (`NODE_ENV`, `PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `JWT_EXPIRES_IN`, SMTP host/port/from, `APP_PUBLIC_URL`). |
-| `secret.yaml.example` | Template for the real Secret — copy to `secret.yaml` and fill in. `secret.yaml` itself is git-ignored and must never be committed. |
+| `configmap.yaml` | Non-secret API config (`NODE_ENV`, `PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `JWT_EXPIRES_IN`, SMTP host/port/from, `APP_PUBLIC_URL`, and — since Fas 3 — `MINIO_ENDPOINT`/`MINIO_BUCKET`/`CLIP_RETENTION_DAYS`/`CLIP_PENDING_UPLOAD_TTL_MINUTES`). |
+| `secret.yaml.example` | Template for the real Secret — copy to `secret.yaml` and fill in. `secret.yaml` itself is git-ignored and must never be committed. Since Fas 3, also holds `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`. |
 | `postgres-pvc.yaml` | PersistentVolumeClaim so Postgres data survives pod restarts. |
 | `postgres-deployment.yaml` | Postgres 16-alpine, single replica, `Recreate` rollout strategy (safe for a ReadWriteOnce PVC). |
 | `postgres-service.yaml` | ClusterIP only — never expose Postgres externally (no LoadBalancer/NodePort/Ingress for it, matching the compose setup's `127.0.0.1`-only binding). |
 | `redis-deployment.yaml` | Redis 7-alpine, single replica, deliberately no PVC (cache/accelerator over Postgres per ADR-0002 — safe to lose and rebuild). |
 | `redis-service.yaml` | ClusterIP only, same reasoning as Postgres's Service. |
+| `minio-pvc.yaml` | PersistentVolumeClaim so video-clip bytes survive pod restarts (docs/adr/0010-video-storage-and-serving.md Decision 1) — sized larger than Postgres's (20Gi) since this holds actual video, not just rows. |
+| `minio-deployment.yaml` | MinIO (self-hosted S3-API object store), single replica, `Recreate` rollout strategy — the *identical* Deployment+PVC+ClusterIP shape as Postgres, per ADR-0010's explicit "no new deployment paradigm" framing. |
+| `minio-service.yaml` | ClusterIP only, same reasoning as Postgres's/Redis's Service — never an Ingress/NodePort/LoadBalancer for it (ADR-0010 Decision 2: the bucket has zero public/anonymous read access, and a public MinIO endpoint would defeat that boundary entirely). |
 | `api-deployment.yaml` | The NestJS API. Ships with a blank placeholder `image:` — `.github/workflows/ci-cd.yml`'s deploy job builds/pushes the real image and `sed`-fills this field at deploy time; the committed file is never updated with a real tag. Reads config from the ConfigMap + Secret; `/health` for readiness/liveness. |
 | `api-service.yaml` | ClusterIP for the api Pods — the real external entry point is the Ingress, not this Service directly. |
 | `cluster-issuer.yaml` | Two cert-manager `ClusterIssuer`s (`letsencrypt-staging`, `letsencrypt-prod`), HTTP01-solved through the existing ingress-nginx controller. Cluster-scoped, apply once. |
@@ -120,6 +123,7 @@ kubectl apply -f k8s/secret.yaml       # copied from secret.yaml.example, real v
 kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/postgres-pvc.yaml -f k8s/postgres-deployment.yaml -f k8s/postgres-service.yaml
 kubectl apply -f k8s/redis-deployment.yaml -f k8s/redis-service.yaml
+kubectl apply -f k8s/minio-pvc.yaml -f k8s/minio-deployment.yaml -f k8s/minio-service.yaml
 kubectl apply -f k8s/api-deployment.yaml -f k8s/api-service.yaml
 kubectl apply -f k8s/site-deployment.yaml -f k8s/site-service.yaml
 
@@ -156,12 +160,14 @@ the order above is easier to reason about and debug on a first attempt.)
   issues certs via `letsencrypt-staging` (untrusted by real
   browsers/clients) — see the warning at the top of this file for the
   cutover steps to `letsencrypt-prod` before this is used for real.
-- **Migration race with `replicas: 2` on the api.** `backend/docker-entrypoint.sh`
+- **Migration race with multiple api replicas.** `backend/docker-entrypoint.sh`
   runs TypeORM migrations on every container start; with more than one
-  replica, a rolling restart can run `migration:run` from two pods at once.
-  Not solved here (would need a separate Job/init-container with locking) —
-  flagged in a comment in `api-deployment.yaml`. Drop to `replicas: 1` if
-  this is a concern before that's addressed.
+  replica, a rolling restart can run `migration:run` from two pods at once —
+  this is exactly what stalled the first real alpha deploy (rollout stuck at
+  "1 out of 2 new replicas" until the progress deadline, on 2026-07-11).
+  `api-deployment.yaml` now runs `replicas: 1` as a direct fix for that, not
+  a precaution. Not properly solved (would need a separate Job/init-container
+  with locking) — go back to more than 1 replica only once that's built.
 - **No HPA, NetworkPolicy, or multi-region setup** — intentionally out of
   scope for a small youth-sports app's first beta (that's Fas 4 territory,
   not this pass).

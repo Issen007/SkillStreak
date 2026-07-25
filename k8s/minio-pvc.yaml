@@ -1,0 +1,18 @@
+# Durable storage for MinIO (video-clip bytes) so data survives pod
+# restarts/rescheduling — same reasoning as postgres-pvc.yaml. Sized larger
+# than Postgres's 5Gi since this holds actual video bytes, not just rows;
+# still modest for an MVP beta with a handful of youth teams and a 90-day
+# default retention window (docs/adr/0010-video-storage-and-serving.md
+# Decision 5) — resize later if needed. No storageClassName pinned, same
+# reasoning as postgres-pvc.yaml.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-data
+  namespace: skillstreak
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi

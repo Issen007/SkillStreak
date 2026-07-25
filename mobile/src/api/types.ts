@@ -412,6 +412,86 @@ export interface LeaderboardResponse {
   leaderboard: LeaderboardEntry[];
 }
 
+// --- Fas 3 shapes, mirroring docs/api/phase3-contract.md exactly -----------
+
+export type ClipMimeType = 'video/mp4' | 'video/quicktime' | 'video/webm';
+
+export type ClipReportReason =
+  | 'appears_without_consent'
+  | 'inappropriate_content'
+  | 'not_training_related'
+  | 'bullying'
+  | 'other';
+
+// --- 1. POST .../clips/upload-url -------------------------------------------
+
+export interface CreateClipUploadUrlRequest {
+  mimeType: ClipMimeType;
+  fileSizeBytes: number;
+  durationSeconds: number;
+  caption?: string;
+  taggedPlayerId?: string;
+}
+
+export interface CreateClipUploadUrlResponse {
+  clipId: string;
+  uploadUrl: string;
+  uploadMethod: 'PUT';
+  requiredHeaders: { 'Content-Type': string };
+  expiresAt: string;
+}
+
+// --- 2. POST .../clips/:clipId/complete -------------------------------------
+
+export interface CompleteClipUploadResponse {
+  clipId: string;
+  status: 'published';
+  playbackUrl: string;
+  caption: string | null;
+  taggedPlayerId: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+// --- 3. GET .../clips --------------------------------------------------------
+
+export interface ClipFeedItem {
+  clipId: string;
+  uploaderPlayerId: string;
+  uploaderScreenName: string;
+  uploaderAvatarId: string;
+  taggedPlayerId: string | null;
+  taggedScreenName: string | null;
+  caption: string | null;
+  playbackUrl: string;
+  createdAt: string;
+  reportedByMe: boolean;
+}
+
+export interface ClipsResponse {
+  clips: ClipFeedItem[];
+}
+
+// --- 4. DELETE .../clips/:clipId ---------------------------------------------
+
+export interface DeleteClipResponse {
+  clipId: string;
+  deleted: true;
+}
+
+// --- 5. POST .../clips/:clipId/report ----------------------------------------
+
+export interface ReportClipRequest {
+  reason: ClipReportReason;
+  note?: string;
+}
+
+export interface ReportClipResponse {
+  reportId: string;
+  clipId: string;
+  createdAt: string;
+}
+
 // --- Error envelope -----------------------------------------------------------
 
 export interface ApiErrorBody {

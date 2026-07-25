@@ -11,12 +11,22 @@ it" instructions (Docker backend, seeding, screenshots), see the
   one `request()` function (auth header, JSON parse, error-envelope
   handling); `endpoints.ts` is one thin, typed function per backend route
   (no logic beyond building the URL/body); `types.ts` mirrors
-  `docs/api/phase1-contract.md` / `docs/api/phase2-contract.md` request and
-  response shapes exactly, with no logic of its own. `authStorage.ts` and
-  `localFlags.ts` wrap `expo-secure-store` for the session JWT and one
-  small client-only "have I seen this bonus banner yet" flag,
-  respectively — see their file comments for why SecureStore is reused for
-  both rather than adding a second storage dependency.
+  `docs/api/phase1-contract.md` through `docs/api/phase3-contract.md`
+  request and response shapes exactly, with no logic of its own.
+  `authStorage.ts` and `localFlags.ts` wrap `expo-secure-store` for the
+  session JWT and a growing set of small client-only "have I seen this
+  yet" flags (bonus banner, captaincy change, chat/clip unread-dot
+  timestamps, chat blocks cache, Fas 3's clip-intro-seen flag and "seen
+  challenge clipIds" set), respectively — see their file comments for why
+  SecureStore is reused for all of these rather than adding a second
+  storage dependency. Note `endpoints.ts`'s two-phase upload split: the
+  client calls `createClipUploadUrl`/`completeClipUpload` (both go through
+  `client.ts`, same as every other endpoint), but the `PUT` of the actual
+  video bytes to the presigned `uploadUrl` in between does **not** — it
+  goes straight to MinIO via `expo-file-system`'s upload task (see
+  `clips/upload/V6UploadProgress.tsx`), deliberately outside `api/`'s
+  "only layer allowed to know about HTTP" rule, since that URL is never an
+  `/api/v1/...` route to begin with.
 - **`onboarding/`** — Screens O1-O6 (invite code → team confirm → name/
   avatar → birth year → parent contact/consent → confirmation), driven by
   `OnboardingFlow.tsx`'s small step state machine. Design source of truth:
@@ -34,16 +44,41 @@ it" instructions (Docker backend, seeding, screenshots), see the
   progress card, history list, and the captain-only goal builder
   (`GoalBuilderFlow.tsx`, screens KB1-KB4). Design source:
   `docs/design/phase2-flows.md` Parts 2-3.
+- **`chat/`** — the "Chatt" tab (`ChatScreen.tsx`): CH0-CH5 (intro card,
+  poll-on-foreground message list, tap-to-reveal report, tap-to-open block
+  sheet, blocked-players list). Design source: `docs/design/
+  phase2.6-2.7-flows.md` Part B.
+- **`clips/`** — the "Klipp" tab (`ClipsScreen.tsx`, Fas 3), placed third in
+  tab order: Screens V0-V2 (one-time intro, the consent-gated whole-tab
+  waiting state, and the tap-to-play feed itself with its explicit "Visa
+  fler klipp" pagination — deliberately not infinite scroll/autoplay, per
+  CLAUDE.md's own anti-dark-pattern instruction), the "you were challenged"
+  banner (V3, reusing `Toast` — see "Known duplication" below), the report
+  sheet/confirmation (V9/V10) and self-delete sheet (V11, the first real
+  use of `components/DangerButton.tsx`). `upload/` holds the two-phase
+  upload flow's own step machine (`UploadFlow.tsx`) and Screens V4-V7 (pick/
+  record → caption + optional tag-a-teammate → progress → published) —
+  `clipValidation.ts` is the client-side pre-check (duration/size/format)
+  that mirrors the backend's own hard caps so an obviously invalid file
+  gets an inline message before ever calling endpoint 1. Design source:
+  `docs/design/phase3-flows.md`; contract: `docs/api/phase3-contract.md`.
+  Reuses `chat/components/BlockSheet.tsx` directly for its own block sheet
+  (a `TeamChatBlock` now covers both chat *and* clips, per the flow doc's
+  decision — see that file's updated copy) rather than inventing a second
+  block mechanism.
 - **`navigation/`** — `TabBar.tsx`, a plain (non-library) bottom tab bar.
   `AppShell.tsx` (one level up, not inside `navigation/` since it also owns
-  cross-tab data/state — see its file comment) wraps the three tabs.
+  cross-tab data/state — see its file comment) wraps all five tabs.
 - **`components/`** — shared, screen-agnostic primitives: buttons
-  (`PrimaryButton`, `SecondaryButton`, `SecondaryLink`), `TextField`,
-  `ScreenContainer`, and the transient-overlay components `Toast` and
-  `CatchUpBanner`. (Two more transient overlays, `SuccessOverlay` and
-  `GoalBonusTakeover`, live in `home/components/` instead since they're
-  currently only ever used from `HomeScreen` — see "Known duplication"
-  below before adding a fifth one of these.)
+  (`PrimaryButton`, `SecondaryButton`, `SecondaryLink`, and Fas 3's
+  `DangerButton` — this app's reserved destructive/red treatment, used
+  exactly once so far for the Klipp tab's self-delete confirmation, since
+  that's the first action in this app that's genuinely, unconditionally
+  irreversible), `TextField`, `ScreenContainer`, and the transient-overlay
+  components `Toast` and `CatchUpBanner`. (Two more transient overlays,
+  `SuccessOverlay` and `GoalBonusTakeover`, live in `home/components/`
+  instead since they're currently only ever used from `HomeScreen` — see
+  "Known duplication" below before adding a fifth one of these.)
 - **`theme/`** — `colors.ts`/`fonts.ts`, tokens from
   `docs/design/style-guide.md`. Treat that doc as the source of truth, not
   this file, if the two ever disagree.
@@ -126,15 +161,32 @@ phone" walkthrough. The mobile-specific pieces:
   lockfile alongside it.
 - `npx tsc --noEmit` and `npx expo-doctor` are the two quick sanity checks
   worth running before calling a change done; neither replaces actually
-  opening the app in Expo Go/simulator. Both now also run in CI on every PR
-  (`.github/workflows/ci-cd.yml`'s `mobile-typecheck` job) — previously this
-  only happened if whoever made the change ran them by hand.
+  opening the app in Expo Go/simulator.
+- **Fas 3's native modules** — `expo-video` (playback), `expo-image-picker`
+  (pick/record a clip), and `expo-file-system` (the presigned-`PUT`
+  upload task with real progress events) were added fresh this phase; none
+  of Phases 0-2.7 needed any native media module before. All three ship in
+  the SDK 54 baseline already documented above (`expo install` resolved
+  compatible versions automatically) — no Expo Go incompatibility beyond
+  the existing SDK-version gotcha. `app.json`'s `plugins` array carries
+  Swedish permission-prompt copy for `expo-image-picker` (camera/photo-
+  library/microphone) — Expo Go itself uses generic built-in prompts
+  regardless (custom config plugins only take effect in a real prebuild/
+  dev-client/EAS build), so this only matters once this project produces
+  one of those, not for day-to-day Expo Go testing.
+- **No iOS Simulator/Android emulator in this Linux dev environment** (a
+  known, previously-flagged gap — see `docs/ACTION_PLAN.md`'s Phase 1
+  entry) — still true for Fas 3. Verification for this phase leaned on a
+  clean Metro bundle (`npx expo export`) plus exercising every new endpoint
+  against a real running backend directly (see `docs/ACTION_PLAN.md`'s
+  Phase 3 entry for the exact scenarios covered) — a real tap-through of
+  the camera/picker/playback UI still needs a physical device or a
+  macOS/Android host.
 
 ## Known duplication / consolidation candidates (tracked, not yet acted on)
 
 Left as-is deliberately for now — see the Phase 2.5 pass in
-`docs/ACTION_PLAN.md` for the full reasoning — but worth knowing about
-before Phase 3 (media/feed) adds a third or fourth similar screen:
+`docs/ACTION_PLAN.md` for the full reasoning:
 
 - `CatchUpBanner` (`components/`) and `Toast` (`components/`) are close to
   line-for-line identical (same fade-in/delay/fade-out `Animated`
@@ -142,12 +194,19 @@ before Phase 3 (media/feed) adds a third or fourth similar screen:
   in background color, `zIndex`, duration, and message content. A real
   consolidation candidate (e.g. a `variant`/`durationMs` prop on `Toast`),
   just not done in this pass to avoid touching two live celebration paths
-  without a dedicated review.
-- `HomeScreen`, `TeamScreen`, `GoalScreen`, and `RosterScreen` each
-  hand-roll the same loading-spinner / error-with-retry block and the same
-  three style objects (`centered`, `errorText`, `retryText`). Worth
-  extracting into one shared component/hook before a Phase 3 feed screen
-  becomes a fifth copy.
+  without a dedicated review. **Partially acted on in Fas 3**: Screen V3's
+  "you were challenged" banner (`clips/ClipsScreen.tsx`) reuses `Toast`
+  directly (passing `durationMs={3000}`) rather than adding a *third*
+  near-duplicate overlay — the consolidation this note already
+  recommended, just applied at the point a genuinely new near-duplicate
+  was about to be written, not as a standalone refactor of the two
+  existing ones.
+- `HomeScreen`, `TeamScreen`, `GoalScreen`, `RosterScreen`, and now
+  `ClipsScreen` each hand-roll the same loading-spinner / error-with-retry
+  block and the same three style objects (`centered`, `errorText`,
+  `retryText`) — `ClipsScreen` is the fifth copy this note already
+  predicted before Phase 3 shipped; still worth extracting into one shared
+  component/hook, more so now than before.
 - `TeamPoolCard` and `GoalCard` each re-implement the same
   "animate a progress-bar fill from `percentComplete`" `Animated.Value`
   logic. Small (a dozen lines), but a shared `useProgressBarWidth` hook

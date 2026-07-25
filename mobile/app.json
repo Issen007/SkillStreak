@@ -21,7 +21,17 @@
     "plugins": [
       "expo-font",
       "expo-splash-screen",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-video",
+      "expo-file-system",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Tillåt SkillStreak att komma åt dina bilder och videor för att välja ett klipp att ladda upp.",
+          "cameraPermission": "Tillåt SkillStreak att använda kameran för att spela in ett klipp.",
+          "microphonePermission": "Tillåt SkillStreak att använda mikrofonen när du spelar in ett klipp."
+        }
+      ]
     ]
   }
 }

@@ -889,18 +889,627 @@ multi-replica throttler gap above) for before real external-beta traffic.
 This phase is the highest privacy risk (video, a feed, tagging teammates) —
 treat `security-reviewer` involvement as blocking, not a final check.
 
-- [ ] **architect**: ADR for video storage/serving (where clips live, how
-      access is scoped to a single team, retention/deletion), and — if the
-      validity/tagging feature actually needs local ML — the new Python
-      service's shape, built with uv per `adr/0003-package-managers.md`.
-- [ ] **security-reviewer**: sign off on the storage/access design *before*
-      backend-developer builds it, not after.
-- [ ] **ux-designer**: design the safe feed and the "tag a teammate to
-      challenge them" flow.
-- [ ] **backend-developer**: upload endpoint gated on parental consent;
-      team-scoped feed API.
-- [ ] **frontend-developer**: capture/upload UI, feed screen.
-- [ ] **code-critic** + **security-reviewer**: final review before merge.
+- [x] **architect**: designed video storage on this project's *actual*
+      infra (a shared internal PaaS with no confirmed cloud object storage,
+      per `k8s/README.md`/`temp/HANDOFF.md`) rather than assuming AWS
+      S3/GCS: a self-hosted, S3-API-compatible MinIO pod, deployed with the
+      same Deployment+PVC+ClusterIP shape this repo already uses for
+      Postgres. Access is scoped structurally, mirroring ADR-0008's
+      join-avoidance bar for the leaderboard: the bucket has zero public
+      read access, and the backend only ever mints a short-lived presigned
+      URL after re-checking `clip.teamId === requestingPlayer.teamId` on
+      every single request — never cached, never reused. →
+      `adr/0010-video-storage-and-serving.md`, `api/phase3-contract.md`.
+      **Decided the tagging/local-ML question explicitly, not left
+      hedging**: "tag a teammate to challenge them" is an ordinary FK
+      reference (no ML needed); "clip validity" splits into a deterministic
+      technical check (file type/size/duration — built now) and content
+      classification (does this actually show floorball training — would
+      need real ML, **explicitly deferred**, no Python/uv service built
+      this phase, mirroring ADR-0007's chat-moderation deferral reasoning;
+      tracked in `docs/BACKLOG.md`). **One deliberate divergence from
+      ADR-0007's chat precedent, reasoned through rather than copied**: a
+      single report **auto-hides** a clip immediately (chat explicitly
+      rejected auto-hide-on-report) — justified by video's different harm
+      asymmetry (a false-positive hide costs little; a false-negative
+      leaves a child's actual likeness visible to the team) and by this
+      app having no way to verify a "you filmed me without consent" claim
+      before acting on it. Retention: clips are ephemeral by default (a
+      recommended, tunable 90-day rolling window, hard-deleted; not tied to
+      `Season`'s already-flagged inconsistent boundaries), uploader
+      self-delete is immediate and unconditional (this phase's real answer
+      to "please take this video down," without needing the full
+      account-erasure feature this app still doesn't have — flagged as an
+      inherited, now-higher-stakes gap, not solved here), and `ClipReport`
+      survives a clip's own deletion via a nullable FK + denormalized
+      uploader id, same durability pattern as `ParentalConsentRecord`.
+      **Left open, flagged for ux-designer/backend-developer**: whether an
+      existing chat block should also suppress a teammate's clips; exact
+      numeric caps (retention window, file/duration limits, rate limits)
+      are recommended but explicitly tunable, not fixed by this ADR.
+- [x] **security-reviewer**: reviewed the architecture (ADR-0010 +
+      `phase3-contract.md`) *before* any code exists, per this phase's
+      explicit sequencing. **Verdict: safe with required changes — not a
+      full sign-off yet.** The structural team-scoping (bucket has zero
+      public/anonymous read path; every read re-checks `clip.teamId ===
+      requestingPlayer.teamId` and mints a fresh, short-lived presigned URL
+      per request, never cached/reused), the consent gate correctly
+      extended to reads (not just uploads), the retention/self-delete
+      design, and the `ClipReport` denormalization-survives-deletion pattern
+      all independently check out — no IDOR path found across the 5
+      endpoints, no `real_name`/report-identity leak, no cross-team
+      reachability. Two findings, one blocking:
+      - [x] **CONFIRMED, BLOCKING — no video metadata (GPS/EXIF-equivalent)
+            stripping anywhere in the design.** Decision 3 explicitly rules
+            out re-encoding/deep inspection of uploaded video, and neither
+            the ADR nor the contract mentions removing embedded location
+            metadata before an object is stored or served. Phone-recorded
+            video routinely embeds GPS coordinates in the container itself
+            (e.g. QuickTime's `com.apple.quicktime.location.ISO6709` atom,
+            Android camera apps' `loci`/`xyz` atoms) whenever the recording
+            device had location services on — this is the literal "EXIF
+            data in uploaded clips" case CLAUDE.md's no-location-tracking
+            constraint calls out by name. As designed, a child's clip
+            recorded at home would carry their home's GPS coordinates
+            straight through to every teammate's presigned playback,
+            unnoticed by anything in this pipeline. **Required fix before
+            backend-developer builds the `complete` endpoint**: strip all
+            container-level metadata (a fast remux, e.g.
+            `ffmpeg -map_metadata -1 -c copy`, not a full re-encode — cheap
+            enough to run synchronously in the same step as the existing
+            `HEAD` check) before setting `status: 'published'`. This should
+            be added to ADR-0010 Decision 3 as a third, mandatory check
+            alongside the existing technical-validity checks, not left
+            implicit.
+      - [x] **PLAUSIBLE, required before build — presigned-PUT size isn't
+            actually enforced, and `pending_upload` rows/objects have no
+            cleanup path.** A raw S3-API presigned PUT (as opposed to a
+            presigned POST with policy conditions) generally can't enforce
+            a max content-length server-side, so a client can PUT far more
+            than the declared `fileSizeBytes` to MinIO; combined with
+            `expires_at` only being set at `complete` time, a client that
+            calls `upload-url` repeatedly and never (or only sometimes)
+            calls `complete` leaves orphaned objects/stale `pending_upload`
+            rows that the 90-day retention sweep never reaches (it only
+            queries `published` rows with an `expires_at`) — a storage-
+            exhaustion path on the single-replica, PVC-backed MinIO pod.
+            Needs either a presigned POST with a content-length-range
+            condition, or a periodic sweep for stale `pending_upload` rows
+            (e.g. older than the presigned-PUT expiry window), or both.
+      - Non-blocking, flagged for ux-designer, not gating backend-developer:
+        declared `durationSeconds` is never independently verified (the
+        `complete` `HEAD` check only compares size/content-type against
+        what MinIO reports, not actual media duration) — folding a
+        duration check into the same ffmpeg/ffprobe pass used for metadata
+        stripping above would close this almost for free. Also: the
+        auto-hide-on-report divergence (ADR-0010 Decision 4) is reasoned
+        soundly and is judged an acceptable trade at this beta's scale, but
+        note it compounds slightly worse than chat's version — a single,
+        unverified report both hides the clip *and* triggers a
+        parent-facing email framed around "your child was reported"
+        before any human review has occurred. Recommend neutral,
+        provisional-sounding copy in that email (ux-designer's call), not a
+        design change.
+      **RESOLVED 2026-07-22** — both items above closed by architect's
+      follow-up (commit `f9a27b4`, entry below) and confirmed in
+      security-reviewer's focused re-review (entry further below): **full
+      sign-off**, superseding the "not yet safe to hand to backend-developer
+      as-is" verdict originally recorded here.
+- [x] **architect follow-up (2026-07-22)**: closed both required findings
+      above, same day, before any implementation started. Decision 3 of
+      `adr/0010-video-storage-and-serving.md` now specifies the
+      metadata-stripping remux (`ffmpeg -map_metadata -1 -c copy` or
+      equivalent) as a **mandatory** third check at the `complete` step —
+      publishing without it succeeding first is not an allowed path
+      (`422 clip_processing_failed` otherwise); folded in the non-blocking
+      duration-verification suggestion as an optional extension of the same
+      pass. Decision 5 gained a **required** `pending_upload` TTL (~1 hour)
+      with its own, more frequent sweep (reusing the daily retention job's
+      mechanism, not new infrastructure) so abandoned/never-completed
+      uploads can't accumulate unbounded on the single-replica MinIO pod;
+      Decision 1 gained a bucket-level max-object-size configuration note as
+      defense in depth against a presigned PUT's inability to enforce
+      `Content-Length` server-side. `api/phase3-contract.md`'s endpoint 2
+      and implementer notes updated to match (new `422
+      clip_processing_failed` error, the second scheduled-sweep note, the
+      bucket-size config note); also folded in the non-blocking
+      parent-notification-copy note for ux-designer. Both docs carry an
+      explicit revision note dating this change. **Re-requesting
+      security-reviewer sign-off against the revised version — not
+      self-certified as resolved.**
+- [x] **security-reviewer re-review (2026-07-22)**: focused re-review of
+      architect's follow-up (`f9a27b4`) against the two required findings
+      above, not a full re-review from scratch. **Full sign-off — safe for
+      ux-designer/backend-developer to build against `adr/0010` +
+      `phase3-contract.md` as they now stand.**
+      - **Metadata stripping**: confirmed `ffmpeg -map_metadata -1 -c copy`
+        is the correct, standard technique for removing exactly the
+        container-level location atoms named in the original finding
+        (QuickTime's `com.apple.quicktime.location.ISO6709`, Android's
+        `loci`/`xyz`) — these are ordinary format-level metadata tags, which
+        `-map_metadata -1` strips; a stream-copy remux (no decode/re-encode)
+        is the standard, lossless, low-cost way to do this and doesn't
+        conflict with Decision 3's separate "no ML/deep content inspection"
+        scope, since remuxing container metadata and decoding video frames
+        for classification are unrelated operations. Confirmed the ordering
+        genuinely prevents an unstripped file from ever becoming reachable:
+        `status` only flips to `published` after the remux succeeds, the
+        feed query (endpoint 3) only ever returns `published` clips, and
+        `complete`'s own response only includes `playbackUrl` on the
+        success path (never on the new `422 clip_processing_failed` path)
+        — there is no documented code path that mints a playback URL before
+        the remux has run, and a failed remux leaves the clip permanently
+        `pending_upload` (never silently published unstripped).
+        **Minor, non-blocking refinement for backend-developer, not gating
+        this sign-off**: the exact command should explicitly `-map` only
+        the video/audio streams (e.g. `-map 0:v:0 -map 0:a:0`) rather than
+        relying on default stream selection, so an exotic action-camera
+        telemetry/GPS data track (e.g. GoPro's GPMF format, a dedicated
+        stream rather than container metadata) is guaranteed dropped too,
+        not just assumed dropped by default stream-selection behavior —
+        edge case beyond this app's realistic ordinary-phone-video threat
+        model, doesn't change the verdict.
+      - **`pending_upload` exhaustion**: confirmed the ~1 hour TTL + hourly
+        sweep bounds standing storage to a rolling window sized by the
+        upload-frequency rate limit rather than growing unboundedly over
+        time, and the new bucket-level max-object-size config closes the
+        gap where a raw presigned PUT can't itself enforce
+        `Content-Length`. Together these close both halves of the original
+        finding (unenforced size, and no cleanup for abandoned uploads).
+        **Minor, non-blocking note**: the ADR doesn't explicitly restate
+        the daily sweep's "delete object before row, safer failure
+        direction" ordering for the new `pending_upload` sweep (it says the
+        mechanism is reused/parameterized, which reasonably implies the
+        same ordering, but doesn't say so in as many words) — worth
+        code-critic/backend-developer confirming directly during
+        implementation rather than assuming, same spirit as the original
+        contract's own "confirm directly rather than take this contract's
+        word for it" instruction.
+      Neither refinement above is required before backend-developer starts;
+      both are implementation-detail hardening notes for backend-developer/
+      code-critic to keep in mind, not new blocking findings.
+- [x] **ux-designer**: designed the feed (new "Klipp" tab, placed third —
+      Hem, Chatt, Klipp, Mål, Laget — by realistic visit frequency), the
+      two-phase upload flow (pick/record → caption + optional
+      tag-a-teammate → progress → published, with every contract error
+      case handled including `422 caption_rejected_by_filter`'s
+      typed-caption preservation), the report flow (tap-to-reveal, not
+      long-press; `appears_without_consent` listed first among the five
+      reasons; confirmation copy that states the immediate auto-hide
+      plainly without promising a review timeline this app can't
+      guarantee), and self-service delete (one confirmation step, using
+      this app's reserved destructive/red button, since clip deletion is
+      genuinely irreversible unlike K4's captain transfer or CH4's block).
+      → `design/phase3-flows.md`, `design/phase3-mockup.html`.
+      **Deliberate framing decision, directly against CLAUDE.md's "borrow
+      the hook, not the dark pattern" instruction**: the feed is a
+      tap-to-play card list with an explicit "Visa fler klipp" button, not
+      a TikTok-style autoplay/swipe-to-next/infinite-scroll stack — even
+      though the contract's `before` cursor would technically support
+      auto-loading. **Resolved the contract's explicitly left-open
+      question**: yes, an existing `TeamChatBlock` now also suppresses
+      that teammate's clips (filtered on `uploaderPlayerId`, not
+      `taggedPlayerId`) — a single per-viewer "block this person"
+      preference spanning both surfaces, not two independent settings;
+      flagged for architect/backend-developer to add this filtering rule
+      explicitly to `phase3-contract.md` endpoint 3, and for
+      frontend-developer that CH4's already-shipped block-confirmation
+      copy needs a small update to mention clips too. Also designed: a
+      client-only "you were challenged" banner reusing the existing
+      K5/G3 local-flag-diff mechanism (no new backend, honest about its
+      no-push limitation), and neutral/informational parent+coach
+      report-notification email copy per security-reviewer's specific ask
+      (explicitly pre-empts the "guilt already established" reading a
+      single unverified report could otherwise imply).
+- [x] **backend-developer**: new `backend/src/video-clips/` module — `VideoClip`/
+      `ClipReport` entities + migration (per ADR-0010's exact field lists:
+      `tagged_player_id` `ON DELETE SET NULL`, `uploader_player_id` `ON
+      DELETE RESTRICT`, `clip_report.clip_id` nullable `ON DELETE SET
+      NULL` + denormalized `reported_uploader_player_id`, `team_id`
+      denormalized on `VideoClip` at upload time), all 5
+      `phase3-contract.md` endpoints, an `ObjectStorageService`
+      (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` talking to a
+      new MinIO service), a `VideoProcessingService` that shells out to
+      `ffmpeg`/`ffprobe` for the mandatory metadata-stripping remux at
+      `complete` (explicitly `-map`ping only the first video/audio streams
+      per security-reviewer's non-blocking refinement), and a
+      `ClipRetentionService` with the two required `@nestjs/schedule`
+      sweeps (daily 90-day expiry, hourly `pending_upload` TTL,
+      object-then-row deletion order, sharing one mechanism). Added the
+      `TeamChatBlock` feed-filter `phase3-contract.md` endpoint 3 was
+      missing (per ux-designer's flag) directly to that doc as part of
+      this pass. New `k8s/minio-deployment.yaml`/`minio-pvc.yaml`/
+      `minio-service.yaml` (identical Deployment+PVC+ClusterIP shape to
+      Postgres, ClusterIP-only, never an Ingress/NodePort/LoadBalancer),
+      new `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` entries in
+      `k8s/secret.yaml.example`, `MINIO_ENDPOINT`/`MINIO_BUCKET`/
+      `CLIP_RETENTION_DAYS`/`CLIP_PENDING_UPLOAD_TTL_MINUTES` in
+      `k8s/configmap.yaml`, `k8s/README.md`'s file table/deploy-order
+      updated, `.github/workflows/ci-cd.yml`'s deploy job and its
+      `backend-test` job's service containers updated to match (a
+      `bitnami/minio` CI service container, since GitHub Actions service
+      containers can't override a command the way `docker-compose.yml`/
+      `k8s/`'s official `minio/minio` image needs). `backend/Dockerfile`'s
+      runtime image now installs `ffmpeg` (`apk add`); `docker-compose.yml`
+      gained a `minio` service matching this shape, wired into the `api`
+      service's `depends_on`/env.
+      **Verified independently, not just by inspection**: brought up a
+      genuinely fresh Postgres 18 + Redis + MinIO via `docker-compose`, ran
+      migrations clean, and exercised the real pipeline end-to-end — a
+      synthetic clip with injected `location`/`title` container metadata
+      was uploaded via a real presigned PUT to a real MinIO instance,
+      `complete` ran the actual `ffmpeg` remux, and the bytes served back
+      from the fresh presigned GET were confirmed (via `ffprobe`) to have
+      that metadata actually stripped — the mandatory no-location-tracking
+      fix is real, not asserted. Also verified the `422
+      clip_processing_failed` path against a genuinely corrupt upload (clip
+      stays `pending_upload`, bad object deleted), the `409
+      upload_not_found` path (never PUT anything), and the `TeamChatBlock`
+      feed-filter end-to-end (a blocked uploader's clip is absent from the
+      blocker's feed, present for everyone else). Lint/build clean;
+      171 unit tests (up from 131) and 98 e2e tests (up from 74) pass
+      against fresh datastores, re-run 4 times with no flakiness. Includes
+      a dedicated concurrency e2e test
+      (`phase3-video-clips-report-concurrency.e2e-spec.ts`, mirroring
+      `captain-transfer-concurrency.e2e-spec.ts`'s convention) for the
+      report path's pre-check/insert/cooldown-claim race — 8 genuinely
+      concurrent identical report requests from one reporter always
+      produce exactly one persisted `ClipReport` row and exactly one
+      `201`, regardless of which request wins.
+      **One real, verified finding flagged for security-reviewer/the
+      project owner, not glossed over**: the bucket-level max-object-size
+      *policy* (ADR-0010 Decision 1's defense-in-depth ask) does not
+      currently work against MinIO — confirmed live, independently, both
+      via `ObjectStorageService`'s own `PutBucketPolicyCommand` call and
+      directly via `mc admin policy create`, that MinIO's policy engine
+      rejects the `s3:content-length-range` condition key outright as "an
+      invalid condition key," not a silent no-op. The attempt is kept
+      (harmless, logged-on-failure, and it's a real, working AWS S3
+      mechanism if this project ever moves off self-hosted MinIO per
+      ADR-0010's own portability framing) but **the only currently-active
+      control against an oversized PUT to a leaked presigned URL is the
+      primary one the ADR already names** — the API only ever hands out
+      one rate-limited, validated presigned URL per request. See
+      `ObjectStorageService.configureMaxObjectSizePolicy`'s own comment for
+      the full account; a dedicated unit test
+      (`object-storage.service.spec.ts`) locks in that this failure mode
+      degrades gracefully (logs, doesn't throw, doesn't block boot) rather
+      than regressing silently later.
+- [x] **frontend-developer**: built the new "Klipp" tab (fifth, placed
+      third — Hem, Chatt, Klipp, Mål, Laget, per the flow doc's realistic-
+      visit-frequency ordering) end to end against `docs/design/
+      phase3-flows.md` and `docs/api/phase3-contract.md`: Screen V0's
+      one-time intro, V1's consent-gated *whole-tab* waiting/paused state
+      (not just a disabled upload button — `GET .../clips` itself 403s a
+      non-approved player), V2's tap-to-play card feed with three
+      physically separate tap zones per card (avatar/name -> the existing
+      CH4 block sheet; video -> play/pause only, muted by default; caption/
+      timestamp/"⋯" -> reveals report or delete), explicit "Visa fler
+      klipp" pagination (no infinite scroll/autoplay, per CLAUDE.md's own
+      anti-dark-pattern instruction — deliberately not using the
+      `before`-cursor capability for scroll-triggered auto-loading), and
+      Screen V3's "you were challenged" banner reusing `Toast` directly
+      (see `mobile/README.md`'s "Known duplication" update) rather than a
+      new overlay. Screens V4-V7's full two-phase upload flow
+      (`clips/upload/`): client-side pre-check against the same
+      duration/size/format caps the backend enforces
+      (`clipValidation.ts`), `createClipUploadUrl` -> a direct `PUT` of the
+      raw bytes to the presigned `uploadUrl` via `expo-file-system`'s
+      upload task (real progress events, not a fake animation) ->
+      `completeClipUpload` — confirmed the second call is never skipped,
+      matching this project's own history of code-critic catching
+      "skip step 2" bugs in similar flows. Every contract error case
+      handled: `403 consent_required` (whole-tab state, plus the upload
+      flow's own stale-state recovery), `422 caption_rejected_by_filter`
+      (typed caption preserved, same convention as chat's
+      `message_rejected_by_filter`), `400` validation (the pre-check
+      catches most; the `taggedPlayerId`-no-longer-a-teammate race gets its
+      own inline recovery), `429` on both upload and report, `422
+      clip_processing_failed`/`409 upload_not_found` (both trigger the same
+      automatic retry-from-scratch with a fresh `clipId`, per the flow
+      doc). Report flow (V9/V10, tap-to-reveal not long-press,
+      `appears_without_consent` listed first) and self-delete (V11, the
+      first real use of a new `DangerButton` component — this app's
+      reserved destructive/red treatment, since clip deletion is the first
+      genuinely, unconditionally irreversible action built so far).
+      `TeamChatBlock`-affects-clips implemented (filters the local feed
+      list immediately on block, matching the backend's own query) and
+      `BlockSheet`/`BlockedListScreen`'s copy updated to mention clips, per
+      the flow doc's flagged "already-shipped copy needs a small update"
+      note. **Verified independently, not just by inspection**: `npx tsc
+      --noEmit` and `npx expo-doctor` (18/18, after bumping the `expo`
+      patch version to close an unrelated pre-existing drift) both clean; a
+      full Metro bundle (`npx expo export`) compiled with no errors (718
+      modules). Brought up the existing `docker-compose` stack (api/
+      postgres/redis/minio, already running/healthy) and exercised every
+      new endpoint for real from a container attached to the compose
+      network (so presigned MinIO URLs, whose host is `minio` per
+      `MINIO_ENDPOINT`, resolve correctly) — a synthetic clip with injected
+      `location`/`title` metadata (generated via the api container's own
+      `ffmpeg`) went through a real `upload-url` -> `PUT` -> `complete`
+      round trip, and the returned `playbackUrl` was independently fetched
+      and confirmed reachable; the clip appeared in a teammate's feed with
+      the correct tag; a report immediately hid it from *both* the
+      reporter and the uploader's own feed (ADR-0010 Decision 4);
+      self-delete removed it permanently and a repeat delete 404'd; a
+      `TeamChatBlock` hid the blocked uploader's clips from the blocker
+      specifically while a third, unrelated teammate still saw them;
+      consent-gated reads were confirmed for both a never-approved player
+      and a player whose consent was revoked mid-session (both 403
+      `consent_required` on the feed `GET` itself); `422
+      caption_rejected_by_filter`, `400` (bad `taggedPlayerId`, over-cap
+      duration), `409 upload_not_found`, and both `429` codes (upload
+      daily-allowance burst, report per-reporter cooldown) all matched the
+      contract exactly. Consent approval/revocation was simulated via
+      direct SQL against the same Postgres instance (mirroring how
+      backend's own e2e suite bypasses the real parent-email round trip)
+      rather than sending real email through the project's live SMTP
+      relay. **One real, verified finding, flagged for backend-developer/
+      code-critic, not silently worked around**: tracing
+      `VideoClipsService.reportClip`'s actual check order (clip-must-be-
+      published check, then the existing-report check, then the
+      per-reporter Redis cooldown claim, then the insert) shows `409
+      clip_already_reported_by_you` is effectively unreachable for clips
+      specifically, unlike chat — because a report always immediately
+      hides the clip (ADR-0010 Decision 4), any *sequential* repeat report
+      404s (`clip_not_found`) before ever reaching the "already reported"
+      check, and in a genuinely concurrent race the atomic per-reporter
+      cooldown claim (not the unique-report constraint) is what decides
+      the race, so a loser gets `429`/`404`, not `409`. The mobile client
+      still correctly handles the documented `409` code (harmless, correct
+      defense for what the contract states), but the contract/ADR may want
+      to note this reachability gap explicitly rather than leave `409`
+      looking equally reachable to `429`/`404`. **Known, honestly-stated
+      verification gap**: no iOS Simulator/Android emulator exists in this
+      Linux sandbox, so the camera/picker/playback UI itself was never
+      tap-through-tested on a real device — the live-backend exercise above
+      substitutes for that, but is not the same thing, matching this
+      project's prior phases' same honest gap.
+- [x] **code-critic**: final review before merge. Read every substantive
+      file directly against `docs/adr/0010-video-storage-and-serving.md`
+      (as amended), `docs/api/phase3-contract.md`, and
+      `docs/design/phase3-flows.md` rather than trusting prior summaries —
+      the full `backend/src/video-clips/` module, the migration, the feed
+      query, `mobile/src/clips/` (especially `V6UploadProgress.tsx`'s
+      two-phase sequence and `ClipCard.tsx`'s three tap zones) — then
+      independently re-ran everything rather than trusting reported
+      results: `pnpm lint`/`pnpm build` clean; a genuinely fresh
+      Postgres 18 + Redis + MinIO (this sandbox has no system `ffmpeg`, so
+      the unit/e2e runs used a throwaway `node:22-alpine` container with
+      `ffmpeg` installed, networked to the same `docker-compose` Postgres/
+      Redis/MinIO — functionally identical to `ci-cd.yml`'s service
+      containers) — 171/171 backend unit tests (174/174 after this pass's
+      own additions, see below), 98/98 e2e tests; `npx tsc --noEmit` and
+      `npx expo-doctor` (18/18) both clean for `mobile/`; `docker compose
+      build api` succeeds with this pass's fix included.
+      **One CONFIRMED bug, missed by every prior round (architecture,
+      contract, and both security-reviewer passes) — found and fixed, not
+      just flagged, per this project's established pattern:**
+      - **CONFIRMED — `completeUpload` never actually performed the
+        HEAD-based size/content-type spot-check the ADR and contract both
+        describe, despite a comment in `CreateUploadUrlDto` explicitly
+        claiming it happens "later, at complete."** Traced the code before
+        this fix: `completeUpload` called `objectStorageService.
+        headObject(clip.storageKey)` and only ever checked it for
+        non-`null` (→ `409 upload_not_found`) — `head.sizeBytes` and
+        `head.contentType` were fetched and then never read again anywhere
+        in the method. Confirmed via `grep` that neither field is
+        referenced outside `object-storage.service.ts` itself, and that no
+        existing unit/e2e test exercises a HEAD result inconsistent with
+        the declared upload. **Concrete failure scenario**: a player calls
+        `upload-url` declaring a small `fileSizeBytes` (passing
+        `CreateUploadUrlDto`'s `@Max(25_000_000)` check trivially), then
+        `PUT`s an arbitrarily large object straight to the presigned URL.
+        Verified live against a real MinIO instance that nothing stops
+        this: the presigned URL's `X-Amz-SignedHeaders` is `host` only —
+        neither `Content-Length` nor `Content-Type` is part of the SigV4
+        signature, so the client isn't bound to its own declared values at
+        all — and the bucket-level max-object-size policy is separately,
+        independently confirmed non-functional against MinIO (backend-
+        developer's already-documented finding, re-confirmed here). With
+        the spot-check missing, `completeUpload` would proceed straight to
+        `getObjectBuffer`, buffering the **entire** object into memory on
+        the single-replica API pod before ever rejecting it — a real
+        memory-exhaustion risk on top of the already-known storage-
+        exhaustion one, bounded only by the daily 10-uploads-per-day rate
+        limit, not by size in any way. **Fixed in
+        `VideoClipsService.completeUpload`** (`backend/src/video-clips/
+        video-clips.service.ts`): immediately after `headObject` confirms
+        the object exists, and *before* `getObjectBuffer` is ever called,
+        reject (delete the object, throw the existing `422
+        clip_processing_failed`, leave the row `pending_upload`) if
+        `head.sizeBytes` exceeds `CLIP_MAX_FILE_SIZE_BYTES` or
+        `head.contentType` is a non-null mismatch against the clip's
+        declared `mimeType`. Deliberately reuses the existing `422
+        clip_processing_failed` code/cleanup path rather than inventing a
+        new one — the mobile client's existing "retry from a fresh
+        upload" handling for that code already covers this case correctly
+        with no client-side change needed. Added three unit tests
+        (`video-clips.service.spec.ts`): an oversized HEAD result is
+        rejected *and* `getObjectBuffer` is confirmed never called (closing
+        the memory-exhaustion path, not just the storage one); a
+        content-type mismatch is rejected; a `null` HEAD content-type
+        (no assertion possible) is correctly let through rather than
+        treated as a mismatch. All pre-existing tests plus these three
+        pass (174/174 unit).
+      **Both items already flagged on record, verified directly rather
+      than taken on faith — reasoning holds for both:**
+      - The MinIO `s3:content-length-range` bucket-policy no-op:
+        re-confirmed live (the exact "invalid condition key
+        's3:content-length-range'" warning appears in the unit-test log
+        output) that `ObjectStorageService.configureMaxObjectSizePolicy`
+        degrades gracefully — logs, doesn't throw, module boot proceeds,
+        the bucket still gets created and used. **With this pass's fix
+        above, the "only currently-active control" framing in that
+        finding is now stronger than when it was written**: there are now
+        two independent, functioning controls (the rate-limited presigned-
+        URL flow, *and* the HEAD-based spot-check at `complete`), not one.
+      - `409 clip_already_reported_by_you` being unreachable for a
+        *sequential* repeat report: confirmed by tracing `reportClip`'s
+        exact order — the clip lookup requires `status: 'published'`,
+        which the first successful report flips to `hidden` immediately,
+        so a second sequential attempt (by anyone, not just the same
+        reporter) 404s before ever reaching the already-reported check;
+        separately, `tryClaimClipReportCooldown` is a single **per-
+        reporter** lock (not per-`(reporter, clip)`), so even a genuinely
+        concurrent double-report race from the same reporter resolves via
+        `429`, not `409`. The unique-constraint catch is real defense in
+        depth for a case this contract doesn't otherwise reach (an
+        out-of-band admin un-hide followed by a fresh report, already
+        covered by the security-reviewer entry's e2e trace above) — kept
+        as-is, harmless, no client behavior depends on it being reachable
+        via the sequential path. No change needed.
+      **Other things specifically checked, no issues found:** the feed
+      query (`listClips`) combines `team_id` scoping, the
+      `status = 'published'` filter, and the `TeamChatBlock` `NOT EXISTS`
+      subquery in one `createQueryBuilder` chain, not layered
+      post-processing, confirmed by reading the query directly. Both
+      retention sweeps (`ClipRetentionService`) delete the MinIO object
+      before the Postgres row, leaving the row for the next run on a
+      transient object-delete failure. `V6UploadProgress.tsx` never skips
+      `complete` after a successful `PUT`, caps automatic retries at 2
+      attempts rather than looping forever, and its "Avbryt" handler
+      correctly calls `DELETE` on a still-`pending_upload` clip (the
+      judgment call the flow doc flagged for backend-developer to
+      confirm). `ClipCard.tsx`'s three tap zones are genuinely, physically
+      separate `Pressable`s, matching the flow doc's rule. Migration FK
+      actions (`RESTRICT`/`SET NULL`/`CASCADE`) match ADR-0010's exact
+      per-column reasoning.
+      **One environmental observation, not a product finding**: one out of
+      five independent e2e runs against a freshly-recreated
+      Postgres/Redis/MinIO produced 15 spurious failures (duplicate-key
+      console errors cascading) that did not reproduce on an immediate
+      re-run against an equally fresh database, and 4 subsequent clean
+      runs (98/98) followed — traced to this review's own ad hoc
+      Docker-network setup churn (a `docker network connect` race while
+      standing up the throwaway test container), not a change in
+      application code. Noted for the record rather than silently
+      dropped, not treated as a gating finding.
+- [x] **security-reviewer**: independent implementation-verification pass
+      (not a re-review of the architecture — that was already signed off
+      pre-build; this is "does the code actually do what the ADR/contract
+      promised"). Read every file directly (`video-clips.service.ts`,
+      `video-processing.service.ts`, `object-storage.service.ts`,
+      `clip-retention.service.ts`, the controller, both entities, the
+      migration, the module, the mail template, the k8s manifests, and the
+      mobile upload/feed/report/delete screens) rather than trusting prior
+      agents' summaries, then went further and **independently executed the
+      real thing**: brought up a genuinely fresh Postgres 18 + Redis + MinIO
+      via `docker-compose`, ran the migration clean, ran all 171 backend
+      unit tests (including `video-processing.service.spec.ts` against a
+      real `ffmpeg`/`ffprobe` installed for this pass — not skipped), and
+      ran both Phase 3 e2e suites (24 tests) against the live stack —
+      everything passed, matching the counts backend-developer/
+      frontend-developer already reported. **Verdict: full sign-off — safe
+      to merge**, no CONFIRMED blocking findings. Specifics:
+      - **GPS/location-metadata stripping (the highest-stakes item)**:
+        confirmed `VideoProcessingService.remuxStripMetadata` genuinely
+        shells out to `ffmpeg -map_metadata -1 -c copy` (explicitly
+        `-map`ping only `0:v:0`/`0:a:0`, the security-reviewer refinement
+        from the ADR round), and traced `completeUpload`'s exact ordering:
+        `HEAD` check → download → probe → remux (throws
+        `ClipProcessingFailedException`/`422` on any failure, object
+        deleted, row stays `pending_upload`) → **only then** does
+        `putObjectBuffer` overwrite the same `storage_key` with the
+        stripped bytes and `status` flip to `published` with `expiresAt`
+        set. There is no code path that mints a `playbackUrl` or returns
+        one before the remux has succeeded — `completeUpload`'s success
+        return (with `playbackUrl`) is reached only after the `status`
+        update. Independently re-ran `video-processing.service.spec.ts`
+        against a real `ffmpeg`/`ffprobe` (not present on this sandbox by
+        default — installed for this pass) and confirmed it does exactly
+        what it claims: a synthetic clip embedding
+        `com.apple.quicktime.location.ISO6709`/`location`/`title`
+        container tags has all of them verified present beforehand, then
+        verified **actually gone** after `remuxStripMetadata` runs, with
+        the output still a valid, playable stream. Additionally ran the
+        real e2e round trip (`phase3-video-clips.e2e-spec.ts`'s "the real
+        pipeline" test) against genuinely fresh MinIO: `PUT` real bytes
+        with injected location/title metadata → `complete` → fetched the
+        served bytes back via the fresh presigned GET → confirmed via
+        `ffprobe` the metadata is gone from what's actually served. This is
+        the concrete closure of CLAUDE.md's no-location-tracking
+        constraint for this feature, verified by execution, not by reading
+        the diff.
+      - **Structural team-scoping**: confirmed all 5 endpoints re-derive
+        `clip.teamId === requestingPlayer.teamId` before any read/write —
+        `createUploadUrl`/`completeUpload`/`deleteClip`/`reportClip` via
+        `PlayersService.assertTeamMembership(requesterId, teamId)` (throws
+        `team_mismatch`) plus, for the four that touch an existing clip
+        row, a repository query scoped by `{ id: clipId, teamId }` (never a
+        bare `findOne({ id })`) — a cross-team `clipId` structurally 404s
+        rather than needing a second, separate check. Confirmed the feed
+        query (`listClips`) combines the `team_id` scope, the
+        `status = 'published'` filter, and the `TeamChatBlock`
+        `NOT EXISTS` subquery **in one `createQueryBuilder` chain**, not as
+        client-side or service-side post-processing — mirrors the bar
+        already held for the chat message-visibility query.
+      - **Consent gating extended to reads**: confirmed `listClips` calls
+        `assertConsentApproved` (throwing `ConsentRequiredException`/`403
+        consent_required`) immediately after the team-membership check,
+        before the query runs — not a client-side-only gate. Confirmed via
+        a real e2e request (a `PENDING`-consent player's `GET .../clips`
+        returns `403 consent_required`, not an empty/filtered list) and via
+        the mobile `ClipsScreen`, which locks the *entire* tab (not just
+        the upload button) on `consentStatus !== 'approved'`, with the
+        server's own `403` as the authoritative source of truth if that
+        client-side state is stale.
+      - **Presigned URL handling**: confirmed both presigned PUT and GET
+        are minted fresh per call (`ObjectStorageService.
+        createPresignedPutUrl`/`createPresignedGetUrl`, no caching layer
+        anywhere) and that `storage_key` is server-generated
+        (`clips/{teamId}/{clipId}.{ext}`) at `createUploadUrl` and never
+        appears in any DTO, request body, or response shape across all 5
+        endpoints — grepped every DTO/response interface to confirm.
+      - **Report/auto-hide path**: confirmed `reportClip` sets
+        `status = 'hidden'` unconditionally right after the `ClipReport`
+        insert (not gated on the notification email succeeding), that
+        `ClipReport.reportedUploaderPlayerId` is denormalized at write time
+        and `clip_id` is nullable/`ON DELETE SET NULL` in the migration
+        (survives the clip's own deletion — confirmed live in the e2e
+        suite: deleting a reported clip leaves the report row with
+        `clip_id: null`), and that no endpoint/response anywhere returns a
+        `ClipReport` row, a reporter identity, or a report count — only the
+        per-viewer `reportedByMe: boolean` is ever derived from that table.
+      - **Retention/deletion**: confirmed both the daily 90-day sweep and
+        the hourly `pending_upload` TTL sweep delete the MinIO object
+        before the Postgres row (`ClipRetentionService.sweepRows`), leaving
+        the row for the next run if object deletion fails transiently — the
+        safer failure direction the ADR specifies. Confirmed
+        `k8s/api-deployment.yaml` still runs `replicas: 1` (the sweep's
+        documented single-replica assumption still holds).
+      - **No `real_name`/location exposure**: grepped every new entity, DTO,
+        and response interface in `video-clips/` — none reference
+        `realName` or any location/geo field; `PlayerPrivateInfoService.
+        getParentContact` (this module's documented third caller) only
+        returns `parent_contact`, confirmed by reading its implementation
+        directly, not assumed from the ADR's module-boundary note.
+      - **Mobile client**: confirmed `V6UploadProgress` always calls
+        `completeClipUpload` after a successful `PUT` — there is no code
+        path that treats the `PUT` alone as success — and that the report/
+        delete/consent-gate copy (`ClipReportConfirmationSheet`, the
+        parent/coach notification email templates) is honest about not
+        guaranteeing a review timeline ("vi kan inte lova exakt när
+        klippet granskas igen") and doesn't read as an accusation already
+        proven true, matching security-reviewer's specific ask from the
+        contract round.
+      **Two already-documented non-blocking items re-confirmed, not
+      re-litigated** (both correctly labeled by backend-developer/
+      frontend-developer, not glossed over): the MinIO
+      `s3:content-length-range` bucket-policy no-op (verified again here —
+      `ObjectStorageService.configureMaxObjectSizePolicy` logs and degrades
+      gracefully, doesn't block boot, and the primary control — one
+      rate-limited, validated presigned URL per request — is real and
+      independent of this gap); and `409 clip_already_reported_by_you`
+      being unreachable for a *sequential* repeat report (confirmed via the
+      e2e suite: an immediate second report attempt gets `404
+      clip_not_found`, since the first report already flipped the clip out
+      of `published`) while still being reachable, and correctly tested,
+      for the out-of-band-un-hidden-then-reported-again case. Neither
+      changes the verdict.
+      **No new findings requiring a code fix this pass** — everything
+      checked matched the ADR/contract's promises exactly, which is why
+      this is a full sign-off rather than "safe with required changes."
 
 ## Phase 4 — Kubernetes & public launch ("Fas 4")
 

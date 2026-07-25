@@ -5,12 +5,17 @@ import type {
   CaptainTransferRequest,
   CaptainTransferResponse,
   ChatMessagesResponse,
+  ClipsResponse,
+  CompleteClipUploadResponse,
   ConsentReminderResponse,
+  CreateClipUploadUrlRequest,
+  CreateClipUploadUrlResponse,
   CreatePlayerRequest,
   CreatePlayerResponse,
   CreateTrainingLogRequest,
   CreateWeeklyGoalRequest,
   CurrentGoalResponse,
+  DeleteClipResponse,
   GoalHistoryResponse,
   InvitePreviewResponse,
   LeaderboardResponse,
@@ -19,6 +24,8 @@ import type {
   PostChatMessageResponse,
   ReportChatMessageRequest,
   ReportChatMessageResponse,
+  ReportClipRequest,
+  ReportClipResponse,
   TeamDashboardResponse,
   TeammatesResponse,
   TeamRosterResponse,
@@ -248,5 +255,87 @@ export function getLeaderboard(teamId: string): Promise<LeaderboardResponse> {
   return apiClient.request<LeaderboardResponse>(
     `/teams/${encodeURIComponent(teamId)}/leaderboard`,
     { auth: true },
+  );
+}
+
+// --- Fas 3 additions, per docs/api/phase3-contract.md -----------------------
+// The "Klipp" tab's five endpoints. Consent-gates both writes *and* reads
+// (unlike chat) — see `ClipsScreen`'s whole-tab waiting state for the read
+// side of that.
+
+/** 1. POST /teams/:teamId/clips/upload-url — auth required, consent-gated,
+ * rate-limited (`429 clip_upload_rate_limited`), caption moderation-gated
+ * (`422 caption_rejected_by_filter`). Backs Screen V5's "Ladda upp" —
+ * step 1 of the two-phase upload; the client `PUT`s bytes to the returned
+ * `uploadUrl` directly (never through this API), then calls
+ * `completeClipUpload` (step 2). Never skip step 2. */
+export function createClipUploadUrl(
+  teamId: string,
+  body: CreateClipUploadUrlRequest,
+): Promise<CreateClipUploadUrlResponse> {
+  return apiClient.request<CreateClipUploadUrlResponse>(
+    `/teams/${encodeURIComponent(teamId)}/clips/upload-url`,
+    { method: 'POST', body, auth: true },
+  );
+}
+
+/** 2. POST /teams/:teamId/clips/:clipId/complete — auth required, step 2 of
+ * the two-phase upload (Screen V6). `409 upload_not_found`/`422
+ * clip_processing_failed` both mean "retry from step 1 with a fresh
+ * `clipId`", per the contract — never retry `complete` again for the same
+ * clip. */
+export function completeClipUpload(
+  teamId: string,
+  clipId: string,
+): Promise<CompleteClipUploadResponse> {
+  return apiClient.request<CompleteClipUploadResponse>(
+    `/teams/${encodeURIComponent(teamId)}/clips/${encodeURIComponent(clipId)}/complete`,
+    { method: 'POST', auth: true },
+  );
+}
+
+/** 3. GET /teams/:teamId/clips — auth required, consent-gated (`403
+ * consent_required` on the read itself, not just upload — Screen V1 occupies
+ * the whole tab for this, per the contract's stricter-than-chat posture).
+ * `before`/`limit` back Screen V2's explicit "Visa fler klipp" pagination —
+ * deliberately never auto-fetched on scroll (see the flow doc's judgment
+ * call 3). */
+export function getClips(
+  teamId: string,
+  params?: { before?: string; limit?: number },
+): Promise<ClipsResponse> {
+  const query = new URLSearchParams();
+  if (params?.before) query.set('before', params.before);
+  if (params?.limit) query.set('limit', String(params.limit));
+  const queryString = query.toString();
+  return apiClient.request<ClipsResponse>(
+    `/teams/${encodeURIComponent(teamId)}/clips${queryString ? `?${queryString}` : ''}`,
+    { auth: true },
+  );
+}
+
+/** 4. DELETE /teams/:teamId/clips/:clipId — auth required, uploader-only
+ * (`403 not_your_clip`), no consent gate (removing your own content is
+ * always allowed). Backs Screen V11's "Ja, ta bort klippet". */
+export function deleteClip(teamId: string, clipId: string): Promise<DeleteClipResponse> {
+  return apiClient.request<DeleteClipResponse>(
+    `/teams/${encodeURIComponent(teamId)}/clips/${encodeURIComponent(clipId)}`,
+    { method: 'DELETE', auth: true },
+  );
+}
+
+/** 5. POST /teams/:teamId/clips/:clipId/report — auth required,
+ * consent-gated, any teammate. Backs Screen V9's "Skicka rapport" — per
+ * ADR-0010 Decision 4, a `201` here immediately hides the clip for the
+ * whole team, including the reporter (Screen V10's copy states this
+ * plainly). */
+export function reportClip(
+  teamId: string,
+  clipId: string,
+  body: ReportClipRequest,
+): Promise<ReportClipResponse> {
+  return apiClient.request<ReportClipResponse>(
+    `/teams/${encodeURIComponent(teamId)}/clips/${encodeURIComponent(clipId)}/report`,
+    { method: 'POST', body, auth: true },
   );
 }
