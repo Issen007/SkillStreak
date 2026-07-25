@@ -1265,7 +1265,133 @@ treat `security-reviewer` involvement as blocking, not a final check.
       tap-through-tested on a real device — the live-backend exercise above
       substitutes for that, but is not the same thing, matching this
       project's prior phases' same honest gap.
-- [ ] **code-critic** + **security-reviewer**: final review before merge.
+- [ ] **code-critic**: final review before merge — not recorded yet by that
+      pass; see its own entry when added.
+- [x] **security-reviewer**: independent implementation-verification pass
+      (not a re-review of the architecture — that was already signed off
+      pre-build; this is "does the code actually do what the ADR/contract
+      promised"). Read every file directly (`video-clips.service.ts`,
+      `video-processing.service.ts`, `object-storage.service.ts`,
+      `clip-retention.service.ts`, the controller, both entities, the
+      migration, the module, the mail template, the k8s manifests, and the
+      mobile upload/feed/report/delete screens) rather than trusting prior
+      agents' summaries, then went further and **independently executed the
+      real thing**: brought up a genuinely fresh Postgres 18 + Redis + MinIO
+      via `docker-compose`, ran the migration clean, ran all 171 backend
+      unit tests (including `video-processing.service.spec.ts` against a
+      real `ffmpeg`/`ffprobe` installed for this pass — not skipped), and
+      ran both Phase 3 e2e suites (24 tests) against the live stack —
+      everything passed, matching the counts backend-developer/
+      frontend-developer already reported. **Verdict: full sign-off — safe
+      to merge**, no CONFIRMED blocking findings. Specifics:
+      - **GPS/location-metadata stripping (the highest-stakes item)**:
+        confirmed `VideoProcessingService.remuxStripMetadata` genuinely
+        shells out to `ffmpeg -map_metadata -1 -c copy` (explicitly
+        `-map`ping only `0:v:0`/`0:a:0`, the security-reviewer refinement
+        from the ADR round), and traced `completeUpload`'s exact ordering:
+        `HEAD` check → download → probe → remux (throws
+        `ClipProcessingFailedException`/`422` on any failure, object
+        deleted, row stays `pending_upload`) → **only then** does
+        `putObjectBuffer` overwrite the same `storage_key` with the
+        stripped bytes and `status` flip to `published` with `expiresAt`
+        set. There is no code path that mints a `playbackUrl` or returns
+        one before the remux has succeeded — `completeUpload`'s success
+        return (with `playbackUrl`) is reached only after the `status`
+        update. Independently re-ran `video-processing.service.spec.ts`
+        against a real `ffmpeg`/`ffprobe` (not present on this sandbox by
+        default — installed for this pass) and confirmed it does exactly
+        what it claims: a synthetic clip embedding
+        `com.apple.quicktime.location.ISO6709`/`location`/`title`
+        container tags has all of them verified present beforehand, then
+        verified **actually gone** after `remuxStripMetadata` runs, with
+        the output still a valid, playable stream. Additionally ran the
+        real e2e round trip (`phase3-video-clips.e2e-spec.ts`'s "the real
+        pipeline" test) against genuinely fresh MinIO: `PUT` real bytes
+        with injected location/title metadata → `complete` → fetched the
+        served bytes back via the fresh presigned GET → confirmed via
+        `ffprobe` the metadata is gone from what's actually served. This is
+        the concrete closure of CLAUDE.md's no-location-tracking
+        constraint for this feature, verified by execution, not by reading
+        the diff.
+      - **Structural team-scoping**: confirmed all 5 endpoints re-derive
+        `clip.teamId === requestingPlayer.teamId` before any read/write —
+        `createUploadUrl`/`completeUpload`/`deleteClip`/`reportClip` via
+        `PlayersService.assertTeamMembership(requesterId, teamId)` (throws
+        `team_mismatch`) plus, for the four that touch an existing clip
+        row, a repository query scoped by `{ id: clipId, teamId }` (never a
+        bare `findOne({ id })`) — a cross-team `clipId` structurally 404s
+        rather than needing a second, separate check. Confirmed the feed
+        query (`listClips`) combines the `team_id` scope, the
+        `status = 'published'` filter, and the `TeamChatBlock`
+        `NOT EXISTS` subquery **in one `createQueryBuilder` chain**, not as
+        client-side or service-side post-processing — mirrors the bar
+        already held for the chat message-visibility query.
+      - **Consent gating extended to reads**: confirmed `listClips` calls
+        `assertConsentApproved` (throwing `ConsentRequiredException`/`403
+        consent_required`) immediately after the team-membership check,
+        before the query runs — not a client-side-only gate. Confirmed via
+        a real e2e request (a `PENDING`-consent player's `GET .../clips`
+        returns `403 consent_required`, not an empty/filtered list) and via
+        the mobile `ClipsScreen`, which locks the *entire* tab (not just
+        the upload button) on `consentStatus !== 'approved'`, with the
+        server's own `403` as the authoritative source of truth if that
+        client-side state is stale.
+      - **Presigned URL handling**: confirmed both presigned PUT and GET
+        are minted fresh per call (`ObjectStorageService.
+        createPresignedPutUrl`/`createPresignedGetUrl`, no caching layer
+        anywhere) and that `storage_key` is server-generated
+        (`clips/{teamId}/{clipId}.{ext}`) at `createUploadUrl` and never
+        appears in any DTO, request body, or response shape across all 5
+        endpoints — grepped every DTO/response interface to confirm.
+      - **Report/auto-hide path**: confirmed `reportClip` sets
+        `status = 'hidden'` unconditionally right after the `ClipReport`
+        insert (not gated on the notification email succeeding), that
+        `ClipReport.reportedUploaderPlayerId` is denormalized at write time
+        and `clip_id` is nullable/`ON DELETE SET NULL` in the migration
+        (survives the clip's own deletion — confirmed live in the e2e
+        suite: deleting a reported clip leaves the report row with
+        `clip_id: null`), and that no endpoint/response anywhere returns a
+        `ClipReport` row, a reporter identity, or a report count — only the
+        per-viewer `reportedByMe: boolean` is ever derived from that table.
+      - **Retention/deletion**: confirmed both the daily 90-day sweep and
+        the hourly `pending_upload` TTL sweep delete the MinIO object
+        before the Postgres row (`ClipRetentionService.sweepRows`), leaving
+        the row for the next run if object deletion fails transiently — the
+        safer failure direction the ADR specifies. Confirmed
+        `k8s/api-deployment.yaml` still runs `replicas: 1` (the sweep's
+        documented single-replica assumption still holds).
+      - **No `real_name`/location exposure**: grepped every new entity, DTO,
+        and response interface in `video-clips/` — none reference
+        `realName` or any location/geo field; `PlayerPrivateInfoService.
+        getParentContact` (this module's documented third caller) only
+        returns `parent_contact`, confirmed by reading its implementation
+        directly, not assumed from the ADR's module-boundary note.
+      - **Mobile client**: confirmed `V6UploadProgress` always calls
+        `completeClipUpload` after a successful `PUT` — there is no code
+        path that treats the `PUT` alone as success — and that the report/
+        delete/consent-gate copy (`ClipReportConfirmationSheet`, the
+        parent/coach notification email templates) is honest about not
+        guaranteeing a review timeline ("vi kan inte lova exakt när
+        klippet granskas igen") and doesn't read as an accusation already
+        proven true, matching security-reviewer's specific ask from the
+        contract round.
+      **Two already-documented non-blocking items re-confirmed, not
+      re-litigated** (both correctly labeled by backend-developer/
+      frontend-developer, not glossed over): the MinIO
+      `s3:content-length-range` bucket-policy no-op (verified again here —
+      `ObjectStorageService.configureMaxObjectSizePolicy` logs and degrades
+      gracefully, doesn't block boot, and the primary control — one
+      rate-limited, validated presigned URL per request — is real and
+      independent of this gap); and `409 clip_already_reported_by_you`
+      being unreachable for a *sequential* repeat report (confirmed via the
+      e2e suite: an immediate second report attempt gets `404
+      clip_not_found`, since the first report already flipped the clip out
+      of `published`) while still being reachable, and correctly tested,
+      for the out-of-band-un-hidden-then-reported-again case. Neither
+      changes the verdict.
+      **No new findings requiring a code fix this pass** — everything
+      checked matched the ADR/contract's promises exactly, which is why
+      this is a full sign-off rather than "safe with required changes."
 
 ## Phase 4 — Kubernetes & public launch ("Fas 4")
 
