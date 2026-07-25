@@ -67,15 +67,25 @@ jobs:
       MINIO_SECRET_KEY: ci-minio-password
       MINIO_BUCKET: clips
     steps:
+      - uses: actions/checkout@v4
+
       # ubuntu-latest ships ffmpeg by default, but pinning this step makes
       # that an explicit, verified fact for this workflow rather than an
       # assumption about the runner image that could silently change —
       # docs/adr/0010-video-storage-and-serving.md's metadata-stripping
       # remux (VideoProcessingService) needs both ffmpeg and ffprobe on
       # PATH for its own e2e coverage to mean anything.
+      #
+      # Must run after checkout, not before: this job's `defaults.run
+      # .working-directory` is `backend`, which only exists once checkout
+      # has actually cloned the repo — running this step first (as it
+      # originally did) failed with "No such file or directory" on a real
+      # run, since there was nothing to `cd` into yet. `working-directory:
+      # .` overrides the job default explicitly anyway, since this is a
+      # system-tool check with no real dependency on being inside backend/.
       - name: Ensure ffmpeg is present
+        working-directory: .
         run: command -v ffmpeg && command -v ffprobe && ffmpeg -version | head -1
-      - uses: actions/checkout@v4
 
       - name: Start MinIO (official image, manual run — see comment above)
         run: |
