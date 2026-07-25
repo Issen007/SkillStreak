@@ -39,26 +39,25 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-      # Fas 3's video-clip e2e suite exercises a real MinIO instance (the
-      # object-storage/metadata-stripping path is the whole point of that
-      # suite, not something to stub out). GitHub Actions job "services"
-      # can't override a container's command/args, so this uses
-      # bitnami/minio (not the official minio/minio image docker-
-      # compose.yml/k8s use) — bitnami's image is designed to boot the
-      # server from env vars alone, no command override needed, which is
-      # exactly what a service container requires.
-      minio:
-        image: bitnami/minio:latest
-        env:
-          MINIO_ROOT_USER: ci-minio-user
-          MINIO_ROOT_PASSWORD: ci-minio-password
-        ports:
-          - 9000:9000
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+    # Fas 3's video-clip e2e suite exercises a real MinIO instance (the
+    # object-storage/metadata-stripping path is the whole point of that
+    # suite, not something to stub out) — started as a manual `docker run`
+    # step below, not a `services:` entry like postgres/redis above.
+    #
+    # HISTORY: this originally used `bitnami/minio:latest` as a `services:`
+    # entry, since GitHub Actions job "services" can't override a
+    # container's command/args and bitnami's image was designed to boot the
+    # server from env vars alone. That broke every CI run once Bitnami
+    # pulled its free-tier images off Docker Hub (`bitnami/minio` now
+    # resolves zero tags at all — confirmed via Docker Hub's own API, not
+    # just this run's failure). The official `minio/minio` image doesn't
+    # have the same env-vars-only boot behavior (its default `Cmd` is bare
+    # `["minio"]`, not `["minio","server","/data"]` — confirmed by pulling
+    # and inspecting it directly), so it can't be a drop-in `services:`
+    # replacement either. Running it as an explicit step instead sidesteps
+    # the command-override limitation entirely: `docker run` can pass
+    # `server /data` directly, the same command k8s/minio-deployment.yaml
+    # and docker-compose.yml already use for the official image.
     env:
       DATABASE_URL: postgres://app:app@localhost:5432/app_dev
       REDIS_URL: redis://localhost:6379
@@ -77,6 +76,24 @@ jobs:
       - name: Ensure ffmpeg is present
         run: command -v ffmpeg && command -v ffprobe && ffmpeg -version | head -1
       - uses: actions/checkout@v4
+
+      - name: Start MinIO (official image, manual run — see comment above)
+        run: |
+          docker run -d --name minio-ci \
+            -e MINIO_ROOT_USER=ci-minio-user \
+            -e MINIO_ROOT_PASSWORD=ci-minio-password \
+            -p 9000:9000 \
+            minio/minio:latest server /data
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9000/minio/health/live; then
+              echo "MinIO is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MinIO did not become healthy in time"
+          docker logs minio-ci
+          exit 1
 
       - uses: pnpm/action-setup@v4
         with:
