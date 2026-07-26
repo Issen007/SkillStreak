@@ -147,10 +147,15 @@ export function TeamScreen({ teamId, viewerPlayerId, onManageGoal, onCaptainTran
           ))}
         </View>
 
-        {/* Any team member, not captain-gated — inviting a friend is the
-            same trust level as the code already being shared by word of
-            mouth or a coach (see the dashboard's own inviteCode comment). */}
-        <PrimaryButton label="📨 Bjud in en kompis" onPress={() => setInviteSheetOpen(true)} />
+        {/* Always visible, not just tucked inside the share sheet — a
+            teammate should be able to just read the code out loud to a
+            friend without opening anything. Any team member, not
+            captain-gated (see the dashboard's own inviteCode comment). */}
+        <View style={styles.inviteCard}>
+          <Text style={styles.inviteCodeLabel}>Lagkod</Text>
+          <Text style={styles.inviteCode}>{dashboard.inviteCode}</Text>
+          <PrimaryButton label="📨 Bjud in en kompis" onPress={() => setInviteSheetOpen(true)} />
+        </View>
 
         <TeamPoolCard
           pointsTotal={dashboard.teamPool.pointsTotal}
@@ -213,6 +218,28 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 16,
     paddingHorizontal: 8,
+  },
+  inviteCard: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 20,
+    padding: 16,
+    alignItems: 'center',
+    gap: 10,
+  },
+  inviteCodeLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  inviteCode: {
+    fontFamily: fonts.headingBold,
+    fontSize: 26,
+    color: colors.ink,
+    letterSpacing: 1.5,
   },
   captainCard: {
     backgroundColor: colors.white,
