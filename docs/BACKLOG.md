@@ -87,3 +87,49 @@ Specifically, before this is built:
   and a **security-reviewer** sign-off before backend work starts, per this
   project's standing rule for anything touching child data — not a silent
   addition to existing endpoints.
+
+## Public website onboarding widget — abuse mitigation (before going live)
+Raised 2026-07-26: `site/index.html`'s "Kom igång" section embeds a real,
+functional join/create-team flow (calls the actual `GET /teams/invite`/
+`POST /players` endpoints via a newly-enabled CORS config — see
+`feature/site-landing-and-onboarding-widget`), so anyone can create a real
+team/player and trigger a real parental-consent email straight from the
+public marketing page, not just from inside the mobile app.
+
+**Accepted, tracked gap, not fixed now** — deliberately shipped as-is for
+this local/first-version deployment (no real public internet traffic yet),
+same posture this project already takes with other accepted gaps (the
+180-day JWT with no revocation, the in-memory/per-pod rate limiter). Two
+distinct risk vectors, both need a real decision before any real external
+launch:
+
+1. **Real consent emails to arbitrary, unverified addresses, at much lower
+   friction than before.** The mobile app already never verifies
+   `parentContact` beyond a format check — that's not new. What's new is a
+   public, crawlable, no-install-required page removes the friction (and
+   discoverability cost) a bad actor previously had to clear to hit these
+   endpoints at all. Currently bounded only by the existing generic
+   `10/min`-per-IP throttle (`@Throttle` on `POST /players`), not anything
+   specific to this new surface.
+2. **Junk/offensive team names become visible on the real cross-team
+   VM-Guld leaderboard.** `Team.name` is deliberately cross-team-visible by
+   design (ADR-0008) — a casual visitor just trying the widget out (or a
+   bad-faith one) can put a name in front of real kids on real other teams.
+   The existing content filter (`ChatModerationCheck`) blocks banned words,
+   not generic junk/gibberish.
+
+**Options discussed, not chosen yet** (project owner's call, closer to
+launch):
+- A stricter, separate rate limit just for this public path (e.g. a few
+  per hour per IP), tighter than the general endpoint throttle.
+- Gate team names created through this specific path from the public
+  leaderboard until a human approves them — solves risk 2 specifically,
+  doesn't touch risk 1.
+- Some lighter-weight bot/abuse deterrent (e.g. a honeypot field) as a
+  cheap first layer against drive-by scripted abuse specifically, distinct
+  from a determined human actor.
+
+**Trigger condition to revisit:** before this site is reachable from the
+real public internet (i.e. once `k8s/README.md`'s external-ingress gap is
+resolved for whichever cluster serves it for real) — not blocking for a
+local/internal-network first version.
