@@ -21,8 +21,20 @@ const trimString = ({ value }: { value: unknown }) =>
 // Sane birth-year range: oldest plausible active youth player vs. today.
 // Loose on purpose (this is a coarse sanity check, not age gating logic) —
 // per ADR-0002, only the year is ever collected, never a full DOB.
-const MIN_BIRTH_YEAR = 2000;
-const MAX_BIRTH_YEAR = new Date().getUTCFullYear();
+//
+// Both bounds are rolling offsets from the current year, not fixed
+// calendar years — a fixed MIN_BIRTH_YEAR (this used to be a hardcoded
+// `2000`) silently drifts wider every year that passes (by 2040, "2000"
+// would mean a 40-year-old "player"), so the only way for this range to
+// need zero manual updates, ever, is for both ends to move with today.
+// 26/4 preserve today's actual accepted range unchanged (2000-2026)
+// while fixing that drift and adding a real floor on the upper end (the
+// previous MAX_BIRTH_YEAR had no offset at all, technically accepting a
+// newborn as a "player").
+const OLDEST_ALLOWED_AGE_YEARS = 26;
+const YOUNGEST_ALLOWED_AGE_YEARS = 4;
+const MIN_BIRTH_YEAR = new Date().getUTCFullYear() - OLDEST_ALLOWED_AGE_YEARS;
+const MAX_BIRTH_YEAR = new Date().getUTCFullYear() - YOUNGEST_ALLOWED_AGE_YEARS;
 
 // Generous but bounded — these are display/key strings, not free text, so
 // there's no legitimate case for an unbounded value; the caps exist to stop

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -8,10 +9,17 @@ import { fonts } from '../../theme/fonts';
 
 // Mirrors the backend's sane range check (CreatePlayerDto) so the client
 // never offers a value that would 400 — year only, never a full DOB, per
-// ADR-0002.
-const MIN_BIRTH_YEAR = 2000;
-const MAX_BIRTH_YEAR = new Date().getFullYear();
+// ADR-0002. Both bounds are rolling offsets from the current year, not
+// fixed calendar years, so this needs no manual update as time passes —
+// see create-player.dto.ts's identical comment for why a fixed year drifts.
+const OLDEST_ALLOWED_AGE_YEARS = 26;
+const YOUNGEST_ALLOWED_AGE_YEARS = 4;
+const MIN_BIRTH_YEAR = new Date().getFullYear() - OLDEST_ALLOWED_AGE_YEARS;
+const MAX_BIRTH_YEAR = new Date().getFullYear() - YOUNGEST_ALLOWED_AGE_YEARS;
 
+// Most-recent-first (youngest-allowed year at the top) — a kid scrolling
+// this is almost always closer to the young end than the old end, so that's
+// the shorter scroll from the picker's default open position.
 const YEARS = Array.from(
   { length: MAX_BIRTH_YEAR - MIN_BIRTH_YEAR + 1 },
   (_, i) => MAX_BIRTH_YEAR - i,
@@ -40,26 +48,20 @@ export function O4BirthYear({ initialBirthYear, externalError, onNext }: O4Birth
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View style={styles.grid}>
-        {YEARS.map((year) => {
-          const selected = year === birthYear;
-          return (
-            <Pressable
-              key={year}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              onPress={() => {
-                setBirthYear(year);
-                if (error) setError(null);
-              }}
-              style={[styles.yearCell, selected && styles.yearCellSelected]}
-            >
-              <Text style={[styles.yearText, selected && styles.yearTextSelected]}>
-                {year}
-              </Text>
-            </Pressable>
-          );
-        })}
+      <View style={styles.pickerWrap}>
+        <Picker
+          selectedValue={birthYear ?? YEARS[0]}
+          onValueChange={(year) => {
+            setBirthYear(year);
+            if (error) setError(null);
+          }}
+          style={styles.picker}
+          itemStyle={styles.pickerItem}
+        >
+          {YEARS.map((year) => (
+            <Picker.Item key={year} label={String(year)} value={year} />
+          ))}
+        </Picker>
       </View>
 
       <View style={styles.spacer} />
@@ -96,31 +98,19 @@ const styles = StyleSheet.create({
     color: colors.error,
     textAlign: 'center',
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'center',
-  },
-  yearCell: {
-    width: '30%',
-    paddingVertical: 14,
+  pickerWrap: {
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: colors.border,
     backgroundColor: colors.white,
-    alignItems: 'center',
+    overflow: 'hidden',
   },
-  yearCellSelected: {
-    borderColor: colors.flame,
-    backgroundColor: colors.flameTint,
+  picker: {
+    width: '100%',
   },
-  yearText: {
+  pickerItem: {
     fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    color: colors.ink,
-  },
-  yearTextSelected: {
+    fontSize: 20,
     color: colors.ink,
   },
 });
