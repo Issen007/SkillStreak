@@ -87,6 +87,15 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps
   const scrollRef = useRef<ScrollView>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasOpenedRef = useRef(false);
+  // Guards against overlapping pollForNew calls -- the 5s interval and the
+  // AppState 'active' handler below can both fire close together (on web
+  // especially: react-native-web's AppState maps to browser focus/
+  // visibilitychange events, which fire far more often/unreliably than a
+  // real native foreground transition). Two concurrent calls would both
+  // read latestCreatedAtRef before either updated it, fetch the same
+  // "new" message, and both append it -- confirmed live 2026-07-26 as
+  // messages visibly repeating in the feed.
+  const pollInFlightRef = useRef(false);
 
   // Screen CH0 — checked once on mount.
   useEffect(() => {
@@ -124,17 +133,28 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps
   }, [teamId]);
 
   const pollForNew = useCallback(async () => {
+    if (pollInFlightRef.current) return;
+    pollInFlightRef.current = true;
     try {
       const response = await getChatMessages(teamId, {
         after: latestCreatedAtRef.current,
         limit: 50,
       });
       if (response.messages.length > 0) {
-        setMessages((prev) => [...(prev ?? []), ...response.messages]);
+        // Defensive de-dupe by id, on top of the in-flight guard above —
+        // belt and suspenders against ever rendering the same message
+        // twice, regardless of the exact cause.
+        setMessages((prev) => {
+          const existingIds = new Set((prev ?? []).map((m) => m.id));
+          const fresh = response.messages.filter((m) => !existingIds.has(m.id));
+          return [...(prev ?? []), ...fresh];
+        });
         latestCreatedAtRef.current = response.messages[response.messages.length - 1].createdAt;
       }
     } catch {
       // Silent — the next 5s poll simply retries.
+    } finally {
+      pollInFlightRef.current = false;
     }
   }, [teamId]);
 
