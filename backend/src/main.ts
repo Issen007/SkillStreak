@@ -21,12 +21,19 @@ async function bootstrap() {
 
   // CORS, off by default — only enabled if CORS_ORIGIN is explicitly set
   // (see env.validation.ts), and only for the specific origins listed, not
-  // a wildcard. Exists so the site container's embedded onboarding widget
-  // (GET /teams/invite, POST /players — already unauthenticated per
-  // docs/api/phase1-contract.md, so this doesn't grant new access to
-  // anything auth-gated) can call this API cross-origin. No credentials
-  // (this app authenticates via a Bearer sessionToken, never cookies), so
-  // there's no cross-origin credential-leak risk to configure around.
+  // a wildcard. This applies app-wide (NestJS's enableCors isn't
+  // per-route), not literally scoped to just GET /teams/invite and
+  // POST /players — the two endpoints this exists for. In practice every
+  // other, auth-gated route stays cross-origin-unreadable anyway, because
+  // allowedHeaders excludes Authorization: a cross-origin fetch() can't
+  // attach the Bearer sessionToken this app's auth relies on, so its
+  // preflight fails before the request ever carries credentials. That's
+  // today's safety net, not a designed guarantee — if a future
+  // unauthenticated GET/POST endpoint is added, it inherits cross-origin
+  // readability from this same block without a new decision being made.
+  // No credentials mode (this app authenticates via a Bearer
+  // sessionToken, never cookies), so there's no cross-origin
+  // credential-leak risk to configure around either way.
   const configService = app.get(ConfigService);
   const corsOrigin = configService.get<string>('CORS_ORIGIN');
   if (corsOrigin) {

@@ -1136,7 +1136,7 @@ footer .foot-row {
             </div>
             <p class="wz-error" id="wzCodeError"></p>
             <p class="wz-helper" style="text-align:center; margin-top:16px;">
-              Testa gärna koden <strong>FALKEN24</strong> för att se hur det ser ut att gå med i ett befintligt lag.
+              Testa gärna koden <strong>FALKEN13</strong> för att se hur det ser ut att gå med i ett befintligt lag.
             </p>
           </div>
 
@@ -1636,13 +1636,17 @@ footer .foot-row {
 
   // -----------------------------------------------------------------------
   // "Kom igång" wizard — mirrors docs/design/phase1-flows.md's real O1-O6
-  // onboarding screens (copy pulled verbatim from that doc, including its
-  // own worked example: code FALKEN24 -> "IBK Falken P13"), reimplemented
-  // as web-page steps instead of phone screens. Client-side state only —
-  // this page can't reach the real API (Artifacts block all outbound
-  // network calls), and a marketing mockup shouldn't be writing real rows
-  // into a real Team/Player table anyway. Said plainly in the section's own
-  // helper copy, not hidden.
+  // onboarding screens (copy pulled verbatim from that doc), reimplemented
+  // as web-page steps instead of phone screens. This is a REAL client for
+  // GET /teams/invite/:inviteCode and POST /players — window.__API_BASE__
+  // is the real API origin (baked in at image-build time, see
+  // site/Dockerfile), and a successful submit creates a real Team/Player
+  // row and sends a real parental-consent email, exactly like the mobile
+  // app. Anyone reaching this public page can trigger that — a real,
+  // tracked abuse-surface question (arbitrary production writes + real
+  // consent emails to arbitrary addresses, from anonymous traffic), not
+  // yet resolved as of this comment. Don't lock in a "just ship it"
+  // assumption about that by editing around this note.
   (function initWizard() {
     var root = document.getElementById('kom-igang');
     if (!root) return;
@@ -1763,7 +1767,6 @@ footer .foot-row {
       apiCall('/api/v1/teams/invite/' + encodeURIComponent(code), { method: 'GET' })
         .then(function (data) {
           byId('wzConfirmJoinHeading').textContent = 'Ansluter du till ' + data.teamName + '?';
-          byId('wzConfirmJoinSubmit').dataset.teamName = data.teamName;
           showStep('confirmJoin');
         })
         .catch(function (err) {
@@ -1919,15 +1922,30 @@ footer .foot-row {
           showStep('success');
         })
         .catch(function (err) {
-          if (err.code === 'invite_code_not_found' || err.code === 'invite_code_taken_concurrently') {
-            showError('wzCodeError', 'Lagkoden blev ogiltig — testa igen.');
+          // Copy and clear/preserve behavior matches
+          // docs/design/phase1-flows.md's O5 error-handling section
+          // exactly, not a generic message for all four — each has a
+          // distinct real-world cause and the doc is deliberate about
+          // which fields get cleared vs. preserved for each one.
+          if (err.code === 'invite_code_not_found') {
+            byId('wzCode').value = '';
+            showError('wzCodeError', 'Lagkoden fungerar inte längre. Fråga din tränare om en ny kod.');
+            showStep('code');
+          } else if (err.code === 'invite_code_taken_concurrently') {
+            byId('wzCode').value = '';
+            showError('wzCodeError', 'Åh nej — någon hann skapa ett lag med den koden precis före dig! Testa en annan kod, så ordnar vi resten direkt.');
             showStep('code');
           } else if (err.code === 'screen_name_taken_in_team') {
-            showError('wzPlayerNameError', 'Det spelarnamnet är redan taget i laget — välj ett annat.');
+            showError('wzPlayerNameError', 'Det namnet är upptaget i laget — testa ett annat!');
             showStep('playerName');
+            screenNameInput.focus();
+            screenNameInput.select();
           } else if (err.code === 'team_name_rejected_by_filter') {
-            showError('wzNameTeamError', 'Det lagnamnet gick inte att spara — testa ett annat.');
+            showError('wzNameTeamError', 'Lagnamnet gick inte att spara — det innehöll ord som inte funkar här. Skriv om det så går det bra! ✍️');
             showStep('nameTeam');
+            var teamNameInput = byId('wzTeamName');
+            teamNameInput.focus();
+            teamNameInput.select();
           } else {
             showError('wzParentError', GENERIC_ERROR);
           }
