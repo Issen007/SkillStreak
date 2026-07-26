@@ -5,6 +5,12 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Lets a manual re-run happen without needing an empty/throwaway commit
+  # just to get push: to fire again — came up repeatedly while chasing a
+  # sequence of CI/deploy-only fixes (no code change, e.g. a GitHub secret
+  # update) where the only way to re-trigger was a new push. `gh run rerun`
+  # doesn't cover this either without an `actions:write`-scoped token.
+  workflow_dispatch:
 
 jobs:
   backend-test:
@@ -234,8 +240,11 @@ jobs:
     runs-on: ubuntu-latest
     # 1. ONLY run this job if the tests AND the smoke tests pass perfectly
     needs: [backend-test, compose-smoke-test]
-    # 2. ONLY run this job if the code is being merged/pushed into main (not on open PRs)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # 2. ONLY run this job if the code is being merged/pushed into main (not
+    # on open PRs), OR a manual workflow_dispatch re-run — both only ever
+    # target main (workflow_dispatch has no branches: filter of its own, so
+    # github.ref is checked the same way for both event types).
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     
     permissions:
       contents: read
