@@ -1,7 +1,6 @@
 # 🔥 SkillStreak (arbetstitel kom på något nytt)
 
-Rörelseglädje genom gamification för ungdomslag i innebandy — se
-[docs/PROJECT.md](docs/PROJECT.md) för hela visionen bakom projektet.
+Rörelseglädje genom gamification för ungdomslag i innebandy.
 
 > ## ⚠️ Early Alpha
 > Det här är en tidig betaversion under aktiv utveckling. **All data — konton,
@@ -127,8 +126,6 @@ egen enligt ovan):
 
 ## Mer dokumentation
 
-- [docs/PROJECT.md](docs/PROJECT.md) — ursprunglig vision, namnförslag,
-  GDPR/Privacy by Design, roadmap.
 - [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) — levande, detaljerad
   statuslista per fas.
 - [docs/adr/](docs/adr/) — arkitekturbeslut (backend-val, datamodell,
@@ -141,9 +138,8 @@ egen enligt ovan):
 
 ## Bidra
 
-Se avsnittet "Vill du vara med på resan?" i
-[docs/PROJECT.md](docs/PROJECT.md) för hur du kan hjälpa till — som tränare,
-utvecklare, designer, eller med idéer.
+Har du frågor, hittar du en bugg, eller vill du bidra som utvecklare,
+designer eller tränare? Öppna gärna ett issue i repot.
 
 ---
 *Skapat med 🧡 för innebandyn och en mer aktiv vardag för våra ungdomar.*
