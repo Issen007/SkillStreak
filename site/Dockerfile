@@ -24,6 +24,16 @@ COPY mobile/. .
 
 ARG EXPO_PUBLIC_API_URL
 ENV EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL}
+
+# The marketing site's own public base URL (NOT try-it's -- a different
+# origin, see TRY_IT_URL below) -- baked into the app so its "Bjud in en
+# kompis" share link/QR (mobile/src/team/components/InviteFriendSheet.tsx)
+# points somewhere a friend without the app installed can actually open to
+# join, via the marketing page's own onboarding widget and its ?code=
+# prefill support (site/index.html). Same EXPO_PUBLIC_* build-time-inline
+# mechanism as EXPO_PUBLIC_API_URL above.
+ARG EXPO_PUBLIC_JOIN_URL=https://skillstreak.app2.isstech.io
+ENV EXPO_PUBLIC_JOIN_URL=${EXPO_PUBLIC_JOIN_URL}
 RUN npx expo export --platform web --output-dir /app/web-export
 
 # ---- build stage: QR code for site/download.html ---------------------------

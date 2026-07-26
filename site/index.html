@@ -1894,16 +1894,17 @@ footer .foot-row {
     }
 
     // ---- Step: code -> GET /teams/invite/:inviteCode
-    byId('wzCodeSubmit').addEventListener('click', function () {
-      var input = byId('wzCode');
-      var code = input.value.trim().toUpperCase();
-      if (!code) { input.focus(); return; }
+    // Extracted so both the manual "Hitta mitt lag" click AND the
+    // ?code=... auto-lookup below (Laget tab's "Bjud in en kompis" share
+    // link/QR code — see mobile/src/team/components/InviteFriendSheet.tsx)
+    // share one lookup path, rather than duplicating this GET+error
+    // handling.
+    function lookupCode(code, busyBtn) {
       clearError('wzCodeError');
-      var btn = byId('wzCodeSubmit');
-      setBusy(btn, true, 'Letar…');
+      if (busyBtn) setBusy(busyBtn, true, 'Letar…');
       state.inviteCode = code;
 
-      apiCall('/api/v1/teams/invite/' + encodeURIComponent(code), { method: 'GET' })
+      return apiCall('/api/v1/teams/invite/' + encodeURIComponent(code), { method: 'GET' })
         .then(function (data) {
           byId('wzConfirmJoinHeading').textContent = 'Ansluter du till ' + data.teamName + '?';
           showStep('confirmJoin');
@@ -1916,11 +1917,32 @@ footer .foot-row {
             showError('wzCodeError', GENERIC_ERROR);
           }
         })
-        .then(function () { setBusy(btn, false); });
+        .then(function () { if (busyBtn) setBusy(busyBtn, false); });
+    }
+
+    byId('wzCodeSubmit').addEventListener('click', function () {
+      var input = byId('wzCode');
+      var code = input.value.trim().toUpperCase();
+      if (!code) { input.focus(); return; }
+      void lookupCode(code, byId('wzCodeSubmit'));
     });
     byId('wzCode').addEventListener('input', function () {
       renderChips('wzCodeSuggestions', '', [], function () {});
     });
+
+    // ---- ?code=... prefill (shared invite link/QR from the app's "Bjud
+    // in en kompis" sheet) — the friend only has to type their nickname,
+    // the team is already resolved for them. Falls back to the plain
+    // empty "code" step exactly as before if there's no param, or if the
+    // code in the link happens to no longer be valid (same notfound step
+    // a mistyped code already lands on).
+    (function prefillCodeFromUrl() {
+      var params = new URLSearchParams(window.location.search);
+      var sharedCode = (params.get('code') || '').trim().toUpperCase();
+      if (!sharedCode) return;
+      byId('wzCode').value = sharedCode;
+      void lookupCode(sharedCode, byId('wzCodeSubmit'));
+    })();
     byId('wzCodeGenerate').addEventListener('click', function () {
       var btn = byId('wzCodeGenerate');
       setBusy(btn, true, 'Letar en ledig kod…');
