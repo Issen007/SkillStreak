@@ -194,3 +194,58 @@ separate from the AI-feature design) and a **security-reviewer** sign-off
 before any of this is built, per this project's standing rule for
 anything touching child data or account authority — not a silent
 extension of the existing Kapten/`Coach` scaffolding.
+
+## New-device session verification + stronger public-release auth (future release)
+Raised 2026-07-26: when a player signs back in from a new device, ask for
+the team they're in and their nickname in that team, then — if that
+matches a real player — email a verification/confirmation link to the
+account's contact on file (the parent) before the new device gets a live
+session, rather than handing a session straight to whoever asked. For the
+first real public release, go further: real email+password (with a
+verification email) or Sign in with Apple/Google as the actual account
+credential.
+
+**This directly targets a real, already-known gap, not a new problem —
+worth building on, not starting fresh.** This app currently has no
+"log back in on a new device" flow at all: a player's only session comes
+from a 180-day JWT minted once at onboarding, with no way to get a new one
+short of re-onboarding. A real reissue mechanism *was* designed and built
+(`docs/adr/0004-coach-auth-and-session-reissue.md` Part 3,
+`SessionService`/`token_version`) — and then disabled
+(`SessionReissueDisabledException`, both routes return `503`) after a
+security-reviewer finding, tracked in `docs/ACTION_PLAN.md`'s Phase 2
+section, of a **CONFIRMED CRITICAL** flaw: the reissue code was handed
+directly to whoever *triggered* it (e.g. a team captain), not sent to the
+target player or their parent — so the same person requesting a reissue
+could redeem it themselves and get a live session for someone else's
+account, repeatedly, with no notification to the affected family. **This
+new proposal's core idea — verify through a channel only the real account
+owner controls, instead of trusting whoever's asking — is exactly the fix
+that gap needed**, and should be designed as the real replacement for the
+disabled mechanism, not a parallel one.
+
+Two things worth getting right when this is actually designed:
+- **Team + nickname alone shouldn't be treated as the security boundary**
+  — both are things a teammate could plausibly know or be told (the invite
+  code is meant to be shared to recruit players; screen names are visible
+  to the whole team by design). Treat that step as *account lookup*
+  ("which player is this device claiming to be"), with the email
+  confirmation as the actual gate — the same shape as an ordinary
+  "forgot password, we'll email you" flow, not a two-factor check in
+  itself.
+- **Sign in with Apple/Google is a real sub-processor question for a
+  children's product, not a drop-in library choice.** Making Apple/Google
+  an identity provider for a child's account is the same category of
+  decision this backlog already treats carefully elsewhere (third-party
+  analytics, third-party media SaaS) — needs a real discussion about what
+  data that flow shares with a third party and whether it fits this app's
+  "closed, parent-consented" posture, not an assumption that SSO is
+  automatically fine because it's common practice for adult apps.
+  Real email+password with its own verification email is the lower-risk
+  starting point of the two options named.
+
+Needs an **architect** pass (informed directly by ADR-0004's own postmortem
+— what specifically made the old mechanism unsafe, and how this proposal's
+design avoids the same failure) and a **security-reviewer** sign-off
+before any of this is built, per this project's standing rule for
+anything touching account/session security.
