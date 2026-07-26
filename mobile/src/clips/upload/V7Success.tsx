@@ -17,7 +17,7 @@ interface V7SuccessProps {
 export function V7Success({ onDone }: V7SuccessProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Klippet är uppe! 🎉</Text>
+      <Text style={styles.heading}>Din Shorts är uppe! 🎉</Text>
       <Text style={styles.sub}>Laget kan se det nu.</Text>
       <PrimaryButton label="Till flödet" onPress={onDone} />
     </View>

@@ -175,7 +175,7 @@ export function V6UploadProgress({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Laddar upp klippet…</Text>
+      <Text style={styles.heading}>Laddar upp din Shorts…</Text>
       <Text style={styles.sub}>Lämna inte appen — det tar bara en liten stund.</Text>
 
       <View style={styles.barTrack}>

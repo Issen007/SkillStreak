@@ -26,11 +26,11 @@ export function ClipsWaitingCard({ consentStatus, onRefresh, refreshing }: Clips
   return (
     <View style={[styles.card, isPaused ? styles.cardPaused : styles.cardPending]}>
       <Text style={styles.icon}>{isPaused ? '⏸️' : '⏳'}</Text>
-      <Text style={styles.title}>{isPaused ? 'Klipp är pausat just nu' : 'Väntar på godkännande'}</Text>
+      <Text style={styles.title}>{isPaused ? 'Shorts är pausat just nu' : 'Väntar på godkännande'}</Text>
       <Text style={styles.body}>
         {isPaused
           ? 'En förälder eller vårdnadshavare har dragit tillbaka godkännandet. Prata med din tränare om du har frågor.'
-          : 'En förälder eller vårdnadshavare behöver säga ja innan du kan se eller ladda upp klipp. Så fort de godkänner låser vi upp Klipp-fliken.'}
+          : 'En förälder eller vårdnadshavare behöver säga ja innan du kan se eller ladda upp Shorts. Så fort de godkänner låser vi upp Shorts-fliken.'}
       </Text>
       {!isPaused ? (
         <Pressable

@@ -142,7 +142,7 @@ export function ClipCard({
       ) : null}
       {revealed && isOwn ? (
         <Pressable onPress={onTapDelete} accessibilityRole="button" style={styles.actionRow}>
-          <Text style={styles.deleteLink}>🗑️ Ta bort klippet</Text>
+          <Text style={styles.deleteLink}>🗑️ Ta bort videon</Text>
         </Pressable>
       ) : null}
     </View>

@@ -45,17 +45,17 @@ export function ClipReportConfirmationSheet({
       <View style={styles.sheet}>
         <Text style={styles.heading}>Tack för att du sa till.</Text>
         <Text style={styles.body}>
-          Klippet är nu dolt för hela laget, inklusive dig själv. Ingen får veta att det var du
+          Videon är nu dold för hela laget, inklusive dig själv. Ingen får veta att det var du
           som rapporterade.
         </Text>
         <Text style={styles.bodySecondary}>
-          En vuxen får reda på det här, men vi kan inte lova exakt när klippet granskas igen.
+          En vuxen får reda på det här, men vi kan inte lova exakt när videon granskas igen.
         </Text>
 
         {showBlockFollowUp ? (
           <>
             <Text style={styles.followUp}>
-              Vill du också slippa se fler klipp och meddelanden från den personen?
+              Vill du också slippa se fler Shorts och meddelanden från den personen?
             </Text>
             <SecondaryButton label={`Blockera ${reportedScreenName}`} onPress={onBlock} />
             <SecondaryLink label="Nej tack" onPress={() => setFollowUpDismissed(true)} />
