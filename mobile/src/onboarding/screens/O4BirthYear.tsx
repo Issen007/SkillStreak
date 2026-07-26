@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { TextField } from '../../components/TextField';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 
@@ -37,6 +38,31 @@ interface O4BirthYearProps {
 export function O4BirthYear({ initialBirthYear, externalError, onNext }: O4BirthYearProps) {
   const [birthYear, setBirthYear] = useState<number | null>(initialBirthYear);
   const [error, setError] = useState<string | null>(externalError ?? null);
+  const [yearText, setYearText] = useState<string>(
+    initialBirthYear !== null ? String(initialBirthYear) : '',
+  );
+
+  // @react-native-picker/picker's web implementation renders a bare HTML
+  // <select> under the hood, whose open dropdown list is styled by the
+  // OS/browser rather than itemStyle/style here (the exact same limitation
+  // site/index.html's own birth-year field had before it switched away
+  // from a <select> — see that file's matching comment). Native iOS/Android
+  // keep the wheel picker, a well-understood idiomatic control there; web
+  // gets the same large/bold text-input treatment as the marketing site's
+  // wizard instead, typed and validated against the same bounds.
+  const isWeb = Platform.OS === 'web';
+
+  const handleWebChange = (text: string) => {
+    setYearText(text);
+    const year = /^[0-9]{4}$/.test(text) ? parseInt(text, 10) : NaN;
+    const valid = !isNaN(year) && year >= MIN_BIRTH_YEAR && year <= MAX_BIRTH_YEAR;
+    setBirthYear(valid ? year : null);
+    setError(
+      text && !valid
+        ? `Ange ett år mellan ${MIN_BIRTH_YEAR} och ${MAX_BIRTH_YEAR}.`
+        : null,
+    );
+  };
 
   return (
     <ScreenContainer scroll>
@@ -46,23 +72,36 @@ export function O4BirthYear({ initialBirthYear, externalError, onNext }: O4Birth
         Vi använder det för att anpassa utmaningar till din ålder.
       </Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {!isWeb && error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View style={styles.pickerWrap}>
-        <Picker
-          selectedValue={birthYear ?? YEARS[0]}
-          onValueChange={(year) => {
-            setBirthYear(year);
-            if (error) setError(null);
-          }}
-          style={styles.picker}
-          itemStyle={styles.pickerItem}
-        >
-          {YEARS.map((year) => (
-            <Picker.Item key={year} label={String(year)} value={year} />
-          ))}
-        </Picker>
-      </View>
+      {isWeb ? (
+        <TextField
+          label="Födelseår"
+          value={yearText}
+          onChangeText={handleWebChange}
+          placeholder={`T.ex. ${MAX_BIRTH_YEAR}`}
+          keyboardType="number-pad"
+          maxLength={4}
+          errorText={error ?? undefined}
+          style={styles.webInput}
+        />
+      ) : (
+        <View style={styles.pickerWrap}>
+          <Picker
+            selectedValue={birthYear ?? YEARS[0]}
+            onValueChange={(year) => {
+              setBirthYear(year);
+              if (error) setError(null);
+            }}
+            style={styles.picker}
+            itemStyle={styles.pickerItem}
+          >
+            {YEARS.map((year) => (
+              <Picker.Item key={year} label={String(year)} value={year} />
+            ))}
+          </Picker>
+        </View>
+      )}
 
       <View style={styles.spacer} />
 
@@ -97,6 +136,12 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: colors.error,
     textAlign: 'center',
+  },
+  webInput: {
+    fontSize: 20,
+    fontFamily: fonts.bodyBold,
+    textAlign: 'center',
+    paddingVertical: 16,
   },
   pickerWrap: {
     borderRadius: 14,
