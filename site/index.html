@@ -786,17 +786,6 @@ section { position: relative; }
 }
 .wz-avatar.is-selected { border-color: var(--flame); background: color-mix(in srgb, var(--flame) 10%, var(--bg)); }
 
-.wz-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2355547A' stroke-width='2'%3E%3Cpath d='M5 8l5 5 5-5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 18px;
-  padding-right: 42px;
-  cursor: pointer;
-}
-
 .wz-success .em-big { font-size: 46px; margin-bottom: 14px; display: block; }
 .wz-success h3 { font-size: clamp(23px, 2.8vw, 28px); }
 .wz-success .wz-sub { max-width: 42ch; }
@@ -1204,13 +1193,13 @@ footer .foot-row {
             <p class="wz-sub">Vi använder det för att anpassa utmaningar till din ålder.</p>
             <div class="wz-field">
               <label for="wzYear">Födelseår</label>
-              <select class="wz-input wz-select" id="wzYear">
-                <option value="" disabled selected>Välj år…</option>
-              </select>
+              <input class="wz-input" id="wzYear" type="text" inputmode="numeric" autocomplete="off" placeholder="T.ex. 2015" maxlength="4" list="wzYearOptions">
+              <datalist id="wzYearOptions"></datalist>
             </div>
             <div class="wz-actions">
               <button class="btn btn-flame" id="wzYearSubmit" disabled style="width:100%">Nästa</button>
             </div>
+            <p class="wz-error" id="wzYearError"></p>
           </div>
 
           <div class="wizard-step" data-step="parentContact">
@@ -1860,24 +1849,43 @@ footer .foot-row {
     // Same rolling-offset range as backend/src/onboarding/dto/create-player.dto.ts
     // and mobile/src/onboarding/screens/O4BirthYear.tsx — both bounds move
     // with today's date rather than being fixed calendar years, so this
-    // never needs a manual yearly update. Listed most-recent-first (the
-    // youngest-allowed year at the top): a kid using this is almost always
-    // closer to that end than the very oldest allowed year.
+    // never needs a manual yearly update.
+    //
+    // A single text <input> (not a <select>) so the visible field keeps the
+    // same large/bold styling as every other wizard input — a native
+    // <select>'s open dropdown list is rendered by the OS/browser, not this
+    // page's CSS, and always came out small no matter what .wz-select set.
+    // The paired <datalist> keeps the "click to see a scrollable list of
+    // years" affordance; typing a year directly (e.g. "2015") is now the
+    // primary path and is validated on every keystroke against the same
+    // bounds the backend enforces, rather than relying on a <select>'s
+    // browser-dependent type-ahead (which jumps by first-keystroke and can
+    // silently land on the wrong option if you type a full year quickly).
     var OLDEST_ALLOWED_AGE_YEARS = 26;
     var YOUNGEST_ALLOWED_AGE_YEARS = 4;
     var thisYear = new Date().getFullYear();
     var minBirthYear = thisYear - OLDEST_ALLOWED_AGE_YEARS;
     var maxBirthYear = thisYear - YOUNGEST_ALLOWED_AGE_YEARS;
-    var yearSelect = byId('wzYear');
+    var yearInput = byId('wzYear');
+    var yearError = byId('wzYearError');
+    var yearOptions = byId('wzYearOptions');
     for (var y = maxBirthYear; y >= minBirthYear; y--) {
       var opt = document.createElement('option');
       opt.value = String(y);
-      opt.textContent = String(y);
-      yearSelect.appendChild(opt);
+      yearOptions.appendChild(opt);
     }
-    yearSelect.addEventListener('change', function () {
-      state.birthYear = parseInt(yearSelect.value, 10);
-      byId('wzYearSubmit').disabled = !yearSelect.value;
+    yearInput.addEventListener('input', function () {
+      var raw = yearInput.value.trim();
+      var year = /^[0-9]{4}$/.test(raw) ? parseInt(raw, 10) : NaN;
+      var valid = !isNaN(year) && year >= minBirthYear && year <= maxBirthYear;
+      state.birthYear = valid ? year : null;
+      byId('wzYearSubmit').disabled = !valid;
+      if (raw && !valid) {
+        yearError.textContent = 'Ange ett år mellan ' + minBirthYear + ' och ' + maxBirthYear + '.';
+        yearError.classList.add('is-shown');
+      } else {
+        yearError.classList.remove('is-shown');
+      }
     });
     byId('wzYearSubmit').addEventListener('click', function () { showStep('parentContact'); });
 
