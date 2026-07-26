@@ -61,6 +61,19 @@
   --shadow-soft: 0 20px 60px -20px rgba(27, 27, 58, 0.35);
 }
 
+/* --paper/--paper-dim (and --ink/--ink-soft/--text-on-paper/--text-on-ink)
+   are deliberately NOT redefined in any theme block below — they're fixed
+   brand surface tokens (.on-paper/.on-paper-dim/.on-ink are always meant to
+   render as a literal light-paper or dark-ink surface with their matching
+   fixed text color, regardless of the overall page theme), not page
+   background aliases. Confirmed live 2026-07-26: --paper used to get
+   redefined to a dark navy value here while --text-on-paper (the color
+   .on-paper pairs it with) stayed fixed dark ink — in dark mode this made
+   every .on-paper/.on-paper-dim section (#trygghet, #funktioner,
+   #kom-igang) render near-invisible dark-ink-on-dark-navy text. --bg/
+   --bg-alt are the actual page-background tokens and are the only ones
+   that should flip per theme; they're set directly below rather than via
+   `var(--paper)`, precisely so they can vary independently of --paper. */
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #121228;
@@ -69,8 +82,6 @@
     --fg-muted: #B9B8DC;
     --hairline: rgba(243, 242, 255, 0.14);
     --nav-bg: rgba(18, 18, 40, 0.78);
-    --paper: #121228;
-    --paper-dim: #191934;
     --shadow-soft: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
   }
 }
@@ -81,8 +92,6 @@
   --fg-muted: #B9B8DC;
   --hairline: rgba(243, 242, 255, 0.14);
   --nav-bg: rgba(18, 18, 40, 0.78);
-  --paper: #121228;
-  --paper-dim: #191934;
   --shadow-soft: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
 }
 :root[data-theme="light"] {
@@ -92,8 +101,6 @@
   --fg-muted: #55547A;
   --hairline: #E4E0D3;
   --nav-bg: rgba(250, 250, 247, 0.82);
-  --paper: #FAFAF7;
-  --paper-dim: #F1EEE4;
   --shadow-soft: 0 20px 60px -20px rgba(27, 27, 58, 0.35);
 }
 
@@ -875,8 +882,9 @@ footer .foot-row {
     <li><a href="#trygghet">Trygghet</a></li>
     <li><a href="#funktioner">Funktioner</a></li>
     <li><a href="#tranare">Tränare</a></li>
+    <li><a href="/download.html">Skaffa appen</a></li>
   </ul>
-  <a class="btn btn-flame" href="#demo">Testa demot</a>
+  <a class="btn btn-flame" href="#demo">Skapa konto gratis</a>
 </nav>
 
 <main id="top">
@@ -892,7 +900,7 @@ footer .foot-row {
           dagen. Individuell streak för dig. Ett gemensamt lagmål för er alla.
         </p>
         <div class="hero-ctas">
-          <a class="btn btn-flame" href="#demo">Testa demot direkt</a>
+          <a class="btn btn-flame" href="#demo">Skapa ditt konto gratis nu</a>
           <a class="btn btn-ghost-on-ink" href="#tranare">Jag är tränare</a>
         </div>
         <div class="hero-proof">
@@ -940,7 +948,7 @@ footer .foot-row {
         lyckas, laget som firar att potten fyllts. Just nu en skiss av
         rörelsen. Snart er egen.
       </p>
-      <a class="btn btn-flame" href="#demo">Se resten av demot</a>
+      <a class="btn btn-flame" href="#demo">Kom igång gratis nu</a>
     </div>
   </section>
 
