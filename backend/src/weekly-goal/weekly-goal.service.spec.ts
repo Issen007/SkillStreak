@@ -87,6 +87,7 @@ describe('WeeklyGoalService.processGoalBonusForLog', () => {
       teamPoolService as never,
       challengeRepository as never,
       trainingLogEntryRepository as never,
+      undefined as never,
     );
 
     return {
@@ -303,6 +304,7 @@ describe('WeeklyGoalService.patchGoal', () => {
       playersService as never,
       undefined as never,
       challengeRepository as never,
+      undefined as never,
       undefined as never,
     );
 

@@ -3,6 +3,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 
 import { ConsentChips } from './components/ConsentChips';
 import { TeammateRow } from './components/TeammateRow';
+import { InviteFriendSheet } from './components/InviteFriendSheet';
 import { RosterScreen } from './RosterScreen';
 import { CaptainTransferScreen } from './CaptainTransferScreen';
 import { TeamPoolCard } from '../home/components/TeamPoolCard';
@@ -43,6 +44,7 @@ export function TeamScreen({ teamId, viewerPlayerId, onManageGoal, onCaptainTran
   const [loadError, setLoadError] = useState<string | null>(null);
   const [view, setView] = useState<TeamViewState>('summary');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [inviteSheetOpen, setInviteSheetOpen] = useState(false);
 
   // "Fire both, render when both resolve" — one extra request, not a
   // second visible loading state, per the flow doc's Screen K1 note.
@@ -145,6 +147,11 @@ export function TeamScreen({ teamId, viewerPlayerId, onManageGoal, onCaptainTran
           ))}
         </View>
 
+        {/* Any team member, not captain-gated — inviting a friend is the
+            same trust level as the code already being shared by word of
+            mouth or a coach (see the dashboard's own inviteCode comment). */}
+        <PrimaryButton label="📨 Bjud in en kompis" onPress={() => setInviteSheetOpen(true)} />
+
         <TeamPoolCard
           pointsTotal={dashboard.teamPool.pointsTotal}
           rank={dashboard.teamPool.rank}
@@ -163,6 +170,17 @@ export function TeamScreen({ teamId, viewerPlayerId, onManageGoal, onCaptainTran
       </ScrollView>
 
       {toastMessage ? <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} /> : null}
+
+      <InviteFriendSheet
+        visible={inviteSheetOpen}
+        inviteCode={dashboard.inviteCode}
+        teamName={dashboard.teamName}
+        onClose={() => setInviteSheetOpen(false)}
+        onCopied={() => {
+          setInviteSheetOpen(false);
+          setToastMessage('Länk kopierad!');
+        }}
+      />
     </View>
   );
 }

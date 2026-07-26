@@ -213,6 +213,7 @@ jobs:
             --build-arg EXPO_PUBLIC_API_URL=http://localhost:3000 \
             --build-arg API_BASE_URL=http://localhost:3000 \
             --build-arg TRY_IT_URL=https://try.skillstreak.app2.isstech.io \
+            --build-arg EXPO_PUBLIC_JOIN_URL=https://skillstreak.app2.isstech.io \
             -t skillstreak-site:ci .
 
   compose-smoke-test:
@@ -314,6 +315,7 @@ jobs:
             EXPO_PUBLIC_API_URL=http://localhost:3000
             API_BASE_URL=http://localhost:3000
             TRY_IT_URL=https://try.skillstreak.app2.isstech.io
+            EXPO_PUBLIC_JOIN_URL=https://skillstreak.app2.isstech.io
           tags: |
             ${{ env.LOWER_SITE_IMAGE }}:${{ github.sha }}
 
@@ -498,4 +500,5 @@ jobs:
             EXPO_PUBLIC_API_URL=http://localhost:3000
             API_BASE_URL=http://localhost:3000
             TRY_IT_URL=https://try.skillstreak.app2.isstech.io
+            EXPO_PUBLIC_JOIN_URL=https://skillstreak.app2.isstech.io
           tags: ${{ env.LOWER_SITE_IMAGE }}:${{ steps.version.outputs.version }}

@@ -92,6 +92,8 @@ Response `200`:
 ```json
 {
   "viewerIsCaptain": true,
+  "inviteCode": "FALKEN24",
+  "teamName": "IBK Falken P13",
   "roster": {
     "totalCount": 16,
     "approvedCount": 12,
@@ -138,6 +140,14 @@ call to make (ux-designer follow-up, not fixed here).
 `roster.*Count` fields: unchanged from the old dashboard shape (Phase 1's
 `ParentalConsentStatus` breakdown). `teamPool.*`: unchanged shape from
 `GET /players/me`'s existing `teamPool` block.
+
+**`inviteCode` — added 2026-07-26** for the "invite a friend" share
+feature (Laget tab): before this, the invite code was only ever visible
+once, in `POST /players`'s own creation response, with no way for anyone —
+not even the captain — to retrieve it again afterward. Not captain-gated,
+same as the rest of this endpoint: any team member sharing the code with a
+friend is the same trust level as the code already being handed out by
+word of mouth or a coach.
 
 ### 2. `GET /api/v1/teams/:teamId/roster`
 

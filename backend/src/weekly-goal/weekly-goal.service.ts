@@ -12,6 +12,7 @@ import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util'
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
 import { PlayersService } from '../players/players.service';
 import { Player } from '../players/entities/player.entity';
+import { Team } from '../teams/entities/team.entity';
 import { TeamPoolService } from '../team-pool/team-pool.service';
 import { TeamSeasonPot } from '../team-pool/entities/team-season-pot.entity';
 import { TrainingLogEntry } from '../training-logs/entities/training-log-entry.entity';
@@ -106,6 +107,16 @@ export interface RosterEntry {
 
 export interface DashboardResponse {
   viewerIsCaptain: boolean;
+  // Added 2026-07-26 for the "invite a friend" share feature (Laget tab) —
+  // previously the invite code was only ever visible once, in the
+  // account-creation response, with no way to retrieve it again
+  // afterward, not even for the captain. Not captain-gated: any team
+  // member sharing the code with a friend is the same trust level as the
+  // code already being handed out by word of mouth/a coach.
+  inviteCode: string;
+  // Same addition, same reason — the share message reads better with the
+  // team's actual name ("Gå med i IBK Falken P13!") than just its code.
+  teamName: string;
   roster: {
     totalCount: number;
     approvedCount: number;
@@ -184,6 +195,8 @@ export class WeeklyGoalService {
     private readonly challengeRepository: Repository<Challenge>,
     @InjectRepository(TrainingLogEntry)
     private readonly trainingLogEntryRepository: Repository<TrainingLogEntry>,
+    @InjectRepository(Team)
+    private readonly teamRepository: Repository<Team>,
   ) {}
 
   /**
@@ -486,6 +499,15 @@ export class WeeklyGoalService {
       await this.teamPoolService.getRankAndTeamCountOrThrow(teamId);
     const last7DaysLoggedCount = await this.countRecentLogs(teamId, 7);
 
+    const team = await this.teamRepository.findOne({ where: { id: teamId } });
+    if (!team) {
+      // Can't occur — assertTeamMembership above already confirms this
+      // team exists (a player's teamId is a real FK), same "can't occur
+      // given the contract" posture as this method's other invariant
+      // checks.
+      throw new Error(`Team ${teamId} not found despite active membership`);
+    }
+
     const currentGoal = await this.findCurrentGoalForTeam(teamId);
     const pastCount = await this.countPastGoals(teamId);
 
@@ -514,6 +536,8 @@ export class WeeklyGoalService {
 
     return {
       viewerIsCaptain: requester.isCaptain,
+      inviteCode: team.inviteCode,
+      teamName: team.name,
       roster,
       teamPool: {
         seasonId: season.id,

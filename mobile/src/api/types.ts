@@ -163,6 +163,11 @@ export interface DashboardCurrentGoal {
 
 export interface TeamDashboardResponse {
   viewerIsCaptain: boolean;
+  // Added 2026-07-26 for the "invite a friend" share feature — the only
+  // other place this ever appeared was the one-time account-creation
+  // response, with no way to retrieve it again afterward.
+  inviteCode: string;
+  teamName: string;
   roster: {
     totalCount: number;
     approvedCount: number;

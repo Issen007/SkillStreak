@@ -23,3 +23,15 @@ export const API_BASE_URL: string =
 
 // Fixed per docs/api/phase1-contract.md's "Conventions" section.
 export const API_PREFIX = '/api/v1';
+
+// The marketing site's own public base URL — a completely separate origin
+// from API_BASE_URL above (this app talks to the API directly, but has no
+// other reason to know about the site at all). Added 2026-07-26 for the
+// "invite a friend" share feature (Laget tab): the share link/QR code
+// needs somewhere a friend without the app installed can actually open to
+// join, and the site's own onboarding widget (site/index.html) is that
+// somewhere — see its ?code= query-param support, added alongside this.
+// Same "PLACEHOLDER + build-arg" convention as EXPO_PUBLIC_API_URL, wired
+// through site/Dockerfile's mobile-build stage.
+export const JOIN_URL_BASE: string =
+  process.env.EXPO_PUBLIC_JOIN_URL ?? 'http://localhost:8080';
