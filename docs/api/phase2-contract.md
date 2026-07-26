@@ -169,11 +169,15 @@ Consequences — flagged for security-reviewer).
 
 ### 3. `POST /api/v1/players/:playerId/consent-reminder`
 
-Player auth + captain check: the service resolves `playerId → teamId` and
-requires the *requester* to be that team's captain (`403
-not_team_captain`) — note this is **not** "requester is the target
-player," a captain triggers this for a teammate. Same behavior as the old
-coach-triggered version otherwise.
+Player auth, gated on the *requester* being either **the target player
+themselves** (self-service resend — added 2026-07-26; neither client had a
+way for a pending player to resend their own reminder before this, only
+for a captain to nudge a teammate) **or** that team's captain (`403
+not_team_captain` if neither — a captain triggers this for a teammate,
+same as before). Self-service is a strictly lower-trust action than the
+captain-triggered path (a player can only ever nudge their own already-on-file
+parent contact), so it needs no additional check beyond "is this your own
+`playerId`."
 
 Request: none (empty body).
 

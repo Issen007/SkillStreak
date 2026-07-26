@@ -45,4 +45,16 @@ ARG API_BASE_URL=http://localhost:3000
 RUN sed -i "s|__API_BASE_URL__|${API_BASE_URL}|" /usr/share/nginx/marketing/index.html \
     && grep -qF "${API_BASE_URL}" /usr/share/nginx/marketing/index.html
 
-EXPOSE 80
+# The marketing page's "Öppna demot" links point at the try-it app export
+# above -- same PLACEHOLDER+sed reasoning as API_BASE_URL, since that's a
+# different origin from the marketing page itself in every real deployment
+# (a real domain there, a local IP/port here) and index.html has no build
+# step of its own to inject it. Confirmed live 2026-07-26: a local build
+# without this would ship the real production try-it URL even when
+# testing entirely locally, sending a local tester off to the real public
+# demo instead of the one actually running on their own cluster.
+ARG TRY_IT_URL=https://try.skillstreak.app2.isstech.io
+RUN sed -i "s|__TRY_IT_URL__|${TRY_IT_URL}|g" /usr/share/nginx/marketing/index.html \
+    && grep -qF "${TRY_IT_URL}" /usr/share/nginx/marketing/index.html
+
+EXPOSE 80 8081
