@@ -16,7 +16,14 @@ data:
   # Not sensitive on its own — pairs with POSTGRES_PASSWORD in secret.yaml.
   POSTGRES_USER: "app"
   JWT_EXPIRES_IN: "180d"
-  SMTP_HOST: "smtp-relay.gmail.com"
+  # smtp.gmail.com (not smtp-relay.gmail.com) — the relay endpoint requires
+  # the sending IP to be allow-listed in the Workspace admin console, which
+  # failed in practice ("550-5.7.0 Mail relay denied ... SMTP relay isn't
+  # supported for unmanaged work accounts", confirmed live 2026-07-26).
+  # smtp.gmail.com authenticates directly via the app-password in
+  # secret.yaml's SMTP_PASSWORD, so it works from any sending IP. Same
+  # port 587/STARTTLS, same user/pass auth (mail.service.ts unchanged).
+  SMTP_HOST: "smtp.gmail.com"
   SMTP_PORT: "587"
   SMTP_FROM: "SkillStreak <noreply@yourdomain.example>"
   # Alpha-test value, NOT the real beta domain. This cluster currently has
