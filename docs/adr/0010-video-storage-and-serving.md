@@ -2,6 +2,44 @@
 
 ## Status
 
+**Addendum 2026-07-26 — Decision 2's ClusterIP-only rule for MinIO reversed
+after a confirmed live bug, project owner confirmed before changing it:**
+video upload and playback were completely non-functional for any real
+client (phone or browser) — every presigned PUT/GET URL pointed at MinIO's
+cluster-internal Service DNS name (`http://minio:9000`), which no client
+outside the cluster can resolve at all. Not a performance/environment
+issue; a wrong-reachability bug.
+
+Decision 2 originally treated "MinIO's Service is never LoadBalancer/
+NodePort/Ingress" as a second independent security layer on top of
+presigned URLs. In practice it isn't: a presigned URL's security comes
+entirely from its signature, short expiry, and the per-request Postgres
+team-membership check before minting (both still fully intact, unchanged) —
+not from whether the host is globally routable. Real AWS S3 buckets work
+the same way: a publicly addressable host, with access controlled by the
+signed request itself, never by network isolation. Making the host
+unreachable didn't add protection against a valid signed URL; it only
+blocked this app's own intended clients too.
+
+**What actually changed:** the API now signs presigned URLs against a
+separate `MINIO_PUBLIC_ENDPOINT` (a real, externally-reachable address for
+MinIO's data port only) while its own internal admin calls (bucket
+creation/policy) keep using the original `MINIO_ENDPOINT` unchanged. On the
+local microk8s cluster this is a second Service (`minio-data`,
+`LoadBalancer`, port 9000 only) alongside the original `minio` Service
+(still `ClusterIP`-only, still fronting the admin console on 9001 — that
+port was never a presigned-URL target and has no reason to be reachable).
+The remote `isstech-2` cluster referenced elsewhere in this ADR has no
+working LoadBalancer at all (its CCM disables `service-lb-controller`, see
+Decision 1's infra-reality note) — this same exposure will need an Ingress
+path there instead once `k8s/README.md`'s external-ingress gap is closed
+(tracked as `docs/PROJECT.md` Fas 4's #1 item), not a LoadBalancer Service.
+
+Every other control in Decision 2 (structural team-scoping, per-request
+minting, zero bucket-level public/anonymous policy) is unchanged by this.
+
+---
+
 Accepted — 2026-07-22. **Blocking security-reviewer sign-off required before
 backend-developer builds against this**, per CLAUDE.md's standing rule and
 per `docs/ACTION_PLAN.md`'s explicit Phase 3 sequencing ("security-reviewer:
