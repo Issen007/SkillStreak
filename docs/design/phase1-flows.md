@@ -272,9 +272,26 @@ avatar is picked) → Screen O4.
 **API:** none yet (still client-side; `birthYear` submitted with
 `POST /players` at O6).
 
-Deliberately asks for **year only**, matching ADR-0002 — a big scrollable
-year-wheel or a grid of the last ~12 years, not a full date-of-birth
-picker (which would both over-collect and read as a "grown-up form").
+Deliberately asks for **year only**, matching ADR-0002 — a native
+scrollable year picker (`@react-native-picker/picker` on mobile, a plain
+`<select>` on the website's own onboarding widget), not a full
+date-of-birth picker (which would both over-collect and read as a
+"grown-up form"). This replaced an earlier "grid of individual year
+buttons" version (2026-07-26) — the button grid didn't scale once the
+range widened past ~12 years, and per the note below, both the range's
+own bounds are rolling offsets from today rather than fixed calendar
+years, so the picker's option count itself grows by exactly one every
+year without any manual update.
+
+**Range, computed the same way in three places (backend validation,
+mobile, and the website widget) — never a fixed calendar year:** oldest
+allowed is `thisYear - 26`, youngest allowed is `thisYear - 4` (a floor
+that didn't exist before this revision — the prior range technically
+accepted a newborn as a "player"). Listed most-recent-year-first, since a
+real player is almost always closer to the young end of the range than
+the old end. See `backend/src/onboarding/dto/create-player.dto.ts`'s
+`MIN_BIRTH_YEAR`/`MAX_BIRTH_YEAR` for the source of truth both clients
+mirror.
 
 Copy:
 - Heading: **"Vilket år är du född?"**
