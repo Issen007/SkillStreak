@@ -130,3 +130,67 @@ launch):
 real public internet (i.e. once `k8s/README.md`'s external-ingress gap is
 resolved for whichever cluster serves it for real) — not blocking for a
 local/internal-network first version.
+
+## PT/Tränare (Personal Trainer/Coach) role (future release, business idea)
+Raised 2026-07-26: let a team bring in its own Personal Trainer or Coach,
+who helps build challenges, set new goals, and plan out different training
+months for the team — a real person doing today's Kapten/weekly-goal work,
+but as a paid or invited role rather than a teammate. Two follow-on ideas
+bundled with this, kept here as one entry but genuinely separable:
+
+1. **A future AI-driven version of the same role** — SkillStreak itself
+   acting as the "PT," generating challenges/plans automatically, and
+   drawing on players' own uploaded clips (the Phase 3 video feed) to give
+   feedback or tailor plans to what it sees.
+2. **A business model**: PTs/coaches paying to use this as a real coaching
+   tool for their own teams (recovering the app's build cost), and/or a
+   paid tier for players/parents who want the fuller PT experience.
+
+**Why this needs real design work before it's more than an idea, not just
+a bigger version of an existing feature:**
+
+- **This app already tried, and deliberately walked back, an adult-authority-
+  over-children role once.** Phase 2's original design was a coach
+  login/dashboard with authority over challenges and player sessions
+  (`docs/adr/0004-coach-auth-and-session-reissue.md`) — replaced mid-build
+  by the peer-based Kapten model specifically to avoid handing an adult
+  (or anyone) that kind of standing authority over kids' accounts. The one
+  piece of that original design that *did* ship (session reissue) had a
+  CONFIRMED CRITICAL finding (full account takeover, not just
+  impersonation — see `docs/ACTION_PLAN.md`'s Phase 2 section) and is
+  disabled to this day. A PT role is a real reintroduction of that same
+  shape of authority (an adult who isn't the child's own parent, directing
+  what a child does in the app) — it needs the same level of scrutiny that
+  history already paid for, not a fresh assumption that it's safe because
+  it's framed as a helpful feature.
+- **A PT is a new adult who can see into a closed team bubble.** This
+  app's whole privacy posture (`CLAUDE.md`) is "a user only ever sees
+  their own verified team" — a PT, especially one serving multiple teams
+  as a paying customer, is a new category of person with a legitimate
+  reason to see across teams. Needs its own access model and its own
+  parental-consent question (does *adding* a PT to a team need a parent's
+  yes, the same way media upload does?), not an assumption that "coach"
+  scaffolding already in the schema (dormant since the Kapten pivot)
+  covers it as-is.
+- **The AI version is a second, separate consent problem, not just a
+  bigger version of the first.** Feeding kids' already-uploaded clips
+  (uploaded for the closed team feed, per ADR-0010) into an AI model for a
+  *new* purpose (automated coaching analysis) is a real purpose-limitation
+  question under GDPR, not something the original upload consent covers by
+  default. This is the same territory `docs/adr/0010-video-storage-and-
+  serving.md`'s deferred content-moderation item and this file's Team
+  Chat LLM-moderation entry already flag — likely converges with those on
+  the same eventual Python/uv ML service (`docs/adr/0003-package-
+  managers.md`), but is a distinct use case (coaching feedback, not
+  moderation) needing its own sign-off, not inherited from theirs.
+- **The business/paid-tier idea is real and separable from the AI idea.**
+  A paid tool for real human PTs to manage real teams could ship without
+  ever building the AI version — worth scoping and pricing as its own
+  thing rather than waiting on the harder AI-and-child-video problem to
+  be solved first.
+
+Needs an **architect** pass (the access/consent model for a human PT, kept
+separate from the AI-feature design) and a **security-reviewer** sign-off
+before any of this is built, per this project's standing rule for
+anything touching child data or account authority — not a silent
+extension of the existing Kapten/`Coach` scaffolding.
