@@ -46,8 +46,17 @@ data:
   # APP_PUBLIC_URL once a real public domain exists for both.
   CORS_ORIGIN: "http://localhost:8080"
   # Fas 3 (docs/adr/0010-video-storage-and-serving.md) — the in-cluster
-  # MinIO Service (minio-service.yaml), never a public endpoint.
+  # MinIO Service (minio-service.yaml), used only for the API's own
+  # internal admin calls (bucket creation/policy).
   MINIO_ENDPOINT: "http://minio:9000"
+  # MINIO_PUBLIC_ENDPOINT intentionally left unset here — presigned
+  # upload/playback URLs need a real externally-reachable address (see
+  # ADR-0010's 2026-07-26 addendum + minio-service.yaml's own comment),
+  # which doesn't exist on this cluster yet (no working LoadBalancer, no
+  # Ingress to MinIO's data port — same k8s/README.md gap blocking every
+  # other external-access feature here). Video upload/playback are not
+  # functional for a real client on this cluster until that's resolved;
+  # set this once it is, alongside APP_PUBLIC_URL/CORS_ORIGIN above.
   MINIO_BUCKET: "clips"
   # Tunable product config (ADR-0010 Decision 5), not architecturally
   # fixed — see that ADR's own "flagged, not silently decided as final"

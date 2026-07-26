@@ -1,11 +1,19 @@
-# ClusterIP only, on purpose — same rule as postgres-service.yaml/
-# redis-service.yaml, restated per ADR-0010 Decision 2: the bucket has zero
-# public/anonymous read access, and the ONLY way to reach an object's bytes
-# is a presigned URL minted by the API after its own team-scoping check.
-# Do not change this to NodePort/LoadBalancer or add an Ingress rule for it
-# — a public MinIO endpoint would defeat that entire structural boundary.
+# ClusterIP only — for now, on this specific cluster, not as a permanent
+# rule. See ADR-0010's 2026-07-26 addendum: the original "never
+# LoadBalancer/NodePort/Ingress" reasoning was reversed after a confirmed
+# live bug (presigned URLs pointing at this Service's cluster-internal
+# address are unreachable by any real client — not a security feature,
+# just broken). This cluster's CCM has no working LoadBalancer at all
+# (Decision 1's infra-reality note), so the local-cluster fix (a second
+# `LoadBalancer` Service just for port 9000, see temp/minio-service.yaml)
+# doesn't apply here as-is — this cluster needs an Ingress path to MinIO's
+# data port instead, once `k8s/README.md`'s external-ingress gap is closed
+# (docs/PROJECT.md Fas 4 #1). Until then, video upload/playback are simply
+# not functional for a real client via this cluster, same as every other
+# feature blocked on that same ingress gap.
 # Includes the console port (9001) for `kubectl port-forward` admin
-# debugging only; still ClusterIP-only, never externally routable.
+# debugging only — that port has no reason to ever be externally reachable
+# regardless of how the data port above gets exposed.
 apiVersion: v1
 kind: Service
 metadata:

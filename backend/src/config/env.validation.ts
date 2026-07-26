@@ -76,6 +76,22 @@ class EnvironmentVariables {
   @IsNotEmpty()
   MINIO_ENDPOINT!: string;
 
+  // Optional — the endpoint a *real client* (phone, browser) can actually
+  // reach to PUT/GET a presigned URL, as opposed to MINIO_ENDPOINT, which
+  // this app's own pod uses for its internal admin calls (bucket
+  // creation/policy) and which is typically a cluster-internal Service DNS
+  // name (e.g. `http://minio:9000`) no external client can resolve at all.
+  // Confirmed live 2026-07-26: with no distinction, every presigned upload/
+  // playback URL handed to a real client pointed at `http://minio:9000`,
+  // which just hangs/fails outside the cluster — not a database or
+  // environment-performance issue, a wrong-hostname bug. Falls back to
+  // MINIO_ENDPOINT when unset so this stays a no-op change for CI/tests,
+  // which talk to MinIO from inside the same network MINIO_ENDPOINT
+  // already resolves on.
+  @IsOptional()
+  @IsNotEmpty()
+  MINIO_PUBLIC_ENDPOINT?: string;
+
   @IsNotEmpty()
   MINIO_ACCESS_KEY!: string;
 
