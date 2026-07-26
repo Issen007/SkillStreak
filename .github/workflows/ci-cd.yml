@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, prerelease]
   push:
-    branches: [main]
+    branches: [main, prerelease]
   # Lets a manual re-run happen without needing an empty/throwaway commit
   # just to get push: to fire again — came up repeatedly while chasing a
   # sequence of CI/deploy-only fixes (no code change, e.g. a GitHub secret
@@ -401,3 +401,98 @@ jobs:
           kubectl rollout status deployment/minio -n skillstreak
           kubectl rollout status deployment/api -n skillstreak
           kubectl rollout status deployment/site -n skillstreak
+
+  release:
+    name: Version and Release
+    runs-on: ubuntu-latest
+    # Independent of the `deploy` job on purpose: versioning/publishing a
+    # release shouldn't be blocked by the remote cluster's own deploy
+    # flakiness (that cluster's rollout has its own history of issues,
+    # unrelated to whether the code itself is good) — this job only needs
+    # the code to be verified-good, not the remote cluster to be healthy.
+    needs: [backend-test, compose-smoke-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need full tag history to find the latest version
+
+      # Patch-only auto-versioning (v0.0.1, v0.0.2, ...) — matches the
+      # project owner's own spec exactly ("+0.0.1" each merge to main).
+      # No minor/major bumps are ever computed automatically; those stay a
+      # deliberate, manual `git tag` if this project ever wants one.
+      - name: Compute next version
+        id: version
+        run: |
+          git fetch --tags --quiet
+          LATEST_TAG=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n1)
+          if [ -z "$LATEST_TAG" ]; then
+            NEW_TAG="v0.0.1"
+          else
+            VERSION_NUMBERS="${LATEST_TAG#v}"
+            MAJOR=$(echo "$VERSION_NUMBERS" | cut -d. -f1)
+            MINOR=$(echo "$VERSION_NUMBERS" | cut -d. -f2)
+            PATCH=$(echo "$VERSION_NUMBERS" | cut -d. -f3)
+            NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          fi
+          echo "Latest tag: ${LATEST_TAG:-none yet}, new tag: $NEW_TAG"
+          echo "version=$NEW_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push the version tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.version }}" \
+            --title "${{ steps.version.outputs.version }}" \
+            --generate-notes
+
+      - name: Downcase repository owner for Docker
+        run: |
+          echo "LOWER_IMAGE=ghcr.io/${OWNER,,}/skillstreak-api" >> "$GITHUB_ENV"
+          echo "LOWER_SITE_IMAGE=ghcr.io/${OWNER,,}/skillstreak-site" >> "$GITHUB_ENV"
+        env:
+          OWNER: ${{ github.repository_owner }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Rebuilt here rather than re-tagging the `deploy` job's own image:
+      # keeps this job fully independent (see the comment at the top of
+      # this job) at the cost of one redundant build — a deliberate,
+      # "boring and decoupled over clever and coupled" tradeoff, matching
+      # this project's existing architecture conventions elsewhere.
+      - name: Build and Push Versioned API Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ env.LOWER_IMAGE }}:${{ steps.version.outputs.version }}
+
+      # EXPO_PUBLIC_API_URL/API_BASE_URL match the same alpha-test value
+      # used elsewhere in this workflow (see the `deploy` job's identical
+      # build-args) — not a real public domain yet, see k8s/configmap.yaml.
+      - name: Build and Push Versioned Site Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./site/Dockerfile
+          push: true
+          build-args: |
+            EXPO_PUBLIC_API_URL=http://localhost:3000
+            API_BASE_URL=http://localhost:3000
+          tags: ${{ env.LOWER_SITE_IMAGE }}:${{ steps.version.outputs.version }}

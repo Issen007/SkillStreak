@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the SkillStreak release poller every 5 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Unit=skillstreak-poller.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll GitHub for a new SkillStreak release and deploy it to the local microk8s cluster
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Absolute path assumed to match this machine's real checkout location —
+# update both this and skillstreak-poller.timer's install step if the repo
+# ever lives somewhere else.
+ExecStart=/home/chrisp/SkillStreak/tools/local-release-poller/poll-and-deploy.sh
