@@ -24,7 +24,7 @@ interface TabDef {
 const TABS: TabDef[] = [
   { key: 'home', icon: '🏠', label: 'Hem' },
   { key: 'chat', icon: '💬', label: 'Chatt' },
-  { key: 'clips', icon: '🎬', label: 'Klipp' },
+  { key: 'clips', icon: '🎬', label: 'Shorts' },
   { key: 'goal', icon: '🎯', label: 'Mål' },
   { key: 'team', icon: '👥', label: 'Laget' },
 ];

@@ -15,9 +15,9 @@ interface V4PickClipProps {
   onCancel: () => void;
 }
 
-const TOO_LONG_MESSAGE = `Klippet är för långt — max ${CLIP_MAX_DURATION_SECONDS} sekunder. Testa ett annat!`;
+const TOO_LONG_MESSAGE = `Videon är för lång — max ${CLIP_MAX_DURATION_SECONDS} sekunder. Testa ett annat!`;
 const WRONG_FORMAT_MESSAGE = 'Den filtypen funkar inte här. Testa en video från kameran eller galleriet.';
-const UNREADABLE_MESSAGE = 'Kunde inte läsa klippet. Testa ett annat.';
+const UNREADABLE_MESSAGE = 'Kunde inte läsa videon. Testa en annan.';
 const PERMISSION_MESSAGE = 'Vi behöver din tillåtelse för det här. Testa igen, eller välj det andra alternativet.';
 
 /** Screen V4 — "Välj eller spela in ett klipp." No API call yet — this is
@@ -90,8 +90,8 @@ export function V4PickClip({ onPicked, onCancel }: V4PickClipProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Välj eller spela in ett klipp</Text>
-      <Text style={styles.sub}>Klippet får vara upp till {CLIP_MAX_DURATION_SECONDS} sekunder.</Text>
+      <Text style={styles.heading}>Välj eller spela in en Shorts</Text>
+      <Text style={styles.sub}>Videon får vara upp till {CLIP_MAX_DURATION_SECONDS} sekunder.</Text>
 
       {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
 

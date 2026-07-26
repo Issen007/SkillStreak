@@ -33,8 +33,8 @@ export function BlockSheet({ visible, screenName, loading, onConfirm, onClose }:
       <View style={styles.sheet}>
         <Text style={styles.heading}>{screenName}</Text>
         <Text style={styles.body}>
-          Om du blockerar {screenName} slutar du se deras meddelanden i lagchatten och deras klipp
-          i Klippflödet. {screenName} får inte veta att du har blockerat dem.
+          Om du blockerar {screenName} slutar du se deras meddelanden i lagchatten och deras Shorts
+          i Shorts-flödet. {screenName} får inte veta att du har blockerat dem.
         </Text>
         <SecondaryButton label={`Blockera ${screenName}`} loading={loading} onPress={onConfirm} />
         <SecondaryLink label="Avbryt" onPress={onClose} />

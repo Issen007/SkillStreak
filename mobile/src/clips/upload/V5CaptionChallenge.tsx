@@ -94,7 +94,7 @@ export function V5CaptionChallenge({
         );
       } else if (err instanceof ApiError && err.code === 'clip_upload_rate_limited') {
         setFormError(
-          'Du laddar upp klipp lite snabbt just nu. Vänta en liten stund så går det bra igen.',
+          'Du laddar upp Shorts lite snabbt just nu. Vänta en liten stund så går det bra igen.',
         );
       } else if (
         err instanceof ApiError &&
@@ -171,7 +171,7 @@ export function V5CaptionChallenge({
       {tagError ? <Text style={styles.errorText}>{tagError}</Text> : null}
       {taggedTeammate ? (
         <Text style={styles.helperText}>
-          {taggedTeammate.screenName} ser att du utmanat dem nästa gång de öppnar Klipp.
+          {taggedTeammate.screenName} ser att du utmanat dem nästa gång de öppnar Shorts.
         </Text>
       ) : null}
 

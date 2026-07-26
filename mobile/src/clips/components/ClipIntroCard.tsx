@@ -17,17 +17,17 @@ export function ClipIntroCard({ onDismiss }: ClipIntroCardProps) {
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.heading}>Så funkar Klipp</Text>
-        <Text style={styles.bullet}>• Bara ditt eget lag ser klippen som laddas upp här.</Text>
+        <Text style={styles.heading}>Så funkar Shorts</Text>
+        <Text style={styles.bullet}>• Bara ditt eget lag ser Shorts-videorna som laddas upp här.</Text>
         <Text style={styles.bullet}>
-          • En förälder eller vårdnadshavare måste säga ja innan du kan ladda upp ett klipp
+          • En förälder eller vårdnadshavare måste säga ja innan du kan ladda upp en Shorts
           själv.
         </Text>
         <Text style={styles.bullet}>
-          • Känns ett klipp fel? Rapportera det så försvinner det direkt för hela laget, medan en
-          vuxen tittar på det.
+          • Känns en Shorts fel? Rapportera den så försvinner den direkt för hela laget, medan en
+          vuxen tittar på den.
         </Text>
-        <Text style={styles.bullet}>• Du kan alltid ta bort dina egna klipp, när du vill.</Text>
+        <Text style={styles.bullet}>• Du kan alltid ta bort dina egna Shorts, när du vill.</Text>
         <PrimaryButton label="Okej, jag fattar!" onPress={onDismiss} />
       </View>
     </View>

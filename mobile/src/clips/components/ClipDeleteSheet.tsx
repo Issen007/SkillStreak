@@ -24,11 +24,11 @@ export function ClipDeleteSheet({ visible, loading, onConfirm, onClose }: ClipDe
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={loading ? undefined : onClose} />
       <View style={styles.sheet}>
-        <Text style={styles.heading}>Ta bort det här klippet?</Text>
+        <Text style={styles.heading}>Ta bort den här Shorts-videon?</Text>
         <Text style={styles.body}>
-          Klippet försvinner permanent för hela laget — det går inte att ångra.
+          Videon försvinner permanent för hela laget — det går inte att ångra.
         </Text>
-        <DangerButton label="Ja, ta bort klippet" loading={loading} onPress={onConfirm} />
+        <DangerButton label="Ja, ta bort videon" loading={loading} onPress={onConfirm} />
         <SecondaryLink label="Avbryt" onPress={onClose} />
       </View>
     </Modal>

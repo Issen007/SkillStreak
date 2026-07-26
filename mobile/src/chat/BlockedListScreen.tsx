@@ -60,7 +60,7 @@ export function BlockedListScreen({ teamId, onBack }: BlockedListScreenProps) {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>Blockerade lagkompisar</Text>
-        <Text style={styles.headingSub}>En blockering gäller både lagchatten och Klipp.</Text>
+        <Text style={styles.headingSub}>En blockering gäller både lagchatten och Shorts.</Text>
 
         {blocks === null ? (
           <ActivityIndicator color={colors.flame} />
