@@ -33,4 +33,16 @@ COPY site/index.html /usr/share/nginx/marketing/index.html
 COPY site/assets/ /usr/share/nginx/marketing/assets/
 COPY --from=mobile-build /app/web-export/ /usr/share/nginx/app/
 
+# The marketing page's embedded "join/create a team" widget calls the real
+# API directly from the browser (GET /teams/invite, POST /players) -- it
+# needs to know the API's origin at load time, but index.html is a plain
+# static file with no build step of its own to inject an env var into (unlike
+# the Expo export above). Same "PLACEHOLDER + sed at build/deploy time"
+# convention k8s/api-deployment.yaml already uses for its image field --
+# verify the substitution actually landed rather than silently shipping the
+# literal placeholder string.
+ARG API_BASE_URL=http://localhost:3000
+RUN sed -i "s|__API_BASE_URL__|${API_BASE_URL}|" /usr/share/nginx/marketing/index.html \
+    && grep -qF "${API_BASE_URL}" /usr/share/nginx/marketing/index.html
+
 EXPOSE 80

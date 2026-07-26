@@ -58,6 +58,15 @@ class EnvironmentVariables {
   @IsNotEmpty()
   APP_PUBLIC_URL?: string;
 
+  // Comma-separated list of origins allowed to call this API cross-origin
+  // (e.g. the site container's own origin, so its embedded "create/join a
+  // team" widget can call GET /teams/invite and POST /players directly).
+  // Optional, degrades to CORS disabled entirely if unset — same posture
+  // as SMTP/APP_PUBLIC_URL, not a silent wildcard default. See main.ts.
+  @IsOptional()
+  @IsNotEmpty()
+  CORS_ORIGIN?: string;
+
   // --- Fas 3 (video clips / MinIO) -------------------------------------------
   // docs/adr/0010-video-storage-and-serving.md Decision 1 — MinIO gets the
   // identical "required stateful dependency" treatment as
