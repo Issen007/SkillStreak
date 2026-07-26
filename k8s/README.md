@@ -49,10 +49,13 @@ match — this only works while the port-forward runs, and only on the
 machine running it (fine for one person clicking around, not for real
 parents receiving consent emails or for anyone else to browse the demo).
 Note the site container serves two different vhosts distinguished by Host
-header (see `site/nginx.conf`); `try.skillstreak.app2.isstech.io`'s block
-is `default_server`, so `http://localhost:8080` lands on the demo, not the
-marketing page — use `curl -H "Host: skillstreak.app2.isstech.io"
-http://localhost:8080/` to reach that one instead.
+header (see `site/nginx.conf`); the marketing vhost is `default_server`
+(swapped 2026-07-26 — it used to be the demo, which meant hitting a bare
+IP/`localhost:8080` landed on the Expo export instead of the marketing
+page and its signup widget), so `http://localhost:8080` now reaches the
+marketing page directly — use `curl -H "Host:
+try.skillstreak.app2.isstech.io" http://localhost:8080/` to reach the
+demo instead.
 
 > ## 🛑 Don't let real parental-consent emails go out before the PROD cert is Ready
 > The parental-consent email (`docs/api/phase1-contract.md`) links to
