@@ -31,7 +31,8 @@
           "cameraPermission": "Tillåt SkillStreak att använda kameran för att spela in ett klipp.",
           "microphonePermission": "Tillåt SkillStreak att använda mikrofonen när du spelar in ett klipp."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }
