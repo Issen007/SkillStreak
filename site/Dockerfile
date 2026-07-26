@@ -26,12 +26,26 @@ ARG EXPO_PUBLIC_API_URL
 ENV EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL}
 RUN npx expo export --platform web --output-dir /app/web-export
 
+# ---- build stage: QR code for site/download.html ---------------------------
+# Generates the QR code as an SVG at build time, encoding the SAME
+# TRY_IT_URL every other "Öppna demot" link on this site points at (not a
+# hand-drawn image for one specific environment) -- so the code always
+# matches whichever origin this particular image build is actually for,
+# local-cluster or real deployment, same as the rest of this file's
+# ARG+sed pattern. Node is available here (this stage already has it);
+# the nginx:alpine runtime stage below does not, hence a separate stage.
+FROM node:22-alpine AS qr-build
+ARG TRY_IT_URL=https://try.skillstreak.app2.isstech.io
+RUN npx --yes qrcode "${TRY_IT_URL}" -t svg -e M -w 280 -q 1 -d "#1B1B3A" -o /qr.svg
+
 # ---- runtime stage: nginx serving both hosts -------------------------------
 FROM nginx:1.27-alpine
 COPY site/nginx.conf /etc/nginx/conf.d/default.conf
 COPY site/index.html /usr/share/nginx/marketing/index.html
+COPY site/download.html /usr/share/nginx/marketing/download.html
 COPY site/assets/ /usr/share/nginx/marketing/assets/
 COPY --from=mobile-build /app/web-export/ /usr/share/nginx/app/
+COPY --from=qr-build /qr.svg /tmp/qr.svg
 
 # The marketing page's embedded "join/create a team" widget calls the real
 # API directly from the browser (GET /teams/invite, POST /players) -- it
@@ -56,5 +70,17 @@ RUN sed -i "s|__API_BASE_URL__|${API_BASE_URL}|" /usr/share/nginx/marketing/inde
 ARG TRY_IT_URL=https://try.skillstreak.app2.isstech.io
 RUN sed -i "s|__TRY_IT_URL__|${TRY_IT_URL}|g" /usr/share/nginx/marketing/index.html \
     && grep -qF "${TRY_IT_URL}" /usr/share/nginx/marketing/index.html
+
+# site/download.html gets the same TRY_IT_URL substitution (its visible
+# "scan this to open ___" text) plus the QR SVG generated above spliced in
+# where download.html has an INLINE_QR_SVG_HERE placeholder line -- awk,
+# not sed's s///, since the SVG's own content contains "/" characters that
+# would break a sed substitution command using "/" as its delimiter.
+RUN sed -i "s|__TRY_IT_URL__|${TRY_IT_URL}|g" /usr/share/nginx/marketing/download.html \
+    && grep -qF "${TRY_IT_URL}" /usr/share/nginx/marketing/download.html \
+    && awk '/INLINE_QR_SVG_HERE/{while((getline line < "/tmp/qr.svg") > 0) print line; next} {print}' \
+       /usr/share/nginx/marketing/download.html > /tmp/download.html.new \
+    && mv /tmp/download.html.new /usr/share/nginx/marketing/download.html \
+    && grep -qF "<svg" /usr/share/nginx/marketing/download.html
 
 EXPOSE 80 8081
