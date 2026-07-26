@@ -1,4 +1,6 @@
 import {
+  BucketAlreadyExists,
+  BucketAlreadyOwnedByYou,
   CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
@@ -75,6 +77,16 @@ export class ObjectStorageService implements OnModuleInit {
    * auto-`CREATE EXTENSION IF NOT EXISTS` gives pgcrypto. Never grants any
    * public/anonymous read policy (ADR-0010 Decision 2) — MinIO buckets are
    * private by default, and this method does nothing to change that.
+   *
+   * HEAD-then-CREATE is a check-then-act race: CI runs multiple e2e test
+   * files as separate Jest workers, each bootstrapping its own Nest app
+   * against the same shared MinIO instance, so two instances can both see
+   * the bucket missing and both attempt to create it. Confirmed live: this
+   * threw BucketAlreadyOwnedByYou on a real CI run and failed that entire
+   * suite's app bootstrap (every test in the file failed as a result, not
+   * just bucket setup). BucketAlreadyOwnedByYou/BucketAlreadyExists are
+   * both treated as "the bucket exists, which is all this method actually
+   * wants" — not re-thrown.
    */
   async onModuleInit(): Promise<void> {
     try {
@@ -88,8 +100,23 @@ export class ObjectStorageService implements OnModuleInit {
         );
         return;
       }
-      await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
-      this.logger.log(`Created MinIO bucket "${this.bucket}".`);
+      try {
+        await this.client.send(
+          new CreateBucketCommand({ Bucket: this.bucket }),
+        );
+        this.logger.log(`Created MinIO bucket "${this.bucket}".`);
+      } catch (createError) {
+        if (
+          createError instanceof BucketAlreadyOwnedByYou ||
+          createError instanceof BucketAlreadyExists
+        ) {
+          this.logger.log(
+            `Bucket "${this.bucket}" was created concurrently by another instance — continuing.`,
+          );
+        } else {
+          throw createError;
+        }
+      }
     }
     await this.configureMaxObjectSizePolicy();
   }
