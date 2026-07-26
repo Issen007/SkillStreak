@@ -121,17 +121,41 @@ i18n rather than hardcoded Swedish or English text.
 ## Git workflow rule
 
 **Never merge into `main` and never push directly to `main`** — this
-applies to Claude Code and to every subagent in `.claude/agents/`. All work
-happens on a branch (e.g. `phase0`, `phase1`); push the branch and leave
-reviewing/merging to the project owner.
+applies to Claude Code and to every subagent in `.claude/agents/`, with no
+exception, even under direct instruction to do so. The `prerelease` →
+`main` merge is always the project owner's own action.
 
-`.github/workflows/ci.yml` runs backend lint/build/test, a Dockerfile build
-check, and a docker-compose smoke test on every PR into `main`. The workflow
-file only runs the checks — making them a *required* status check that
-blocks merging is a GitHub branch-protection setting on the repo itself,
-not something version-controlled here. That still needs to be turned on
-(Settings → Branches → branch protection rule for `main`) for "always
-tested before merge" to actually be enforced, not just advisory.
+**`prerelease` is the integration branch, added 2026-07-26.** Feature
+branches merge into `prerelease` (not directly into `main`) once they're
+done — Claude Code may merge these itself, via a plain `git merge` +
+`git push` rather than a GitHub PR, since the `gh` CLI token available to
+this project's Claude Code sessions cannot create or merge pull requests
+(a real, repeatedly-confirmed limitation, not a policy choice). This is
+fine specifically because it's `prerelease`, not `main` — the rule above
+is unconditional and unaffected. When `prerelease` has accumulated enough
+finished work, the project owner merges `prerelease` → `main` themselves;
+that merge is what triggers the versioning/release pipeline below.
+
+**Merging to `main` auto-versions and releases.** `.github/workflows/
+ci-cd.yml`'s `release` job (triggered on push to `main`) bumps a patch
+version (`v0.0.1`, `v0.0.2`, ... — via git tags), creates a GitHub Release,
+and builds/pushes Docker images tagged with that version to GHCR
+(`ghcr.io/issen007/skillstreak-api`/`skillstreak-site`), alongside the
+existing git-SHA-tagged images. A systemd timer on the local test machine
+(`ubuntu01`) polls for new GitHub Releases and pulls/redeploys them to the
+local microk8s cluster automatically — see `tools/local-release-poller/`
+for that script and its systemd unit files.
+
+`.github/workflows/ci-cd.yml` runs backend lint/build/test, a mobile
+typecheck/expo-doctor pass, a Dockerfile build check, and a
+docker-compose smoke test on every PR into `main` (and now into
+`prerelease` too, per the branch strategy above). The workflow file only
+runs the checks — making them a *required* status check that blocks
+merging is a GitHub branch-protection setting on the repo itself, not
+something version-controlled here. That still needs to be turned on
+(Settings → Branches → branch protection rules for `main` and
+`prerelease`) for "always tested before merge" to actually be enforced,
+not just advisory.
 
 ## Open decisions to surface, not silently pick
 
