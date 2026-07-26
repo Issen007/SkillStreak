@@ -31,6 +31,13 @@ data:
   # currently not applied for the same reason, and the warning in
   # k8s/README.md about the consent token being a bearer credential).
   APP_PUBLIC_URL: "http://localhost:3000"
+  # The site container's own embedded onboarding widget calls this API
+  # cross-origin (GET /teams/invite, POST /players — both already
+  # unauthenticated). Matches the site's own current local-access address
+  # (`kubectl port-forward svc/site 8080:80 -n skillstreak`, per
+  # k8s/README.md's "Alpha access" section) — update alongside
+  # APP_PUBLIC_URL once a real public domain exists for both.
+  CORS_ORIGIN: "http://localhost:8080"
   # Fas 3 (docs/adr/0010-video-storage-and-serving.md) — the in-cluster
   # MinIO Service (minio-service.yaml), never a public endpoint.
   MINIO_ENDPOINT: "http://minio:9000"

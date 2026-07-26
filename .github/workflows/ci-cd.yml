@@ -196,14 +196,22 @@ jobs:
 
       # site/Dockerfile's context is the repo root (needs mobile/ + site/
       # together, see that file's header comment) — not ./site like the
-      # backend build. EXPO_PUBLIC_API_URL is baked in at build time, so CI
-      # uses the same alpha-test URL the deploy job pushes with (see
-      # k8s/configmap.yaml's APP_PUBLIC_URL comment for why this is
-      # localhost rather than a real domain right now).
+      # backend build. EXPO_PUBLIC_API_URL and API_BASE_URL are both baked
+      # in at build time (the former for the Expo web export, the latter
+      # for site/index.html's own embedded onboarding widget — see that
+      # Dockerfile's comment on why a static HTML file needs a build-time
+      # substitution the same way Expo needs a build-time env var), so CI
+      # uses the same alpha-test URL the deploy job pushes with for both
+      # (see k8s/configmap.yaml's APP_PUBLIC_URL comment for why this is
+      # localhost rather than a real domain right now). Missing
+      # API_BASE_URL here would silently ship the Dockerfile's own
+      # localhost default to every real deploy — confirmed to actually
+      # happen once, caught in review, not a hypothetical.
       - name: Build site image
         run: |
           docker build -f site/Dockerfile \
             --build-arg EXPO_PUBLIC_API_URL=http://localhost:3000 \
+            --build-arg API_BASE_URL=http://localhost:3000 \
             -t skillstreak-site:ci .
 
   compose-smoke-test:
@@ -286,12 +294,15 @@ jobs:
 
       # site/Dockerfile's build context is the repo root, not ./site (see
       # that file's header comment — it needs mobile/ + site/ together).
-      # EXPO_PUBLIC_API_URL is baked in at build time and must point at
-      # wherever the api is actually reachable. This cluster currently has
-      # no working external ingress path (see k8s/configmap.yaml's
+      # EXPO_PUBLIC_API_URL and API_BASE_URL are both baked in at build
+      # time and must point at wherever the api is actually reachable —
+      # the latter feeds site/index.html's own embedded onboarding widget,
+      # not just the Expo web export. This cluster currently has no
+      # working external ingress path (see k8s/configmap.yaml's
       # APP_PUBLIC_URL comment), so alpha access is via
       # `kubectl port-forward svc/api 3000:80 -n skillstreak` and this must
-      # match that port. Update once a real public API host exists again.
+      # match that port. Update both values once a real public API host
+      # exists again.
       - name: Build and Push Site Docker Image
         uses: docker/build-push-action@v5
         with:
@@ -300,6 +311,7 @@ jobs:
           push: true
           build-args: |
             EXPO_PUBLIC_API_URL=http://localhost:3000
+            API_BASE_URL=http://localhost:3000
           tags: |
             ${{ env.LOWER_SITE_IMAGE }}:${{ github.sha }}
 
