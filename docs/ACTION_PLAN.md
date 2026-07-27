@@ -1525,6 +1525,95 @@ treat `security-reviewer` involvement as blocking, not a final check.
       covered by the pre-beta pass below (rate limiting already existed
       from Phase 1), but not a complete Fas 4 pass.
 
+## Phase 6 — Public Shorts feed, reactions & personal archive
+
+**Added 2026-07-27, from the project owner directly** (not yet designed —
+tracked here so it can be reviewed before any code, per this doc's own
+standing practice below). Numbered 6, not 5: `docs/PROJECT.md` already
+reserves "Fas 5" for post-launch growth/business ideas (usage analytics,
+a paid PT-role plan, LLM chat moderation) — this is new, separate scope,
+placed after it in sequence for now, but the project owner should confirm
+that ordering rather than have it picked silently. Requested shape,
+paraphrased: Shorts becomes a
+never-ending scrollable feed of clips other players have opted to make
+public, with reactions; a way to save/collect clips you like into your own
+archive for mission ideas or new-streak inspiration; and a new "Archive"
+tab in Shorts showing (a) your team's clips and (b) clips you personally
+own, from which you can choose to publish one to the public feed to get
+reactions. Reference points named: Snapchat, YouTube, TikTok, Instagram —
+for the endless-scroll mechanic and how each surfaces reactions, not for
+their privacy models.
+
+**This is flagged, not silently scoped down, per CLAUDE.md's explicit
+instruction to push back on anything weakening the closed-team-bubble
+constraint.** Every clip in the app is currently **structurally**
+team-scoped only — no cross-team read path exists anywhere in the
+architecture. `adr/0010-video-storage-and-serving.md` (Fas 3) states this
+as a hard guarantee, security-reviewer independently verified it (**zero**
+public/anonymous read access on the storage bucket; every single clip read
+re-checks `clip.teamId === requestingPlayer.teamId` and mints a fresh,
+never-cached presigned URL), and it's the direct implementation of
+CLAUDE.md's "a user only ever sees their own verified team" non-negotiable.
+A "public" feed is by definition a second, cross-team visibility path for
+video of children — the single highest-risk kind of change this codebase
+can make, higher-risk than Fas 3 itself, which is already this project's
+"highest privacy risk" phase per its own checklist header above. It is not
+a reason to refuse the feature — opt-in publishing is a legitimate product
+idea and the request already includes an explicit approval step, which is
+the right instinct — but it must go through the same architect →
+ux-designer → security-reviewer sequencing Fas 3 used, with security-reviewer
+**blocking**, before any schema or endpoint exists. Do not build this by
+quietly loosening the existing `clip.teamId` check.
+
+Open questions for that design pass (not decided here):
+- What "approve to be public" actually means for a child's account —
+  whose approval: the player's, or does publishing a minor's video to a
+  wider audience need the same parental-consent gate media upload already
+  requires? (CLAUDE.md: "Parental approval flow required before any
+  account can upload video/media" — publishing to a *wider* audience than
+  what consent was originally given for is a real open question, not an
+  extension of the existing upload consent by default.)
+- Is "public" app-wide (any SkillStreak user, any team) or scoped to some
+  narrower circle? App-wide is the biggest deviation from the current
+  model and the one Snapchat/TikTok/Instagram/YouTube all assume by
+  default — worth deciding deliberately rather than by analogy.
+- Anonymization: screen names are already usable in place of real names
+  per CLAUDE.md, but does a public post need *additional* stripping (e.g.
+  team name, which is currently cross-team-visible on the leaderboard per
+  ADR-0008, becoming a de-anonymizing link between a public clip and a
+  specific real-world team of children)?
+- Reactions/comments on a public clip are a new user-generated-content
+  surface between strangers, not just teammates — needs the same
+  moderation-check treatment ADR-0007/ADR-0009 gave chat and team names,
+  not assumed safe by omission.
+- Retention/takedown: Fas 3's 90-day rolling retention + immediate
+  uploader self-delete was designed for a team-only audience; a public,
+  reaction-bearing clip likely needs its own review (e.g. does un-publishing
+  also need to be immediate and unconditional, same as delete already is).
+- "Archive" as described is two distinct collections (their own reusable
+  data model, not a special case of `VideoClip`): *saved-for-inspiration*
+  (other people's public clips a player bookmarked) vs. *owned* (a
+  player's/team's own clips, published or not) — ux-designer's call on
+  whether one tab or two communicates that distinction, per the request's
+  own "team's video" vs "videos you are owner of" split.
+
+- [ ] **architect**: design the public-opt-in data model (a `visibility`
+      or `publishedAt` concept on `VideoClip`, or a separate join/publish
+      table — TBD), the archive/save data model, and the reaction data
+      model, resolving the open questions above. New ADR, not a Fas 3
+      addendum — this is new scope beyond what ADR-0010 signed off on.
+- [ ] **ux-designer**: design the endless-scroll feed, reaction UX, and
+      the Archive tab (team clips + owned clips + publish action),
+      informed by but not copying Snapchat/TikTok/Instagram/YouTube's
+      patterns — this app's youth-safety constraints are stricter than any
+      of those four.
+- [ ] **security-reviewer**: blocking review of the architect's design
+      before backend-developer starts, per this doc's standing practice —
+      treat with at least the rigor Fas 3's original review used (that one
+      found and required fixing a real GPS-metadata leak before shipping).
+- [ ] **backend-developer**: implement once the above is signed off.
+- [ ] **frontend-developer**: implement once the above is signed off.
+
 ## Pre-beta hardening pass (2026-07-05, ahead of Fas 2)
 
 Not part of the Fas numbering — the project owner is beta-testing with real
