@@ -2065,7 +2065,8 @@ footer .foot-row {
     // bounds the backend enforces, rather than relying on a <select>'s
     // browser-dependent type-ahead (which jumps by first-keystroke and can
     // silently land on the wrong option if you type a full year quickly).
-    var OLDEST_ALLOWED_AGE_YEARS = 26;
+    // Widened 2026-07-26 from 26 to 56 (matches create-player.dto.ts).
+    var OLDEST_ALLOWED_AGE_YEARS = 56;
     var YOUNGEST_ALLOWED_AGE_YEARS = 4;
     var thisYear = new Date().getFullYear();
     var minBirthYear = thisYear - OLDEST_ALLOWED_AGE_YEARS;
