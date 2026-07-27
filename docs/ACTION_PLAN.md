@@ -1596,6 +1596,14 @@ Open questions for that design pass (not decided here):
   player's/team's own clips, published or not) — ux-designer's call on
   whether one tab or two communicates that distinction, per the request's
   own "team's video" vs "videos you are owner of" split.
+- **Follow-up, 2026-07-27**: this feed is also the delivery mechanism for a
+  separate, since-added backlog item — rewarding video-verified and
+  shared/public training with more points than a plain self-reported log,
+  plus a PT-content/growth-loop angle. See `docs/BACKLOG.md`'s "Points
+  system needs a verification/inspiration tier" entry — a distinct
+  architect-level change to the points formula (ADR-0005), not decided or
+  scoped here, but load-bearing on why this feed matters beyond inspiration
+  alone.
 
 - [ ] **architect**: design the public-opt-in data model (a `visibility`
       or `publishedAt` concept on `VideoClip`, or a separate join/publish
