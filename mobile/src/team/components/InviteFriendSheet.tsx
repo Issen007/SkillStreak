@@ -4,7 +4,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { JOIN_URL_BASE } from '../../api/config';
+import { EXPO_GO_URL, JOIN_URL_BASE } from '../../api/config';
 
 interface InviteFriendSheetProps {
   visible: boolean;
@@ -21,12 +21,18 @@ interface InviteFriendSheetProps {
  * Share.share() covers Messages/Email/WhatsApp/etc. via the OS's own
  * share sheet rather than building a separate flow per channel.
  *
- * The link opens the marketing site's onboarding widget with the invite
- * code pre-filled (see site/index.html's ?code= support) — there's no
- * real App Store/Play Store listing or working deep-link scheme for this
- * prototype yet (docs/BACKLOG.md), so a web link a friend can open
- * regardless of whether they have the app is the only thing that's
- * actually usable right now. */
+ * Two very different targets depending on EXPO_GO_URL (added 2026-07-27):
+ * - Set (a live `npx expo start` dev server is running): the QR/link opens
+ *   Expo Go directly, so a friend can actually run the real app, not just
+ *   its web export. There's no real deep-link handling in this app yet
+ *   (docs/BACKLOG.md), so exp:// launch can't carry the invite code
+ *   through automatically — the friend still types the lagkod themselves
+ *   once the app opens, same as typing it in by hand always required.
+ * - Unset (the normal/deployed case, no dev server exists): falls back to
+ *   the marketing site's onboarding widget with the code pre-filled (see
+ *   site/index.html's ?code= support) — there's no real App Store/Play
+ *   Store listing for this prototype yet, so a web link a friend can open
+ *   regardless of whether they have the app is what's actually usable. */
 export function InviteFriendSheet({
   visible,
   inviteCode,
@@ -34,8 +40,13 @@ export function InviteFriendSheet({
   onClose,
   onCopied,
 }: InviteFriendSheetProps) {
-  const joinUrl = `${JOIN_URL_BASE}/?code=${encodeURIComponent(inviteCode)}#demo`;
-  const message = `Gå med i ${teamName} på SkillStreak! Använd lagkoden ${inviteCode} eller klicka på länken: ${joinUrl}`;
+  const usingExpoGo = Boolean(EXPO_GO_URL);
+  const joinUrl = usingExpoGo
+    ? (EXPO_GO_URL as string)
+    : `${JOIN_URL_BASE}/?code=${encodeURIComponent(inviteCode)}#demo`;
+  const message = usingExpoGo
+    ? `Gå med i ${teamName} på SkillStreak! Öppna länken i Expo Go, skriv sen in lagkoden ${inviteCode} när appen startar: ${joinUrl}`
+    : `Gå med i ${teamName} på SkillStreak! Använd lagkoden ${inviteCode} eller klicka på länken: ${joinUrl}`;
 
   const handleShare = async () => {
     if (Platform.OS === 'web') {
@@ -72,8 +83,9 @@ export function InviteFriendSheet({
       <View style={styles.sheet}>
         <Text style={styles.heading}>Bjud in en kompis</Text>
         <Text style={styles.sub}>
-          Låt dem skanna koden, eller dela länken — de fyller bara i sitt
-          eget smeknamn, laget är redan ifyllt.
+          {usingExpoGo
+            ? 'Låt dem skanna koden för att öppna appen i Expo Go, sedan skriver de in lagkoden nedan.'
+            : 'Låt dem skanna koden, eller dela länken — de fyller bara i sitt eget smeknamn, laget är redan ifyllt.'}
         </Text>
 
         <View style={styles.qrFrame}>
