@@ -278,7 +278,7 @@ context, not as live direction.
             contradicting the contract's "non-terminal status" rule. Fixed:
             new `ChallengeAlreadyTerminalException`, plus test coverage for
             `patchGoal` (there was none before — code-critic's own finding).
-      - [ ] **security-reviewer, CONFIRMED CRITICAL — session-reissue allows
+      - [x] **security-reviewer, CONFIRMED CRITICAL — session-reissue allows
             full account takeover, not just impersonation risk.** The
             reissue code is returned directly to whoever calls
             `POST /players/:playerId/session-reissue` (intended to be
@@ -297,7 +297,14 @@ context, not as live direction.
             its logic are left intact (the `token_version`/single-use-code
             mechanism itself is sound) for a proper redesign later that
             binds redemption to the target player rather than to bearer
-            possession of the code. **Still open, tracked in Phase 2.5.**
+            possession of the code. **RESOLVED 2026-07-27** — the redesign
+            emails the code to the target's own `parent_contact`, never
+            returning it to whoever triggers reissue; see
+            `docs/adr/0004-coach-auth-and-session-reissue.md`'s
+            "Addendum — 2026-07-27" for the full design and its own
+            independent security-reviewer pass (which found and fixed a
+            second, related gap — a missing daily cap alongside the burst
+            cooldown).
       - Everything else both reviewers checked — the bonus mechanic's
         idempotency (including under real concurrency), the weekly-goal
         state machine, captain authorization/IDOR scoping, the DB-level
