@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  AppState,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { ChatIntroCard } from './components/ChatIntroCard';
 import { MessageBubble } from './components/MessageBubble';
@@ -350,7 +360,14 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps
   const locked = consentStatus !== null && consentStatus !== 'approved';
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      // No fixed header/nav bar above this screen (AppShell's tab bar is
+      // at the bottom, which doesn't need offsetting) -- 0 is correct, not
+      // a placeholder.
+      keyboardVerticalOffset={0}
+    >
       <View style={styles.header}>
         <Text style={styles.heading}>Lagchatt 💬</Text>
         <Pressable accessibilityRole="button" onPress={() => setView('blocked-list')}>
@@ -428,7 +445,7 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps
         onConfirm={() => void handleBlockSheetConfirm()}
         onClose={() => setBlockTarget(null)}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
