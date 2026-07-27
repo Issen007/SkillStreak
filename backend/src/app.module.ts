@@ -3,6 +3,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppConfigModule } from './config/app-config.module';
+import { RedisThrottlerStorage } from './common/throttler/redis-throttler-storage.service';
+import { RedisThrottlerStorageModule } from './common/throttler/redis-throttler-storage.module';
 import { ConsentModule } from './consent/consent.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
@@ -35,13 +37,29 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     // this with a tighter, route-specific @Throttle() limit (see their
     // controllers). Every other route is authenticated (JwtAuthGuard), so
     // brute-forcing/spamming them already requires a valid session token.
-    ThrottlerModule.forRoot([
-      {
-        name: 'default',
-        ttl: 60_000,
-        limit: 300,
-      },
-    ]),
+    //
+    // Redis-backed storage (RedisThrottlerStorage), not the library's
+    // in-memory default — Fas 4 production-hardening, 2026-07-27. The
+    // in-memory version keeps counters per-pod, so with
+    // k8s/api-deployment.yaml's `replicas: 2` the real ceiling on
+    // POST /players (the public website's signup wizard) was roughly
+    // double the advertised 10/min/IP, flagged as required-before-real-
+    // traffic in the Fas 2.9 security-reviewer sign-off. See
+    // docs/ACTION_PLAN.md's Phase 4 section.
+    ThrottlerModule.forRootAsync({
+      imports: [RedisThrottlerStorageModule],
+      inject: [RedisThrottlerStorage],
+      useFactory: (storage: RedisThrottlerStorage) => ({
+        throttlers: [
+          {
+            name: 'default',
+            ttl: 60_000,
+            limit: 300,
+          },
+        ],
+        storage,
+      }),
+    }),
     HealthModule,
     MailModule,
     TeamsModule,

@@ -301,6 +301,39 @@ export class RedisService {
     return result === 'OK';
   }
 
+  /**
+   * Backs `RedisThrottlerStorage` (`common/throttler/`), which plugs into
+   * `@nestjs/throttler` as its `ThrottlerStorage` in place of the library's
+   * default in-memory Map. Same fixed-window INCR+EXPIRE-on-first-hit shape
+   * as the chat-send/clip-upload allowances above, just keyed generically
+   * (the throttler library owns key construction) and returning the raw
+   * count/remaining-TTL pair that `ThrottlerStorageRecord` needs, rather
+   * than a boolean, since the guard itself decides pass/block from these.
+   * Not a Lua script/atomic transaction, same as this file's other counters
+   * — a rare race only ever loses a fraction of a request from the ceiling
+   * on a single window, never breaks the block itself.
+   */
+  async throttlerIncrement(
+    key: string,
+    ttlMilliseconds: number,
+  ): Promise<{ totalHits: number; ttlMillisecondsRemaining: number }> {
+    const totalHits = await this.client.incr(key);
+    if (totalHits === 1) {
+      await this.client.pexpire(key, ttlMilliseconds);
+    }
+    const ttlMillisecondsRemaining = await this.client.pttl(key);
+    return {
+      totalHits,
+      // A key can in principle have no TTL (e.g. NX SET raced with a
+      // concurrent expiry) — fall back to the full window rather than a
+      // negative/absent value confusing the caller's "seconds remaining".
+      ttlMillisecondsRemaining:
+        ttlMillisecondsRemaining > 0
+          ? ttlMillisecondsRemaining
+          : ttlMilliseconds,
+    };
+  }
+
   async quit(): Promise<void> {
     await this.client.quit();
   }
