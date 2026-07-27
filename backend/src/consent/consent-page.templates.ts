@@ -58,6 +58,32 @@ export function renderConsentConfirmPage(screenName: string): string {
   );
 }
 
+/** GET, valid token, self-verification (13+, added 2026-07-27) — first-
+ * person copy: the player is confirming their own email, nobody else is
+ * being asked anything, unlike renderConsentConfirmPage's "does a parent
+ * approve this child" framing. Same POST-to-confirm mechanism. */
+export function renderSelfVerificationConfirmPage(screenName: string): string {
+  const safeName = escapeHtml(screenName);
+  return page(
+    `Verifiera ditt konto — SkillStreak`,
+    `
+    <h1 style="margin:0 0 16px;font-size:22px;">Verifiera ditt konto på SkillStreak</h1>
+    <p style="margin:0 0 12px;font-size:15px;line-height:1.5;">
+      Nästan klart, <strong>${safeName}</strong>! Bekräfta att det här är din e-post för att
+      aktivera ditt konto. Inga bilder eller platsdata samlas in, och du syns bara för ditt eget lag.
+    </p>
+    <p style="margin:0 0 24px;font-size:15px;line-height:1.5;">
+      När du bekräftar kan du börja logga träningspass från och med nu.
+    </p>
+    <form method="POST" action="">
+      <button type="submit" style="background-color:#FF6B35;color:#FFFFFF;border:none;border-radius:12px;padding:14px 24px;font-size:16px;font-weight:600;cursor:pointer;">
+        Verifiera mitt konto
+      </button>
+    </form>
+    `,
+  );
+}
+
 /** GET, invalid/expired/already-consumed token: deliberately identical
  * copy regardless of *why* the token doesn't resolve — never hints
  * whether it was close to valid. */
@@ -83,6 +109,20 @@ export function renderConsentApprovedPage(screenName: string): string {
     <h1 style="margin:0 0 16px;font-size:22px;color:#3DAA6B;">Tack!</h1>
     <p style="margin:0;font-size:15px;line-height:1.5;">
       ${safeName} kan nu börja logga träningar.
+    </p>
+    `,
+  );
+}
+
+/** POST, successful self-verification (13+). */
+export function renderSelfVerificationApprovedPage(screenName: string): string {
+  const safeName = escapeHtml(screenName);
+  return page(
+    'Klart! — SkillStreak',
+    `
+    <h1 style="margin:0 0 16px;font-size:22px;color:#3DAA6B;">Klart!</h1>
+    <p style="margin:0;font-size:15px;line-height:1.5;">
+      Ditt konto är verifierat, ${safeName}. Du kan nu börja logga träningar.
     </p>
     `,
   );

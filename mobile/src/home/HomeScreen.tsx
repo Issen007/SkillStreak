@@ -249,6 +249,7 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
         ) : (
           <WaitingCard
             consentStatus={me.player.consentStatus}
+            isSelfVerification={me.player.isSelfVerification}
             onRefresh={handleManualRefresh}
             refreshing={manualRefreshing}
           />

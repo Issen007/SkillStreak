@@ -6,6 +6,9 @@ import type { ConsentStatus } from '../../api/types';
 
 interface ClipsWaitingCardProps {
   consentStatus: ConsentStatus;
+  /** Age-banded self-verification (13+) — added 2026-07-27, same
+   * reasoning as WaitingCard's identical prop. */
+  isSelfVerification: boolean;
   onRefresh: () => void;
   refreshing: boolean;
 }
@@ -20,17 +23,30 @@ interface ClipsWaitingCardProps {
  * `WaitingCard` — that component's copy is specific to the "Jag har
  * tränat" button context ("låser vi upp knappen nedan"), which doesn't fit
  * a tab with no button below it. */
-export function ClipsWaitingCard({ consentStatus, onRefresh, refreshing }: ClipsWaitingCardProps) {
+export function ClipsWaitingCard({
+  consentStatus,
+  isSelfVerification,
+  onRefresh,
+  refreshing,
+}: ClipsWaitingCardProps) {
   const isPaused = consentStatus === 'revoked';
 
   return (
     <View style={[styles.card, isPaused ? styles.cardPaused : styles.cardPending]}>
       <Text style={styles.icon}>{isPaused ? '⏸️' : '⏳'}</Text>
-      <Text style={styles.title}>{isPaused ? 'Shorts är pausat just nu' : 'Väntar på godkännande'}</Text>
+      <Text style={styles.title}>
+        {isPaused
+          ? 'Shorts är pausat just nu'
+          : isSelfVerification
+            ? 'Väntar på att du verifierar'
+            : 'Väntar på godkännande'}
+      </Text>
       <Text style={styles.body}>
         {isPaused
           ? 'En förälder eller vårdnadshavare har dragit tillbaka godkännandet. Prata med din tränare om du har frågor.'
-          : 'En förälder eller vårdnadshavare behöver säga ja innan du kan se eller ladda upp Shorts. Så fort de godkänner låser vi upp Shorts-fliken.'}
+          : isSelfVerification
+            ? 'Du behöver verifiera din e-post eller ditt mobilnummer innan du kan se eller ladda upp Shorts. Så fort du klickar på länken vi skickade låser vi upp Shorts-fliken.'
+            : 'En förälder eller vårdnadshavare behöver säga ja innan du kan se eller ladda upp Shorts. Så fort de godkänner låser vi upp Shorts-fliken.'}
       </Text>
       {!isPaused ? (
         <Pressable

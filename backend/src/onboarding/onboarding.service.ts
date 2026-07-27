@@ -8,8 +8,10 @@ import {
   ScreenNameTakenException,
 } from '../common/errors/exceptions';
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
+import { isSelfVerificationAge } from '../common/age/self-verification-age.util';
 import { MailService } from '../mail/mail.service';
 import { buildConsentRequestEmail } from '../mail/templates/consent-request-email.template';
+import { buildSelfVerificationEmail } from '../mail/templates/self-verification-email.template';
 import { ConsentMethod } from '../player-private-info/entities/parental-consent-record.entity';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
 import { generateConsentToken } from '../players/consent-token.util';
@@ -52,6 +54,7 @@ interface CreatePlayerResult {
   screenName: string;
   avatarId: string;
   consentStatus: ParentalConsentStatus;
+  isSelfVerification: boolean;
   sessionToken: string;
 }
 
@@ -94,12 +97,18 @@ export class OnboardingService {
       throw new InviteCodeNotFoundException();
     }
 
-    // Age-band nuance (13+ self-consent under Swedish GDPR Art. 8) is
-    // flagged, not resolved, per ADR-0002 addendum §2 — security-reviewer
-    // to confirm before this ships. The mechanism (email_link vs.
-    // in_app_by_parent_account) already anticipates it; Phase 1 always
-    // requests via email_link pending that legal confirmation.
-    const consentMethod = ConsentMethod.EMAIL_LINK;
+    // Age-band self-verification (13+, Swedish GDPR Art. 8's actual legal
+    // minimum) — resolved 2026-07-27 per docs/adr/0002-data-model.md
+    // addendum §2's 2026-07-27 update. Below 13, unchanged: a parent must
+    // approve via the third-person consent-request email. At 13+, the
+    // player verifies their own account instead — same underlying
+    // mechanism (a token + email link + approve), different audience and
+    // copy (see self-verification-email.template.ts /
+    // consent-page.templates.ts's render*SelfVerification* functions).
+    const selfVerification = isSelfVerificationAge(dto.birthYear);
+    const consentMethod = selfVerification
+      ? ConsentMethod.SELF_EMAIL_LINK
+      : ConsentMethod.EMAIL_LINK;
 
     try {
       const result = await this.dataSource.transaction(async (manager) => {
@@ -154,11 +163,17 @@ export class OnboardingService {
         this.configService.get<string>('APP_PUBLIC_URL') ??
         DEFAULT_APP_PUBLIC_URL;
       const consentUrl = `${appPublicUrl}/api/v1/consent/${result.consentToken}`;
-      const email = buildConsentRequestEmail({
-        screenName: result.player.screenName,
-        teamName: result.team.name,
-        consentUrl,
-      });
+      const email = selfVerification
+        ? buildSelfVerificationEmail({
+            screenName: result.player.screenName,
+            teamName: result.team.name,
+            consentUrl,
+          })
+        : buildConsentRequestEmail({
+            screenName: result.player.screenName,
+            teamName: result.team.name,
+            consentUrl,
+          });
       try {
         await this.mailService.sendMail({
           to: dto.parentContact,
@@ -182,6 +197,7 @@ export class OnboardingService {
         screenName: result.player.screenName,
         avatarId: result.player.avatarId,
         consentStatus: result.player.parentalConsentStatus,
+        isSelfVerification: selfVerification,
         sessionToken: this.playerTokenService.issueFor(
           result.player.id,
           result.player.tokenVersion,

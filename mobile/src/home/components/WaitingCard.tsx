@@ -9,6 +9,11 @@ interface WaitingCardProps {
    * on that already); typed as the full enum rather than an `Omit` so the
    * caller doesn't need an unsafe cast at the call site. */
   consentStatus: ConsentStatus;
+  /** Age-banded self-verification (13+) — added 2026-07-27. Only changes
+   * the "pending" copy (waiting for a parent vs. waiting for the player's
+   * own email click); `revoked` is a later, separate admin/captain action
+   * unrelated to who originally verified, so its copy is unchanged. */
+  isSelfVerification: boolean;
   onRefresh: () => void;
   refreshing: boolean;
 }
@@ -18,7 +23,12 @@ interface WaitingCardProps {
  * backend/audit concern, not a player-facing one); `revoked` gets its own
  * "paused" variant with no guilt-trip framing and no manual refresh
  * button (nothing a re-check would change until a coach re-enables it). */
-export function WaitingCard({ consentStatus, onRefresh, refreshing }: WaitingCardProps) {
+export function WaitingCard({
+  consentStatus,
+  isSelfVerification,
+  onRefresh,
+  refreshing,
+}: WaitingCardProps) {
   const isPaused = consentStatus === 'revoked';
 
   return (
@@ -26,13 +36,19 @@ export function WaitingCard({ consentStatus, onRefresh, refreshing }: WaitingCar
       <View style={styles.headRow}>
         <Text style={styles.icon}>{isPaused ? '⏸️' : '⏳'}</Text>
         <Text style={styles.title}>
-          {isPaused ? 'Träning är pausad just nu' : 'Väntar på godkännande'}
+          {isPaused
+            ? 'Träning är pausad just nu'
+            : isSelfVerification
+              ? 'Väntar på att du verifierar'
+              : 'Väntar på godkännande'}
         </Text>
       </View>
       <Text style={styles.body}>
         {isPaused
           ? 'En förälder eller vårdnadshavare har dragit tillbaka godkännandet. Prata med din tränare om du har frågor.'
-          : 'Vi har frågat en förälder eller vårdnadshavare om lov. Så fort de säger ja låser vi upp knappen nedan!'}
+          : isSelfVerification
+            ? 'Vi har skickat en verifieringslänk till din e-post eller ditt mobilnummer. Klicka på den, så låser vi upp knappen nedan!'
+            : 'Vi har frågat en förälder eller vårdnadshavare om lov. Så fort de säger ja låser vi upp knappen nedan!'}
       </Text>
       {!isPaused ? (
         <Pressable

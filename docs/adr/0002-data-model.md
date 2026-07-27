@@ -291,19 +291,29 @@ that step are the minimum needed to run the consent request itself.
 Gating the first real write instead protects the same thing more precisely
 without adding friction to a step that was never the risky one.
 
-**Age-band nuance — resolved 2026-07-04 by security-reviewer:** Sweden set
-the GDPR Art. 8 self-consent age for "information society services" at 13,
-so a 13+ player could legally self-consent rather than a parent. **Decision:
-parent/guardian consent for every player in Phase 1, regardless of
-`birth_year`.** This is a coach-mediated youth-sports app where parental
-involvement is the expected norm independent of the legal floor;
-`birth_year` alone can't reliably distinguish "13 now" from "turns 13
-mid-season," and a second consent-collection UX for an age-derived subset
-of players would add real implementation/legal risk for a small MVP with no
-corresponding benefit. `onboarding.service.ts` always uses
-`ConsentMethod.EMAIL_LINK` — this is the deliberate Phase 1 answer, not a
-placeholder. Revisit only with real legal sign-off specific to this
-product, not preemptively.
+**Age-band nuance — resolved 2026-07-04 by security-reviewer, reversed
+2026-07-27 with the project owner's explicit sign-off:** Sweden set the
+GDPR Art. 8 self-consent age for "information society services" at 13
+(Dataskyddslagen 2018:218 Ch.2§4 — confirmed current as of 2026-07-27,
+distinct from the separate, still-unenacted 15-year-old proposal
+specifically for logged-in social media, Kommittédirektiv 2025:91). The
+original 2026-07-04 decision was parent/guardian consent for every player
+regardless of `birth_year`, deliberately more protective than the legal
+floor. That's now reversed: **13+ players self-verify via their own
+email**, matching the actual legal minimum; under-13 players are
+unchanged (parent/guardian consent required).
+
+Mechanism: identical token/email-link/approve flow either way (no new
+account state, no new gameplay gate) — only the audience and copy differ.
+`isSelfVerificationAge(birthYear)` (`common/age/self-verification-
+age.util.ts`) picks between `ConsentMethod.EMAIL_LINK` (parent,
+third-person copy) and the new `ConsentMethod.SELF_EMAIL_LINK` (the player
+themselves, first-person copy) at signup, at the consent-page/email layer,
+and on a reminder resend. The "turns 13 mid-season" edge case from the
+original decision is accepted as-is: the birth-year check runs once, at
+signup, same coarseness as every other age-derived check in this schema
+(ADR-0002's `birth_year`-only collection was never precise to the day
+regardless).
 
 ### 3. `BadgeAward.context` becomes a constrained, discriminated shape
 
