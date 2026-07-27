@@ -10,6 +10,7 @@ import {
   UploadNotFoundException,
 } from '../common/errors/exceptions';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
+import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { VideoClipStatus } from './entities/video-clip.entity';
 import { VideoClipsService } from './video-clips.service';
 
@@ -37,6 +38,7 @@ function buildService(
     screenName: 'FloorballStar15',
     avatarId: 'fox',
     parentalConsentStatus: ParentalConsentStatus.APPROVED,
+    teamJoinStatus: TeamJoinStatus.APPROVED,
   };
 
   const playersService = {

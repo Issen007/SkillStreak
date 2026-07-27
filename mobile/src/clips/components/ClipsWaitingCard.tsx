@@ -2,13 +2,16 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import type { ConsentStatus } from '../../api/types';
+import type { ConsentStatus, TeamJoinStatus } from '../../api/types';
 
 interface ClipsWaitingCardProps {
   consentStatus: ConsentStatus;
   /** Age-banded self-verification (13+) — added 2026-07-27, same
    * reasoning as WaitingCard's identical prop. */
   isSelfVerification: boolean;
+  /** Added 2026-07-27 — a second, independent gate alongside
+   * consentStatus (captain approval of the team join itself). */
+  teamJoinStatus: TeamJoinStatus;
   onRefresh: () => void;
   refreshing: boolean;
 }
@@ -26,27 +29,43 @@ interface ClipsWaitingCardProps {
 export function ClipsWaitingCard({
   consentStatus,
   isSelfVerification,
+  teamJoinStatus,
   onRefresh,
   refreshing,
 }: ClipsWaitingCardProps) {
   const isPaused = consentStatus === 'revoked';
+  const consentPending = consentStatus !== 'approved' && !isPaused;
+  const joinPending = teamJoinStatus === 'pending';
+
+  function pendingTitle(): string {
+    if (joinPending) return 'Väntar på lagets kapten';
+    return isSelfVerification ? 'Väntar på att du verifierar' : 'Väntar på godkännande';
+  }
+
+  function pendingBody(): string {
+    const consentPart = isSelfVerification
+      ? 'Du behöver verifiera din e-post eller ditt mobilnummer.'
+      : 'En förälder eller vårdnadshavare behöver säga ja.';
+    const joinPart = 'Lagets kapten behöver godkänna att du gick med i laget.';
+    if (consentPending && joinPending) {
+      return `${consentPart} ${joinPart} Så fort båda är klara låser vi upp Shorts-fliken.`;
+    }
+    if (joinPending) {
+      return `${joinPart} Så fort kaptenen godkänner låser vi upp Shorts-fliken.`;
+    }
+    return `${consentPart} Så fort det är klart låser vi upp Shorts-fliken.`;
+  }
 
   return (
     <View style={[styles.card, isPaused ? styles.cardPaused : styles.cardPending]}>
       <Text style={styles.icon}>{isPaused ? '⏸️' : '⏳'}</Text>
       <Text style={styles.title}>
-        {isPaused
-          ? 'Shorts är pausat just nu'
-          : isSelfVerification
-            ? 'Väntar på att du verifierar'
-            : 'Väntar på godkännande'}
+        {isPaused ? 'Shorts är pausat just nu' : pendingTitle()}
       </Text>
       <Text style={styles.body}>
         {isPaused
           ? 'En förälder eller vårdnadshavare har dragit tillbaka godkännandet. Prata med din tränare om du har frågor.'
-          : isSelfVerification
-            ? 'Du behöver verifiera din e-post eller ditt mobilnummer innan du kan se eller ladda upp Shorts. Så fort du klickar på länken vi skickade låser vi upp Shorts-fliken.'
-            : 'En förälder eller vårdnadshavare behöver säga ja innan du kan se eller ladda upp Shorts. Så fort de godkänner låser vi upp Shorts-fliken.'}
+          : pendingBody()}
       </Text>
       {!isPaused ? (
         <Pressable

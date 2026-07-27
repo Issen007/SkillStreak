@@ -8,10 +8,12 @@ import {
   CaptainTransferToSelfException,
   NotTeamCaptainException,
   PlayerNotFoundException,
+  TeamJoinNotPendingException,
   TeamMismatchException,
 } from '../common/errors/exceptions';
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
 import { ParentalConsentStatus } from './player-consent-status.enum';
+import { TeamJoinStatus } from './team-join-status.enum';
 import { Player } from './entities/player.entity';
 
 const ONE_CAPTAIN_PER_TEAM_CONSTRAINT = 'idx_player_one_captain_per_team';
@@ -61,13 +63,21 @@ export class PlayersService {
     input: CreatePlayerShellInput,
   ): Promise<Player> {
     const repository = manager.getRepository(Player);
+    const isCaptain = input.isCaptain ?? false;
     const player = repository.create({
       teamId: input.teamId,
       screenName: input.screenName,
       avatarId: input.avatarId,
       birthYear: input.birthYear,
       parentalConsentStatus: ParentalConsentStatus.PENDING,
-      isCaptain: input.isCaptain ?? false,
+      isCaptain,
+      // Added 2026-07-27: whoever's join created the team can't be
+      // pending approval from themselves — isCaptain is true if and only
+      // if this exact request just created the team (ADR-0009 Decision
+      // 2/7, unchanged), so it's the same signal this needs.
+      teamJoinStatus: isCaptain
+        ? TeamJoinStatus.APPROVED
+        : TeamJoinStatus.PENDING,
     });
     return repository.save(player);
   }
@@ -253,6 +263,47 @@ export class PlayersService {
         transferredAt: new Date(),
       };
     });
+  }
+
+  /**
+   * Fas 4 (captain approval for new team joins,
+   * docs/adr/0009-self-service-team-creation.md's 2026-07-27 addendum) —
+   * every player on this team whose join is still awaiting the captain's
+   * decision. Captain-only (assertIsCaptainOfTeam).
+   */
+  async listPendingJoins(
+    teamId: string,
+    requesterId: string,
+  ): Promise<Player[]> {
+    await this.assertIsCaptainOfTeam(requesterId, teamId);
+    return this.playerRepository.find({
+      where: { teamId, teamJoinStatus: TeamJoinStatus.PENDING },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  /**
+   * Approve or reject a pending join — same captain-only gate as every
+   * other captain action here. No row lock/transaction ceremony
+   * (unlike transferCaptaincy): there's no unique-per-team invariant at
+   * risk, just a single player's own status flipping once.
+   */
+  async decideTeamJoin(
+    teamId: string,
+    requesterId: string,
+    targetPlayerId: string,
+    decision: TeamJoinStatus.APPROVED | TeamJoinStatus.REJECTED,
+  ): Promise<Player> {
+    await this.assertIsCaptainOfTeam(requesterId, teamId);
+    const target = await this.findByIdOrThrow(targetPlayerId);
+    if (target.teamId !== teamId) {
+      throw new TeamMismatchException();
+    }
+    if (target.teamJoinStatus !== TeamJoinStatus.PENDING) {
+      throw new TeamJoinNotPendingException();
+    }
+    target.teamJoinStatus = decision;
+    return this.playerRepository.save(target);
   }
 
   /**

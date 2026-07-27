@@ -7,6 +7,10 @@ export type ConsentStatus =
   | 'approved'
   | 'revoked';
 
+// Added 2026-07-27 for captain approval of new team joins — a second,
+// independent gate alongside ConsentStatus above.
+export type TeamJoinStatus = 'pending' | 'approved' | 'rejected';
+
 export type ActivityType = 'fitness' | 'drill' | 'running' | 'other';
 
 // --- 1. GET /teams/invite/:inviteCode --------------------------------------
@@ -51,6 +55,8 @@ export interface CreatePlayerResponse {
   // Added 2026-07-27 for age-banded self-verification (13+) — lets the
   // post-signup waiting screen show the right copy immediately.
   isSelfVerification: boolean;
+  // Added 2026-07-27 for captain approval of new team joins.
+  teamJoinStatus: TeamJoinStatus;
   sessionToken: string;
 }
 
@@ -94,6 +100,8 @@ export interface PlayerMeResponse {
     consentStatus: ConsentStatus;
     // Added 2026-07-27 for age-banded self-verification (13+).
     isSelfVerification: boolean;
+    // Added 2026-07-27 for captain approval of new team joins.
+    teamJoinStatus: TeamJoinStatus;
   };
   team: {
     teamId: string;
@@ -335,6 +343,25 @@ export interface CaptainTransferResponse {
   previousCaptainPlayerId: string;
   newCaptainPlayerId: string;
   transferredAt: string;
+}
+
+// --- Fas 4 shapes: captain approval for new team joins ----------------------
+// docs/adr/0009-self-service-team-creation.md's 2026-07-27 addendum.
+
+export interface PendingJoinEntry {
+  playerId: string;
+  screenName: string;
+  avatarId: string;
+  createdAt: string;
+}
+
+export interface PendingJoinsResponse {
+  pending: PendingJoinEntry[];
+}
+
+export interface TeamJoinDecisionResponse {
+  playerId: string;
+  teamJoinStatus: TeamJoinStatus;
 }
 
 // --- Fas 2.6b shapes, mirroring docs/api/phase2.6b-contract.md exactly -----
