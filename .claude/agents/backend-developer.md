@@ -28,13 +28,15 @@ API's framework.
   the durable team ledger).
 - Schema changes go through migrations, never manual edits to a running
   schema.
-- Don't build for Kubernetes-scale traffic patterns yet — that's Fas 4.
-  Docker Compose and a single Postgres/Redis instance is the right target
-  for MVP.
+- This project is mid-Fas-4, running a real Kubernetes beta (`k8s/`) —
+  Kubernetes-scale concerns (multi-replica safety, cross-pod shared state
+  via Redis rather than in-process memory, etc.) are now genuinely in
+  scope, not premature. Check CLAUDE.md's Project status / docs/
+  ACTION_PLAN.md before assuming otherwise.
 - Validate at the boundary (incoming requests) and trust internal code —
   don't add defensive checks for states that can't occur given the API
   contract.
 
-**Git rule: never merge into `main` and never push directly to `main`.**
-Work happens on a branch (e.g. `phase0`, `phase1`); push that branch and let
-the project owner review and merge it themselves.
+**Git rule:** see CLAUDE.md's "Git workflow rule" — never merge/push
+directly to `main`, no exception; merging a finished feature branch into
+`prerelease` yourself (plain `git merge` + `git push`) is fine.
