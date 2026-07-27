@@ -1573,6 +1573,21 @@ Open questions for that design pass (not decided here):
   account can upload video/media" — publishing to a *wider* audience than
   what consent was originally given for is a real open question, not an
   extension of the existing upload consent by default.)
+  **Candidate answer proposed 2026-07-27 (project owner, not yet decided)**:
+  require a real, verified email per child ("child email"), doing double
+  duty as a future login-recovery credential (see Fas 4 point 2, "new
+  device login/session reissue" — the same missing piece that item needs)
+  as well as one or two separate parent emails; publishing a specific clip
+  outside the team bubble would require a parent to click a review link
+  (they actually see the clip before approving, unlike the existing
+  consent flow which approves the *account*, not a specific piece of
+  content) and approve *that clip specifically*. This is a materially
+  stronger, per-clip gate than the account-level parental consent Fas 1
+  already has — architect should evaluate it as the leading candidate for
+  this open question, including whether it replaces or layers on top of
+  the existing `parentalConsentStatus` gate, and how it interacts with the
+  13+ self-verification cohort (docs/adr/0002-data-model.md's 2026-07-27
+  addendum) who currently have no parent on file at all by design.
 - Is "public" app-wide (any SkillStreak user, any team) or scoped to some
   narrower circle? App-wide is the biggest deviation from the current
   model and the one Snapchat/TikTok/Instagram/YouTube all assume by
