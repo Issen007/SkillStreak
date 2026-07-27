@@ -13,7 +13,9 @@ import { fonts } from '../../theme/fonts';
 // ADR-0002. Both bounds are rolling offsets from the current year, not
 // fixed calendar years, so this needs no manual update as time passes —
 // see create-player.dto.ts's identical comment for why a fixed year drifts.
-const OLDEST_ALLOWED_AGE_YEARS = 26;
+// Widened 2026-07-26 from 26 to 56 (matches create-player.dto.ts) — see
+// that file's comment for why.
+const OLDEST_ALLOWED_AGE_YEARS = 56;
 const YOUNGEST_ALLOWED_AGE_YEARS = 4;
 const MIN_BIRTH_YEAR = new Date().getFullYear() - OLDEST_ALLOWED_AGE_YEARS;
 const MAX_BIRTH_YEAR = new Date().getFullYear() - YOUNGEST_ALLOWED_AGE_YEARS;

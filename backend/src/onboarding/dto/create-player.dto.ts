@@ -23,15 +23,14 @@ const trimString = ({ value }: { value: unknown }) =>
 // per ADR-0002, only the year is ever collected, never a full DOB.
 //
 // Both bounds are rolling offsets from the current year, not fixed
-// calendar years — a fixed MIN_BIRTH_YEAR (this used to be a hardcoded
-// `2000`) silently drifts wider every year that passes (by 2040, "2000"
-// would mean a 40-year-old "player"), so the only way for this range to
-// need zero manual updates, ever, is for both ends to move with today.
-// 26/4 preserve today's actual accepted range unchanged (2000-2026)
-// while fixing that drift and adding a real floor on the upper end (the
-// previous MAX_BIRTH_YEAR had no offset at all, technically accepting a
-// newborn as a "player").
-const OLDEST_ALLOWED_AGE_YEARS = 26;
+// calendar years — a fixed MIN_BIRTH_YEAR silently drifts wider every year
+// that passes, so the only way for this range to need zero manual
+// updates, ever, is for both ends to move with today. Widened 2026-07-26
+// from 26 to 56 (2000-2026 -> 1970-2026 as of today) — coaches/parents
+// creating their own test/adult accounts were hitting the old floor;
+// still a coarse sanity check, not age-gating logic (parental consent
+// applies regardless of birth year either way, per ADR-0002 addendum §2).
+const OLDEST_ALLOWED_AGE_YEARS = 56;
 const YOUNGEST_ALLOWED_AGE_YEARS = 4;
 const MIN_BIRTH_YEAR = new Date().getUTCFullYear() - OLDEST_ALLOWED_AGE_YEARS;
 const MAX_BIRTH_YEAR = new Date().getUTCFullYear() - YOUNGEST_ALLOWED_AGE_YEARS;
