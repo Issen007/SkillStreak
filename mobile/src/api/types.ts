@@ -48,6 +48,9 @@ export interface CreatePlayerResponse {
   screenName: string;
   avatarId: string;
   consentStatus: ConsentStatus;
+  // Added 2026-07-27 for age-banded self-verification (13+) — lets the
+  // post-signup waiting screen show the right copy immediately.
+  isSelfVerification: boolean;
   sessionToken: string;
 }
 
@@ -89,6 +92,8 @@ export interface PlayerMeResponse {
     screenName: string;
     avatarId: string;
     consentStatus: ConsentStatus;
+    // Added 2026-07-27 for age-banded self-verification (13+).
+    isSelfVerification: boolean;
   };
   team: {
     teamId: string;

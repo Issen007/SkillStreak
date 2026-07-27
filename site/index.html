@@ -1263,16 +1263,16 @@ footer .foot-row {
           </div>
 
           <div class="wizard-step" data-step="parentContact">
-            <h3>Vi frågar en vuxen om lov</h3>
-            <p class="wz-sub">
+            <h3 id="wzParentHeading">Vi frågar en vuxen om lov</h3>
+            <p class="wz-sub" id="wzParentSub">
               Innan du kan börja logga träningar behöver en förälder eller
               vårdnadshavare säga ja. Vi skickar dem en snabb fråga — de
               godkänner med ett klick.
             </p>
             <div class="wz-field">
-              <label for="wzParentContact">Förälders eller vårdnadshavares e-post eller mobilnummer</label>
+              <label for="wzParentContact" id="wzParentLabel">Förälders eller vårdnadshavares e-post eller mobilnummer</label>
               <input class="wz-input" id="wzParentContact" type="text" placeholder="t.ex. namn@exempel.se">
-              <p class="wz-helper">Vi använder det bara för att fråga om lov — inget annat.</p>
+              <p class="wz-helper" id="wzParentHelper">Vi använder det bara för att fråga om lov — inget annat.</p>
             </div>
             <div class="wz-actions">
               <button class="btn btn-flame" id="wzParentSubmit" style="width:100%">Skicka förfrågan</button>
@@ -2092,7 +2092,34 @@ footer .foot-row {
         yearError.classList.remove('is-shown');
       }
     });
-    byId('wzYearSubmit').addEventListener('click', function () { showStep('parentContact'); });
+    // Age-banded self-verification (13+) — added 2026-07-27, same
+    // rolling threshold as the backend's isSelfVerificationAge (Sweden's
+    // actual GDPR Art. 8 digital-consent age, Dataskyddslagen 2018:218
+    // Ch.2§4). Copy-only here — the backend independently re-derives and
+    // enforces this itself from birthYear, so this can never bypass
+    // anything, only show the wrong wording for one step.
+    var SELF_VERIFICATION_MIN_AGE_YEARS = 13;
+    function updateParentContactStepCopy() {
+      var isSelfVerification =
+        state.birthYear !== null &&
+        thisYear - state.birthYear >= SELF_VERIFICATION_MIN_AGE_YEARS;
+      byId('wzParentHeading').textContent = isSelfVerification
+        ? 'Verifiera ditt konto'
+        : 'Vi frågar en vuxen om lov';
+      byId('wzParentSub').textContent = isSelfVerification
+        ? 'Innan du kan börja logga träningar behöver du verifiera din e-post eller ditt mobilnummer.'
+        : 'Innan du kan börja logga träningar behöver en förälder eller vårdnadshavare säga ja. Vi skickar dem en snabb fråga — de godkänner med ett klick.';
+      byId('wzParentLabel').textContent = isSelfVerification
+        ? 'Din e-post eller mobilnummer'
+        : 'Förälders eller vårdnadshavares e-post eller mobilnummer';
+      byId('wzParentHelper').textContent = isSelfVerification
+        ? 'Vi använder det bara för att verifiera ditt konto — inget annat.'
+        : 'Vi använder det bara för att fråga om lov — inget annat.';
+    }
+    byId('wzYearSubmit').addEventListener('click', function () {
+      updateParentContactStepCopy();
+      showStep('parentContact');
+    });
 
     // ---- Step: parentContact (O5) -> POST /players -> success (O6)
     byId('wzParentSubmit').addEventListener('click', function () {
@@ -2124,14 +2151,18 @@ footer .foot-row {
           if (data.teamCreated) {
             byId('wzSuccessEmoji').textContent = '👑🎉';
             byId('wzSuccessHeading').textContent = 'Grattis, ' + data.screenName + '! Du skapade ' + data.teamName + '!';
-            byId('wzSuccessBody').textContent = 'Du är lagets första spelare — och kapten! Så fort en förälder eller vårdnadshavare säger ja kan du börja logga träningar och bjuda in lagkompisar.';
+            byId('wzSuccessBody').textContent = data.isSelfVerification
+              ? 'Du är lagets första spelare — och kapten! Vi har skickat en verifieringslänk till dig. Så fort du klickar på den kan du börja logga träningar och bjuda in lagkompisar.'
+              : 'Du är lagets första spelare — och kapten! Så fort en förälder eller vårdnadshavare säger ja kan du börja logga träningar och bjuda in lagkompisar.';
             var chip = byId('wzSuccessCodeChip');
             chip.textContent = 'Lagkod: ' + state.inviteCode + ' — dela den så fler kan gå med';
             chip.style.display = 'inline-block';
           } else {
             byId('wzSuccessEmoji').textContent = '✅';
             byId('wzSuccessHeading').textContent = 'Klart, ' + data.screenName + '!';
-            byId('wzSuccessBody').textContent = 'Du är med i ' + data.teamName + '! Vi har skickat en fråga till en förälder eller vårdnadshavare. Så fort de säger ja kan du börja logga träningar och tjäna poäng till laget.';
+            byId('wzSuccessBody').textContent = data.isSelfVerification
+              ? 'Du är med i ' + data.teamName + '! Vi har skickat en verifieringslänk till dig. Så fort du klickar på den kan du börja logga träningar och tjäna poäng till laget.'
+              : 'Du är med i ' + data.teamName + '! Vi har skickat en fråga till en förälder eller vårdnadshavare. Så fort de säger ja kan du börja logga träningar och tjäna poäng till laget.';
             byId('wzSuccessCodeChip').style.display = 'none';
           }
           showStep('success');

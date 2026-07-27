@@ -5,8 +5,10 @@ import {
   ConsentNotPendingException,
   ConsentReminderRateLimitedException,
 } from '../common/errors/exceptions';
+import { isSelfVerificationAge } from '../common/age/self-verification-age.util';
 import { MailService } from '../mail/mail.service';
 import { buildConsentRequestEmail } from '../mail/templates/consent-request-email.template';
+import { buildSelfVerificationEmail } from '../mail/templates/self-verification-email.template';
 import { ConsentMethod } from '../player-private-info/entities/parental-consent-record.entity';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
 import { generateConsentToken } from '../players/consent-token.util';
@@ -19,10 +21,15 @@ const DEFAULT_APP_PUBLIC_URL = 'http://localhost:3000';
 
 export interface ConsentPreview {
   screenName: string;
+  // Added 2026-07-27 (age-banded self-verification) — tells
+  // ConsentController which page copy to render (first-person "verify
+  // your own account" vs. third-person "does a parent approve").
+  isSelfVerification: boolean;
 }
 
 export interface ConsentApprovalResult {
   screenName: string;
+  isSelfVerification: boolean;
 }
 
 export interface ConsentReminderResult {
@@ -56,7 +63,12 @@ export class ConsentService {
    */
   async previewByToken(token: string): Promise<ConsentPreview | null> {
     const player = await this.playersService.findValidByConsentToken(token);
-    return player ? { screenName: player.screenName } : null;
+    return player
+      ? {
+          screenName: player.screenName,
+          isSelfVerification: isSelfVerificationAge(player.birthYear),
+        }
+      : null;
   }
 
   /**
@@ -78,14 +90,17 @@ export class ConsentService {
         return null;
       }
 
+      const isSelfVerification = isSelfVerificationAge(player.birthYear);
       await this.playerPrivateInfoService.recordConsentEvent(
         manager,
         player.id,
         ParentalConsentStatus.APPROVED,
-        ConsentMethod.EMAIL_LINK,
+        isSelfVerification
+          ? ConsentMethod.SELF_EMAIL_LINK
+          : ConsentMethod.EMAIL_LINK,
       );
 
-      return { screenName: player.screenName };
+      return { screenName: player.screenName, isSelfVerification };
     });
   }
 
@@ -155,6 +170,7 @@ export class ConsentService {
       targetPlayer.id,
       targetPlayer.screenName,
       targetPlayer.teamId,
+      targetPlayer.birthYear,
       token,
     );
 
@@ -165,6 +181,7 @@ export class ConsentService {
     playerId: string,
     screenName: string,
     teamId: string,
+    birthYear: number,
     consentToken: string,
   ): Promise<void> {
     // Best-effort, same posture as OnboardingService's initial send: a
@@ -185,11 +202,17 @@ export class ConsentService {
         this.configService.get<string>('APP_PUBLIC_URL') ??
         DEFAULT_APP_PUBLIC_URL;
       const consentUrl = `${appPublicUrl}/api/v1/consent/${consentToken}`;
-      const email = buildConsentRequestEmail({
-        screenName,
-        teamName: team?.name ?? '',
-        consentUrl,
-      });
+      const email = isSelfVerificationAge(birthYear)
+        ? buildSelfVerificationEmail({
+            screenName,
+            teamName: team?.name ?? '',
+            consentUrl,
+          })
+        : buildConsentRequestEmail({
+            screenName,
+            teamName: team?.name ?? '',
+            consentUrl,
+          });
       await this.mailService.sendMail({
         to: parentContact,
         subject: email.subject,

@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TeamPoolService } from '../team-pool/team-pool.service';
 import { TeamsService } from '../teams/teams.service';
 import { stockholmDateString } from '../common/time/stockholm-date.util';
+import { isSelfVerificationAge } from '../common/age/self-verification-age.util';
 import { PlayersService } from './players.service';
 
 interface PlayerMeResponse {
@@ -12,6 +13,12 @@ interface PlayerMeResponse {
     screenName: string;
     avatarId: string;
     consentStatus: string;
+    // Added 2026-07-27 for age-banded self-verification (13+) — lets
+    // WaitingCard/O5ConsentAsk show "verify your own email" copy instead
+    // of "waiting for a parent" without the client needing to duplicate
+    // isSelfVerificationAge's own birth-year math. Derived server-side;
+    // the raw birthYear itself isn't exposed here, only this boolean.
+    isSelfVerification: boolean;
   };
   team: {
     teamId: string;
@@ -81,6 +88,7 @@ export class PlayersController {
         screenName: player.screenName,
         avatarId: player.avatarId,
         consentStatus: player.parentalConsentStatus,
+        isSelfVerification: isSelfVerificationAge(player.birthYear),
       },
       team: {
         teamId: team.id,

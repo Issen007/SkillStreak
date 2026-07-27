@@ -278,6 +278,14 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       return (
         <O5ConsentAsk
           initialParentContact={data.parentContact}
+          // Copy-only — the backend independently re-derives and enforces
+          // this from birthYear itself (isSelfVerificationAge), so a
+          // client-side mismatch here can never bypass anything, only
+          // show slightly wrong wording for one screen.
+          isSelfVerification={
+            data.birthYear !== null &&
+            new Date().getFullYear() - data.birthYear >= 13
+          }
           loading={o5Loading}
           errorText={o5Error}
           onSubmit={(parentContact) => {

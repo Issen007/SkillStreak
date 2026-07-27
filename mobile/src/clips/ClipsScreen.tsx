@@ -70,6 +70,7 @@ interface ReportConfirmationState {
 export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenProps) {
   const [hasSeenIntro, setHasSeenIntroState] = useState<boolean | null>(null);
   const [consentStatus, setConsentStatus] = useState<ConsentStatus | null>(null);
+  const [isSelfVerification, setIsSelfVerification] = useState(false);
 
   const [clips, setClips] = useState<ClipFeedItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -106,6 +107,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
     try {
       const me = await getMe();
       setConsentStatus(me.player.consentStatus);
+      setIsSelfVerification(me.player.isSelfVerification);
     } catch {
       // Non-critical — see above.
     }
@@ -372,6 +374,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
         {locked ? (
           <ClipsWaitingCard
             consentStatus={consentStatus ?? 'pending'}
+            isSelfVerification={isSelfVerification}
             onRefresh={handleManualRefresh}
             refreshing={manualRefreshing}
           />

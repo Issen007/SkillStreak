@@ -9,6 +9,13 @@ import { fonts } from '../../theme/fonts';
 
 interface O5ConsentAskProps {
   initialParentContact: string;
+  /** Age-banded self-verification (13+) — added 2026-07-27. Same rolling
+   * threshold as the backend's isSelfVerificationAge (13, Sweden's actual
+   * GDPR Art. 8 digital-consent age via Dataskyddslagen 2018:218 Ch.2§4),
+   * computed here purely for copy — the backend independently re-derives
+   * and enforces this itself from birthYear, this prop can never bypass
+   * anything. */
+  isSelfVerification: boolean;
   loading: boolean;
   errorText?: string | null;
   onSubmit: (parentContact: string) => void;
@@ -16,6 +23,7 @@ interface O5ConsentAskProps {
 
 export function O5ConsentAsk({
   initialParentContact,
+  isSelfVerification,
   loading,
   errorText,
   onSubmit,
@@ -26,17 +34,26 @@ export function O5ConsentAsk({
     <ScreenContainer scroll>
       <View style={styles.spacerTop} />
       <Text style={styles.icon}>🔒</Text>
-      <Text style={styles.heading}>Vi frågar en vuxen om lov</Text>
-      <Text style={styles.body}>
-        Innan du kan börja logga träningar behöver en förälder eller
-        vårdnadshavare säga ja.
+      <Text style={styles.heading}>
+        {isSelfVerification ? 'Verifiera ditt konto' : 'Vi frågar en vuxen om lov'}
       </Text>
       <Text style={styles.body}>
-        Vi skickar dem en snabb fråga — de godkänner med ett klick.
+        {isSelfVerification
+          ? 'Innan du kan börja logga träningar behöver du verifiera din e-post eller ditt mobilnummer.'
+          : 'Innan du kan börja logga träningar behöver en förälder eller vårdnadshavare säga ja.'}
+      </Text>
+      <Text style={styles.body}>
+        {isSelfVerification
+          ? 'Vi skickar en verifieringslänk — du bekräftar med ett klick.'
+          : 'Vi skickar dem en snabb fråga — de godkänner med ett klick.'}
       </Text>
 
       <TextField
-        label="Förälders eller vårdnadshavares e-post eller mobilnummer"
+        label={
+          isSelfVerification
+            ? 'Din e-post eller mobilnummer'
+            : 'Förälders eller vårdnadshavares e-post eller mobilnummer'
+        }
         value={parentContact}
         onChangeText={setParentContact}
         placeholder="t.ex. namn@exempel.se"
@@ -46,7 +63,9 @@ export function O5ConsentAsk({
         errorText={errorText ?? undefined}
       />
       <Text style={styles.helper}>
-        Vi använder det bara för att fråga om lov — inget annat.
+        {isSelfVerification
+          ? 'Vi använder det bara för att verifiera ditt konto — inget annat.'
+          : 'Vi använder det bara för att fråga om lov — inget annat.'}
       </Text>
 
       <View style={styles.spacer} />
