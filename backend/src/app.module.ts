@@ -55,6 +55,22 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
             name: 'default',
             ttl: 60_000,
             limit: 300,
+            // Added 2026-07-27 alongside the Redis-backed storage change
+            // above: e2e tests (test/*.e2e-spec.ts) run many separate
+            // spec files, each creating a fresh Nest app instance but all
+            // sharing one real Redis instance and one client IP
+            // (127.0.0.1 via supertest) — with in-memory storage this
+            // didn't matter (a fresh app = a fresh in-memory Map = a
+            // fresh counter per file), but Redis-backed counters persist
+            // across every file in the run, so POST /players' 10/min/IP
+            // throttle was tripping on unrelated later test files. No
+            // e2e test exercises the throttle-triggers-429 case itself
+            // (the storage math has its own dedicated unit tests,
+            // redis-throttler-storage.service.spec.ts, and was live-
+            // verified against the real cluster — see docs/ACTION_PLAN.md's
+            // Phase 4 section), so skipping it in test env costs no
+            // coverage.
+            skipIf: () => process.env.NODE_ENV === 'test',
           },
         ],
         storage,

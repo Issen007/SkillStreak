@@ -2,6 +2,11 @@
 // (O1-O6, plus O1a/O1b/O1c added by the 2026-07-09 self-service-team-
 // creation update). O7 is a home-screen state, not part of this flow (see
 // src/home/HomeScreen.tsx).
+// RA1/RA2 (docs/adr/0004-coach-auth-and-session-reissue.md's 2026-07-27
+// addendum) — the "Har du redan ett konto?" self-service session-reissue
+// entry point, reachable from O1. Not part of the O1-O6 numbering since
+// it's a parallel branch (an existing account regaining a session), not a
+// step in creating a new one.
 export type OnboardingStep =
   | 'O1'
   | 'O1a'
@@ -11,7 +16,9 @@ export type OnboardingStep =
   | 'O3'
   | 'O4'
   | 'O5'
-  | 'O6';
+  | 'O6'
+  | 'RA1'
+  | 'RA2';
 
 /** Everything collected across the onboarding screens, accumulated in
  * memory only until O5's submit (per the contract, nothing is created

@@ -8,6 +8,7 @@ import { AppModule } from '../src/app.module';
 import { AppExceptionFilter } from '../src/common/errors/http-exception.filter';
 import { PlayerTokenService } from '../src/auth/player-token.service';
 import { ParentalConsentStatus } from '../src/players/player-consent-status.enum';
+import { TeamJoinStatus } from '../src/players/team-join-status.enum';
 import { Player } from '../src/players/entities/player.entity';
 import { PlayerPrivateInfo } from '../src/player-private-info/entities/player-private-info.entity';
 import { Team } from '../src/teams/entities/team.entity';
@@ -141,6 +142,7 @@ describe('Phase 2 API (e2e)', () => {
         avatarId: 'fox',
         birthYear: 2012,
         parentalConsentStatus: consentStatus,
+        teamJoinStatus: TeamJoinStatus.APPROVED,
         isCaptain: true,
       }),
     );
@@ -167,6 +169,7 @@ describe('Phase 2 API (e2e)', () => {
         avatarId: 'fox',
         birthYear: 2014,
         parentalConsentStatus: consentStatus,
+        teamJoinStatus: TeamJoinStatus.APPROVED,
       }),
     );
     await dataSource.getRepository(PlayerPrivateInfo).save(
@@ -646,37 +649,133 @@ describe('Phase 2 API (e2e)', () => {
     });
   });
 
-  describe('Session reissue (ADR-0004 Part 3) — DISABLED pending a security fix', () => {
-    // A post-merge security review confirmed a captain could redeem their
-    // own teammate's reissue code themselves (the response was never bound
-    // to the target player), fully impersonating them with no rate limit
-    // or audit trail. Both routes are gated off (SessionReissueDisabledException,
-    // 503) until a redesign lands — see that exception's comment and
-    // docs/ACTION_PLAN.md's Phase 2 security-review follow-ups. These tests
-    // lock in "disabled", replacing the prior tests that exercised the full
-    // (now-disabled) flow.
-    it('rejects session-reissue with 503, even for a real captain', async () => {
+  describe('Session reissue (ADR-0004 Part 3, redesigned per its 2026-07-27 addendum)', () => {
+    // The original design returned the reissue code directly to whoever
+    // triggered it — a confirmed critical bug, since the same captain
+    // could then redeem it themselves and take over the target's account.
+    // The redesign never puts the code in any HTTP response; it's emailed
+    // to the target's own parent_contact instead (see SessionService).
+    // These tests verify the code by querying Postgres directly, exactly
+    // like the real player/parent would receive it via email, not by
+    // reading it off an API response (there is none to read it from).
+
+    async function readReissueCode(playerId: string): Promise<string> {
+      const player = await dataSource
+        .getRepository(Player)
+        .findOneOrFail({ where: { id: playerId } });
+      expect(player.sessionReissueCode).not.toBeNull();
+      return player.sessionReissueCode as string;
+    }
+
+    it('captain-triggered reissue never returns the code, bumps token_version, and the old token stops working', async () => {
       const { teamId } = await createTeamFixture();
       const { sessionToken: captainToken } = await createCaptain(teamId);
-      const { playerId } = await createTeamMember(teamId);
+      const { playerId, sessionToken: oldToken } =
+        await createTeamMember(teamId);
 
       const response = await request(app.getHttpServer())
         .post(`/api/v1/players/${playerId}/session-reissue`)
         .set('Authorization', `Bearer ${captainToken}`)
-        .expect(503);
+        .expect(200);
+      expect(response.body).toEqual({
+        requested: true,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- jest's own matcher typing
+        expiresAt: expect.any(String),
+      });
+      expect(JSON.stringify(response.body)).not.toMatch(/reissueCode/i);
+
+      // The pre-reissue token is now stale (token_version mismatch).
+      await request(app.getHttpServer())
+        .get('/api/v1/players/me')
+        .set('Authorization', `Bearer ${oldToken}`)
+        .expect(401);
+
+      const code = await readReissueCode(playerId);
+      const redeemResponse = await request(app.getHttpServer())
+        .post('/api/v1/players/session/redeem')
+        .send({ code })
+        .expect(200);
+      expect(redeemResponse.body).toEqual({
+        playerId,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- jest's own matcher typing
+        sessionToken: expect.any(String),
+      });
+
+      // The freshly-redeemed token works.
+      await request(app.getHttpServer())
+        .get('/api/v1/players/me')
+        .set(
+          'Authorization',
+          `Bearer ${(redeemResponse.body as { sessionToken: string }).sessionToken}`,
+        )
+        .expect(200);
+    });
+
+    it('rejects a second captain-triggered reissue within the cooldown window with 429', async () => {
+      const { teamId } = await createTeamFixture();
+      const { sessionToken: captainToken } = await createCaptain(teamId);
+      const { playerId } = await createTeamMember(teamId);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/players/${playerId}/session-reissue`)
+        .set('Authorization', `Bearer ${captainToken}`)
+        .expect(200);
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/players/${playerId}/session-reissue`)
+        .set('Authorization', `Bearer ${captainToken}`)
+        .expect(429);
       expect((response.body as ApiErrorBody).error.code).toBe(
-        'session_reissue_disabled',
+        'session_reissue_rate_limited',
       );
     });
 
-    it('rejects session/redeem with 503 regardless of the code supplied', async () => {
+    it('session/redeem rejects an unknown code with a generic invalid_or_expired_code error', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/v1/players/session/redeem')
-        .send({ code: 'ANYCODE1' })
-        .expect(503);
+        .send({ code: 'NOSUCHCODE' })
+        .expect(400);
       expect((response.body as ApiErrorBody).error.code).toBe(
-        'session_reissue_disabled',
+        'invalid_or_expired_code',
       );
+    });
+
+    describe('self-service reissue-request (no captain, no auth — the confirmed real "I already have an account" gap)', () => {
+      it('a real match generates a code, but the response is identical to a non-match', async () => {
+        const { teamId, inviteCode } = await createTeamFixture();
+        const { playerId, screenName } = await (async () => {
+          const member = await createTeamMember(teamId);
+          const player = await dataSource
+            .getRepository(Player)
+            .findOneOrFail({ where: { id: member.playerId } });
+          return { playerId: member.playerId, screenName: player.screenName };
+        })();
+
+        const matchResponse = await request(app.getHttpServer())
+          .post('/api/v1/players/session/reissue-request')
+          .send({ inviteCode, screenName: screenName.toUpperCase() }) // case-insensitive
+          .expect(200);
+        expect(matchResponse.body).toEqual({ requested: true });
+
+        const noMatchResponse = await request(app.getHttpServer())
+          .post('/api/v1/players/session/reissue-request')
+          .send({ inviteCode, screenName: 'NoSuchPlayerAtAll' })
+          .expect(200);
+        expect(noMatchResponse.body).toEqual({ requested: true });
+
+        const unknownTeamResponse = await request(app.getHttpServer())
+          .post('/api/v1/players/session/reissue-request')
+          .send({ inviteCode: 'NOSUCHTEAMCODE', screenName })
+          .expect(200);
+        expect(unknownTeamResponse.body).toEqual({ requested: true });
+
+        // Only the real match actually generated a redeemable code.
+        const code = await readReissueCode(playerId);
+        await request(app.getHttpServer())
+          .post('/api/v1/players/session/redeem')
+          .send({ code })
+          .expect(200);
+      });
     });
   });
 

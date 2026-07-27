@@ -138,11 +138,36 @@ export interface PlayerMeResponse {
 }
 
 // --- Phase 2 shapes, mirroring docs/api/phase2-contract.md exactly ---------
-// Session-reissue/redeem (ADR-0004 Part 3) are deliberately NOT modeled
-// here — both backend routes are disabled (503 `session_reissue_disabled`)
-// pending a security redesign (docs/ACTION_PLAN.md Phase 2 follow-up), so
-// there is no client function or type for them; building against a 503
-// would be dead work.
+
+// Session-reissue/redeem (ADR-0004 Part 3), redesigned per that ADR's
+// 2026-07-27 addendum — the code is emailed to the player's own
+// parent_contact, never returned here. Two request shapes (captain-
+// triggered, self-service) share the same generic-looking response shape
+// on the wire but are typed separately since the self-service one is
+// deliberately identical byte-for-byte whether or not a match was found.
+
+export interface RequestSessionReissueRequest {
+  inviteCode: string;
+  screenName: string;
+}
+
+export interface SessionReissueTriggerResponse {
+  requested: true;
+  expiresAt: string;
+}
+
+export interface SessionReissueSelfServiceResponse {
+  requested: true;
+}
+
+export interface RedeemSessionRequest {
+  code: string;
+}
+
+export interface RedeemSessionResponse {
+  playerId: string;
+  sessionToken: string;
+}
 
 export type WeeklyGoalStatus = 'draft' | 'active' | 'completed' | 'cancelled';
 

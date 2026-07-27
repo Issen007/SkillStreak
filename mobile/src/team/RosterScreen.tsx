@@ -5,7 +5,7 @@ import { RosterRow } from './components/RosterRow';
 import { ReminderActionSheet } from './components/ReminderActionSheet';
 import { Toast } from '../components/Toast';
 import { SecondaryLink } from '../components/SecondaryLink';
-import { getTeamRoster, sendConsentReminder } from '../api/endpoints';
+import { getTeamRoster, sendConsentReminder, triggerSessionReissue } from '../api/endpoints';
 import { ApiError } from '../api/ApiError';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
@@ -30,6 +30,7 @@ export function RosterScreen({ teamId, onBack, onNotCaptain }: RosterScreenProps
 
   const [sheetTarget, setSheetTarget] = useState<RosterPlayer | null>(null);
   const [sheetLoading, setSheetLoading] = useState(false);
+  const [reissueLoading, setReissueLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const fetchRoster = useCallback(async () => {
@@ -69,6 +70,29 @@ export function RosterScreen({ teamId, onBack, onNotCaptain }: RosterScreenProps
       }
     } finally {
       setSheetLoading(false);
+    }
+  };
+
+  const handleSendReissue = async () => {
+    if (!sheetTarget) return;
+    setReissueLoading(true);
+    try {
+      await triggerSessionReissue(sheetTarget.playerId);
+      setSheetTarget(null);
+      // The code itself was never in this response (docs/adr/0004-coach-
+      // auth-and-session-reissue.md's 2026-07-27 addendum) — it went
+      // straight to the player's own parent_contact by email, so this
+      // toast can only confirm the request went out, not show anything.
+      setToastMessage('Inloggningskod skickad till förälder/vårdnadshavare.');
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'session_reissue_rate_limited') {
+        setSheetTarget(null);
+        setToastMessage('En kod skickades nyss — vänta någon minut innan du skickar en till.');
+      } else {
+        setToastMessage('Något gick fel. Testa igen.');
+      }
+    } finally {
+      setReissueLoading(false);
     }
   };
 
@@ -113,8 +137,10 @@ export function RosterScreen({ teamId, onBack, onNotCaptain }: RosterScreenProps
         visible={sheetTarget !== null}
         screenName={sheetTarget?.screenName ?? ''}
         loading={sheetLoading}
+        reissueLoading={reissueLoading}
         onClose={() => setSheetTarget(null)}
         onSendReminder={() => void handleSendReminder()}
+        onSendReissue={() => void handleSendReissue()}
       />
 
       {toastMessage ? <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} /> : null}

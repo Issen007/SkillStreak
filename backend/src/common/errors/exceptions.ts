@@ -438,23 +438,29 @@ export class TeamJoinNotPendingException extends AppException {
   }
 }
 
-export class SessionReissueDisabledException extends AppException {
+// Both session-reissue routes were disabled (SessionReissueDisabledException,
+// 503 session_reissue_disabled) from 2026-07-05 to 2026-07-27, per a
+// security-review finding: the reissue code was returned directly to
+// whichever caller triggered it, so the same captain who triggered a
+// teammate's reissue could redeem it themselves — full account takeover,
+// no rate limit, no audit trail. Removed now that the redesign (docs/
+// adr/0004-coach-auth-and-session-reissue.md's 2026-07-27 addendum) binds
+// redemption to the target player's own parent_contact via email, never
+// to whoever made the request — see SessionService.
+
+export class SessionReissueRateLimitedException extends AppException {
   constructor() {
-    // Disabled 2026-07-05 per a security review finding: the reissue code
-    // is returned directly to whichever caller triggers it (intended to be
-    // relayed in person to the target player), but nothing technically
-    // stops that same caller from redeeming it themselves — a captain can
-    // fully impersonate any teammate, with no rate limit or audit trail.
-    // The underlying service/logic (SessionService, token_version,
-    // single-use code redemption) is otherwise sound and stays in place;
-    // only these two routes are gated off pending a redesign that binds
-    // redemption to the target player rather than to bearer possession of
-    // the code. See docs/adr/0004-coach-auth-and-session-reissue.md Part 3
-    // and docs/ACTION_PLAN.md's Phase 2 security-review follow-ups.
+    // Same per-player cooldown-lock shape as ConsentReminderRateLimitedException
+    // above — bounds inbox-spam harassment against a real family, not the
+    // security boundary itself (that's parent_contact-bound delivery).
+    // Thrown only on the captain-triggered path (the requester is already
+    // authorized, so "try again later" leaks nothing); the self-service
+    // path swallows this into its generic response instead, see
+    // SessionService.requestReissueSelfService.
     super(
-      'session_reissue_disabled',
-      'Session reissue is temporarily disabled pending a security fix.',
-      HttpStatus.SERVICE_UNAVAILABLE,
+      'session_reissue_rate_limited',
+      'A session-reissue code was already requested recently for this player; try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
     );
   }
 }

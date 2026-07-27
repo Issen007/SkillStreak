@@ -11,6 +11,7 @@ import { Player } from '../src/players/entities/player.entity';
 import { PlayerPrivateInfo } from '../src/player-private-info/entities/player-private-info.entity';
 import { Team } from '../src/teams/entities/team.entity';
 import { ParentalConsentStatus } from '../src/players/player-consent-status.enum';
+import { TeamJoinStatus } from '../src/players/team-join-status.enum';
 import { ClipReport } from '../src/video-clips/entities/clip-report.entity';
 import {
   VideoClip,
@@ -76,6 +77,7 @@ describe('Fas 3: concurrent clip reports from the same reporter (e2e)', () => {
         avatarId: 'fox',
         birthYear: 2013,
         parentalConsentStatus: ParentalConsentStatus.APPROVED,
+        teamJoinStatus: TeamJoinStatus.APPROVED,
       }),
     );
     await dataSource.getRepository(PlayerPrivateInfo).save(

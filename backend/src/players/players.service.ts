@@ -408,6 +408,44 @@ export class PlayersService {
   }
 
   /**
+   * Team-scoped, case-insensitive lookup for the self-service
+   * session-reissue-request endpoint (docs/adr/0004-coach-auth-and-
+   * session-reissue.md's 2026-07-27 addendum) — a player identifying
+   * themselves by team invite code + their own screen name shouldn't need
+   * to remember its exact capitalization. Returns `null` for zero *or
+   * more than one* match: the `(team_id, screen_name)` unique index is
+   * case-*sensitive*, so two players named e.g. `Foo`/`foo` on one team is
+   * possible today, and silently picking one via `LIMIT 1` would risk
+   * reissuing the wrong player's session — refusing to guess is the safe
+   * default here, especially since the caller (an unauthenticated,
+   * generic-response endpoint) can't be told to disambiguate anyway.
+   *
+   * Known, accepted limitation (security-reviewer, 2026-07-27, not fixed
+   * here — see the ADR addendum): a case-variant duplicate on a team
+   * silently and permanently disables self-service reissue for the
+   * affected player(s), with no visible error (the endpoint's response is
+   * always generic). Not fixed by enforcing case-insensitive uniqueness at
+   * onboarding, since that's a separate, broader behavior change outside
+   * this redesign's scope. The captain-triggered path (`triggerReissue`)
+   * is unaffected — it resolves the target by player ID from the roster,
+   * never by screen-name lookup — so this is a real but narrow gap with an
+   * existing fallback, not a dead end.
+   */
+  async findUniqueByTeamAndScreenName(
+    teamId: string,
+    screenName: string,
+  ): Promise<Player | null> {
+    const matches = await this.playerRepository
+      .createQueryBuilder('player')
+      .where('player.team_id = :teamId', { teamId })
+      .andWhere('LOWER(player.screen_name) = LOWER(:screenName)', {
+        screenName,
+      })
+      .getMany();
+    return matches.length === 1 ? matches[0] : null;
+  }
+
+  /**
    * Persists a freshly generated consent-approval token (see
    * ../players/consent-token.util.ts for generation) onto the player row.
    * Always takes a manager — callers that aren't already inside a
