@@ -221,7 +221,12 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
     return <LeaderboardScreen teamId={me.team.teamId} onBack={() => setView('home')} />;
   }
 
-  const isApproved = me.player.consentStatus === 'approved';
+  // Two independent gates, added 2026-07-27 (team-join approval alongside
+  // the existing parental-consent one) — both must clear before gameplay
+  // unlocks. WaitingCard shows whichever is still pending (or both).
+  const isApproved =
+    me.player.consentStatus === 'approved' &&
+    me.player.teamJoinStatus === 'approved';
 
   return (
     <View style={styles.container}>
@@ -250,6 +255,7 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
           <WaitingCard
             consentStatus={me.player.consentStatus}
             isSelfVerification={me.player.isSelfVerification}
+            teamJoinStatus={me.player.teamJoinStatus}
             onRefresh={handleManualRefresh}
             refreshing={manualRefreshing}
           />

@@ -16,6 +16,7 @@ import { ConsentMethod } from '../player-private-info/entities/parental-consent-
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
 import { generateConsentToken } from '../players/consent-token.util';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
+import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { PlayersService } from '../players/players.service';
 import { TeamPoolService } from '../team-pool/team-pool.service';
 import { Team } from '../teams/entities/team.entity';
@@ -55,6 +56,7 @@ interface CreatePlayerResult {
   avatarId: string;
   consentStatus: ParentalConsentStatus;
   isSelfVerification: boolean;
+  teamJoinStatus: TeamJoinStatus;
   sessionToken: string;
 }
 
@@ -198,6 +200,7 @@ export class OnboardingService {
         avatarId: result.player.avatarId,
         consentStatus: result.player.parentalConsentStatus,
         isSelfVerification: selfVerification,
+        teamJoinStatus: result.player.teamJoinStatus,
         sessionToken: this.playerTokenService.issueFor(
           result.player.id,
           result.player.tokenVersion,

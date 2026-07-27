@@ -19,6 +19,7 @@ import type {
   GoalHistoryResponse,
   InvitePreviewResponse,
   LeaderboardResponse,
+  PendingJoinsResponse,
   PlayerMeResponse,
   PostChatMessageRequest,
   PostChatMessageResponse,
@@ -27,6 +28,7 @@ import type {
   ReportClipRequest,
   ReportClipResponse,
   TeamDashboardResponse,
+  TeamJoinDecisionResponse,
   TeammatesResponse,
   TeamRosterResponse,
   TrainingLogResponse,
@@ -172,6 +174,41 @@ export function getTeammates(teamId: string): Promise<TeammatesResponse> {
   return apiClient.request<TeammatesResponse>(
     `/teams/${encodeURIComponent(teamId)}/teammates`,
     { auth: true },
+  );
+}
+
+// --- Fas 4 additions: captain approval for new team joins -------------------
+// docs/adr/0009-self-service-team-creation.md's 2026-07-27 addendum.
+
+/** GET /teams/:teamId/pending-joins — auth required, captain-gated
+ * server-side (`403 not_team_captain`). Backs Laget's "Väntar på
+ * godkännande" section. */
+export function getPendingJoins(teamId: string): Promise<PendingJoinsResponse> {
+  return apiClient.request<PendingJoinsResponse>(
+    `/teams/${encodeURIComponent(teamId)}/pending-joins`,
+    { auth: true },
+  );
+}
+
+/** POST /teams/:teamId/pending-joins/:playerId/approve — captain-gated. */
+export function approveTeamJoin(
+  teamId: string,
+  playerId: string,
+): Promise<TeamJoinDecisionResponse> {
+  return apiClient.request<TeamJoinDecisionResponse>(
+    `/teams/${encodeURIComponent(teamId)}/pending-joins/${encodeURIComponent(playerId)}/approve`,
+    { method: 'POST', auth: true },
+  );
+}
+
+/** POST /teams/:teamId/pending-joins/:playerId/reject — captain-gated. */
+export function rejectTeamJoin(
+  teamId: string,
+  playerId: string,
+): Promise<TeamJoinDecisionResponse> {
+  return apiClient.request<TeamJoinDecisionResponse>(
+    `/teams/${encodeURIComponent(teamId)}/pending-joins/${encodeURIComponent(playerId)}/reject`,
+    { method: 'POST', auth: true },
   );
 }
 

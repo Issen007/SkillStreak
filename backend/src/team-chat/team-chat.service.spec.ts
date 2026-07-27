@@ -8,6 +8,7 @@ import {
   TeamMismatchException,
 } from '../common/errors/exceptions';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
+import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { ChatMessageStatus } from './entities/team-chat-message.entity';
 import { ChatMessageReportReason } from './entities/team-chat-message-report.entity';
 import { TeamChatService } from './team-chat.service';
@@ -37,6 +38,7 @@ function buildService(
     screenName: 'FloorballStar15',
     avatarId: 'fox',
     parentalConsentStatus: ParentalConsentStatus.APPROVED,
+    teamJoinStatus: TeamJoinStatus.APPROVED,
   };
 
   const playersService = {

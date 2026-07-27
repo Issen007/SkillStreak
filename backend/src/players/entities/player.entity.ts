@@ -6,6 +6,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { ParentalConsentStatus } from '../player-consent-status.enum';
+import { TeamJoinStatus } from '../team-join-status.enum';
 
 // Deliberately does NOT include real_name or parent_contact — those live in
 // PlayerPrivateInfo (see docs/adr/0002-data-model.md's 2026-07-03 addendum
@@ -40,6 +41,24 @@ export class Player {
     default: ParentalConsentStatus.PENDING,
   })
   parentalConsentStatus!: ParentalConsentStatus;
+
+  // Added 2026-07-27: a second, independent gate alongside
+  // parentalConsentStatus above — the team captain confirming a new
+  // joiner is legitimate, not just whoever had the invite code. Default
+  // is set per-row at creation time (OnboardingService), not by this
+  // column's own DB default: APPROVED for whoever's join *created* the
+  // team (they can't be pending approval from themselves), PENDING for
+  // everyone joining an existing team via invite code. The DB default
+  // below (PENDING) only matters if a row is ever inserted outside that
+  // path (e.g. a future seed script).
+  @Column({
+    name: 'team_join_status',
+    type: 'enum',
+    enum: TeamJoinStatus,
+    enumName: 'team_join_status_enum',
+    default: TeamJoinStatus.PENDING,
+  })
+  teamJoinStatus!: TeamJoinStatus;
 
   // Denormalized streak fields, kept in sync with TrainingLogEntry inserts
   // in the same Postgres transaction (see TrainingLogsService) — durable so

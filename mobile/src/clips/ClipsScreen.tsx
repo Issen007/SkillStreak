@@ -33,7 +33,12 @@ import {
 } from '../api/localFlags';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
-import type { ClipFeedItem, ClipReportReason, ConsentStatus } from '../api/types';
+import type {
+  ClipFeedItem,
+  ClipReportReason,
+  ConsentStatus,
+  TeamJoinStatus,
+} from '../api/types';
 
 interface ClipsScreenProps {
   teamId: string;
@@ -71,6 +76,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
   const [hasSeenIntro, setHasSeenIntroState] = useState<boolean | null>(null);
   const [consentStatus, setConsentStatus] = useState<ConsentStatus | null>(null);
   const [isSelfVerification, setIsSelfVerification] = useState(false);
+  const [teamJoinStatus, setTeamJoinStatus] = useState<TeamJoinStatus | null>(null);
 
   const [clips, setClips] = useState<ClipFeedItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -108,6 +114,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       const me = await getMe();
       setConsentStatus(me.player.consentStatus);
       setIsSelfVerification(me.player.isSelfVerification);
+      setTeamJoinStatus(me.player.teamJoinStatus);
     } catch {
       // Non-critical — see above.
     }
@@ -355,7 +362,9 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
     return <ClipIntroCard onDismiss={handleDismissIntro} />;
   }
 
-  const locked = consentStatus !== null && consentStatus !== 'approved';
+  const locked =
+    (consentStatus !== null && consentStatus !== 'approved') ||
+    (teamJoinStatus !== null && teamJoinStatus !== 'approved');
 
   return (
     <View style={styles.container}>
@@ -375,6 +384,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
           <ClipsWaitingCard
             consentStatus={consentStatus ?? 'pending'}
             isSelfVerification={isSelfVerification}
+            teamJoinStatus={teamJoinStatus ?? 'pending'}
             onRefresh={handleManualRefresh}
             refreshing={manualRefreshing}
           />

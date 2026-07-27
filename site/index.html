@@ -2160,9 +2160,14 @@ footer .foot-row {
           } else {
             byId('wzSuccessEmoji').textContent = '✅';
             byId('wzSuccessHeading').textContent = 'Klart, ' + data.screenName + '!';
+            // Fas 4 (captain approval for new joins, added 2026-07-27):
+            // joining an existing team now also needs the captain's
+            // approval, on top of whichever consent path applies — this
+            // path is never reached for data.teamCreated (the creator's
+            // own join auto-approves, see docs/adr/0009's addendum).
             byId('wzSuccessBody').textContent = data.isSelfVerification
-              ? 'Du är med i ' + data.teamName + '! Vi har skickat en verifieringslänk till dig. Så fort du klickar på den kan du börja logga träningar och tjäna poäng till laget.'
-              : 'Du är med i ' + data.teamName + '! Vi har skickat en fråga till en förälder eller vårdnadshavare. Så fort de säger ja kan du börja logga träningar och tjäna poäng till laget.';
+              ? 'Du är med i ' + data.teamName + '! Vi har skickat en verifieringslänk till dig, och lagets kapten behöver godkänna att du gick med. Så fort båda är klara kan du börja logga träningar och tjäna poäng till laget.'
+              : 'Du är med i ' + data.teamName + '! Vi har skickat en fråga till en förälder eller vårdnadshavare, och lagets kapten behöver godkänna att du gick med. Så fort båda är klara kan du börja logga träningar och tjäna poäng till laget.';
             byId('wzSuccessCodeChip').style.display = 'none';
           }
           showStep('success');

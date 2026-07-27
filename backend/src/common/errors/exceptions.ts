@@ -401,6 +401,43 @@ export class ClipReportRateLimitedException extends AppException {
   }
 }
 
+// --- Fas 4 (captain approval for new team joins) ----------------------------
+// Added 2026-07-27: joining an existing team via invite code used to be
+// immediate — anyone with the code was a full member on the spot. A
+// captain now has to approve each new join before it counts, mirroring
+// how parental consent already gates gameplay (a second, independent
+// gate, not a replacement for it).
+
+export class TeamJoinApprovalRequiredException extends AppException {
+  constructor() {
+    // Distinct from ConsentRequiredException (a parent/self-verification
+    // gate) — this is a *team-integrity* gate: the captain hasn't yet
+    // confirmed this joiner is legitimately part of the team. Both gates
+    // are independent and both must be clear before training-log/chat/
+    // clips access — see assertTeamJoinApproved in each of those services.
+    super(
+      'team_join_approval_required',
+      "The team captain hasn't approved this join yet.",
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class TeamJoinNotPendingException extends AppException {
+  constructor() {
+    // Mirrors ConsentNotPendingException's reasoning: approving/rejecting
+    // a join that isn't actually pending (already approved, already
+    // rejected, or the captain's own auto-approved join) is a stale-state
+    // client error, not a 404 — the player row is real, just not
+    // actionable this way anymore.
+    super(
+      'team_join_not_pending',
+      'This player is not pending team-join approval.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
 export class SessionReissueDisabledException extends AppException {
   constructor() {
     // Disabled 2026-07-05 per a security review finding: the reissue code

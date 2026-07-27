@@ -19,6 +19,10 @@ interface PlayerMeResponse {
     // isSelfVerificationAge's own birth-year math. Derived server-side;
     // the raw birthYear itself isn't exposed here, only this boolean.
     isSelfVerification: boolean;
+    // Added 2026-07-27 for captain approval of new team joins — a second,
+    // independent gate alongside consentStatus above (see
+    // docs/adr/0009-self-service-team-creation.md's 2026-07-27 addendum).
+    teamJoinStatus: string;
   };
   team: {
     teamId: string;
@@ -89,6 +93,7 @@ export class PlayersController {
         avatarId: player.avatarId,
         consentStatus: player.parentalConsentStatus,
         isSelfVerification: isSelfVerificationAge(player.birthYear),
+        teamJoinStatus: player.teamJoinStatus,
       },
       team: {
         teamId: team.id,

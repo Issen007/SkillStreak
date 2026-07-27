@@ -34,7 +34,12 @@ import {
 } from '../api/localFlags';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
-import type { ChatMessage, ChatReportReason, ConsentStatus } from '../api/types';
+import type {
+  ChatMessage,
+  ChatReportReason,
+  ConsentStatus,
+  TeamJoinStatus,
+} from '../api/types';
 
 interface ChatScreenProps {
   teamId: string;
@@ -73,6 +78,9 @@ interface ReportConfirmationState {
 export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps) {
   const [hasSeenIntro, setHasSeenIntroState] = useState<boolean | null>(null);
   const [consentStatus, setConsentStatus] = useState<ConsentStatus | null>(null);
+  // Added 2026-07-27 — a second, independent gate (captain approval of
+  // the team join itself) alongside consentStatus above.
+  const [teamJoinStatus, setTeamJoinStatus] = useState<TeamJoinStatus | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -119,6 +127,7 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps
     try {
       const me = await getMe();
       setConsentStatus(me.player.consentStatus);
+      setTeamJoinStatus(me.player.teamJoinStatus);
     } catch {
       // Non-critical for this screen — a stale consent status just means
       // the compose box's locked state is one foreground-check behind; the
@@ -357,7 +366,9 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps
     return <ChatIntroCard onDismiss={handleDismissIntro} />;
   }
 
-  const locked = consentStatus !== null && consentStatus !== 'approved';
+  const locked =
+    (consentStatus !== null && consentStatus !== 'approved') ||
+    (teamJoinStatus !== null && teamJoinStatus !== 'approved');
 
   return (
     <KeyboardAvoidingView

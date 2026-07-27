@@ -16,6 +16,7 @@ import {
   CaptionRejectedByFilterException,
   ConsentRequiredException,
   NotYourClipException,
+  TeamJoinApprovalRequiredException,
   UploadNotFoundException,
 } from '../common/errors/exceptions';
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
@@ -25,6 +26,7 @@ import {
 } from '../mail/templates/clip-report-notification-email.template';
 import { MailService } from '../mail/mail.service';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
+import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { PlayersService } from '../players/players.service';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
 import { Coach } from '../coaches/entities/coach.entity';
@@ -56,6 +58,16 @@ const REPORT_UNIQUE_CONSTRAINT = 'UQ_clip_report_clip_reporter';
 function assertConsentApproved(status: ParentalConsentStatus): void {
   if (status !== ParentalConsentStatus.APPROVED) {
     throw new ConsentRequiredException();
+  }
+}
+
+// Added 2026-07-27 — a second, independent gate alongside
+// assertConsentApproved above (see TeamJoinApprovalRequiredException).
+// Mirrors that function's exact call sites (createUploadUrl, listClips,
+// reportClip) rather than introducing new gating scope.
+function assertTeamJoinApproved(status: TeamJoinStatus): void {
+  if (status !== TeamJoinStatus.APPROVED) {
+    throw new TeamJoinApprovalRequiredException();
   }
 }
 
@@ -161,6 +173,7 @@ export class VideoClipsService {
       teamId,
     );
     assertConsentApproved(player.parentalConsentStatus);
+    assertTeamJoinApproved(player.teamJoinStatus);
 
     const claimed =
       await this.redisService.tryClaimClipUploadAllowance(requesterId);
@@ -415,6 +428,7 @@ export class VideoClipsService {
       teamId,
     );
     assertConsentApproved(player.parentalConsentStatus);
+    assertTeamJoinApproved(player.teamJoinStatus);
 
     const qb = this.videoClipRepository
       .createQueryBuilder('clip')
@@ -539,6 +553,7 @@ export class VideoClipsService {
       teamId,
     );
     assertConsentApproved(player.parentalConsentStatus);
+    assertTeamJoinApproved(player.teamJoinStatus);
 
     const clip = await this.videoClipRepository.findOne({
       where: { id: clipId, teamId, status: VideoClipStatus.PUBLISHED },

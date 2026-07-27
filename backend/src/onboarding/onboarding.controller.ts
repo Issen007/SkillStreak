@@ -20,6 +20,9 @@ interface CreatePlayerResponse {
   // without an extra GET /players/me round-trip. See PlayersController's
   // identical field for the equivalent post-signup case.
   isSelfVerification: boolean;
+  // Added 2026-07-27 for captain approval of new team joins — see
+  // PlayersController's identical field for the post-signup case.
+  teamJoinStatus: string;
   sessionToken: string;
 }
 
