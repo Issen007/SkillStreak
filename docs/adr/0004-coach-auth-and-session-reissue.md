@@ -423,3 +423,168 @@ See `docs/adr/0005-kapten-and-weekly-team-goal.md` for the captain data
 model, the weekly-team-goal design (reusing the `Challenge` entity), and the
 goal-completion bonus mechanic — and `docs/api/phase2-contract.md` for the
 resulting endpoint contract.
+
+## Addendum — 2026-07-27: redesign binding redemption to the target player
+
+Both Part 3 routes have sat disabled (`SessionReissueDisabledException`,
+`503 session_reissue_disabled`) since the confirmed critical finding in
+Phase 2's post-merge review: `POST /players/:playerId/session-reissue`
+returned the reissue code directly to whichever caller triggered it,
+intended to be relayed in person to the target player, but nothing bound
+redemption to the target — so the same captain who triggered reissue
+could immediately redeem the code themselves via
+`POST /players/session/redeem` and obtain a live session token **for the
+target player**, i.e. full account takeover, repeatedly, with no rate
+limit or audit trail. This addendum is that redesign, per this project
+owner's direct instruction, prompted by a separate, real, confirmed gap
+(`docs/PROJECT.md`'s Fas 4 punch list, item 2): a real user tried to
+reconnect an existing account on a new session and found no "I already
+have an account" path anywhere in the app or website — onboarding
+(O1-O6) only ever creates a *new* player.
+
+### The fix: the code goes to `parent_contact`, never to the requester
+
+Whoever triggers a reissue — a captain, or the new self-service entry
+point below — never sees the code. `SessionService` now emails it to the
+**target player's own `parent_contact`** (via `PlayerPrivateInfoService
+.getParentContact`, the same read path `ConsentService`'s reminder-resend
+already uses — `PlayersModule` still never imports
+`PlayerPrivateInfoModule` directly, per ADR-0002 addendum §1's boundary).
+This reuses the exact trust boundary parental consent already relies on:
+for an under-13 player that's the actual parent/guardian's inbox; for a
+13+ self-verified player (ADR-0002's 2026-07-27 addendum) `parent_contact`
+already *is* the player's own verified email, so the code reaches them
+directly, no relay needed. Delivery is best-effort — same posture as
+every other mail send in this app (`ConsentService
+.sendReminderEmailBestEffort`, `OnboardingService`'s initial send): a mail
+failure, an unconfigured SMTP relay, or `parent_contact` being a phone
+number rather than an email (`parent_contact` accepts either, per
+`IsEmailOrPhone` — this app has no SMS pipeline) must never fail the
+underlying reissue request itself, and is logged, not surfaced to the
+caller. **This is a known, pre-existing, accepted gap carried over
+unchanged from the parental-consent flow, not a new one** — a phone-only
+`parent_contact` already couldn't complete consent by email either.
+
+Binding redemption to `parent_contact` closes the account-takeover path
+regardless of *who* triggers the reissue or *why* — a captain can no
+longer redeem a teammate's code because a captain never receives it. This
+is what makes it safe to add a second, unauthenticated trigger surface
+below without reopening the same hole.
+
+### New: self-service "I already have an account" entry point
+
+The confirmed real gap was hit with no captain in the loop at all — a
+player using the website's try-it demo on a fresh session, nobody around
+to trigger anything on their behalf. New endpoint,
+`POST /api/v1/players/session/reissue-request { inviteCode, screenName }`,
+unauthenticated (same category as `POST /players` — the caller has no
+session by definition), resolves the target by team invite code +
+case-insensitive screen name within that team (a new
+`PlayersService.findUniqueByTeamAndScreenName`; returns nothing if zero or
+*more than one* case-insensitive match — the existing `(team_id,
+screen_name)` unique index is case-*sensitive*, so two players named
+`Foo`/`foo` on one team is possible today; refusing to guess which one is
+meant is the safe default over a `LIMIT 1`-and-hope). If resolved, it goes
+through the exact same reissue mechanism as the captain-triggered route
+(see below). **The response is always the same generic
+`{ requested: true }`, regardless of whether `inviteCode`/`screenName`
+matched anything** — mirroring ADR-0004 Part 1's original password-reset-
+request pattern ("always `200`... to avoid confirming which emails have
+accounts") — so this can't be used to enumerate valid screen names within
+a team. Team invite codes are meant to be shared aloud to recruit
+teammates (not a secret), so this endpoint's realistic abuse surface isn't
+account takeover (redemption is still bound to `parent_contact`) but
+**inbox-spam harassment** — see the cooldown below for the mitigation —
+plus a per-IP `@Throttle` on the route itself (mirroring `POST /players`'
+`10/min/IP`) as volume-level defense-in-depth. One accepted, unaddressed
+gap, consistent with this app's existing risk posture on unauthenticated
+identity-probing endpoints (e.g. the invite-code lookup): response time
+differs slightly between a match (DB write + transaction + mail send) and
+a non-match (one query), a minor timing side channel not being normalized
+here.
+
+### Shared mechanism, two trigger surfaces
+
+Both entry points call the same internal `SessionService.performReissue`:
+claim a 5-minute per-player Redis cooldown
+(`RedisService.tryClaimSessionReissueCooldown`, identical shape to the
+existing `tryClaimConsentReminderCooldown`) — **on the captain-triggered
+path a claim failure throws a real, visible
+`SessionReissueRateLimitedException` (429)**, since the captain is already
+authorized and knowing "try again in a few minutes" leaks nothing; **on
+the self-service path every failure (cooldown, lookup miss, mail error) is
+swallowed and the same generic response returned**, since anything
+distinguishable here is exactly the enumeration/harassment surface this
+redesign is closing. Then: bump `token_version` + generate a fresh code
+inside the same row-locked transaction Part 3 already designed (unchanged
+— entropy/TTL/format all stand as originally specified), and best-effort
+email it via a new `session-reissue-email.template.ts` (first-person-
+adjacent copy explaining someone requested to log back into
+`{screenName}`'s account, the code, its 15-minute expiry, and a plain "if
+this wasn't you or your child, ignore this — it expires automatically"
+line, since an unprompted email like this could otherwise read as
+alarming).
+
+**Response shapes change, deliberately.** The captain-triggered route's
+response drops `reissueCode` entirely — `{ requested: true, expiresAt }`
+— the code is never in an HTTP response body again, anywhere. The new
+self-service route returns the flat `{ requested: true }` described above.
+`POST /players/session/redeem { code }` (Part 3, unauthenticated,
+single-use) is unchanged — the kid still types the code into the app
+themselves once they (or their parent) have it from the email, same
+interaction as before, just sourced from an inbox instead of read off a
+captain's screen.
+
+### What still needs building
+
+Both `SessionController` routes' `SessionReissueDisabledException` throws
+are removed and replaced with real handlers, plus the new self-service
+route — backend-developer. Frontend surfaces this ADR always anticipated
+but Phase 2's disable meant were never built (confirmed via grep at the
+time: zero references anywhere in `mobile/src`): a player-facing "enter
+your reissue code" redeem screen, a new "Har du redan ett konto?"
+self-service entry point on both mobile onboarding and the website (site/
+index.html — this is where the real gap was actually hit), and the
+captain-facing trigger surface in the roster (K2/K3's reissue action,
+previously correctly skipped while disabled). All flagged for frontend-
+developer, not designed screen-by-screen here.
+
+Given the history — the last version of this exact mechanism was a
+confirmed critical account-takeover bug — this redesign gets a real,
+independent security-reviewer pass before it ships, not a self-review,
+per CLAUDE.md's blocking-review rule for anything touching auth.
+
+### security-reviewer pass (2026-07-27) — two findings, both addressed
+
+**Confirmed: the core fix holds.** Every response shape was traced end to
+end — the code never reaches an HTTP response body under any path,
+`triggerReissue` checks the target's team against the requester's
+captaincy before any mutation, the self-service endpoint's response is
+identical byte-for-byte on every failure path (no enumeration tell), the
+email template HTML-escapes the code, and a mail-send failure never rolls
+back the already-committed `token_version` bump/code write.
+
+- **CONFIRMED, fixed before shipping — unauthenticated harassment DoS.**
+  `POST /players/session/reissue-request` needs no secret (invite codes
+  are meant to be shared; screen names are visible to any teammate via the
+  roster), and the 5-minute burst cooldown alone still allowed ~288 forced
+  session-invalidations + parent_contact emails per day for one player —
+  the exact same "burst-only, no sustained-volume cap" gap this codebase
+  already found and fixed for consent-reminder resends (Phase 2.5's
+  review), recommending "a daily cap per target (e.g. 3/day)". Applied
+  here verbatim: `RedisService.tryClaimSessionReissueDailyCap`, a 3/day
+  fixed-window counter checked *after* (not parallel with) the burst
+  cooldown, so a burst-blocked attempt never consumes the daily budget —
+  see `SessionService.performReissue`.
+- **CONFIRMED, accepted as a known limitation, not fixed** — a case-
+  variant screen-name duplicate on a team (the `(team_id, screen_name)`
+  unique index is case-sensitive; the self-service lookup is
+  case-insensitive) silently and permanently disables self-service
+  reissue for the affected player(s), since `findUniqueByTeamAndScreenName`
+  correctly refuses to guess which one is meant and the endpoint's
+  response is always generic either way. Not fixed by enforcing
+  case-insensitive uniqueness at onboarding — a separate, broader behavior
+  change outside this redesign's scope. Real but narrow: the
+  captain-triggered path resolves by player ID from the roster, never by
+  screen-name lookup, so it's unaffected and remains a working fallback.
+  See `PlayersService.findUniqueByTeamAndScreenName`'s comment.

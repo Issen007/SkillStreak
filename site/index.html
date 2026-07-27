@@ -1176,6 +1176,41 @@ footer .foot-row {
             <p class="wz-helper" style="text-align:center; margin-top:16px;">
               Testa gärna koden <strong>FALKEN13</strong> för att se hur det ser ut att gå med i ett befintligt lag.
             </p>
+            <p class="wz-helper" style="text-align:center; margin-top:12px;">
+              <a href="#" id="wzGoReturning" style="color:var(--flame-deep); font-weight:800;">Har du redan ett konto?</a>
+            </p>
+          </div>
+
+          <div class="wizard-step" data-step="returning">
+            <h3>Har du redan ett konto?</h3>
+            <p class="wz-sub">Ange lagets kod och ditt användarnamn, så skickar vi en inloggningskod till din (eller din förälders) e-post.</p>
+            <div class="wz-field">
+              <label for="wzReturningCode">Lagkod</label>
+              <input class="wz-input wz-code" id="wzReturningCode" type="text" placeholder="T.ex. FALKEN24" maxlength="20" autocomplete="off">
+            </div>
+            <div class="wz-field">
+              <label for="wzReturningName">Ditt användarnamn</label>
+              <input class="wz-input" id="wzReturningName" type="text" placeholder="Ditt användarnamn" maxlength="30" autocomplete="off">
+            </div>
+            <div class="wz-actions">
+              <button class="btn btn-outline" data-back="code">Tillbaka</button>
+              <button class="btn btn-flame" id="wzReturningSubmit">Skicka kod</button>
+            </div>
+          </div>
+
+          <div class="wizard-step" data-step="redeemCode">
+            <span class="em-big">📩</span>
+            <h3>Kolla inkorgen</h3>
+            <p class="wz-sub">Om uppgifterna stämde har vi skickat en kod till din (eller din förälders) e-post. Ange koden nedan för att logga in igen.</p>
+            <div class="wz-field">
+              <label for="wzRedeemCode">Kod</label>
+              <input class="wz-input wz-code" id="wzRedeemCode" type="text" placeholder="T.ex. H4K7QWXP" maxlength="32" autocomplete="off">
+            </div>
+            <div class="wz-actions">
+              <button class="btn btn-outline" data-back="returning">Fick du ingen kod?</button>
+              <button class="btn btn-flame" id="wzRedeemSubmit">Logga in</button>
+            </div>
+            <p class="wz-error" id="wzRedeemError"></p>
           </div>
 
           <div class="wizard-step" data-step="notfound">
@@ -1708,6 +1743,7 @@ footer .foot-row {
     var STAGES = ['kod', 'lag', 'profil', 'ålder', 'godkännande', 'klart'];
     var STEP_STAGE = {
       code: 0, notfound: 0, nameTeam: 0, confirmCreate: 0, confirmJoin: 0,
+      returning: 0, redeemCode: 0,
       playerName: 1, birthYear: 2, parentContact: 3, success: 4
     };
 
@@ -1928,6 +1964,68 @@ footer .foot-row {
     });
     byId('wzCode').addEventListener('input', function () {
       renderChips('wzCodeSuggestions', '', [], function () {});
+    });
+
+    // ---- "Har du redan ett konto?" (docs/adr/0004-coach-auth-and-
+    // session-reissue.md's 2026-07-27 addendum) — self-service session
+    // reissue, mirroring mobile/src/onboarding/screens/RA1ReturningUser.tsx
+    // and RA2RedeemCode.tsx. The request step's response is deliberately
+    // generic (POST /players/session/reissue-request never reveals
+    // whether inviteCode/screenName matched anything), so this always
+    // moves on to the redeem step regardless of what the API said.
+    byId('wzGoReturning').addEventListener('click', function (e) {
+      e.preventDefault();
+      showStep('returning');
+    });
+
+    byId('wzReturningSubmit').addEventListener('click', function () {
+      var codeInput = byId('wzReturningCode');
+      var nameInput = byId('wzReturningName');
+      var code = codeInput.value.trim().toUpperCase();
+      var name = nameInput.value.trim();
+      if (!code) { codeInput.focus(); return; }
+      if (!name) { nameInput.focus(); return; }
+
+      var btn = byId('wzReturningSubmit');
+      setBusy(btn, true, 'Skickar…');
+      apiCall('/api/v1/players/session/reissue-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteCode: code, screenName: name })
+      })
+        .catch(function () { /* swallowed on purpose, see comment above */ })
+        .then(function () {
+          setBusy(btn, false);
+          showStep('redeemCode');
+        });
+    });
+
+    byId('wzRedeemSubmit').addEventListener('click', function () {
+      var input = byId('wzRedeemCode');
+      var code = input.value.trim().toUpperCase();
+      if (!code) { input.focus(); return; }
+      clearError('wzRedeemError');
+
+      var btn = byId('wzRedeemSubmit');
+      setBusy(btn, true, 'Loggar in…');
+      apiCall('/api/v1/players/session/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code })
+      })
+        .then(function () {
+          byId('wzSuccessEmoji').textContent = '✅';
+          byId('wzSuccessHeading').textContent = 'Inloggad igen!';
+          byId('wzSuccessBody').textContent = 'Öppna appen (eller demot) för att fortsätta där du var.';
+          byId('wzSuccessCodeChip').style.display = 'none';
+          showStep('success');
+        })
+        .catch(function (err) {
+          showError('wzRedeemError', err.code === 'invalid_or_expired_code'
+            ? 'Den koden fungerar inte längre. Kolla att du skrev rätt, eller be om en ny.'
+            : GENERIC_ERROR);
+        })
+        .then(function () { setBusy(btn, false); });
     });
 
     // ---- ?code=... prefill (shared invite link/QR from the app's "Bjud

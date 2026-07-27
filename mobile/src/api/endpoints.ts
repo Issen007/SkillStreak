@@ -23,10 +23,14 @@ import type {
   PlayerMeResponse,
   PostChatMessageRequest,
   PostChatMessageResponse,
+  RedeemSessionResponse,
   ReportChatMessageRequest,
   ReportChatMessageResponse,
   ReportClipRequest,
   ReportClipResponse,
+  RequestSessionReissueRequest,
+  SessionReissueSelfServiceResponse,
+  SessionReissueTriggerResponse,
   TeamDashboardResponse,
   TeamJoinDecisionResponse,
   TeammatesResponse,
@@ -75,9 +79,48 @@ export function getMe(): Promise<PlayerMeResponse> {
 }
 
 // --- Phase 2 additions, per docs/api/phase2-contract.md ---------------------
-// Session-reissue/redeem (ADR-0004 Part 3) are deliberately NOT added here —
-// both backend routes are disabled (503 `session_reissue_disabled`) pending
-// a security redesign; see docs/ACTION_PLAN.md's Phase 2 follow-ups.
+
+// Session-reissue/redeem (ADR-0004 Part 3), redesigned per that ADR's
+// 2026-07-27 addendum — "new device login." Two trigger surfaces
+// (self-service, captain-triggered) plus the shared redeem step; none of
+// these ever see the reissue code itself, it's emailed to the player's
+// own parent_contact.
+
+/** No auth — "Har du redan ett konto?" on the onboarding entry point.
+ * Always resolves with the same generic { requested: true } shape,
+ * whether or not inviteCode/screenName matched anything — see
+ * SessionService.requestReissueSelfService's own comment. */
+export function requestSessionReissue(
+  body: RequestSessionReissueRequest,
+): Promise<SessionReissueSelfServiceResponse> {
+  return apiClient.request<SessionReissueSelfServiceResponse>(
+    '/players/session/reissue-request',
+    { method: 'POST', body },
+  );
+}
+
+/** No auth — the caller has no valid session by definition. Redeems a
+ * code (from either trigger surface above) for a fresh session token. */
+export function redeemSessionCode(code: string): Promise<RedeemSessionResponse> {
+  return apiClient.request<RedeemSessionResponse>('/players/session/redeem', {
+    method: 'POST',
+    body: { code },
+  });
+}
+
+/** Auth required, captain-only (service-layer check against the target's
+ * team) — the roster's "Skicka ny inloggningslänk" action. Response never
+ * contains the code (see the ADR addendum); the UI's job is just to
+ * confirm the request went out; token_version bumps immediately either
+ * way. */
+export function triggerSessionReissue(
+  playerId: string,
+): Promise<SessionReissueTriggerResponse> {
+  return apiClient.request<SessionReissueTriggerResponse>(
+    `/players/${encodeURIComponent(playerId)}/session-reissue`,
+    { method: 'POST', auth: true },
+  );
+}
 
 /** 5. GET /teams/:teamId/dashboard — auth required; open to any teammate
  * (not captain-gated), per the contract. Backs Screen K1's baseline

@@ -9,6 +9,8 @@ import { O3NameAvatar } from './screens/O3NameAvatar';
 import { O4BirthYear } from './screens/O4BirthYear';
 import { O5ConsentAsk } from './screens/O5ConsentAsk';
 import { O6Confirmation } from './screens/O6Confirmation';
+import { RA1ReturningUser } from './screens/RA1ReturningUser';
+import { RA2RedeemCode } from './screens/RA2RedeemCode';
 import { INITIAL_ONBOARDING_DATA, OnboardingData, OnboardingStep } from './types';
 import { createPlayer } from '../api/endpoints';
 import { setSessionToken } from '../api/authStorage';
@@ -180,6 +182,23 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             setData((prev) => ({ ...prev, inviteCode, teamId: null }));
             setStep('O1a');
           }}
+          onReturningUser={() => setStep('RA1')}
+        />
+      );
+
+    case 'RA1':
+      return (
+        <RA1ReturningUser
+          onSubmitted={() => setStep('RA2')}
+          onBack={() => setStep('O1')}
+        />
+      );
+
+    case 'RA2':
+      return (
+        <RA2RedeemCode
+          onRedeemed={onComplete}
+          onRetryRequest={() => setStep('RA1')}
         />
       );
 

@@ -25,6 +25,9 @@ interface O1EnterCodeProps {
   /** Per ADR-0009: an unmatched code is no longer a dead end — hands off to
    * Screen O1a instead of showing an inline error. */
   onNotFound: (inviteCode: string) => void;
+  /** docs/adr/0004-coach-auth-and-session-reissue.md's 2026-07-27 addendum
+   * — the confirmed real "I already have an account" gap. */
+  onReturningUser: () => void;
 }
 
 export function O1EnterCode({
@@ -33,6 +36,7 @@ export function O1EnterCode({
   selectCodeOnMount,
   onFound,
   onNotFound,
+  onReturningUser,
 }: O1EnterCodeProps) {
   const [code, setCode] = useState(initialCode);
   const [error, setError] = useState<string | null>(externalError ?? null);
@@ -91,6 +95,9 @@ export function O1EnterCode({
         disabled={code.trim().length === 0}
         loading={loading}
       />
+      <Text style={styles.returningUserLink} onPress={onReturningUser}>
+        Har du redan ett konto?
+      </Text>
     </ScreenContainer>
   );
 }
@@ -109,5 +116,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
     textAlign: 'center',
+  },
+  returningUserLink: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
+    color: colors.textMuted,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+    marginTop: 16,
   },
 });

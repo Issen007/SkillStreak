@@ -8,6 +8,7 @@ import { AppModule } from '../src/app.module';
 import { AppExceptionFilter } from '../src/common/errors/http-exception.filter';
 import { PlayerTokenService } from '../src/auth/player-token.service';
 import { ParentalConsentStatus } from '../src/players/player-consent-status.enum';
+import { TeamJoinStatus } from '../src/players/team-join-status.enum';
 import { Player } from '../src/players/entities/player.entity';
 import { Team } from '../src/teams/entities/team.entity';
 
@@ -87,6 +88,7 @@ describe('Captain-transfer concurrency (e2e)', () => {
         avatarId: 'fox',
         birthYear: 2012,
         parentalConsentStatus: ParentalConsentStatus.APPROVED,
+        teamJoinStatus: TeamJoinStatus.APPROVED,
         isCaptain,
       }),
     );

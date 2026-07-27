@@ -7,6 +7,7 @@ import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { AppExceptionFilter } from '../src/common/errors/http-exception.filter';
 import { ParentalConsentStatus } from '../src/players/player-consent-status.enum';
+import { TeamJoinStatus } from '../src/players/team-join-status.enum';
 import { Player } from '../src/players/entities/player.entity';
 import { Team } from '../src/teams/entities/team.entity';
 import { Season } from '../src/team-pool/entities/season.entity';
@@ -113,12 +114,13 @@ describe('Training-log concurrency (e2e)', () => {
 
     const { playerId, sessionToken } = createResponse.body as CreatePlayerBody;
 
-    await dataSource
-      .getRepository(Player)
-      .update(
-        { id: playerId },
-        { parentalConsentStatus: ParentalConsentStatus.APPROVED },
-      );
+    await dataSource.getRepository(Player).update(
+      { id: playerId },
+      {
+        parentalConsentStatus: ParentalConsentStatus.APPROVED,
+        teamJoinStatus: TeamJoinStatus.APPROVED,
+      },
+    );
 
     // Fire every request essentially simultaneously — this is the scenario
     // the row-level lock in PlayersService.findByIdForUpdate exists to
