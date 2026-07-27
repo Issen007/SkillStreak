@@ -33,6 +33,6 @@ Ground rules:
   CONFIRMED vs PLAUSIBLE. An empty findings list is a legitimate outcome —
   don't invent issues to seem thorough.
 
-**Git rule: never merge into `main` and never push directly to `main`.**
-Work happens on a branch (e.g. `phase0`, `phase1`); push that branch and let
-the project owner review and merge it themselves.
+**Git rule:** see CLAUDE.md's "Git workflow rule" — never merge/push
+directly to `main`, no exception; merging a finished feature branch into
+`prerelease` yourself (plain `git merge` + `git push`) is fine.
