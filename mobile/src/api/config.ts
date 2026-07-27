@@ -35,3 +35,12 @@ export const API_PREFIX = '/api/v1';
 // through site/Dockerfile's mobile-build stage.
 export const JOIN_URL_BASE: string =
   process.env.EXPO_PUBLIC_JOIN_URL ?? 'http://localhost:8080';
+
+// A live `npx expo start` dev server's exp:// URL (e.g.
+// "exp://192.168.55.30:8081") — added 2026-07-27 so InviteFriendSheet's
+// QR can open Expo Go directly instead of the website. Empty/undefined by
+// default: this is a manually-started dev-server process, not a stable
+// deployed service, so there's no sensible default and CI/real builds
+// never set it. `null` (not the empty string) lets callers tell "not
+// configured" apart from "configured as empty" unambiguously.
+export const EXPO_GO_URL: string | null = process.env.EXPO_PUBLIC_EXPO_GO_URL || null;
