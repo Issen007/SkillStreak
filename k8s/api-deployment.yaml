@@ -79,6 +79,11 @@ spec:
                 secretKeyRef:
                   name: skillstreak-secret
                   key: JWT_SECRET
+            - name: PII_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: PII_ENCRYPTION_KEY
             - name: SMTP_USER
               valueFrom:
                 secretKeyRef:

@@ -5,6 +5,10 @@
 //
 // Usage: `pnpm run seed` (reads DATABASE_URL from .env, same as migrations).
 import dataSource from '../database/data-source';
+import {
+  encryptPii,
+  requirePiiEncryptionKeyFromEnv,
+} from '../common/crypto/pii-encryption.util';
 import { Coach } from '../coaches/entities/coach.entity';
 import {
   ConsentMethod,
@@ -42,6 +46,14 @@ const SEED_CAPTAIN_PARENT_CONTACT = 'kapten-parent@ibkfalken.example';
 
 async function run(): Promise<void> {
   await dataSource.initialize();
+
+  // Fas 4 encryption-at-rest, 2026-07-28 — this script constructs
+  // PlayerPrivateInfo rows directly via the raw repository (it's a
+  // standalone script outside PlayerPrivateInfoModule, not subject to
+  // the module-boundary the entity's own comment describes), so it has
+  // to encrypt here itself rather than relying on
+  // PlayerPrivateInfoService's write path.
+  const piiEncryptionKey = requirePiiEncryptionKeyFromEnv();
 
   const coachRepo = dataSource.getRepository(Coach);
   const teamRepo = dataSource.getRepository(Team);
@@ -135,7 +147,10 @@ async function run(): Promise<void> {
     await privateInfoRepo.save(
       privateInfoRepo.create({
         playerId: captain.id,
-        parentContact: SEED_CAPTAIN_PARENT_CONTACT,
+        parentContact: encryptPii(
+          SEED_CAPTAIN_PARENT_CONTACT,
+          piiEncryptionKey,
+        ),
         realName: null,
       }),
     );
