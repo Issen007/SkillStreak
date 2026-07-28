@@ -1,0 +1,103 @@
+# Cilium Gateway API resources exposing api/site externally on this
+# cluster (isstech-2). Promoted from an earlier temp/gateway-api.yaml
+# experiment to a tracked manifest now that the mechanism is proven
+# working (see k8s/README.md's "External access" section for the full
+# story of why this exists instead of ingress-nginx/a LoadBalancer
+# Service).
+#
+# One shared Gateway for both api and site — each HTTPRoute's own
+# `hostnames` list determines which listener(s) it actually attaches to,
+# so a single Gateway with multiple HTTPS listeners (one per public
+# hostname) is simpler than juggling several Gateways.
+apiVersion: cilium.io/v2alpha1
+kind: CiliumGatewayClassConfig
+metadata:
+  name: skillstreak-gateway-config
+  namespace: skillstreak
+spec:
+  service:
+    type: NodePort
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: skillstreak-cilium
+spec:
+  controllerName: io.cilium/gateway-controller
+  parametersRef:
+    group: cilium.io
+    kind: CiliumGatewayClassConfig
+    name: skillstreak-gateway-config
+    namespace: skillstreak
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: skillstreak-gateway
+  namespace: skillstreak
+spec:
+  gatewayClassName: skillstreak-cilium
+  listeners:
+    # No hostname restriction — matches any Host, so (a) the old
+    # apps.isstech-2.paas.safedc.net hostnames keep working over plain
+    # HTTP, and (b) cert-manager's ACME HTTP01 solver can attach a
+    # temporary HTTPRoute here for any hostname's challenge (see
+    # cluster-issuer.yaml's gatewayHTTPRoute solver).
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    # One HTTPS listener per real public hostname, all sharing the same
+    # multi-SAN cert (see certificate.yaml) — Gateway API listeners are
+    # matched by exact hostname, so each domain needs its own listener
+    # even though they all reference the same Secret.
+    - name: https-site
+      hostname: "skillstreak.xyz"
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: skillstreak-xyz-tls
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-www
+      hostname: "www.skillstreak.xyz"
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: skillstreak-xyz-tls
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-try
+      hostname: "try.skillstreak.xyz"
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: skillstreak-xyz-tls
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https-api
+      hostname: "api.skillstreak.xyz"
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: skillstreak-xyz-tls
+      allowedRoutes:
+        namespaces:
+          from: Same

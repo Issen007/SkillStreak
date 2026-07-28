@@ -206,19 +206,18 @@ jobs:
       # for site/index.html's own embedded onboarding widget — see that
       # Dockerfile's comment on why a static HTML file needs a build-time
       # substitution the same way Expo needs a build-time env var), so CI
-      # uses the same alpha-test URL the deploy job pushes with for both
-      # (see k8s/configmap.yaml's APP_PUBLIC_URL comment for why this is
-      # localhost rather than a real domain right now). Missing
+      # uses the same real domain the deploy job pushes with for both
+      # (see k8s/configmap.yaml's APP_PUBLIC_URL comment). Missing
       # API_BASE_URL here would silently ship the Dockerfile's own
       # localhost default to every real deploy — confirmed to actually
       # happen once, caught in review, not a hypothetical.
       - name: Build site image
         run: |
           docker build -f site/Dockerfile \
-            --build-arg EXPO_PUBLIC_API_URL=http://localhost:3000 \
-            --build-arg API_BASE_URL=http://localhost:3000 \
-            --build-arg TRY_IT_URL=https://try.skillstreak.app2.isstech.io \
-            --build-arg EXPO_PUBLIC_JOIN_URL=https://skillstreak.app2.isstech.io \
+            --build-arg EXPO_PUBLIC_API_URL=https://api.skillstreak.xyz \
+            --build-arg API_BASE_URL=https://api.skillstreak.xyz \
+            --build-arg TRY_IT_URL=https://try.skillstreak.xyz \
+            --build-arg EXPO_PUBLIC_JOIN_URL=https://skillstreak.xyz \
             -t skillstreak-site:ci .
 
   compose-smoke-test:
@@ -304,12 +303,9 @@ jobs:
       # EXPO_PUBLIC_API_URL and API_BASE_URL are both baked in at build
       # time and must point at wherever the api is actually reachable —
       # the latter feeds site/index.html's own embedded onboarding widget,
-      # not just the Expo web export. This cluster currently has no
-      # working external ingress path (see k8s/configmap.yaml's
-      # APP_PUBLIC_URL comment), so alpha access is via
-      # `kubectl port-forward svc/api 3000:80 -n skillstreak` and this must
-      # match that port. Update both values once a real public API host
-      # exists again.
+      # not just the Expo web export. Real public domain (skillstreak.xyz)
+      # via skillstreak-gateway's TLS listeners — see
+      # k8s/configmap.yaml's APP_PUBLIC_URL comment.
       - name: Build and Push Site Docker Image
         uses: docker/build-push-action@v5
         with:
@@ -317,10 +313,10 @@ jobs:
           file: ./site/Dockerfile
           push: true
           build-args: |
-            EXPO_PUBLIC_API_URL=http://localhost:3000
-            API_BASE_URL=http://localhost:3000
-            TRY_IT_URL=https://try.skillstreak.app2.isstech.io
-            EXPO_PUBLIC_JOIN_URL=https://skillstreak.app2.isstech.io
+            EXPO_PUBLIC_API_URL=https://api.skillstreak.xyz
+            API_BASE_URL=https://api.skillstreak.xyz
+            TRY_IT_URL=https://try.skillstreak.xyz
+            EXPO_PUBLIC_JOIN_URL=https://skillstreak.xyz
           tags: |
             ${{ env.LOWER_SITE_IMAGE }}:${{ github.sha }}
 
@@ -375,17 +371,15 @@ jobs:
           # resources. Apply that one manually, once, with a kubeconfig
           # that has broader rights (see k8s/README.md's deploy order).
           #
-          # ingress.yaml/site-ingress.yaml are deliberately NOT applied
-          # here either, for now: this cluster has no working external
-          # ingress path (LoadBalancer Services can't get an IP, and the
-          # cluster's one public IP only serves :6443) so their Ingress
-          # hosts can never resolve/complete a cert-manager HTTP01
-          # challenge — applying them just leaves Certificates stuck
-          # Pending forever. Alpha access is via
-          # `kubectl port-forward svc/api 3000:80 -n skillstreak` and
-          # `kubectl port-forward svc/site 8080:80 -n skillstreak` instead.
-          # Re-add these two lines once a real external ingress path
-          # exists (see k8s/README.md's "Alpha access" section).
+          # gateway.yaml is deliberately NOT applied here — its
+          # GatewayClass is cluster-scoped (this deployer is namespace-only
+          # by design), same posture as cluster-issuer.yaml. Apply it once
+          # manually per k8s/README.md's deploy order. httproute.yaml and
+          # certificate.yaml are both fully namespace-scoped and safe to
+          # reapply every deploy, so they're included below — this is the
+          # real external path now (skillstreak.xyz via
+          # skillstreak-gateway), replacing the old ingress-nginx plan
+          # that never had a working external path on this cluster.
           kubectl apply -f k8s/configmap.yaml
           kubectl apply -f k8s/secret.yaml
           kubectl apply -f k8s/postgres-pvc.yaml
@@ -397,6 +391,8 @@ jobs:
           kubectl apply -f k8s/minio-service.yaml
           kubectl apply -f k8s/api-service.yaml
           kubectl apply -f k8s/site-service.yaml
+          kubectl apply -f k8s/httproute.yaml
+          kubectl apply -f k8s/certificate.yaml
           kubectl apply -f k8s/postgres-deployment.yaml
           kubectl apply -f k8s/redis-deployment.yaml
           kubectl apply -f k8s/minio-deployment.yaml
@@ -492,9 +488,9 @@ jobs:
           push: true
           tags: ${{ env.LOWER_IMAGE }}:${{ steps.version.outputs.version }}
 
-      # EXPO_PUBLIC_API_URL/API_BASE_URL match the same alpha-test value
+      # EXPO_PUBLIC_API_URL/API_BASE_URL match the same real-domain value
       # used elsewhere in this workflow (see the `deploy` job's identical
-      # build-args) — not a real public domain yet, see k8s/configmap.yaml.
+      # build-args) — see k8s/configmap.yaml.
       - name: Build and Push Versioned Site Image
         uses: docker/build-push-action@v5
         with:
@@ -502,8 +498,8 @@ jobs:
           file: ./site/Dockerfile
           push: true
           build-args: |
-            EXPO_PUBLIC_API_URL=http://localhost:3000
-            API_BASE_URL=http://localhost:3000
-            TRY_IT_URL=https://try.skillstreak.app2.isstech.io
-            EXPO_PUBLIC_JOIN_URL=https://skillstreak.app2.isstech.io
+            EXPO_PUBLIC_API_URL=https://api.skillstreak.xyz
+            API_BASE_URL=https://api.skillstreak.xyz
+            TRY_IT_URL=https://try.skillstreak.xyz
+            EXPO_PUBLIC_JOIN_URL=https://skillstreak.xyz
           tags: ${{ env.LOWER_SITE_IMAGE }}:${{ steps.version.outputs.version }}
