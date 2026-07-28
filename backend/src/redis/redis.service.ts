@@ -33,6 +33,14 @@ function sessionReissueDailyCapKey(playerId: string): string {
   return `session-reissue:${playerId}:daily-cap`;
 }
 
+function contactChangeCooldownKey(playerId: string): string {
+  return `contact-change:${playerId}:cooldown`;
+}
+
+function contactChangeDailyCapKey(playerId: string): string {
+  return `contact-change:${playerId}:daily-cap`;
+}
+
 function chatSendRateLimitKey(playerId: string): string {
   return `chat-send:${playerId}:window`;
 }
@@ -90,6 +98,18 @@ const SESSION_REISSUE_COOLDOWN_SECONDS = 5 * 60;
 // not only the email.
 const SESSION_REISSUE_DAILY_CAP_WINDOW_SECONDS = 60 * 60 * 24;
 const SESSION_REISSUE_DAILY_CAP_MAX_PER_WINDOW = 3;
+
+// docs/adr/0012-profile-page-and-contact-email-change.md — same two-layer
+// shape as session reissue directly above (burst cooldown + daily cap),
+// applied preemptively rather than waiting for a repeat security-reviewer
+// finding, now that the pattern is established. Smaller attack surface
+// than session reissue's (the caller must already hold a valid session
+// for the target account — no unauthenticated trigger), but the same
+// "real family's inbox" harm applies regardless of how a session was
+// obtained.
+const CONTACT_CHANGE_COOLDOWN_SECONDS = 5 * 60;
+const CONTACT_CHANGE_DAILY_CAP_WINDOW_SECONDS = 60 * 60 * 24;
+const CONTACT_CHANGE_DAILY_CAP_MAX_PER_WINDOW = 3;
 
 // docs/api/phase2.6b-contract.md endpoint 1: "a burst allowance rather than
 // a strict per-message gate... exact window backend-developer's call."
@@ -257,6 +277,37 @@ export class RedisService {
     windowSeconds: number = SESSION_REISSUE_DAILY_CAP_WINDOW_SECONDS,
   ): Promise<boolean> {
     const key = sessionReissueDailyCapKey(playerId);
+    const count = await this.client.incr(key);
+    if (count === 1) {
+      await this.client.expire(key, windowSeconds);
+    }
+    return count <= maxPerWindow;
+  }
+
+  /** Same lock shape as tryClaimSessionReissueCooldown, for
+   * ProfileService's contact-change-request (ADR-0012). */
+  async tryClaimContactChangeCooldown(
+    playerId: string,
+    ttlSeconds: number = CONTACT_CHANGE_COOLDOWN_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      contactChangeCooldownKey(playerId),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
+  }
+
+  /** Same fixed-window shape as tryClaimSessionReissueDailyCap, for the
+   * same "burst cooldown alone isn't enough" reasoning (ADR-0012). */
+  async tryClaimContactChangeDailyCap(
+    playerId: string,
+    maxPerWindow: number = CONTACT_CHANGE_DAILY_CAP_MAX_PER_WINDOW,
+    windowSeconds: number = CONTACT_CHANGE_DAILY_CAP_WINDOW_SECONDS,
+  ): Promise<boolean> {
+    const key = contactChangeDailyCapKey(playerId);
     const count = await this.client.incr(key);
     if (count === 1) {
       await this.client.expire(key, windowSeconds);

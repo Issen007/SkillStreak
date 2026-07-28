@@ -358,6 +358,26 @@ export class PlayersService {
   }
 
   /**
+   * docs/adr/0012-profile-page-and-contact-email-change.md's addendum —
+   * the contact-change cancel flow's "kill whatever session did this."
+   * Same row-locked read-then-write shape as setSessionReissueCode
+   * (caller reads the current value via findByIdForUpdate first), but
+   * bumps token_version alone — no code/expiry, since this is a pure
+   * invalidation, not a recovery mechanism in itself. The old address
+   * holder saying "this wasn't me" is exactly the moment forcing a fresh
+   * login is warranted.
+   */
+  async bumpTokenVersion(
+    manager: EntityManager,
+    playerId: string,
+    newTokenVersion: number,
+  ): Promise<void> {
+    await manager
+      .getRepository(Player)
+      .update({ id: playerId }, { tokenVersion: newTokenVersion });
+  }
+
+  /**
    * Row-locked lookup by session-reissue code, for use inside
    * SessionService.redeem's transaction — same "lock, then check
    * liveness" shape as approveByConsentToken. Returns null for both "no

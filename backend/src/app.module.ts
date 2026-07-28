@@ -12,6 +12,7 @@ import { MailModule } from './mail/mail.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { PlayerPrivateInfoModule } from './player-private-info/player-private-info.module';
 import { PlayersModule } from './players/players.module';
+import { ProfileModule } from './profile/profile.module';
 import { SessionModule } from './session/session.module';
 import { TeamChatModule } from './team-chat/team-chat.module';
 import { TeamPoolModule } from './team-pool/team-pool.module';
@@ -87,6 +88,7 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     TrainingLogsModule,
     WeeklyGoalModule,
     SessionModule,
+    ProfileModule,
     TeamChatModule,
     VideoClipsModule,
   ],

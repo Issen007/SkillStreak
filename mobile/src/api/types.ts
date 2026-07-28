@@ -169,6 +169,39 @@ export interface RedeemSessionResponse {
   sessionToken: string;
 }
 
+// docs/adr/0012-profile-page-and-contact-email-change.md (Fas 4.1).
+
+export interface PlayerProfileResponse {
+  realName: string | null;
+  birthYear: number;
+  parentContact: string;
+}
+
+export interface UpdateProfileRequest {
+  realName?: string | null;
+}
+
+export interface RequestContactChangeRequest {
+  newContact: string;
+}
+
+export interface RequestContactChangeResponse {
+  requested: true;
+  expiresAt: string;
+}
+
+export interface ConfirmContactChangeResponse {
+  confirmed: true;
+  // security-reviewer finding, 2026-07-28 — confirming no longer applies
+  // the change immediately; it starts a 24h grace period the OLD address
+  // can cancel from. See docs/adr/0012's addendum.
+  appliesAt: string;
+}
+
+export interface ConfirmContactChangeRequest {
+  code: string;
+}
+
 export type WeeklyGoalStatus = 'draft' | 'active' | 'completed' | 'cancelled';
 
 export type WeeklyGoalTargetMetric =

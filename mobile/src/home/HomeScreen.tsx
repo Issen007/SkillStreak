@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from './components/AppHeader';
+import { ProfileScreen } from './ProfileScreen';
 import { StreakCard } from './components/StreakCard';
 import { TeamPoolCard } from './components/TeamPoolCard';
 import { WaitingCard } from './components/WaitingCard';
@@ -57,8 +58,10 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   // Screen LB1/LB2 (Fas 2.7) — a local view toggle to reach the full
   // leaderboard, same lightweight "no navigation library" pattern
-  // GoalScreen/TeamScreen already use for their own sub-views.
-  const [view, setView] = useState<'home' | 'leaderboard'>('home');
+  // GoalScreen/TeamScreen already use for their own sub-views. 'profile'
+  // added Fas 4.1 (docs/adr/0012-profile-page-and-contact-email-change.md),
+  // reached via AppHeader's avatar circle.
+  const [view, setView] = useState<'home' | 'leaderboard' | 'profile'>('home');
 
   const hasLoadedOnce = useRef(false);
 
@@ -221,6 +224,15 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
     return <LeaderboardScreen teamId={me.team.teamId} onBack={() => setView('home')} />;
   }
 
+  if (view === 'profile') {
+    return (
+      <ProfileScreen
+        screenName={me.player.screenName}
+        onBack={() => setView('home')}
+      />
+    );
+  }
+
   // Two independent gates, added 2026-07-27 (team-join approval alongside
   // the existing parental-consent one) — both must clear before gameplay
   // unlocks. WaitingCard shows whichever is still pending (or both).
@@ -230,7 +242,11 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
 
   return (
     <View style={styles.container}>
-      <AppHeader screenName={me.player.screenName} avatarId={me.player.avatarId} />
+      <AppHeader
+        screenName={me.player.screenName}
+        avatarId={me.player.avatarId}
+        onAvatarPress={() => setView('profile')}
+      />
 
       <View style={styles.content}>
         {goalBonusMoment ? (

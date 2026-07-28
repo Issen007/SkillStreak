@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -7,14 +7,20 @@ import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
 interface AppHeaderProps {
   screenName: string;
   avatarId: string;
+  /** Fas 4.1 (docs/adr/0012-profile-page-and-contact-email-change.md) —
+   * the top-right avatar circle is the profile page's entry point,
+   * exactly where that roadmap item asked for a "profile icon." Optional
+   * so AppHeader stays usable/testable standalone without wiring a
+   * profile screen through every call site. */
+  onAvatarPress?: () => void;
 }
 
 /** Home tab's top banner: wordmark + working-title note, the player's own
  * avatar (looked up from the shared `AVATAR_CATALOG` by id — the API only
  * ever sends `avatarId`, never the emoji itself), and a screen-name-only
  * greeting (never the real name, per the "screen names in any player-facing
- * UI" rule). Purely presentational — no fetch, no state. */
-export function AppHeader({ screenName, avatarId }: AppHeaderProps) {
+ * UI" rule). Otherwise purely presentational — no fetch, no state. */
+export function AppHeader({ screenName, avatarId, onAvatarPress }: AppHeaderProps) {
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
 
   return (
@@ -23,9 +29,15 @@ export function AppHeader({ screenName, avatarId }: AppHeaderProps) {
         <Text style={styles.wordmark}>SkillStreak</Text>
         <Text style={styles.workingTitle}>arbetstitel</Text>
       </View>
-      <View style={styles.avatarCircle}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Din profil"
+        onPress={onAvatarPress}
+        disabled={!onAvatarPress}
+        style={({ pressed }) => [styles.avatarCircle, pressed && styles.avatarPressed]}
+      >
         <Text style={styles.avatarEmoji}>{emoji}</Text>
-      </View>
+      </Pressable>
       <Text style={styles.greeting}>
         Hej, <Text style={styles.greetingName}>{screenName}</Text>!
       </Text>
@@ -57,6 +69,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.flameTint,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarPressed: {
+    opacity: 0.7,
   },
   avatarEmoji: {
     fontSize: 18,

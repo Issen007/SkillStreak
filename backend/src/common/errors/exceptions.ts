@@ -464,3 +464,36 @@ export class SessionReissueRateLimitedException extends AppException {
     );
   }
 }
+
+// docs/adr/0012-profile-page-and-contact-email-change.md — the profile
+// page's contact-email change flow.
+
+export class ContactChangeRateLimitedException extends AppException {
+  constructor() {
+    // Same per-player cooldown-lock shape/reasoning as
+    // SessionReissueRateLimitedException above. Always thrown directly
+    // (unlike session reissue's self-service path) — this endpoint
+    // requires the caller to already hold a valid session for the target
+    // account, so there's no unauthenticated-enumeration concern to
+    // swallow it for.
+    super(
+      'contact_change_rate_limited',
+      'A contact-change code was already requested recently; try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+export class InvalidOrExpiredContactChangeCodeException extends AppException {
+  constructor() {
+    // Deliberately generic, same posture as InvalidOrExpiredCodeException
+    // — doesn't distinguish "no such code" from "expired" from
+    // "already used". A distinct exception/code from that one (not
+    // reused) since its message is specific to session reissue.
+    super(
+      'invalid_or_expired_contact_change_code',
+      'This contact-change code is invalid, expired, or already used.',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}
