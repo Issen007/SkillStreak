@@ -68,6 +68,11 @@ jobs:
       DATABASE_URL: postgres://app:app@localhost:5432/app_dev
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-only-test-secret
+      # A real, valid 32-byte base64 key (CI-only, not a real secret) --
+      # common/crypto/pii-encryption.util.ts throws on anything that
+      # doesn't decode to exactly 32 bytes, so a placeholder string like
+      # JWT_SECRET's above won't work here.
+      PII_ENCRYPTION_KEY: Y2ktb25seS10ZXN0LWtleS0zMi1ieXRlcy1sb25nISE=
       MINIO_ENDPOINT: http://localhost:9000
       MINIO_ACCESS_KEY: ci-minio-user
       MINIO_SECRET_KEY: ci-minio-password

@@ -25,6 +25,15 @@ class EnvironmentVariables {
   @IsNotEmpty()
   JWT_SECRET!: string;
 
+  // Fas 4 encryption-at-rest, 2026-07-28 — see
+  // common/crypto/pii-encryption.util.ts. Required, not optional-degrade
+  // like SMTP: a missing key must never fall back to storing
+  // parent_contact/real_name in plaintext, since the entire point is
+  // guaranteeing they're encrypted. Base64-encoded 32-byte AES-256 key —
+  // generate with `openssl rand -base64 32`.
+  @IsNotEmpty()
+  PII_ENCRYPTION_KEY!: string;
+
   @IsOptional()
   @IsNotEmpty()
   JWT_EXPIRES_IN?: string;

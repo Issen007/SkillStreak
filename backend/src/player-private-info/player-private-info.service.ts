@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
+import { decryptPii, encryptPii } from '../common/crypto/pii-encryption.util';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
 import {
   ConsentMethod,
@@ -15,6 +17,16 @@ import { PlayerPrivateInfo } from './entities/player-private-info.entity';
 //  - getRealName: the (not-yet-built) coach-only admin view.
 // Nothing here returns parent_contact/real_name in bulk or as part of any
 // player-facing/leaderboard-shaped query.
+//
+// Fas 4 encryption-at-rest, 2026-07-28 — being the sole gatekeeper for
+// these two columns (already true per the ADR addendum above) is exactly
+// what makes it the right, and only, place to encrypt on write and
+// decrypt on read: every caller in this codebase already goes through
+// this service, so nothing needs to change anywhere else. See
+// common/crypto/pii-encryption.util.ts for why this is application-level
+// AES-256-GCM, not Postgres' pgcrypto, and the
+// EncryptPlayerPrivateInfo1785200000000 migration for the one-time
+// backfill of rows that predate this change.
 @Injectable()
 export class PlayerPrivateInfoService {
   constructor(
@@ -22,7 +34,12 @@ export class PlayerPrivateInfoService {
     private readonly privateInfoRepository: Repository<PlayerPrivateInfo>,
     @InjectRepository(ParentalConsentRecord)
     private readonly consentRecordRepository: Repository<ParentalConsentRecord>,
+    private readonly configService: ConfigService,
   ) {}
+
+  private get encryptionKey(): string {
+    return this.configService.getOrThrow<string>('PII_ENCRYPTION_KEY');
+  }
 
   async createForNewPlayer(
     manager: EntityManager,
@@ -30,12 +47,13 @@ export class PlayerPrivateInfoService {
     parentContact: string,
     realName?: string,
   ): Promise<void> {
+    const key = this.encryptionKey;
     const repository = manager.getRepository(PlayerPrivateInfo);
     await repository.save(
       repository.create({
         playerId,
-        parentContact,
-        realName: realName ?? null,
+        parentContact: encryptPii(parentContact, key),
+        realName: realName ? encryptPii(realName, key) : null,
       }),
     );
   }
@@ -60,7 +78,8 @@ export class PlayerPrivateInfoService {
     const info = await this.privateInfoRepository.findOne({
       where: { playerId },
     });
-    return info?.realName ?? null;
+    if (!info?.realName) return null;
+    return decryptPii(info.realName, this.encryptionKey);
   }
 
   /**
@@ -75,6 +94,7 @@ export class PlayerPrivateInfoService {
     const info = await this.privateInfoRepository.findOne({
       where: { playerId },
     });
-    return info?.parentContact ?? null;
+    if (!info) return null;
+    return decryptPii(info.parentContact, this.encryptionKey);
   }
 }
