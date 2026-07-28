@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { OnboardingFlow } from './onboarding/OnboardingFlow';
 import { AppShell } from './AppShell';
@@ -7,6 +7,23 @@ import { getSessionToken } from './api/authStorage';
 import { colors } from './theme/colors';
 
 type RootStatus = 'checking-session' | 'onboarding' | 'home';
+
+/** Only the hosted try-it demo (site/nginx.conf's try.* vhost) needs this —
+ * a real native install isn't the "public link, no account should be
+ * real" risk this guards against. Kept here rather than in site/'s own
+ * static wrapper since it's the same Expo web export either way, not a
+ * separate build. */
+function TestModeBanner() {
+  if (Platform.OS !== 'web') return null;
+  return (
+    <View style={styles.testBanner}>
+      <Text style={styles.testBannerText}>
+        🧪 Det här är bara ett TEST — skapa inte ett riktigt konto med
+        riktiga uppgifter.
+      </Text>
+    </View>
+  );
+}
 
 /** Top-level screen-state machine: not a navigation library, just "are we
  * onboarding or in the app" — appropriate for this app's size per
@@ -37,23 +54,48 @@ export function AppRoot() {
   if (status === 'checking-session') {
     return (
       <View style={styles.centered}>
+        <TestModeBanner />
         <ActivityIndicator color={colors.flame} size="large" />
       </View>
     );
   }
 
   if (status === 'onboarding') {
-    return <OnboardingFlow onComplete={handleOnboardingComplete} />;
+    return (
+      <View style={styles.fill}>
+        <TestModeBanner />
+        <OnboardingFlow onComplete={handleOnboardingComplete} />
+      </View>
+    );
   }
 
-  return <AppShell onSessionInvalid={handleSessionInvalid} />;
+  return (
+    <View style={styles.fill}>
+      <TestModeBanner />
+      <AppShell onSessionInvalid={handleSessionInvalid} />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
   centered: {
     flex: 1,
     backgroundColor: colors.paper,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  testBanner: {
+    backgroundColor: '#FFB800',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  testBannerText: {
+    color: '#1B1B3A',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });

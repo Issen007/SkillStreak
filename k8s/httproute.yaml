@@ -1,0 +1,42 @@
+# Routes for skillstreak-gateway (see gateway.yaml). Each hostname here
+# needs a matching listener on that Gateway for HTTPS (see gateway.yaml's
+# listeners) — the `http` listener has no hostname restriction, so plain
+# HTTP on any of these hostnames also works (and is what cert-manager's
+# ACME HTTP01 challenge uses, see cluster-issuer.yaml).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: site-route
+  namespace: skillstreak
+spec:
+  parentRefs:
+    - name: skillstreak-gateway
+  hostnames:
+    - "skillstreak.apps.isstech-2.paas.safedc.net"
+    - "skillstreak.xyz"
+    - "www.skillstreak.xyz"
+    - "try.skillstreak.xyz"
+  rules:
+    - backendRefs:
+        - name: site
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: api-route
+  namespace: skillstreak
+spec:
+  parentRefs:
+    - name: skillstreak-gateway
+  hostnames:
+    - "skillstreak-api.apps.isstech-2.paas.safedc.net"
+    - "api.skillstreak.xyz"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: api
+          port: 80
