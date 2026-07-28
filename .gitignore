@@ -160,6 +160,18 @@ activemq-data/
 # filled in with real values. Never commit the real file, only the
 # .example template.
 k8s/secret.yaml
+
+# Business-sensitive planning docs (product ideas, roadmap priorities,
+# backlog) — kept locally for real project use, deliberately not pushed to
+# this public repo going forward. NOTE: this repo is public and both files
+# already have public commit history as of 2026-07-26 — gitignoring them
+# stops new content from being tracked/pushed from here on, it does not
+# retroactively remove what's already in git history/on GitHub. Making the
+# repo private is the only real fix for the already-public content; ask
+# before doing that, it's a bigger call than this file.
+docs/BACKLOG.md
+docs/PROJECT.md
+docs/FUTURE_IDEAS.md
 .venv
 env/
 venv/

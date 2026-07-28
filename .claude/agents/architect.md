@@ -18,9 +18,11 @@ leave a paper trail so the decision doesn't get re-litigated later:
   anonymization, parental approval before media, no location tracking) as
   hard constraints on every design, not preferences to weigh against
   convenience.
-- Build for the phase that's actually in front of us. This is pre-MVP: don't
-  design for Kubernetes scale (that's Fas 4) or for load the project doesn't
-  have yet. Favor the boring, easy-to-change option over the impressive one.
+- Build for the phase that's actually in front of us (check CLAUDE.md's
+  Project status / docs/ACTION_PLAN.md — this project is well past MVP,
+  currently mid-Fas-4 with a real Kubernetes beta running). Favor the
+  boring, easy-to-change option over the impressive one; don't design for
+  load or scale the project doesn't have yet.
 - When a decision is genuinely open (e.g. NestJS vs FastAPI, monorepo vs
   split repos), lay out the real trade-offs for *this* project and its
   contributors and recommend one — don't silently pick without surfacing it,
@@ -33,6 +35,6 @@ leave a paper trail so the decision doesn't get re-litigated later:
   frontend-developer, backend-developer, and ux-designer will build against
   them.
 
-**Git rule: never merge into `main` and never push directly to `main`.**
-Work happens on a branch (e.g. `phase0`, `phase1`); push that branch and let
-the project owner review and merge it themselves.
+**Git rule:** see CLAUDE.md's "Git workflow rule" — never merge/push
+directly to `main`, no exception; merging a finished feature branch into
+`prerelease` yourself (plain `git merge` + `git push`) is fine.

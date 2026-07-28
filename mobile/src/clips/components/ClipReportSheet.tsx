@@ -12,7 +12,7 @@ import type { ClipReportReason } from '../../api/types';
 // most serious category and shouldn't be buried at the bottom of an
 // otherwise-generic list the way chat puts bullying first.
 const REASONS: { value: ClipReportReason; label: string }[] = [
-  { value: 'appears_without_consent', label: 'Jag är med i klippet och ville inte vara det' },
+  { value: 'appears_without_consent', label: 'Jag är med i videon och ville inte vara det' },
   { value: 'bullying', label: 'Mobbning' },
   { value: 'inappropriate_content', label: 'Olämpligt innehåll' },
   { value: 'not_training_related', label: 'Har inget med träning att göra' },
@@ -49,7 +49,7 @@ export function ClipReportSheet({ visible, loading, onSubmit, onClose }: ClipRep
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable style={styles.backdrop} onPress={loading ? undefined : handleClose} />
       <View style={styles.sheet}>
-        <Text style={styles.heading}>Varför rapporterar du det här klippet?</Text>
+        <Text style={styles.heading}>Varför rapporterar du den här videon?</Text>
 
         {REASONS.map((option) => {
           const selected = option.value === reason;

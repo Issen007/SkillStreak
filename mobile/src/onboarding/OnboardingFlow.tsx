@@ -9,6 +9,8 @@ import { O3NameAvatar } from './screens/O3NameAvatar';
 import { O4BirthYear } from './screens/O4BirthYear';
 import { O5ConsentAsk } from './screens/O5ConsentAsk';
 import { O6Confirmation } from './screens/O6Confirmation';
+import { RA1ReturningUser } from './screens/RA1ReturningUser';
+import { RA2RedeemCode } from './screens/RA2RedeemCode';
 import { INITIAL_ONBOARDING_DATA, OnboardingData, OnboardingStep } from './types';
 import { createPlayer } from '../api/endpoints';
 import { setSessionToken } from '../api/authStorage';
@@ -118,11 +120,35 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         setSelectCodeOnO1(false);
         setStep('O1');
       } else if (err instanceof ApiError && err.status === 400) {
-        // Defense-in-depth: the birth-year picker already hard-limits its
-        // range client-side, but degrade gracefully back to O4 if the
-        // backend's accepted range ever differs.
-        setO4Error('Hmm, det året ser inte rätt ut. Testa igen.');
-        setStep('O4');
+        // A raw class-validator failure (AppExceptionFilter's generic
+        // 'validation_error' code, not one of the specific business codes
+        // above) — this used to unconditionally blame the birth year and
+        // bounce back to O4 regardless of which field actually failed
+        // (e.g. a malformed parentContact, the most common real case,
+        // since it's free-text entered right before this exact submit).
+        // class-validator's message includes the failing property name
+        // (see IsEmailOrPhone's defaultMessage / CreatePlayerDto's Max
+        // birthYear message), so route off that instead of guessing.
+        const message = err.message ?? '';
+        if (message.includes('parentContact')) {
+          // Already on O5 — no step change, just surface the real error
+          // on the field the user actually just typed into.
+          setO5Error(
+            'Den kontaktuppgiften ser inte rätt ut — kolla att det är en riktig e-postadress eller ett telefonnummer.',
+          );
+        } else if (message.includes('screenName')) {
+          setO3Error('Det namnet fungerar inte riktigt — testa ett annat!');
+          setFocusNameOnO3(true);
+          setStep('O3');
+        } else if (message.includes('birthYear')) {
+          // The picker already hard-limits its range client-side to match
+          // the backend, so this should be unreachable in practice —
+          // kept as a genuine defense-in-depth fallback, not the default.
+          setO4Error('Hmm, det året ser inte rätt ut. Testa igen.');
+          setStep('O4');
+        } else {
+          setO5Error('Något gick fel. Kolla uppgifterna och testa igen.');
+        }
       } else {
         setO5Error('Något gick fel. Kolla din uppkoppling och testa igen.');
       }
@@ -156,6 +182,23 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             setData((prev) => ({ ...prev, inviteCode, teamId: null }));
             setStep('O1a');
           }}
+          onReturningUser={() => setStep('RA1')}
+        />
+      );
+
+    case 'RA1':
+      return (
+        <RA1ReturningUser
+          onSubmitted={() => setStep('RA2')}
+          onBack={() => setStep('O1')}
+        />
+      );
+
+    case 'RA2':
+      return (
+        <RA2RedeemCode
+          onRedeemed={onComplete}
+          onRetryRequest={() => setStep('RA1')}
         />
       );
 
@@ -254,6 +297,14 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       return (
         <O5ConsentAsk
           initialParentContact={data.parentContact}
+          // Copy-only — the backend independently re-derives and enforces
+          // this from birthYear itself (isSelfVerificationAge), so a
+          // client-side mismatch here can never bypass anything, only
+          // show slightly wrong wording for one screen.
+          isSelfVerification={
+            data.birthYear !== null &&
+            new Date().getFullYear() - data.birthYear >= 13
+          }
           loading={o5Loading}
           errorText={o5Error}
           onSubmit={(parentContact) => {

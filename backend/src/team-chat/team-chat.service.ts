@@ -13,12 +13,14 @@ import {
   ChatReportRateLimitedException,
   ChatSendRateLimitedException,
   ConsentRequiredException,
+  TeamJoinApprovalRequiredException,
   TeamMismatchException,
 } from '../common/errors/exceptions';
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
 import { buildChatReportNotificationEmail } from '../mail/templates/chat-report-notification-email.template';
 import { MailService } from '../mail/mail.service';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
+import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { PlayersService } from '../players/players.service';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
 import { Coach } from '../coaches/entities/coach.entity';
@@ -54,6 +56,14 @@ const REASON_LABELS_SV: Record<ChatMessageReportReason, string> = {
 function assertConsentApproved(status: ParentalConsentStatus): void {
   if (status !== ParentalConsentStatus.APPROVED) {
     throw new ConsentRequiredException();
+  }
+}
+
+// Added 2026-07-27 — a second, independent gate alongside
+// assertConsentApproved above (see TeamJoinApprovalRequiredException).
+function assertTeamJoinApproved(status: TeamJoinStatus): void {
+  if (status !== TeamJoinStatus.APPROVED) {
+    throw new TeamJoinApprovalRequiredException();
   }
 }
 
@@ -146,6 +156,7 @@ export class TeamChatService {
       teamId,
     );
     assertConsentApproved(player.parentalConsentStatus);
+    assertTeamJoinApproved(player.teamJoinStatus);
 
     const claimed =
       await this.redisService.tryClaimChatSendAllowance(requesterId);

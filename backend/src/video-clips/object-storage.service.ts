@@ -53,20 +53,34 @@ async function streamToBuffer(body: unknown): Promise<Buffer> {
 export class ObjectStorageService implements OnModuleInit {
   private readonly logger = new Logger(ObjectStorageService.name);
   private readonly client: S3Client;
+  // Signs presigned URLs against the endpoint a real client (phone,
+  // browser) can actually reach — see env.validation.ts's
+  // MINIO_PUBLIC_ENDPOINT comment. Same credentials/bucket, only the
+  // endpoint differs, so this is a second lightweight client, not a
+  // second connection pool to a different service.
+  private readonly publicUrlClient: S3Client;
   private readonly bucket: string;
 
   constructor(private readonly configService: ConfigService) {
     this.bucket =
       this.configService.get<string>('MINIO_BUCKET') ?? DEFAULT_CLIP_BUCKET;
+    const credentials = {
+      accessKeyId: this.configService.get<string>('MINIO_ACCESS_KEY') ?? '',
+      secretAccessKey: this.configService.get<string>('MINIO_SECRET_KEY') ?? '',
+    };
     this.client = new S3Client({
       endpoint: this.configService.get<string>('MINIO_ENDPOINT'),
       region: 'us-east-1', // arbitrary — MinIO ignores region, the SDK requires one.
       forcePathStyle: true, // required for MinIO's path-style bucket addressing.
-      credentials: {
-        accessKeyId: this.configService.get<string>('MINIO_ACCESS_KEY') ?? '',
-        secretAccessKey:
-          this.configService.get<string>('MINIO_SECRET_KEY') ?? '',
-      },
+      credentials,
+    });
+    this.publicUrlClient = new S3Client({
+      endpoint:
+        this.configService.get<string>('MINIO_PUBLIC_ENDPOINT') ??
+        this.configService.get<string>('MINIO_ENDPOINT'),
+      region: 'us-east-1',
+      forcePathStyle: true,
+      credentials,
     });
   }
 
@@ -196,7 +210,7 @@ export class ObjectStorageService implements OnModuleInit {
       Key: key,
       ContentType: contentType,
     });
-    return getSignedUrl(this.client, command, {
+    return getSignedUrl(this.publicUrlClient, command, {
       expiresIn: expiresInSeconds,
     });
   }
@@ -208,7 +222,7 @@ export class ObjectStorageService implements OnModuleInit {
     expiresInSeconds: number,
   ): Promise<string> {
     const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
-    return getSignedUrl(this.client, command, {
+    return getSignedUrl(this.publicUrlClient, command, {
       expiresIn: expiresInSeconds,
     });
   }

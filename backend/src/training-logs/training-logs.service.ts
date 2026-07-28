@@ -2,9 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { computeStreakUpdate } from '../common/streak/streak.util';
-import { ConsentRequiredException } from '../common/errors/exceptions';
+import {
+  ConsentRequiredException,
+  TeamJoinApprovalRequiredException,
+} from '../common/errors/exceptions';
 import { stockholmDateString } from '../common/time/stockholm-date.util';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
+import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { PlayersService } from '../players/players.service';
 import { RedisService } from '../redis/redis.service';
 import { TeamPoolService } from '../team-pool/team-pool.service';
@@ -60,6 +64,7 @@ export class TrainingLogsService {
     // implementer note: "before that transaction starts, not after").
     const player = await this.playersService.findByIdOrThrow(playerId);
     assertConsentApproved(player.parentalConsentStatus);
+    assertTeamJoinApproved(player.teamJoinStatus);
 
     const today = stockholmDateString();
 
@@ -74,6 +79,7 @@ export class TrainingLogsService {
           playerId,
         );
         assertConsentApproved(lockedPlayer.parentalConsentStatus);
+        assertTeamJoinApproved(lockedPlayer.teamJoinStatus);
 
         const streakUpdate = computeStreakUpdate(
           {
@@ -172,5 +178,13 @@ export class TrainingLogsService {
 function assertConsentApproved(status: ParentalConsentStatus): void {
   if (status !== ParentalConsentStatus.APPROVED) {
     throw new ConsentRequiredException();
+  }
+}
+
+// Added 2026-07-27 — a second, independent gate alongside
+// assertConsentApproved above (see TeamJoinApprovalRequiredException).
+function assertTeamJoinApproved(status: TeamJoinStatus): void {
+  if (status !== TeamJoinStatus.APPROVED) {
+    throw new TeamJoinApprovalRequiredException();
   }
 }

@@ -7,6 +7,10 @@ export type ConsentStatus =
   | 'approved'
   | 'revoked';
 
+// Added 2026-07-27 for captain approval of new team joins — a second,
+// independent gate alongside ConsentStatus above.
+export type TeamJoinStatus = 'pending' | 'approved' | 'rejected';
+
 export type ActivityType = 'fitness' | 'drill' | 'running' | 'other';
 
 // --- 1. GET /teams/invite/:inviteCode --------------------------------------
@@ -48,6 +52,11 @@ export interface CreatePlayerResponse {
   screenName: string;
   avatarId: string;
   consentStatus: ConsentStatus;
+  // Added 2026-07-27 for age-banded self-verification (13+) — lets the
+  // post-signup waiting screen show the right copy immediately.
+  isSelfVerification: boolean;
+  // Added 2026-07-27 for captain approval of new team joins.
+  teamJoinStatus: TeamJoinStatus;
   sessionToken: string;
 }
 
@@ -89,6 +98,10 @@ export interface PlayerMeResponse {
     screenName: string;
     avatarId: string;
     consentStatus: ConsentStatus;
+    // Added 2026-07-27 for age-banded self-verification (13+).
+    isSelfVerification: boolean;
+    // Added 2026-07-27 for captain approval of new team joins.
+    teamJoinStatus: TeamJoinStatus;
   };
   team: {
     teamId: string;
@@ -125,11 +138,69 @@ export interface PlayerMeResponse {
 }
 
 // --- Phase 2 shapes, mirroring docs/api/phase2-contract.md exactly ---------
-// Session-reissue/redeem (ADR-0004 Part 3) are deliberately NOT modeled
-// here — both backend routes are disabled (503 `session_reissue_disabled`)
-// pending a security redesign (docs/ACTION_PLAN.md Phase 2 follow-up), so
-// there is no client function or type for them; building against a 503
-// would be dead work.
+
+// Session-reissue/redeem (ADR-0004 Part 3), redesigned per that ADR's
+// 2026-07-27 addendum — the code is emailed to the player's own
+// parent_contact, never returned here. Two request shapes (captain-
+// triggered, self-service) share the same generic-looking response shape
+// on the wire but are typed separately since the self-service one is
+// deliberately identical byte-for-byte whether or not a match was found.
+
+export interface RequestSessionReissueRequest {
+  inviteCode: string;
+  screenName: string;
+}
+
+export interface SessionReissueTriggerResponse {
+  requested: true;
+  expiresAt: string;
+}
+
+export interface SessionReissueSelfServiceResponse {
+  requested: true;
+}
+
+export interface RedeemSessionRequest {
+  code: string;
+}
+
+export interface RedeemSessionResponse {
+  playerId: string;
+  sessionToken: string;
+}
+
+// docs/adr/0012-profile-page-and-contact-email-change.md (Fas 4.1).
+
+export interface PlayerProfileResponse {
+  realName: string | null;
+  birthYear: number;
+  parentContact: string;
+}
+
+export interface UpdateProfileRequest {
+  realName?: string | null;
+}
+
+export interface RequestContactChangeRequest {
+  newContact: string;
+}
+
+export interface RequestContactChangeResponse {
+  requested: true;
+  expiresAt: string;
+}
+
+export interface ConfirmContactChangeResponse {
+  confirmed: true;
+  // security-reviewer finding, 2026-07-28 — confirming no longer applies
+  // the change immediately; it starts a 24h grace period the OLD address
+  // can cancel from. See docs/adr/0012's addendum.
+  appliesAt: string;
+}
+
+export interface ConfirmContactChangeRequest {
+  code: string;
+}
 
 export type WeeklyGoalStatus = 'draft' | 'active' | 'completed' | 'cancelled';
 
@@ -163,6 +234,11 @@ export interface DashboardCurrentGoal {
 
 export interface TeamDashboardResponse {
   viewerIsCaptain: boolean;
+  // Added 2026-07-26 for the "invite a friend" share feature — the only
+  // other place this ever appeared was the one-time account-creation
+  // response, with no way to retrieve it again afterward.
+  inviteCode: string;
+  teamName: string;
   roster: {
     totalCount: number;
     approvedCount: number;
@@ -325,6 +401,25 @@ export interface CaptainTransferResponse {
   previousCaptainPlayerId: string;
   newCaptainPlayerId: string;
   transferredAt: string;
+}
+
+// --- Fas 4 shapes: captain approval for new team joins ----------------------
+// docs/adr/0009-self-service-team-creation.md's 2026-07-27 addendum.
+
+export interface PendingJoinEntry {
+  playerId: string;
+  screenName: string;
+  avatarId: string;
+  createdAt: string;
+}
+
+export interface PendingJoinsResponse {
+  pending: PendingJoinEntry[];
+}
+
+export interface TeamJoinDecisionResponse {
+  playerId: string;
+  teamJoinStatus: TeamJoinStatus;
 }
 
 // --- Fas 2.6b shapes, mirroring docs/api/phase2.6b-contract.md exactly -----

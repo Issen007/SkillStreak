@@ -13,6 +13,7 @@ import { AppModule } from '../src/app.module';
 import { AppExceptionFilter } from '../src/common/errors/http-exception.filter';
 import { PlayerTokenService } from '../src/auth/player-token.service';
 import { ParentalConsentStatus } from '../src/players/player-consent-status.enum';
+import { TeamJoinStatus } from '../src/players/team-join-status.enum';
 import { Player } from '../src/players/entities/player.entity';
 import { PlayerPrivateInfo } from '../src/player-private-info/entities/player-private-info.entity';
 import { Team } from '../src/teams/entities/team.entity';
@@ -177,6 +178,7 @@ describe('Fas 3: video clips & the team feed (e2e)', () => {
         avatarId: 'fox',
         birthYear: 2013,
         parentalConsentStatus: consentStatus,
+        teamJoinStatus: TeamJoinStatus.APPROVED,
       }),
     );
     await dataSource.getRepository(PlayerPrivateInfo).save(

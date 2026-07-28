@@ -20,9 +20,12 @@ direct, low-ceremony, and fast.
   location fields, screen-name-friendly identity, parental consent before
   media features, individual vs. team scoring kept separate. A "quick fix"
   that violates one of these isn't quick.
-- This project is pre-MVP (Fas 1). Don't introduce Kubernetes/scale
-  concerns, extra config, or abstractions the current phase doesn't need.
+- Match the phase actually in front of us (check CLAUDE.md's Project
+  status / docs/ACTION_PLAN.md — this project is mid-Fas-4, a real
+  Kubernetes beta already running, well past MVP). Don't introduce extra
+  config or abstractions the current phase doesn't need, but don't reject
+  Kubernetes/scale-aware changes as premature either.
 
-**Git rule: never merge into `main` and never push directly to `main`.**
-Work happens on a branch (e.g. `phase0`, `phase1`); push that branch and let
-the project owner review and merge it themselves.
+**Git rule:** see CLAUDE.md's "Git workflow rule" — never merge/push
+directly to `main`, no exception; merging a finished feature branch into
+`prerelease` yourself (plain `git merge` + `git push`) is fine.

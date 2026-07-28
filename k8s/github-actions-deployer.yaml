@@ -41,6 +41,16 @@ rules:
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # httproute.yaml/certificate.yaml (both namespace-scoped) are part of
+  # the automated deploy — gateway.yaml's GatewayClass is cluster-scoped
+  # and stays a manual bootstrap step instead, same posture as
+  # cluster-issuer.yaml (see k8s/README.md's deploy order).
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

@@ -460,3 +460,54 @@ the already-decided "should a child become captain" question:
 - See `docs/api/phase1-contract.md`'s 2026-07-09 addendum for the exact
   request/response shapes backend-developer and frontend-developer build
   against.
+
+## Addendum — 2026-07-27: captain approval required for joins
+
+Project owner's request: "When we join a team, the captain in the team
+does also need to accept that a new person is joining, not only a person
+[with the code] can join." Implemented directly, no separate ADR.
+
+This ADR's original design let anyone with a valid invite code become a
+full team member the instant `POST /players` succeeded — the code itself
+was the only gate. That's now reversed: joining an *existing* team (not
+creating a new one) leaves the new player in a `pending` state until the
+team's captain explicitly approves or rejects them via a new endpoint.
+Creating a team still auto-approves its captain (there's no one else to
+ask).
+
+**New, independent gate — not a replacement for parental consent.**
+`Player.team_join_status` (`pending`/`approved`/`rejected`) sits alongside
+the existing `parental_consent_status`, both enforced by the same set of
+gated endpoints (training-log submission, chat send, clip upload/list/
+report). A player needs *both* approved before any of those succeed; each
+gate fails with its own distinct error (`consent_required` vs
+`team_join_approval_required`) so the client can show the right waiting
+copy. This mirrors the exact code shape `assertConsentApproved` already
+established — a same-named local `assertTeamJoinApproved` guard per
+service, called at the same call sites, no new architectural pattern.
+
+**Migration backfill:** existing players are backfilled to `approved`, not
+the column's own `pending` default — they joined under a contract that had
+no captain-approval step, and retroactively locking out real, already-
+active players would be wrong.
+
+**New endpoints** (`PlayersService`-delegating, matching the established
+`transferCaptaincy` convention of Player-table-only mutations bypassing
+`TeamsService`): `GET /teams/:teamId/pending-joins` and
+`POST /teams/:teamId/pending-joins/:playerId/{approve,reject}`, all
+requiring the requester to be the team's captain (reusing
+`assertIsCaptainOfTeam`, which — pre-existing, unrelated to this change —
+also requires the acting captain's own consent to already be approved).
+
+**Consequence for this ADR's own risk list above:** the "acting-captain
+consent-gating on captain-only endpoints" risk flagged in the numbered
+list is now also relevant to the two new approve/reject endpoints, not
+just `createTeam` — same existing `assertIsCaptainOfTeam` guard, so no new
+exposure, just a wider blast radius for that one pre-existing risk.
+
+Live-verified end-to-end against the real cluster post-deploy: a second
+player joining an existing team starts `pending`, is blocked from
+training-log/chat/clip actions with `team_join_approval_required`
+independent of the consent gate, appears in the captain's
+`GET pending-joins` list (403 for non-captains), and gains access
+immediately after the captain's approve call.

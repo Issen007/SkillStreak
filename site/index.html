@@ -61,6 +61,19 @@
   --shadow-soft: 0 20px 60px -20px rgba(27, 27, 58, 0.35);
 }
 
+/* --paper/--paper-dim (and --ink/--ink-soft/--text-on-paper/--text-on-ink)
+   are deliberately NOT redefined in any theme block below — they're fixed
+   brand surface tokens (.on-paper/.on-paper-dim/.on-ink are always meant to
+   render as a literal light-paper or dark-ink surface with their matching
+   fixed text color, regardless of the overall page theme), not page
+   background aliases. Confirmed live 2026-07-26: --paper used to get
+   redefined to a dark navy value here while --text-on-paper (the color
+   .on-paper pairs it with) stayed fixed dark ink — in dark mode this made
+   every .on-paper/.on-paper-dim section (#trygghet, #funktioner,
+   #kom-igang) render near-invisible dark-ink-on-dark-navy text. --bg/
+   --bg-alt are the actual page-background tokens and are the only ones
+   that should flip per theme; they're set directly below rather than via
+   `var(--paper)`, precisely so they can vary independently of --paper. */
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #121228;
@@ -69,8 +82,6 @@
     --fg-muted: #B9B8DC;
     --hairline: rgba(243, 242, 255, 0.14);
     --nav-bg: rgba(18, 18, 40, 0.78);
-    --paper: #121228;
-    --paper-dim: #191934;
     --shadow-soft: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
   }
 }
@@ -81,8 +92,6 @@
   --fg-muted: #B9B8DC;
   --hairline: rgba(243, 242, 255, 0.14);
   --nav-bg: rgba(18, 18, 40, 0.78);
-  --paper: #121228;
-  --paper-dim: #191934;
   --shadow-soft: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
 }
 :root[data-theme="light"] {
@@ -92,8 +101,6 @@
   --fg-muted: #55547A;
   --hairline: #E4E0D3;
   --nav-bg: rgba(250, 250, 247, 0.82);
-  --paper: #FAFAF7;
-  --paper-dim: #F1EEE4;
   --shadow-soft: 0 20px 60px -20px rgba(27, 27, 58, 0.35);
 }
 
@@ -737,6 +744,53 @@ section { position: relative; }
 .btn-outline:hover { border-color: var(--fg-muted); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+.wz-generate-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 11px 16px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--flame-deep);
+  background: color-mix(in srgb, var(--flame) 8%, var(--bg));
+  border: 1.5px dashed color-mix(in srgb, var(--flame) 45%, var(--hairline));
+  border-radius: 14px;
+  cursor: pointer;
+}
+.wz-generate-btn:hover { background: color-mix(in srgb, var(--flame) 14%, var(--bg)); }
+.wz-generate-btn:active { transform: scale(0.98); }
+
+.wz-chip-row {
+  display: none;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.wz-chip-row.is-shown { display: flex; }
+.wz-chip-label {
+  width: 100%;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--fg-muted);
+  margin-bottom: 2px;
+}
+.wz-chip {
+  font-family: 'Nunito', sans-serif;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--fg);
+  background: var(--bg-alt);
+  border: 1.5px solid var(--hairline);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.wz-chip:hover { border-color: var(--flame); color: var(--flame-deep); }
+
 .wz-code-chip {
   display: inline-block;
   font-family: 'Nunito', sans-serif;
@@ -786,25 +840,6 @@ section { position: relative; }
 }
 .wz-avatar.is-selected { border-color: var(--flame); background: color-mix(in srgb, var(--flame) 10%, var(--bg)); }
 
-.wz-year-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.wz-year {
-  padding: 11px 4px;
-  border-radius: 12px;
-  border: 1.5px solid var(--hairline);
-  background: var(--bg);
-  font-family: 'Nunito', sans-serif;
-  font-weight: 800;
-  font-size: 14px;
-  cursor: pointer;
-  color: var(--fg);
-}
-.wz-year.is-selected { border-color: var(--flame); background: color-mix(in srgb, var(--flame) 10%, var(--bg)); color: var(--flame-deep); }
-
 .wz-success .em-big { font-size: 46px; margin-bottom: 14px; display: block; }
 .wz-success h3 { font-size: clamp(23px, 2.8vw, 28px); }
 .wz-success .wz-sub { max-width: 42ch; }
@@ -835,9 +870,22 @@ footer .foot-row {
   border-top: 1px solid var(--hairline-on-ink);
   padding-top: 24px;
 }
+.test-mode-banner {
+  background: #FFB800;
+  color: #1B1B3A;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: center;
+  padding: 10px 16px;
+}
 </style>
 </head>
 <body>
+
+<div class="test-mode-banner">
+  🧪 Det här är bara ett TEST — skapa inte ett riktigt konto med riktiga
+  uppgifter. Allt kan raderas när som helst.
+</div>
 
 <nav class="topnav" id="topnav">
   <a class="brand" href="#top">SkillStreak<span class="dot">.</span></a>
@@ -847,8 +895,9 @@ footer .foot-row {
     <li><a href="#trygghet">Trygghet</a></li>
     <li><a href="#funktioner">Funktioner</a></li>
     <li><a href="#tranare">Tränare</a></li>
+    <li><a href="/download.html">Skaffa appen</a></li>
   </ul>
-  <a class="btn btn-flame" href="#demo">Testa demot</a>
+  <a class="btn btn-flame" href="#demo">Skapa konto gratis</a>
 </nav>
 
 <main id="top">
@@ -864,7 +913,7 @@ footer .foot-row {
           dagen. Individuell streak för dig. Ett gemensamt lagmål för er alla.
         </p>
         <div class="hero-ctas">
-          <a class="btn btn-flame" href="#demo">Testa demot direkt</a>
+          <a class="btn btn-flame" href="#demo">Skapa ditt konto gratis nu</a>
           <a class="btn btn-ghost-on-ink" href="#tranare">Jag är tränare</a>
         </div>
         <div class="hero-proof">
@@ -901,18 +950,18 @@ footer .foot-row {
   </section>
 
   <section class="video-hero">
-    <span class="placeholder-flag"><span class="reddot"></span>Platshållare — riktigt klipp kommer här</span>
+    <span class="placeholder-flag"><span class="reddot"></span>Platshållare — riktig Shorts kommer här</span>
     <canvas class="js-drill-canvas-big" aria-hidden="true"></canvas>
     <div class="wrap video-hero-content">
       <span class="eyebrow">🔥 Så här känns det</span>
       <h2>En streak är bara<br>15 minuter bort.</h2>
       <p>
-        Det här är ytan där ett riktigt klipp från ert eget lag kommer
+        Det här är ytan där en riktig Shorts från ert eget lag kommer
         att spela — en spelare som loggar sitt pass, en zorro-fint som
         lyckas, laget som firar att potten fyllts. Just nu en skiss av
         rörelsen. Snart er egen.
       </p>
-      <a class="btn btn-flame" href="#demo">Se resten av demot</a>
+      <a class="btn btn-flame" href="#demo">Kom igång gratis nu</a>
     </div>
   </section>
 
@@ -956,9 +1005,9 @@ footer .foot-row {
               </div>
             </div>
             <div class="phone-screen-inner" data-beat="klipp">
-              <p class="ph-head">Klipp</p>
+              <p class="ph-head">Shorts</p>
               <div class="ph-clip">
-                <span class="liveflag"><span class="reddot"></span>Klipp</span>
+                <span class="liveflag"><span class="reddot"></span>Shorts</span>
                 <canvas class="js-drill-canvas" width="260" height="320" aria-label="Animerad diagram-skiss av en zorro-fint" role="img"></canvas>
                 <div>
                   <span class="who">ZorroKing09</span>
@@ -1015,10 +1064,10 @@ footer .foot-row {
         </div>
 
         <div class="story-beat reveal" id="klipp-beat">
-          <span class="eyebrow" style="color:var(--flame-bright)">Klippflödet</span>
+          <span class="eyebrow" style="color:var(--flame-bright)">Shorts-flödet</span>
           <h2>Samma sug som TikTok.<br>Bara innanför laget.</h2>
           <p>
-            Ladda upp 15-sekundersklipp när du klarar en fint, ett skott
+            Ladda upp 15-sekunders Shorts när du klarar en fint, ett skott
             eller ett pass — och utmana en lagkompis. Synligt bara för
             ert eget verifierade lag, aldrig utanför.
           </p>
@@ -1047,7 +1096,7 @@ footer .foot-row {
         <div class="trust-item">
           <span class="mark">✉️</span>
           <h3>Föräldragodkännande</h3>
-          <p>Krävs innan något media eller klipp kan laddas upp — varje gång, inget undantag.</p>
+          <p>Krävs innan något media eller Shorts kan laddas upp — varje gång, inget undantag.</p>
         </div>
         <div class="trust-item">
           <span class="mark">📍</span>
@@ -1135,9 +1184,46 @@ footer .foot-row {
               <button class="btn btn-flame" id="wzCodeSubmit" style="width:100%">Hitta mitt lag</button>
             </div>
             <p class="wz-error" id="wzCodeError"></p>
+            <div class="wz-chip-row" id="wzCodeSuggestions"></div>
+            <button type="button" class="wz-generate-btn" id="wzCodeGenerate">🎲 Föreslå en lagkod åt mig</button>
             <p class="wz-helper" style="text-align:center; margin-top:16px;">
               Testa gärna koden <strong>FALKEN13</strong> för att se hur det ser ut att gå med i ett befintligt lag.
             </p>
+            <p class="wz-helper" style="text-align:center; margin-top:12px;">
+              <a href="#" id="wzGoReturning" style="color:var(--flame-deep); font-weight:800;">Har du redan ett konto?</a>
+            </p>
+          </div>
+
+          <div class="wizard-step" data-step="returning">
+            <h3>Har du redan ett konto?</h3>
+            <p class="wz-sub">Ange lagets kod och ditt användarnamn, så skickar vi en inloggningskod till din (eller din förälders) e-post.</p>
+            <div class="wz-field">
+              <label for="wzReturningCode">Lagkod</label>
+              <input class="wz-input wz-code" id="wzReturningCode" type="text" placeholder="T.ex. FALKEN24" maxlength="20" autocomplete="off">
+            </div>
+            <div class="wz-field">
+              <label for="wzReturningName">Ditt användarnamn</label>
+              <input class="wz-input" id="wzReturningName" type="text" placeholder="Ditt användarnamn" maxlength="30" autocomplete="off">
+            </div>
+            <div class="wz-actions">
+              <button class="btn btn-outline" data-back="code">Tillbaka</button>
+              <button class="btn btn-flame" id="wzReturningSubmit">Skicka kod</button>
+            </div>
+          </div>
+
+          <div class="wizard-step" data-step="redeemCode">
+            <span class="em-big">📩</span>
+            <h3>Kolla inkorgen</h3>
+            <p class="wz-sub">Om uppgifterna stämde har vi skickat en kod till din (eller din förälders) e-post. Ange koden nedan för att logga in igen.</p>
+            <div class="wz-field">
+              <label for="wzRedeemCode">Kod</label>
+              <input class="wz-input wz-code" id="wzRedeemCode" type="text" placeholder="T.ex. H4K7QWXP" maxlength="32" autocomplete="off">
+            </div>
+            <div class="wz-actions">
+              <button class="btn btn-outline" data-back="returning">Fick du ingen kod?</button>
+              <button class="btn btn-flame" id="wzRedeemSubmit">Logga in</button>
+            </div>
+            <p class="wz-error" id="wzRedeemError"></p>
           </div>
 
           <div class="wizard-step" data-step="notfound">
@@ -1163,6 +1249,7 @@ footer .foot-row {
               <label for="wzTeamName">Lagnamn</label>
               <input class="wz-input" id="wzTeamName" type="text" placeholder="T.ex. IBK Falken P13" maxlength="40">
             </div>
+            <button type="button" class="wz-generate-btn" id="wzTeamNameGenerate">🎲 Föreslå ett lagnamn åt mig</button>
             <div class="wz-actions">
               <button class="btn btn-outline" data-back="notfound">Tillbaka</button>
               <button class="btn btn-flame" id="wzNameTeamSubmit">Nästa</button>
@@ -1196,6 +1283,8 @@ footer .foot-row {
               <label for="wzScreenName">Spelarnamn</label>
               <input class="wz-input" id="wzScreenName" type="text" placeholder="T.ex. FloorballStar15" maxlength="24">
             </div>
+            <div class="wz-chip-row" id="wzScreenNameSuggestions"></div>
+            <button type="button" class="wz-generate-btn" id="wzScreenNameGenerate">🎲 Föreslå ett spelarnamn åt mig</button>
             <div class="wz-field">
               <label>Välj en avatar</label>
               <div class="wz-avatar-grid" id="wzAvatarGrid"></div>
@@ -1210,23 +1299,28 @@ footer .foot-row {
           <div class="wizard-step" data-step="birthYear">
             <h3>Vilket år är du född?</h3>
             <p class="wz-sub">Vi använder det för att anpassa utmaningar till din ålder.</p>
-            <div class="wz-year-grid" id="wzYearGrid"></div>
+            <div class="wz-field">
+              <label for="wzYear">Födelseår</label>
+              <input class="wz-input" id="wzYear" type="text" inputmode="numeric" autocomplete="off" placeholder="T.ex. 2015" maxlength="4" list="wzYearOptions">
+              <datalist id="wzYearOptions"></datalist>
+            </div>
             <div class="wz-actions">
               <button class="btn btn-flame" id="wzYearSubmit" disabled style="width:100%">Nästa</button>
             </div>
+            <p class="wz-error" id="wzYearError"></p>
           </div>
 
           <div class="wizard-step" data-step="parentContact">
-            <h3>Vi frågar en vuxen om lov</h3>
-            <p class="wz-sub">
+            <h3 id="wzParentHeading">Vi frågar en vuxen om lov</h3>
+            <p class="wz-sub" id="wzParentSub">
               Innan du kan börja logga träningar behöver en förälder eller
               vårdnadshavare säga ja. Vi skickar dem en snabb fråga — de
               godkänner med ett klick.
             </p>
             <div class="wz-field">
-              <label for="wzParentContact">Förälders eller vårdnadshavares e-post eller mobilnummer</label>
+              <label for="wzParentContact" id="wzParentLabel">Förälders eller vårdnadshavares e-post eller mobilnummer</label>
               <input class="wz-input" id="wzParentContact" type="text" placeholder="t.ex. namn@exempel.se">
-              <p class="wz-helper">Vi använder det bara för att fråga om lov — inget annat.</p>
+              <p class="wz-helper" id="wzParentHelper">Vi använder det bara för att fråga om lov — inget annat.</p>
             </div>
             <div class="wz-actions">
               <button class="btn btn-flame" id="wzParentSubmit" style="width:100%">Skicka förfrågan</button>
@@ -1247,7 +1341,7 @@ footer .foot-row {
       <p class="wz-helper" style="margin-top:18px;">
         Det här skapar ett riktigt lag och spelarkonto, precis som i
         telefonappen. Vill du testa den fullständiga appupplevelsen istället?
-        <a href="https://try.skillstreak.app2.isstech.io" style="color:var(--flame-deep); font-weight:800;">Öppna demot</a>.
+        <a href="__TRY_IT_URL__" style="color:var(--flame-deep); font-weight:800;">Öppna demot</a>.
       </p>
     </div>
   </section>
@@ -1260,7 +1354,7 @@ footer .foot-row {
         Samma app, samma trygghetsregler, redo att testas med er trupp.
       </p>
       <div class="reveal">
-        <a class="btn btn-ghost-on-ink" href="https://try.skillstreak.app2.isstech.io">Öppna demot →</a>
+        <a class="btn btn-ghost-on-ink" href="__TRY_IT_URL__">Öppna demot →</a>
       </div>
     </div>
   </section>
@@ -1662,6 +1756,7 @@ footer .foot-row {
     var STAGES = ['kod', 'lag', 'profil', 'ålder', 'godkännande', 'klart'];
     var STEP_STAGE = {
       code: 0, notfound: 0, nameTeam: 0, confirmCreate: 0, confirmJoin: 0,
+      returning: 0, redeemCode: 0,
       playerName: 1, birthYear: 2, parentContact: 3, success: 4
     };
 
@@ -1754,17 +1849,111 @@ footer .foot-row {
 
     var GENERIC_ERROR = 'Något gick fel just nu. Testa igen om en liten stund.';
 
+    // ---- Name/code generators & "taken" suggestion chips — used by the
+    // "🎲 Föreslå ... åt mig" buttons and by the invite_code_taken_concurrently
+    // / screen_name_taken_in_team conflict handlers further down. Word lists
+    // are generic, floorball-adjacent placeholders, not real club names, so
+    // a generated suggestion never accidentally reads as belonging to an
+    // existing real team.
+    function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+    function pickRandom(list) { return list[randomInt(0, list.length - 1)]; }
+
+    var CODE_WORDS = ['FALKEN', 'ÖRNEN', 'VARGEN', 'LEJONEN', 'TIGRARNA', 'BJÖRNARNA', 'RÄVARNA', 'HAJARNA', 'DRAKARNA', 'PANTRARNA', 'KOMETEN', 'BLIXTEN'];
+    function generateTeamCode() { return pickRandom(CODE_WORDS) + randomInt(10, 99); }
+    // Same word stem as the taken code (trailing digits stripped), new
+    // random suffix — close enough to recognize as "the code you tried",
+    // different enough to actually be free.
+    function suggestSimilarCodes(base) {
+      var stem = (base.replace(/[0-9]+$/, '') || base).toUpperCase();
+      var out = [];
+      var attempts = 0;
+      while (out.length < 5 && attempts < 20) {
+        attempts++;
+        var candidate = stem + randomInt(10, 99);
+        if (candidate !== base.toUpperCase() && out.indexOf(candidate) === -1) out.push(candidate);
+      }
+      return out;
+    }
+    // Confirms candidates against the real API (GET /teams/invite/:code —
+    // a 404 means available) rather than just hoping a randomly-generated
+    // string happens to be free, using the same endpoint the "code" step
+    // itself already calls.
+    function findAvailableCodes(candidates, wanted) {
+      return Promise.all(candidates.map(function (code) {
+        return apiCall('/api/v1/teams/invite/' + encodeURIComponent(code), { method: 'GET' })
+          .then(function () { return null; })
+          .catch(function (err) { return err.code === 'invite_code_not_found' ? code : null; });
+      })).then(function (results) {
+        return results.filter(Boolean).slice(0, wanted);
+      });
+    }
+
+    var TEAM_NAME_PREFIXES = ['IBK', 'IK', 'FC', 'BK'];
+    var TEAM_NAME_WORDS = ['Falken', 'Kometen', 'Blixten', 'Vargarna', 'Lejonen', 'Tigrarna', 'Björnarna', 'Hajarna', 'Drakarna', 'Pantrarna'];
+    var TEAM_NAME_SUFFIXES = ['P13', 'P15', 'F13', 'F15', 'U12', 'U14'];
+    function generateTeamName() {
+      return pickRandom(TEAM_NAME_PREFIXES) + ' ' + pickRandom(TEAM_NAME_WORDS) + ' ' + pickRandom(TEAM_NAME_SUFFIXES);
+    }
+
+    var SCREEN_NAME_ADJECTIVES = ['Snabba', 'Vassa', 'Galna', 'Coola', 'Wilda', 'Turbo', 'Legendariska', 'Osynliga'];
+    var SCREEN_NAME_NOUNS = ['Falken', 'Blixten', 'Racern', 'Ninjan', 'Kometen', 'Legenden', 'Vargen', 'Tigern'];
+    function generateScreenName() {
+      return pickRandom(SCREEN_NAME_ADJECTIVES) + pickRandom(SCREEN_NAME_NOUNS) + randomInt(1, 99);
+    }
+    // No public endpoint can check screen-name availability ahead of
+    // submit (it's unique per-team, not globally, and the roster endpoint
+    // is auth-gated) — these are best-effort variants, not verified free;
+    // if a chosen one still collides, the same conflict handler just
+    // regenerates fresh ones.
+    function suggestSimilarScreenNames(base) {
+      var stem = base.replace(/[0-9]+$/, '') || base;
+      var out = [];
+      var attempts = 0;
+      while (out.length < 3 && attempts < 20) {
+        attempts++;
+        var candidate = stem + randomInt(1, 99);
+        if (candidate !== base && out.indexOf(candidate) === -1) out.push(candidate);
+      }
+      return out;
+    }
+
+    // Renders a row of clickable suggestion chips into `containerId`,
+    // calling onPick(value) when one is tapped. Empty `values` hides the
+    // row instead of leaving an empty label showing.
+    function renderChips(containerId, label, values, onPick) {
+      var container = byId(containerId);
+      container.innerHTML = '';
+      if (!values.length) {
+        container.classList.remove('is-shown');
+        return;
+      }
+      var labelEl = document.createElement('span');
+      labelEl.className = 'wz-chip-label';
+      labelEl.textContent = label;
+      container.appendChild(labelEl);
+      values.forEach(function (value) {
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'wz-chip';
+        chip.textContent = value;
+        chip.addEventListener('click', function () { onPick(value); });
+        container.appendChild(chip);
+      });
+      container.classList.add('is-shown');
+    }
+
     // ---- Step: code -> GET /teams/invite/:inviteCode
-    byId('wzCodeSubmit').addEventListener('click', function () {
-      var input = byId('wzCode');
-      var code = input.value.trim().toUpperCase();
-      if (!code) { input.focus(); return; }
+    // Extracted so both the manual "Hitta mitt lag" click AND the
+    // ?code=... auto-lookup below (Laget tab's "Bjud in en kompis" share
+    // link/QR code — see mobile/src/team/components/InviteFriendSheet.tsx)
+    // share one lookup path, rather than duplicating this GET+error
+    // handling.
+    function lookupCode(code, busyBtn) {
       clearError('wzCodeError');
-      var btn = byId('wzCodeSubmit');
-      setBusy(btn, true, 'Letar…');
+      if (busyBtn) setBusy(busyBtn, true, 'Letar…');
       state.inviteCode = code;
 
-      apiCall('/api/v1/teams/invite/' + encodeURIComponent(code), { method: 'GET' })
+      return apiCall('/api/v1/teams/invite/' + encodeURIComponent(code), { method: 'GET' })
         .then(function (data) {
           byId('wzConfirmJoinHeading').textContent = 'Ansluter du till ' + data.teamName + '?';
           showStep('confirmJoin');
@@ -1776,6 +1965,103 @@ footer .foot-row {
           } else {
             showError('wzCodeError', GENERIC_ERROR);
           }
+        })
+        .then(function () { if (busyBtn) setBusy(busyBtn, false); });
+    }
+
+    byId('wzCodeSubmit').addEventListener('click', function () {
+      var input = byId('wzCode');
+      var code = input.value.trim().toUpperCase();
+      if (!code) { input.focus(); return; }
+      void lookupCode(code, byId('wzCodeSubmit'));
+    });
+    byId('wzCode').addEventListener('input', function () {
+      renderChips('wzCodeSuggestions', '', [], function () {});
+    });
+
+    // ---- "Har du redan ett konto?" (docs/adr/0004-coach-auth-and-
+    // session-reissue.md's 2026-07-27 addendum) — self-service session
+    // reissue, mirroring mobile/src/onboarding/screens/RA1ReturningUser.tsx
+    // and RA2RedeemCode.tsx. The request step's response is deliberately
+    // generic (POST /players/session/reissue-request never reveals
+    // whether inviteCode/screenName matched anything), so this always
+    // moves on to the redeem step regardless of what the API said.
+    byId('wzGoReturning').addEventListener('click', function (e) {
+      e.preventDefault();
+      showStep('returning');
+    });
+
+    byId('wzReturningSubmit').addEventListener('click', function () {
+      var codeInput = byId('wzReturningCode');
+      var nameInput = byId('wzReturningName');
+      var code = codeInput.value.trim().toUpperCase();
+      var name = nameInput.value.trim();
+      if (!code) { codeInput.focus(); return; }
+      if (!name) { nameInput.focus(); return; }
+
+      var btn = byId('wzReturningSubmit');
+      setBusy(btn, true, 'Skickar…');
+      apiCall('/api/v1/players/session/reissue-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteCode: code, screenName: name })
+      })
+        .catch(function () { /* swallowed on purpose, see comment above */ })
+        .then(function () {
+          setBusy(btn, false);
+          showStep('redeemCode');
+        });
+    });
+
+    byId('wzRedeemSubmit').addEventListener('click', function () {
+      var input = byId('wzRedeemCode');
+      var code = input.value.trim().toUpperCase();
+      if (!code) { input.focus(); return; }
+      clearError('wzRedeemError');
+
+      var btn = byId('wzRedeemSubmit');
+      setBusy(btn, true, 'Loggar in…');
+      apiCall('/api/v1/players/session/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code })
+      })
+        .then(function () {
+          byId('wzSuccessEmoji').textContent = '✅';
+          byId('wzSuccessHeading').textContent = 'Inloggad igen!';
+          byId('wzSuccessBody').textContent = 'Öppna appen (eller demot) för att fortsätta där du var.';
+          byId('wzSuccessCodeChip').style.display = 'none';
+          showStep('success');
+        })
+        .catch(function (err) {
+          showError('wzRedeemError', err.code === 'invalid_or_expired_code'
+            ? 'Den koden fungerar inte längre. Kolla att du skrev rätt, eller be om en ny.'
+            : GENERIC_ERROR);
+        })
+        .then(function () { setBusy(btn, false); });
+    });
+
+    // ---- ?code=... prefill (shared invite link/QR from the app's "Bjud
+    // in en kompis" sheet) — the friend only has to type their nickname,
+    // the team is already resolved for them. Falls back to the plain
+    // empty "code" step exactly as before if there's no param, or if the
+    // code in the link happens to no longer be valid (same notfound step
+    // a mistyped code already lands on).
+    (function prefillCodeFromUrl() {
+      var params = new URLSearchParams(window.location.search);
+      var sharedCode = (params.get('code') || '').trim().toUpperCase();
+      if (!sharedCode) return;
+      byId('wzCode').value = sharedCode;
+      void lookupCode(sharedCode, byId('wzCodeSubmit'));
+    })();
+    byId('wzCodeGenerate').addEventListener('click', function () {
+      var btn = byId('wzCodeGenerate');
+      setBusy(btn, true, 'Letar en ledig kod…');
+      findAvailableCodes([generateTeamCode(), generateTeamCode(), generateTeamCode()], 1)
+        .then(function (available) {
+          byId('wzCode').value = available[0] || generateTeamCode();
+          clearError('wzCodeError');
+          renderChips('wzCodeSuggestions', '', [], function () {});
         })
         .then(function () { setBusy(btn, false); });
     });
@@ -1804,6 +2090,12 @@ footer .foot-row {
       byId('wzConfirmCreateHeading').textContent = 'Skapa ' + name + '?';
       byId('wzConfirmCreateCode').textContent = 'Lagkod: ' + state.inviteCode + ' — dela den med lagkompisar så de kan gå med senare.';
       showStep('confirmCreate');
+    });
+    byId('wzTeamNameGenerate').addEventListener('click', function () {
+      var input = byId('wzTeamName');
+      input.value = generateTeamName();
+      clearError('wzNameTeamError');
+      input.focus();
     });
 
     // ---- Step: confirmCreate (O1c)
@@ -1852,7 +2144,16 @@ footer .foot-row {
     function checkPlayerNameReady() {
       byId('wzPlayerNameSubmit').disabled = !(screenNameInput.value.trim() && state.avatarId);
     }
-    screenNameInput.addEventListener('input', checkPlayerNameReady);
+    screenNameInput.addEventListener('input', function () {
+      checkPlayerNameReady();
+      renderChips('wzScreenNameSuggestions', '', [], function () {});
+    });
+    byId('wzScreenNameGenerate').addEventListener('click', function () {
+      screenNameInput.value = generateScreenName();
+      checkPlayerNameReady();
+      renderChips('wzScreenNameSuggestions', '', [], function () {});
+      screenNameInput.focus();
+    });
     byId('wzPlayerNameSubmit').addEventListener('click', function () {
       clearError('wzPlayerNameError');
       state.screenName = screenNameInput.value.trim();
@@ -1860,24 +2161,76 @@ footer .foot-row {
     });
 
     // ---- Step: birthYear (O4)
-    var yearGrid = byId('wzYearGrid');
+    // Same rolling-offset range as backend/src/onboarding/dto/create-player.dto.ts
+    // and mobile/src/onboarding/screens/O4BirthYear.tsx — both bounds move
+    // with today's date rather than being fixed calendar years, so this
+    // never needs a manual yearly update.
+    //
+    // A single text <input> (not a <select>) so the visible field keeps the
+    // same large/bold styling as every other wizard input — a native
+    // <select>'s open dropdown list is rendered by the OS/browser, not this
+    // page's CSS, and always came out small no matter what .wz-select set.
+    // The paired <datalist> keeps the "click to see a scrollable list of
+    // years" affordance; typing a year directly (e.g. "2015") is now the
+    // primary path and is validated on every keystroke against the same
+    // bounds the backend enforces, rather than relying on a <select>'s
+    // browser-dependent type-ahead (which jumps by first-keystroke and can
+    // silently land on the wrong option if you type a full year quickly).
+    // Widened 2026-07-26 from 26 to 56 (matches create-player.dto.ts).
+    var OLDEST_ALLOWED_AGE_YEARS = 56;
+    var YOUNGEST_ALLOWED_AGE_YEARS = 4;
     var thisYear = new Date().getFullYear();
-    for (var y = thisYear - 6; y >= thisYear - 17; y--) {
-      (function (year) {
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'wz-year';
-        btn.textContent = year;
-        btn.addEventListener('click', function () {
-          yearGrid.querySelectorAll('.wz-year').forEach(function (b) { b.classList.remove('is-selected'); });
-          btn.classList.add('is-selected');
-          state.birthYear = year;
-          byId('wzYearSubmit').disabled = false;
-        });
-        yearGrid.appendChild(btn);
-      })(y);
+    var minBirthYear = thisYear - OLDEST_ALLOWED_AGE_YEARS;
+    var maxBirthYear = thisYear - YOUNGEST_ALLOWED_AGE_YEARS;
+    var yearInput = byId('wzYear');
+    var yearError = byId('wzYearError');
+    var yearOptions = byId('wzYearOptions');
+    for (var y = maxBirthYear; y >= minBirthYear; y--) {
+      var opt = document.createElement('option');
+      opt.value = String(y);
+      yearOptions.appendChild(opt);
     }
-    byId('wzYearSubmit').addEventListener('click', function () { showStep('parentContact'); });
+    yearInput.addEventListener('input', function () {
+      var raw = yearInput.value.trim();
+      var year = /^[0-9]{4}$/.test(raw) ? parseInt(raw, 10) : NaN;
+      var valid = !isNaN(year) && year >= minBirthYear && year <= maxBirthYear;
+      state.birthYear = valid ? year : null;
+      byId('wzYearSubmit').disabled = !valid;
+      if (raw && !valid) {
+        yearError.textContent = 'Ange ett år mellan ' + minBirthYear + ' och ' + maxBirthYear + '.';
+        yearError.classList.add('is-shown');
+      } else {
+        yearError.classList.remove('is-shown');
+      }
+    });
+    // Age-banded self-verification (13+) — added 2026-07-27, same
+    // rolling threshold as the backend's isSelfVerificationAge (Sweden's
+    // actual GDPR Art. 8 digital-consent age, Dataskyddslagen 2018:218
+    // Ch.2§4). Copy-only here — the backend independently re-derives and
+    // enforces this itself from birthYear, so this can never bypass
+    // anything, only show the wrong wording for one step.
+    var SELF_VERIFICATION_MIN_AGE_YEARS = 13;
+    function updateParentContactStepCopy() {
+      var isSelfVerification =
+        state.birthYear !== null &&
+        thisYear - state.birthYear >= SELF_VERIFICATION_MIN_AGE_YEARS;
+      byId('wzParentHeading').textContent = isSelfVerification
+        ? 'Verifiera ditt konto'
+        : 'Vi frågar en vuxen om lov';
+      byId('wzParentSub').textContent = isSelfVerification
+        ? 'Innan du kan börja logga träningar behöver du verifiera din e-post eller ditt mobilnummer.'
+        : 'Innan du kan börja logga träningar behöver en förälder eller vårdnadshavare säga ja. Vi skickar dem en snabb fråga — de godkänner med ett klick.';
+      byId('wzParentLabel').textContent = isSelfVerification
+        ? 'Din e-post eller mobilnummer'
+        : 'Förälders eller vårdnadshavares e-post eller mobilnummer';
+      byId('wzParentHelper').textContent = isSelfVerification
+        ? 'Vi använder det bara för att verifiera ditt konto — inget annat.'
+        : 'Vi använder det bara för att fråga om lov — inget annat.';
+    }
+    byId('wzYearSubmit').addEventListener('click', function () {
+      updateParentContactStepCopy();
+      showStep('parentContact');
+    });
 
     // ---- Step: parentContact (O5) -> POST /players -> success (O6)
     byId('wzParentSubmit').addEventListener('click', function () {
@@ -1909,14 +2262,23 @@ footer .foot-row {
           if (data.teamCreated) {
             byId('wzSuccessEmoji').textContent = '👑🎉';
             byId('wzSuccessHeading').textContent = 'Grattis, ' + data.screenName + '! Du skapade ' + data.teamName + '!';
-            byId('wzSuccessBody').textContent = 'Du är lagets första spelare — och kapten! Så fort en förälder eller vårdnadshavare säger ja kan du börja logga träningar och bjuda in lagkompisar.';
+            byId('wzSuccessBody').textContent = data.isSelfVerification
+              ? 'Du är lagets första spelare — och kapten! Vi har skickat en verifieringslänk till dig. Så fort du klickar på den kan du börja logga träningar och bjuda in lagkompisar.'
+              : 'Du är lagets första spelare — och kapten! Så fort en förälder eller vårdnadshavare säger ja kan du börja logga träningar och bjuda in lagkompisar.';
             var chip = byId('wzSuccessCodeChip');
             chip.textContent = 'Lagkod: ' + state.inviteCode + ' — dela den så fler kan gå med';
             chip.style.display = 'inline-block';
           } else {
             byId('wzSuccessEmoji').textContent = '✅';
             byId('wzSuccessHeading').textContent = 'Klart, ' + data.screenName + '!';
-            byId('wzSuccessBody').textContent = 'Du är med i ' + data.teamName + '! Vi har skickat en fråga till en förälder eller vårdnadshavare. Så fort de säger ja kan du börja logga träningar och tjäna poäng till laget.';
+            // Fas 4 (captain approval for new joins, added 2026-07-27):
+            // joining an existing team now also needs the captain's
+            // approval, on top of whichever consent path applies — this
+            // path is never reached for data.teamCreated (the creator's
+            // own join auto-approves, see docs/adr/0009's addendum).
+            byId('wzSuccessBody').textContent = data.isSelfVerification
+              ? 'Du är med i ' + data.teamName + '! Vi har skickat en verifieringslänk till dig, och lagets kapten behöver godkänna att du gick med. Så fort båda är klara kan du börja logga träningar och tjäna poäng till laget.'
+              : 'Du är med i ' + data.teamName + '! Vi har skickat en fråga till en förälder eller vårdnadshavare, och lagets kapten behöver godkänna att du gick med. Så fort båda är klara kan du börja logga träningar och tjäna poäng till laget.';
             byId('wzSuccessCodeChip').style.display = 'none';
           }
           showStep('success');
@@ -1932,14 +2294,28 @@ footer .foot-row {
             showError('wzCodeError', 'Lagkoden fungerar inte längre. Fråga din tränare om en ny kod.');
             showStep('code');
           } else if (err.code === 'invite_code_taken_concurrently') {
+            var takenCode = state.inviteCode;
             byId('wzCode').value = '';
-            showError('wzCodeError', 'Åh nej — någon hann skapa ett lag med den koden precis före dig! Testa en annan kod, så ordnar vi resten direkt.');
+            showError('wzCodeError', 'Åh nej — någon hann skapa ett lag med den koden precis före dig! Testa en annan kod, eller välj ett ledigt förslag nedan.');
             showStep('code');
+            findAvailableCodes(suggestSimilarCodes(takenCode), 3).then(function (available) {
+              renderChips('wzCodeSuggestions', 'Lediga förslag:', available, function (code) {
+                byId('wzCode').value = code;
+                clearError('wzCodeError');
+                renderChips('wzCodeSuggestions', '', [], function () {});
+              });
+            });
           } else if (err.code === 'screen_name_taken_in_team') {
             showError('wzPlayerNameError', 'Det namnet är upptaget i laget — testa ett annat!');
             showStep('playerName');
             screenNameInput.focus();
             screenNameInput.select();
+            renderChips('wzScreenNameSuggestions', 'Förslag:', suggestSimilarScreenNames(state.screenName), function (name) {
+              screenNameInput.value = name;
+              checkPlayerNameReady();
+              clearError('wzPlayerNameError');
+              renderChips('wzScreenNameSuggestions', '', [], function () {});
+            });
           } else if (err.code === 'team_name_rejected_by_filter') {
             showError('wzNameTeamError', 'Lagnamnet gick inte att spara — det innehöll ord som inte funkar här. Skriv om det så går det bra! ✍️');
             showStep('nameTeam');

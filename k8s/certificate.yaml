@@ -1,0 +1,23 @@
+# One multi-SAN certificate covering every real public hostname, so
+# gateway.yaml's four HTTPS listeners can all reference the same Secret.
+# Starts on letsencrypt-staging (see cluster-issuer.yaml's comment) —
+# switch issuerRef to letsencrypt-prod once `kubectl describe certificate
+# skillstreak-xyz-tls -n skillstreak` shows Ready, then delete this
+# Secret so cert-manager reissues a trusted one. Do not let real
+# parental-consent emails go out before that cutover — see the warning in
+# k8s/README.md.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: skillstreak-xyz-tls
+  namespace: skillstreak
+spec:
+  secretName: skillstreak-xyz-tls
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+    - skillstreak.xyz
+    - www.skillstreak.xyz
+    - try.skillstreak.xyz
+    - api.skillstreak.xyz

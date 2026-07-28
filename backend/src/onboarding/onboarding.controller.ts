@@ -15,6 +15,14 @@ interface CreatePlayerResponse {
   screenName: string;
   avatarId: string;
   consentStatus: string;
+  // Added 2026-07-27 for age-banded self-verification (13+) — lets the
+  // client show the right "waiting" copy immediately after signup,
+  // without an extra GET /players/me round-trip. See PlayersController's
+  // identical field for the equivalent post-signup case.
+  isSelfVerification: boolean;
+  // Added 2026-07-27 for captain approval of new team joins — see
+  // PlayersController's identical field for the post-signup case.
+  teamJoinStatus: string;
   sessionToken: string;
 }
 

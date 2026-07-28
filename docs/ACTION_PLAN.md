@@ -278,7 +278,7 @@ context, not as live direction.
             contradicting the contract's "non-terminal status" rule. Fixed:
             new `ChallengeAlreadyTerminalException`, plus test coverage for
             `patchGoal` (there was none before — code-critic's own finding).
-      - [ ] **security-reviewer, CONFIRMED CRITICAL — session-reissue allows
+      - [x] **security-reviewer, CONFIRMED CRITICAL — session-reissue allows
             full account takeover, not just impersonation risk.** The
             reissue code is returned directly to whoever calls
             `POST /players/:playerId/session-reissue` (intended to be
@@ -297,7 +297,14 @@ context, not as live direction.
             its logic are left intact (the `token_version`/single-use-code
             mechanism itself is sound) for a proper redesign later that
             binds redemption to the target player rather than to bearer
-            possession of the code. **Still open, tracked in Phase 2.5.**
+            possession of the code. **RESOLVED 2026-07-27** — the redesign
+            emails the code to the target's own `parent_contact`, never
+            returning it to whoever triggers reissue; see
+            `docs/adr/0004-coach-auth-and-session-reissue.md`'s
+            "Addendum — 2026-07-27" for the full design and its own
+            independent security-reviewer pass (which found and fixed a
+            second, related gap — a missing daily cap alongside the burst
+            cooldown).
       - Everything else both reviewers checked — the bonus mechanic's
         idempotency (including under real concurrency), the weekly-goal
         state machine, captain authorization/IDOR scoping, the DB-level
@@ -1524,6 +1531,167 @@ treat `security-reviewer` involvement as blocking, not a final check.
       management via a real secrets manager, network policy) — partially
       covered by the pre-beta pass below (rate limiting already existed
       from Phase 1), but not a complete Fas 4 pass.
+
+## Phase 4.1 — Profile page — done 2026-07-28
+
+**Added 2026-07-28, from the project owner directly; designed and shipped
+the same day.** See `docs/adr/0012-profile-page-and-contact-email-change.md`
+(incl. its 2026-07-28 addendum) for the full design and its rationale —
+summary here for the checklist.
+
+A profile page reachable via the top-right avatar circle: optionally set
+a real name (`PATCH /players/me/profile`), view (not edit — see below)
+birth year, and change the contact email (`parent_contact` — the
+player's own for the 13+ self-verification cohort, the parent's
+otherwise).
+
+**Went through the same architect/security-reviewer-blocking sequencing
+as `docs/adr/0004-coach-auth-and-session-reissue.md`'s 2026-07-27
+redesign** — `parent_contact` is this app's account-recovery trust root,
+so a feature letting a user change it is the same risk class, not
+routine CRUD:
+
+- **Confirm via the NEW address, notify the OLD one at request time** —
+  a single-use code (reusing the session-reissue code generator) is
+  emailed to the candidate new address; the current address gets an
+  informational notice, no code, at the same time.
+- **An independent security-reviewer pass found a real gap** in the
+  first cut: no password + a long-lived session token meant a
+  momentarily-compromised session could complete both request and
+  confirm before the old-address notice could prompt a human to react.
+  Fixed by adding a **24h grace period** after confirm (the change
+  doesn't apply instantly) plus a **cancel link mailed to the OLD
+  address** at confirm time — a web page (not an app screen, since the
+  old address may not have the app open), which reverts the change and
+  invalidates every session on the account if used. Applies lazily on
+  the next profile read once the grace period elapses, no new cron job.
+- **Birth year stays read-only** — it drives `isSelfVerificationAge`, so
+  a free edit is a potential parental-consent bypass, not just a typo
+  fix. A correction path (coach/admin) is explicitly not built yet.
+- **No new password/login system** — reuses the existing "email as
+  recovery credential" model rather than inventing one, per ADR-0004's
+  explicit decision against passwords for this userbase.
+- Real name (lower risk, already optional/isolated in
+  `PlayerPrivateInfo`) is a direct `PATCH`, no confirmation flow.
+
+Live-verified end-to-end against the real cluster: request → confirm →
+grace period holds (contact unchanged) → cancel-link preview/POST →
+change reverted + session invalidated; and separately, confirm → grace
+period → lazy apply on the next read once elapsed. Mobile UI verified via
+a real browser session against the live backend, including the
+grace-period toast copy.
+
+## Phase 6 — Public Shorts feed, reactions & personal archive
+
+**Added 2026-07-27, from the project owner directly** (not yet designed —
+tracked here so it can be reviewed before any code, per this doc's own
+standing practice below). Numbered 6, not 5: `docs/PROJECT.md` already
+reserves "Fas 5" for post-launch growth/business ideas (usage analytics,
+a paid PT-role plan, LLM chat moderation) — this is new, separate scope,
+placed after it in sequence for now, but the project owner should confirm
+that ordering rather than have it picked silently. Requested shape,
+paraphrased: Shorts becomes a
+never-ending scrollable feed of clips other players have opted to make
+public, with reactions; a way to save/collect clips you like into your own
+archive for mission ideas or new-streak inspiration; and a new "Archive"
+tab in Shorts showing (a) your team's clips and (b) clips you personally
+own, from which you can choose to publish one to the public feed to get
+reactions. Reference points named: Snapchat, YouTube, TikTok, Instagram —
+for the endless-scroll mechanic and how each surfaces reactions, not for
+their privacy models.
+
+**This is flagged, not silently scoped down, per CLAUDE.md's explicit
+instruction to push back on anything weakening the closed-team-bubble
+constraint.** Every clip in the app is currently **structurally**
+team-scoped only — no cross-team read path exists anywhere in the
+architecture. `adr/0010-video-storage-and-serving.md` (Fas 3) states this
+as a hard guarantee, security-reviewer independently verified it (**zero**
+public/anonymous read access on the storage bucket; every single clip read
+re-checks `clip.teamId === requestingPlayer.teamId` and mints a fresh,
+never-cached presigned URL), and it's the direct implementation of
+CLAUDE.md's "a user only ever sees their own verified team" non-negotiable.
+A "public" feed is by definition a second, cross-team visibility path for
+video of children — the single highest-risk kind of change this codebase
+can make, higher-risk than Fas 3 itself, which is already this project's
+"highest privacy risk" phase per its own checklist header above. It is not
+a reason to refuse the feature — opt-in publishing is a legitimate product
+idea and the request already includes an explicit approval step, which is
+the right instinct — but it must go through the same architect →
+ux-designer → security-reviewer sequencing Fas 3 used, with security-reviewer
+**blocking**, before any schema or endpoint exists. Do not build this by
+quietly loosening the existing `clip.teamId` check.
+
+Open questions for that design pass (not decided here):
+- What "approve to be public" actually means for a child's account —
+  whose approval: the player's, or does publishing a minor's video to a
+  wider audience need the same parental-consent gate media upload already
+  requires? (CLAUDE.md: "Parental approval flow required before any
+  account can upload video/media" — publishing to a *wider* audience than
+  what consent was originally given for is a real open question, not an
+  extension of the existing upload consent by default.)
+  **Candidate answer proposed 2026-07-27 (project owner, not yet decided)**:
+  require a real, verified email per child ("child email"), doing double
+  duty as a future login-recovery credential (see Fas 4 point 2, "new
+  device login/session reissue" — the same missing piece that item needs)
+  as well as one or two separate parent emails; publishing a specific clip
+  outside the team bubble would require a parent to click a review link
+  (they actually see the clip before approving, unlike the existing
+  consent flow which approves the *account*, not a specific piece of
+  content) and approve *that clip specifically*. This is a materially
+  stronger, per-clip gate than the account-level parental consent Fas 1
+  already has — architect should evaluate it as the leading candidate for
+  this open question, including whether it replaces or layers on top of
+  the existing `parentalConsentStatus` gate, and how it interacts with the
+  13+ self-verification cohort (docs/adr/0002-data-model.md's 2026-07-27
+  addendum) who currently have no parent on file at all by design.
+- Is "public" app-wide (any SkillStreak user, any team) or scoped to some
+  narrower circle? App-wide is the biggest deviation from the current
+  model and the one Snapchat/TikTok/Instagram/YouTube all assume by
+  default — worth deciding deliberately rather than by analogy.
+- Anonymization: screen names are already usable in place of real names
+  per CLAUDE.md, but does a public post need *additional* stripping (e.g.
+  team name, which is currently cross-team-visible on the leaderboard per
+  ADR-0008, becoming a de-anonymizing link between a public clip and a
+  specific real-world team of children)?
+- Reactions/comments on a public clip are a new user-generated-content
+  surface between strangers, not just teammates — needs the same
+  moderation-check treatment ADR-0007/ADR-0009 gave chat and team names,
+  not assumed safe by omission.
+- Retention/takedown: Fas 3's 90-day rolling retention + immediate
+  uploader self-delete was designed for a team-only audience; a public,
+  reaction-bearing clip likely needs its own review (e.g. does un-publishing
+  also need to be immediate and unconditional, same as delete already is).
+- "Archive" as described is two distinct collections (their own reusable
+  data model, not a special case of `VideoClip`): *saved-for-inspiration*
+  (other people's public clips a player bookmarked) vs. *owned* (a
+  player's/team's own clips, published or not) — ux-designer's call on
+  whether one tab or two communicates that distinction, per the request's
+  own "team's video" vs "videos you are owner of" split.
+- **Follow-up, 2026-07-27**: this feed is also the delivery mechanism for a
+  separate, since-added backlog item — rewarding video-verified and
+  shared/public training with more points than a plain self-reported log,
+  plus a PT-content/growth-loop angle. See `docs/BACKLOG.md`'s "Points
+  system needs a verification/inspiration tier" entry — a distinct
+  architect-level change to the points formula (ADR-0005), not decided or
+  scoped here, but load-bearing on why this feed matters beyond inspiration
+  alone.
+
+- [ ] **architect**: design the public-opt-in data model (a `visibility`
+      or `publishedAt` concept on `VideoClip`, or a separate join/publish
+      table — TBD), the archive/save data model, and the reaction data
+      model, resolving the open questions above. New ADR, not a Fas 3
+      addendum — this is new scope beyond what ADR-0010 signed off on.
+- [ ] **ux-designer**: design the endless-scroll feed, reaction UX, and
+      the Archive tab (team clips + owned clips + publish action),
+      informed by but not copying Snapchat/TikTok/Instagram/YouTube's
+      patterns — this app's youth-safety constraints are stricter than any
+      of those four.
+- [ ] **security-reviewer**: blocking review of the architect's design
+      before backend-developer starts, per this doc's standing practice —
+      treat with at least the rigor Fas 3's original review used (that one
+      found and required fixing a real GPS-metadata leak before shipping).
+- [ ] **backend-developer**: implement once the above is signed off.
+- [ ] **frontend-developer**: implement once the above is signed off.
 
 ## Pre-beta hardening pass (2026-07-05, ahead of Fas 2)
 

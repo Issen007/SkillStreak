@@ -401,23 +401,99 @@ export class ClipReportRateLimitedException extends AppException {
   }
 }
 
-export class SessionReissueDisabledException extends AppException {
+// --- Fas 4 (captain approval for new team joins) ----------------------------
+// Added 2026-07-27: joining an existing team via invite code used to be
+// immediate — anyone with the code was a full member on the spot. A
+// captain now has to approve each new join before it counts, mirroring
+// how parental consent already gates gameplay (a second, independent
+// gate, not a replacement for it).
+
+export class TeamJoinApprovalRequiredException extends AppException {
   constructor() {
-    // Disabled 2026-07-05 per a security review finding: the reissue code
-    // is returned directly to whichever caller triggers it (intended to be
-    // relayed in person to the target player), but nothing technically
-    // stops that same caller from redeeming it themselves — a captain can
-    // fully impersonate any teammate, with no rate limit or audit trail.
-    // The underlying service/logic (SessionService, token_version,
-    // single-use code redemption) is otherwise sound and stays in place;
-    // only these two routes are gated off pending a redesign that binds
-    // redemption to the target player rather than to bearer possession of
-    // the code. See docs/adr/0004-coach-auth-and-session-reissue.md Part 3
-    // and docs/ACTION_PLAN.md's Phase 2 security-review follow-ups.
+    // Distinct from ConsentRequiredException (a parent/self-verification
+    // gate) — this is a *team-integrity* gate: the captain hasn't yet
+    // confirmed this joiner is legitimately part of the team. Both gates
+    // are independent and both must be clear before training-log/chat/
+    // clips access — see assertTeamJoinApproved in each of those services.
     super(
-      'session_reissue_disabled',
-      'Session reissue is temporarily disabled pending a security fix.',
-      HttpStatus.SERVICE_UNAVAILABLE,
+      'team_join_approval_required',
+      "The team captain hasn't approved this join yet.",
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class TeamJoinNotPendingException extends AppException {
+  constructor() {
+    // Mirrors ConsentNotPendingException's reasoning: approving/rejecting
+    // a join that isn't actually pending (already approved, already
+    // rejected, or the captain's own auto-approved join) is a stale-state
+    // client error, not a 404 — the player row is real, just not
+    // actionable this way anymore.
+    super(
+      'team_join_not_pending',
+      'This player is not pending team-join approval.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+// Both session-reissue routes were disabled (SessionReissueDisabledException,
+// 503 session_reissue_disabled) from 2026-07-05 to 2026-07-27, per a
+// security-review finding: the reissue code was returned directly to
+// whichever caller triggered it, so the same captain who triggered a
+// teammate's reissue could redeem it themselves — full account takeover,
+// no rate limit, no audit trail. Removed now that the redesign (docs/
+// adr/0004-coach-auth-and-session-reissue.md's 2026-07-27 addendum) binds
+// redemption to the target player's own parent_contact via email, never
+// to whoever made the request — see SessionService.
+
+export class SessionReissueRateLimitedException extends AppException {
+  constructor() {
+    // Same per-player cooldown-lock shape as ConsentReminderRateLimitedException
+    // above — bounds inbox-spam harassment against a real family, not the
+    // security boundary itself (that's parent_contact-bound delivery).
+    // Thrown only on the captain-triggered path (the requester is already
+    // authorized, so "try again later" leaks nothing); the self-service
+    // path swallows this into its generic response instead, see
+    // SessionService.requestReissueSelfService.
+    super(
+      'session_reissue_rate_limited',
+      'A session-reissue code was already requested recently for this player; try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+// docs/adr/0012-profile-page-and-contact-email-change.md — the profile
+// page's contact-email change flow.
+
+export class ContactChangeRateLimitedException extends AppException {
+  constructor() {
+    // Same per-player cooldown-lock shape/reasoning as
+    // SessionReissueRateLimitedException above. Always thrown directly
+    // (unlike session reissue's self-service path) — this endpoint
+    // requires the caller to already hold a valid session for the target
+    // account, so there's no unauthenticated-enumeration concern to
+    // swallow it for.
+    super(
+      'contact_change_rate_limited',
+      'A contact-change code was already requested recently; try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+export class InvalidOrExpiredContactChangeCodeException extends AppException {
+  constructor() {
+    // Deliberately generic, same posture as InvalidOrExpiredCodeException
+    // — doesn't distinguish "no such code" from "expired" from
+    // "already used". A distinct exception/code from that one (not
+    // reused) since its message is specific to session reissue.
+    super(
+      'invalid_or_expired_contact_change_code',
+      'This contact-change code is invalid, expired, or already used.',
+      HttpStatus.BAD_REQUEST,
     );
   }
 }

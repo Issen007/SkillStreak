@@ -7,6 +7,7 @@ import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { AppExceptionFilter } from '../src/common/errors/http-exception.filter';
 import { ParentalConsentStatus } from '../src/players/player-consent-status.enum';
+import { TeamJoinStatus } from '../src/players/team-join-status.enum';
 import { Player } from '../src/players/entities/player.entity';
 import { Team } from '../src/teams/entities/team.entity';
 import { Season } from '../src/team-pool/entities/season.entity';
@@ -277,12 +278,13 @@ describe('Phase 1 API (e2e)', () => {
     it('logs training, updates streak + team pool, and repeats the same-day rule on a second log — once approved (out-of-band, no approval endpoint in this contract)', async () => {
       // Simulates the out-of-band parent-approval surface — there is no
       // POST /consent/:consentToken endpoint in this app's contract.
-      await dataSource
-        .getRepository(Player)
-        .update(
-          { id: playerId },
-          { parentalConsentStatus: ParentalConsentStatus.APPROVED },
-        );
+      await dataSource.getRepository(Player).update(
+        { id: playerId },
+        {
+          parentalConsentStatus: ParentalConsentStatus.APPROVED,
+          teamJoinStatus: TeamJoinStatus.APPROVED,
+        },
+      );
 
       const firstResponse = await request(app.getHttpServer())
         .post('/api/v1/training-logs')

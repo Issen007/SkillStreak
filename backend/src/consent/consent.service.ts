@@ -5,8 +5,10 @@ import {
   ConsentNotPendingException,
   ConsentReminderRateLimitedException,
 } from '../common/errors/exceptions';
+import { isSelfVerificationAge } from '../common/age/self-verification-age.util';
 import { MailService } from '../mail/mail.service';
 import { buildConsentRequestEmail } from '../mail/templates/consent-request-email.template';
+import { buildSelfVerificationEmail } from '../mail/templates/self-verification-email.template';
 import { ConsentMethod } from '../player-private-info/entities/parental-consent-record.entity';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
 import { generateConsentToken } from '../players/consent-token.util';
@@ -19,10 +21,15 @@ const DEFAULT_APP_PUBLIC_URL = 'http://localhost:3000';
 
 export interface ConsentPreview {
   screenName: string;
+  // Added 2026-07-27 (age-banded self-verification) — tells
+  // ConsentController which page copy to render (first-person "verify
+  // your own account" vs. third-person "does a parent approve").
+  isSelfVerification: boolean;
 }
 
 export interface ConsentApprovalResult {
   screenName: string;
+  isSelfVerification: boolean;
 }
 
 export interface ConsentReminderResult {
@@ -56,7 +63,12 @@ export class ConsentService {
    */
   async previewByToken(token: string): Promise<ConsentPreview | null> {
     const player = await this.playersService.findValidByConsentToken(token);
-    return player ? { screenName: player.screenName } : null;
+    return player
+      ? {
+          screenName: player.screenName,
+          isSelfVerification: isSelfVerificationAge(player.birthYear),
+        }
+      : null;
   }
 
   /**
@@ -78,31 +90,45 @@ export class ConsentService {
         return null;
       }
 
+      const isSelfVerification = isSelfVerificationAge(player.birthYear);
       await this.playerPrivateInfoService.recordConsentEvent(
         manager,
         player.id,
         ParentalConsentStatus.APPROVED,
-        ConsentMethod.EMAIL_LINK,
+        isSelfVerification
+          ? ConsentMethod.SELF_EMAIL_LINK
+          : ConsentMethod.EMAIL_LINK,
       );
 
-      return { screenName: player.screenName };
+      return { screenName: player.screenName, isSelfVerification };
     });
   }
 
   /**
    * POST /api/v1/players/:playerId/consent-reminder — docs/api/phase2-
    * contract.md endpoint 3. Captain-only (checked against the *target*
-   * player's team — a captain triggers this for a teammate, not
-   * themselves). Reuses the same consent_token/consent_token_expires_at
-   * columns and email template as the original onboarding send, mirroring
-   * OnboardingService's mail-sending shape (best-effort: a mail failure
-   * doesn't fail the request).
+   * player's team — a captain triggers this for a teammate) **or the
+   * pending player resending their own** (added 2026-07-26: neither the
+   * mobile app's waiting screen nor the website's onboarding widget had
+   * any self-service way to resend — only a captain, acting on a
+   * teammate, could ever trigger this, which left a non-captain player
+   * with no path to resend their own reminder at all). Reuses the same
+   * consent_token/consent_token_expires_at columns and email template as
+   * the original onboarding send, mirroring OnboardingService's
+   * mail-sending shape (best-effort: a mail failure doesn't fail the
+   * request).
    *
-   * **Flagged for security-reviewer** (ADR-0005's Consequences): this now
-   * sends a real email nudge to a teammate's parent, triggered by another
-   * child rather than an adult coach — the mechanism/rate-limiting is
-   * identical to the old coach-triggered design, the trust model
-   * triggering it is not.
+   * Self-service is deliberately a *lower*-trust action than the
+   * captain-triggered path, not a new risk: it only ever lets a player
+   * nudge their own parent, the same contact already on file from their
+   * own onboarding — nothing about acting on someone else's account.
+   * `assertIsCaptainOfTeam` (with its own consent/team checks) still
+   * gates the teammate-on-behalf-of case exactly as before.
+   *
+   * **Flagged for security-reviewer** (ADR-0005's Consequences, carried
+   * forward): the captain-triggered path still sends a real email nudge
+   * to a teammate's parent, triggered by another child rather than an
+   * adult coach — unchanged by this addition.
    */
   async sendReminder(
     requesterId: string,
@@ -110,10 +136,12 @@ export class ConsentService {
   ): Promise<ConsentReminderResult> {
     const targetPlayer =
       await this.playersService.findByIdOrThrow(targetPlayerId);
-    await this.playersService.assertIsCaptainOfTeam(
-      requesterId,
-      targetPlayer.teamId,
-    );
+    if (requesterId !== targetPlayerId) {
+      await this.playersService.assertIsCaptainOfTeam(
+        requesterId,
+        targetPlayer.teamId,
+      );
+    }
 
     if (targetPlayer.parentalConsentStatus !== ParentalConsentStatus.PENDING) {
       throw new ConsentNotPendingException();
@@ -142,6 +170,7 @@ export class ConsentService {
       targetPlayer.id,
       targetPlayer.screenName,
       targetPlayer.teamId,
+      targetPlayer.birthYear,
       token,
     );
 
@@ -152,6 +181,7 @@ export class ConsentService {
     playerId: string,
     screenName: string,
     teamId: string,
+    birthYear: number,
     consentToken: string,
   ): Promise<void> {
     // Best-effort, same posture as OnboardingService's initial send: a
@@ -172,11 +202,17 @@ export class ConsentService {
         this.configService.get<string>('APP_PUBLIC_URL') ??
         DEFAULT_APP_PUBLIC_URL;
       const consentUrl = `${appPublicUrl}/api/v1/consent/${consentToken}`;
-      const email = buildConsentRequestEmail({
-        screenName,
-        teamName: team?.name ?? '',
-        consentUrl,
-      });
+      const email = isSelfVerificationAge(birthYear)
+        ? buildSelfVerificationEmail({
+            screenName,
+            teamName: team?.name ?? '',
+            consentUrl,
+          })
+        : buildConsentRequestEmail({
+            screenName,
+            teamName: team?.name ?? '',
+            consentUrl,
+          });
       await this.mailService.sendMail({
         to: parentContact,
         subject: email.subject,

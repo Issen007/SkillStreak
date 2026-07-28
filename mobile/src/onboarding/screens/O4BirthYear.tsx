@@ -1,17 +1,28 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { TextField } from '../../components/TextField';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 
 // Mirrors the backend's sane range check (CreatePlayerDto) so the client
 // never offers a value that would 400 — year only, never a full DOB, per
-// ADR-0002.
-const MIN_BIRTH_YEAR = 2000;
-const MAX_BIRTH_YEAR = new Date().getFullYear();
+// ADR-0002. Both bounds are rolling offsets from the current year, not
+// fixed calendar years, so this needs no manual update as time passes —
+// see create-player.dto.ts's identical comment for why a fixed year drifts.
+// Widened 2026-07-26 from 26 to 56 (matches create-player.dto.ts) — see
+// that file's comment for why.
+const OLDEST_ALLOWED_AGE_YEARS = 56;
+const YOUNGEST_ALLOWED_AGE_YEARS = 4;
+const MIN_BIRTH_YEAR = new Date().getFullYear() - OLDEST_ALLOWED_AGE_YEARS;
+const MAX_BIRTH_YEAR = new Date().getFullYear() - YOUNGEST_ALLOWED_AGE_YEARS;
 
+// Most-recent-first (youngest-allowed year at the top) — a kid scrolling
+// this is almost always closer to the young end than the old end, so that's
+// the shorter scroll from the picker's default open position.
 const YEARS = Array.from(
   { length: MAX_BIRTH_YEAR - MIN_BIRTH_YEAR + 1 },
   (_, i) => MAX_BIRTH_YEAR - i,
@@ -29,6 +40,31 @@ interface O4BirthYearProps {
 export function O4BirthYear({ initialBirthYear, externalError, onNext }: O4BirthYearProps) {
   const [birthYear, setBirthYear] = useState<number | null>(initialBirthYear);
   const [error, setError] = useState<string | null>(externalError ?? null);
+  const [yearText, setYearText] = useState<string>(
+    initialBirthYear !== null ? String(initialBirthYear) : '',
+  );
+
+  // @react-native-picker/picker's web implementation renders a bare HTML
+  // <select> under the hood, whose open dropdown list is styled by the
+  // OS/browser rather than itemStyle/style here (the exact same limitation
+  // site/index.html's own birth-year field had before it switched away
+  // from a <select> — see that file's matching comment). Native iOS/Android
+  // keep the wheel picker, a well-understood idiomatic control there; web
+  // gets the same large/bold text-input treatment as the marketing site's
+  // wizard instead, typed and validated against the same bounds.
+  const isWeb = Platform.OS === 'web';
+
+  const handleWebChange = (text: string) => {
+    setYearText(text);
+    const year = /^[0-9]{4}$/.test(text) ? parseInt(text, 10) : NaN;
+    const valid = !isNaN(year) && year >= MIN_BIRTH_YEAR && year <= MAX_BIRTH_YEAR;
+    setBirthYear(valid ? year : null);
+    setError(
+      text && !valid
+        ? `Ange ett år mellan ${MIN_BIRTH_YEAR} och ${MAX_BIRTH_YEAR}.`
+        : null,
+    );
+  };
 
   return (
     <ScreenContainer scroll>
@@ -38,29 +74,36 @@ export function O4BirthYear({ initialBirthYear, externalError, onNext }: O4Birth
         Vi använder det för att anpassa utmaningar till din ålder.
       </Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {!isWeb && error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View style={styles.grid}>
-        {YEARS.map((year) => {
-          const selected = year === birthYear;
-          return (
-            <Pressable
-              key={year}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              onPress={() => {
-                setBirthYear(year);
-                if (error) setError(null);
-              }}
-              style={[styles.yearCell, selected && styles.yearCellSelected]}
-            >
-              <Text style={[styles.yearText, selected && styles.yearTextSelected]}>
-                {year}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {isWeb ? (
+        <TextField
+          label="Födelseår"
+          value={yearText}
+          onChangeText={handleWebChange}
+          placeholder={`T.ex. ${MAX_BIRTH_YEAR}`}
+          keyboardType="number-pad"
+          maxLength={4}
+          errorText={error ?? undefined}
+          style={styles.webInput}
+        />
+      ) : (
+        <View style={styles.pickerWrap}>
+          <Picker
+            selectedValue={birthYear ?? YEARS[0]}
+            onValueChange={(year) => {
+              setBirthYear(year);
+              if (error) setError(null);
+            }}
+            style={styles.picker}
+            itemStyle={styles.pickerItem}
+          >
+            {YEARS.map((year) => (
+              <Picker.Item key={year} label={String(year)} value={year} />
+            ))}
+          </Picker>
+        </View>
+      )}
 
       <View style={styles.spacer} />
 
@@ -96,31 +139,25 @@ const styles = StyleSheet.create({
     color: colors.error,
     textAlign: 'center',
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'center',
+  webInput: {
+    fontSize: 20,
+    fontFamily: fonts.bodyBold,
+    textAlign: 'center',
+    paddingVertical: 16,
   },
-  yearCell: {
-    width: '30%',
-    paddingVertical: 14,
+  pickerWrap: {
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: colors.border,
     backgroundColor: colors.white,
-    alignItems: 'center',
+    overflow: 'hidden',
   },
-  yearCellSelected: {
-    borderColor: colors.flame,
-    backgroundColor: colors.flameTint,
+  picker: {
+    width: '100%',
   },
-  yearText: {
+  pickerItem: {
     fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    color: colors.ink,
-  },
-  yearTextSelected: {
+    fontSize: 20,
     color: colors.ink,
   },
 });

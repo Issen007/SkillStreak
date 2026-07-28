@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  AppState,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { ChatIntroCard } from './components/ChatIntroCard';
 import { MessageBubble } from './components/MessageBubble';
@@ -24,7 +34,12 @@ import {
 } from '../api/localFlags';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
-import type { ChatMessage, ChatReportReason, ConsentStatus } from '../api/types';
+import type {
+  ChatMessage,
+  ChatReportReason,
+  ConsentStatus,
+  TeamJoinStatus,
+} from '../api/types';
 
 interface ChatScreenProps {
   teamId: string;
@@ -63,6 +78,9 @@ interface ReportConfirmationState {
 export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps) {
   const [hasSeenIntro, setHasSeenIntroState] = useState<boolean | null>(null);
   const [consentStatus, setConsentStatus] = useState<ConsentStatus | null>(null);
+  // Added 2026-07-27 — a second, independent gate (captain approval of
+  // the team join itself) alongside consentStatus above.
+  const [teamJoinStatus, setTeamJoinStatus] = useState<TeamJoinStatus | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -87,6 +105,15 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps
   const scrollRef = useRef<ScrollView>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasOpenedRef = useRef(false);
+  // Guards against overlapping pollForNew calls -- the 5s interval and the
+  // AppState 'active' handler below can both fire close together (on web
+  // especially: react-native-web's AppState maps to browser focus/
+  // visibilitychange events, which fire far more often/unreliably than a
+  // real native foreground transition). Two concurrent calls would both
+  // read latestCreatedAtRef before either updated it, fetch the same
+  // "new" message, and both append it -- confirmed live 2026-07-26 as
+  // messages visibly repeating in the feed.
+  const pollInFlightRef = useRef(false);
 
   // Screen CH0 — checked once on mount.
   useEffect(() => {
@@ -100,6 +127,7 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps
     try {
       const me = await getMe();
       setConsentStatus(me.player.consentStatus);
+      setTeamJoinStatus(me.player.teamJoinStatus);
     } catch {
       // Non-critical for this screen — a stale consent status just means
       // the compose box's locked state is one foreground-check behind; the
@@ -124,17 +152,28 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps
   }, [teamId]);
 
   const pollForNew = useCallback(async () => {
+    if (pollInFlightRef.current) return;
+    pollInFlightRef.current = true;
     try {
       const response = await getChatMessages(teamId, {
         after: latestCreatedAtRef.current,
         limit: 50,
       });
       if (response.messages.length > 0) {
-        setMessages((prev) => [...(prev ?? []), ...response.messages]);
+        // Defensive de-dupe by id, on top of the in-flight guard above —
+        // belt and suspenders against ever rendering the same message
+        // twice, regardless of the exact cause.
+        setMessages((prev) => {
+          const existingIds = new Set((prev ?? []).map((m) => m.id));
+          const fresh = response.messages.filter((m) => !existingIds.has(m.id));
+          return [...(prev ?? []), ...fresh];
+        });
         latestCreatedAtRef.current = response.messages[response.messages.length - 1].createdAt;
       }
     } catch {
       // Silent — the next 5s poll simply retries.
+    } finally {
+      pollInFlightRef.current = false;
     }
   }, [teamId]);
 
@@ -327,10 +366,19 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps
     return <ChatIntroCard onDismiss={handleDismissIntro} />;
   }
 
-  const locked = consentStatus !== null && consentStatus !== 'approved';
+  const locked =
+    (consentStatus !== null && consentStatus !== 'approved') ||
+    (teamJoinStatus !== null && teamJoinStatus !== 'approved');
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      // No fixed header/nav bar above this screen (AppShell's tab bar is
+      // at the bottom, which doesn't need offsetting) -- 0 is correct, not
+      // a placeholder.
+      keyboardVerticalOffset={0}
+    >
       <View style={styles.header}>
         <Text style={styles.heading}>Lagchatt 💬</Text>
         <Pressable accessibilityRole="button" onPress={() => setView('blocked-list')}>
@@ -408,7 +456,7 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened }: ChatScreenProps
         onConfirm={() => void handleBlockSheetConfirm()}
         onClose={() => setBlockTarget(null)}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

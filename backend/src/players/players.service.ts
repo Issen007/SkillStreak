@@ -8,10 +8,12 @@ import {
   CaptainTransferToSelfException,
   NotTeamCaptainException,
   PlayerNotFoundException,
+  TeamJoinNotPendingException,
   TeamMismatchException,
 } from '../common/errors/exceptions';
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
 import { ParentalConsentStatus } from './player-consent-status.enum';
+import { TeamJoinStatus } from './team-join-status.enum';
 import { Player } from './entities/player.entity';
 
 const ONE_CAPTAIN_PER_TEAM_CONSTRAINT = 'idx_player_one_captain_per_team';
@@ -61,13 +63,21 @@ export class PlayersService {
     input: CreatePlayerShellInput,
   ): Promise<Player> {
     const repository = manager.getRepository(Player);
+    const isCaptain = input.isCaptain ?? false;
     const player = repository.create({
       teamId: input.teamId,
       screenName: input.screenName,
       avatarId: input.avatarId,
       birthYear: input.birthYear,
       parentalConsentStatus: ParentalConsentStatus.PENDING,
-      isCaptain: input.isCaptain ?? false,
+      isCaptain,
+      // Added 2026-07-27: whoever's join created the team can't be
+      // pending approval from themselves — isCaptain is true if and only
+      // if this exact request just created the team (ADR-0009 Decision
+      // 2/7, unchanged), so it's the same signal this needs.
+      teamJoinStatus: isCaptain
+        ? TeamJoinStatus.APPROVED
+        : TeamJoinStatus.PENDING,
     });
     return repository.save(player);
   }
@@ -256,6 +266,47 @@ export class PlayersService {
   }
 
   /**
+   * Fas 4 (captain approval for new team joins,
+   * docs/adr/0009-self-service-team-creation.md's 2026-07-27 addendum) —
+   * every player on this team whose join is still awaiting the captain's
+   * decision. Captain-only (assertIsCaptainOfTeam).
+   */
+  async listPendingJoins(
+    teamId: string,
+    requesterId: string,
+  ): Promise<Player[]> {
+    await this.assertIsCaptainOfTeam(requesterId, teamId);
+    return this.playerRepository.find({
+      where: { teamId, teamJoinStatus: TeamJoinStatus.PENDING },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  /**
+   * Approve or reject a pending join — same captain-only gate as every
+   * other captain action here. No row lock/transaction ceremony
+   * (unlike transferCaptaincy): there's no unique-per-team invariant at
+   * risk, just a single player's own status flipping once.
+   */
+  async decideTeamJoin(
+    teamId: string,
+    requesterId: string,
+    targetPlayerId: string,
+    decision: TeamJoinStatus.APPROVED | TeamJoinStatus.REJECTED,
+  ): Promise<Player> {
+    await this.assertIsCaptainOfTeam(requesterId, teamId);
+    const target = await this.findByIdOrThrow(targetPlayerId);
+    if (target.teamId !== teamId) {
+      throw new TeamMismatchException();
+    }
+    if (target.teamJoinStatus !== TeamJoinStatus.PENDING) {
+      throw new TeamJoinNotPendingException();
+    }
+    target.teamJoinStatus = decision;
+    return this.playerRepository.save(target);
+  }
+
+  /**
    * ADR-0006 Decision 2 — "who's on my team, who's captain," open to any
    * teammate (team-membership check only, not captain-gated). Deliberately
    * narrower than listByTeam's captain-only consumers (roster): only
@@ -307,6 +358,26 @@ export class PlayersService {
   }
 
   /**
+   * docs/adr/0012-profile-page-and-contact-email-change.md's addendum —
+   * the contact-change cancel flow's "kill whatever session did this."
+   * Same row-locked read-then-write shape as setSessionReissueCode
+   * (caller reads the current value via findByIdForUpdate first), but
+   * bumps token_version alone — no code/expiry, since this is a pure
+   * invalidation, not a recovery mechanism in itself. The old address
+   * holder saying "this wasn't me" is exactly the moment forcing a fresh
+   * login is warranted.
+   */
+  async bumpTokenVersion(
+    manager: EntityManager,
+    playerId: string,
+    newTokenVersion: number,
+  ): Promise<void> {
+    await manager
+      .getRepository(Player)
+      .update({ id: playerId }, { tokenVersion: newTokenVersion });
+  }
+
+  /**
    * Row-locked lookup by session-reissue code, for use inside
    * SessionService.redeem's transaction — same "lock, then check
    * liveness" shape as approveByConsentToken. Returns null for both "no
@@ -354,6 +425,44 @@ export class PlayersService {
    */
   async findByScreenName(screenName: string): Promise<Player | null> {
     return this.playerRepository.findOne({ where: { screenName } });
+  }
+
+  /**
+   * Team-scoped, case-insensitive lookup for the self-service
+   * session-reissue-request endpoint (docs/adr/0004-coach-auth-and-
+   * session-reissue.md's 2026-07-27 addendum) — a player identifying
+   * themselves by team invite code + their own screen name shouldn't need
+   * to remember its exact capitalization. Returns `null` for zero *or
+   * more than one* match: the `(team_id, screen_name)` unique index is
+   * case-*sensitive*, so two players named e.g. `Foo`/`foo` on one team is
+   * possible today, and silently picking one via `LIMIT 1` would risk
+   * reissuing the wrong player's session — refusing to guess is the safe
+   * default here, especially since the caller (an unauthenticated,
+   * generic-response endpoint) can't be told to disambiguate anyway.
+   *
+   * Known, accepted limitation (security-reviewer, 2026-07-27, not fixed
+   * here — see the ADR addendum): a case-variant duplicate on a team
+   * silently and permanently disables self-service reissue for the
+   * affected player(s), with no visible error (the endpoint's response is
+   * always generic). Not fixed by enforcing case-insensitive uniqueness at
+   * onboarding, since that's a separate, broader behavior change outside
+   * this redesign's scope. The captain-triggered path (`triggerReissue`)
+   * is unaffected — it resolves the target by player ID from the roster,
+   * never by screen-name lookup — so this is a real but narrow gap with an
+   * existing fallback, not a dead end.
+   */
+  async findUniqueByTeamAndScreenName(
+    teamId: string,
+    screenName: string,
+  ): Promise<Player | null> {
+    const matches = await this.playerRepository
+      .createQueryBuilder('player')
+      .where('player.team_id = :teamId', { teamId })
+      .andWhere('LOWER(player.screen_name) = LOWER(:screenName)', {
+        screenName,
+      })
+      .getMany();
+    return matches.length === 1 ? matches[0] : null;
   }
 
   /**

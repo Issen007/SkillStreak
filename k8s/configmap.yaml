@@ -16,31 +16,42 @@ data:
   # Not sensitive on its own — pairs with POSTGRES_PASSWORD in secret.yaml.
   POSTGRES_USER: "app"
   JWT_EXPIRES_IN: "180d"
-  SMTP_HOST: "smtp-relay.gmail.com"
+  # smtp.gmail.com (not smtp-relay.gmail.com) — the relay endpoint requires
+  # the sending IP to be allow-listed in the Workspace admin console, which
+  # failed in practice ("550-5.7.0 Mail relay denied ... SMTP relay isn't
+  # supported for unmanaged work accounts", confirmed live 2026-07-26).
+  # smtp.gmail.com authenticates directly via the app-password in
+  # secret.yaml's SMTP_PASSWORD, so it works from any sending IP. Same
+  # port 587/STARTTLS, same user/pass auth (mail.service.ts unchanged).
+  SMTP_HOST: "smtp.gmail.com"
   SMTP_PORT: "587"
   SMTP_FROM: "SkillStreak <noreply@yourdomain.example>"
-  # Alpha-test value, NOT the real beta domain. This cluster currently has
-  # no working external ingress path (LoadBalancer Services can't get an
-  # IP — the cloud-controller-manager here runs with the service-lb
-  # controller disabled — and the cluster's one public IP only serves the
-  # k8s API on :6443, nothing on :80/:443). Until that's resolved, alpha
-  # access is via `kubectl port-forward svc/api 3000:80 -n skillstreak`,
-  # so this must match that port. Parental-consent email links point here
-  # — do NOT let real parent-facing emails go out until this is a real,
-  # TLS-covered public domain again (see ingress.yaml/site-ingress.yaml,
-  # currently not applied for the same reason, and the warning in
-  # k8s/README.md about the consent token being a bearer credential).
-  APP_PUBLIC_URL: "http://localhost:3000"
-  # The site container's own embedded onboarding widget calls this API
-  # cross-origin (GET /teams/invite, POST /players — both already
-  # unauthenticated). Matches the site's own current local-access address
-  # (`kubectl port-forward svc/site 8080:80 -n skillstreak`, per
-  # k8s/README.md's "Alpha access" section) — update alongside
-  # APP_PUBLIC_URL once a real public domain exists for both.
-  CORS_ORIGIN: "http://localhost:8080"
+  # Real public domain (skillstreak.xyz, acquired 2026-07-28) via
+  # skillstreak-gateway's TLS listeners — see gateway.yaml/certificate.yaml.
+  # Parental-consent email links point here — this is still a TEST
+  # deployment (see the "this is only a test" banners across the site/app),
+  # so do NOT let real parent-facing emails go out until this domain is
+  # confirmed Ready on letsencrypt-prod (not just letsencrypt-staging) —
+  # see the warning in k8s/README.md about the consent token being a
+  # bearer credential.
+  APP_PUBLIC_URL: "https://api.skillstreak.xyz"
+  # The site container's own embedded onboarding widget, and the try-it
+  # app (a different origin — see site/nginx.conf), both call this API
+  # cross-origin (GET /teams/invite, POST /players, plus every
+  # Authorization-bearing endpoint the try-it app itself calls).
+  CORS_ORIGIN: "https://skillstreak.xyz,https://www.skillstreak.xyz,https://try.skillstreak.xyz"
   # Fas 3 (docs/adr/0010-video-storage-and-serving.md) — the in-cluster
-  # MinIO Service (minio-service.yaml), never a public endpoint.
+  # MinIO Service (minio-service.yaml), used only for the API's own
+  # internal admin calls (bucket creation/policy).
   MINIO_ENDPOINT: "http://minio:9000"
+  # MINIO_PUBLIC_ENDPOINT intentionally left unset here — presigned
+  # upload/playback URLs need a real externally-reachable address (see
+  # ADR-0010's 2026-07-26 addendum + minio-service.yaml's own comment),
+  # which doesn't exist on this cluster yet (no working LoadBalancer, no
+  # Ingress to MinIO's data port — same k8s/README.md gap blocking every
+  # other external-access feature here). Video upload/playback are not
+  # functional for a real client on this cluster until that's resolved;
+  # set this once it is, alongside APP_PUBLIC_URL/CORS_ORIGIN above.
   MINIO_BUCKET: "clips"
   # Tunable product config (ADR-0010 Decision 5), not architecturally
   # fixed — see that ADR's own "flagged, not silently decided as final"

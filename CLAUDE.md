@@ -4,22 +4,19 @@ Guidance for Claude Code when working in this repository.
 
 ## Project status
 
-Phases 0, 0.5, and 1 (MVP) are functionally done — see
-[docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) for the live checklist. There's
-a real, working app now: `backend/` (NestJS) implements the full Phase 1
-schema, JWT auth, the "Jag har tränat" streak/team-pool loop, and a real
-parental-consent email + approval flow (SMTP via Google Workspace); `mobile/`
-(Expo) has the onboarding and home screens wired to it; this has been
-manually verified end-to-end including a real email round-trip. This repo
-has substantial real architecture to preserve — don't treat it as a blank
-slate the way earlier sessions could. Currently in progress: a pre-external-beta
-pass (docs reorg, a full CVE/security audit, Kubernetes manifests for
-deployment) ahead of Fas 2.
+Fas 1–3 are done; Fas 4 (Kubernetes & public launch) is in progress — see
+[docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) for the live English checklist
+and [docs/PROJECT.md](docs/PROJECT.md) for the prioritized Swedish
+roadmap. This is a real, substantial, working app already serving a live
+beta on a real Kubernetes cluster — backend (NestJS), mobile (Expo), a
+parental-consent/age-banded-self-verification email flow, team chat, a
+video clip feed, self-service team creation. Don't treat this repo as a
+blank slate; read those two docs before assuming what does or doesn't
+exist yet, since both are updated far more often than this file.
 
-The project itself is also unnamed ("SkillStreak" is a working title — see
-docs/PROJECT.md banner for name candidates: SkillFlex, FloorGrind, StreakUp, ZorroGo,
-SquadPulse). Don't hardcode the working title into code/config in a way
-that's painful to rename later.
+The project itself is still unnamed ("SkillStreak" is a working title —
+see docs/PROJECT.md's banner for name candidates). Don't hardcode the
+working title into code/config in a way that's painful to rename later.
 
 ## What this is
 
@@ -56,39 +53,34 @@ Flag and push back on any implementation detail that would weaken these,
 even if convenient (e.g. defaulting a feed to public, requiring real names,
 adding geolocation for "nearby teams", etc.).
 
-## Planned tech stack (not yet implemented — confirm before assuming code exists)
+## Tech stack
 
-- **Frontend:** React Native + Expo, TypeScript. Target iOS + Android from
-  one codebase.
-- **Backend:** NestJS (TypeScript) — decided in
+- **Frontend:** React Native + Expo, TypeScript (iOS + Android, one codebase).
+- **Backend:** NestJS (TypeScript), `backend/` — decided in
   [`docs/adr/0001-backend-framework.md`](docs/adr/0001-backend-framework.md).
-  Scaffolded in `backend/` (health-check endpoint only so far).
-- **Database:** PostgreSQL (teams/players/coaches) + Redis (streaks,
-  real-time leaderboards).
-- **Infra:** Docker/docker-compose now; Kubernetes (Helm charts) is a
-  Fas 4 goal, not needed for MVP.
-- **Package managers:** pnpm for all Node/TypeScript code (current
-  `backend/`, future Expo app); uv for any future Python service (e.g. a
-  Fas 3+ video-tagging service) — decided in
+- **Database:** PostgreSQL (teams/players/coaches — durable data) + Redis
+  (streaks, leaderboards, rate limits — all rebuildable, never the only
+  copy of anything, per ADR-0002).
+- **Infra:** Docker/docker-compose + plain Kubernetes manifests (`k8s/`,
+  pulled forward ahead of schedule for an early beta). Helm is a later
+  Fas 4 goal, not needed yet.
+- **Package managers:** pnpm for all Node/TypeScript code; uv for any
+  future Python service (e.g. a video-tagging service) — decided in
   [`docs/adr/0003-package-managers.md`](docs/adr/0003-package-managers.md).
   Don't reintroduce npm/yarn or pip/poetry lockfiles alongside these.
 
-## Roadmap (from docs/PROJECT.md)
+## Roadmap
 
-- **Fas 1 (functionally done):** repo + Docker setup; DB schema for
-  Team/Player/Coach (GDPR-compliant, supports both individual and team
-  scoring); a real "Jag har tränat" screen that starts a streak and adds
-  points to the team pool, gated by a real parental-consent email flow.
-- **Fas 2 (next):** coach view for sending challenges; team "VM-guld"
-  meter already exists from Fas 1, challenge-specific logic is what's left.
-- **Fas 3:** secure video upload + team-bound feed.
-- **Fas 4:** Helm/K8s manifests; international rollout. (Plain K8s
-  manifests were pulled forward into `k8s/` ahead of schedule to prepare
-  for an early external beta — see docs/ACTION_PLAN.md.)
+Full roadmap lives in [docs/PROJECT.md](docs/PROJECT.md) (Swedish, Fas
+1–6, prioritized order) and [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md)
+(English, phase-by-phase checklist with reasoning/review trail). Don't
+restate phase contents here — they change often enough that a second copy
+would just go stale; read those docs directly instead.
 
 When asked to "start building" or "what's next," default to the first
-unchecked item in [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) (which includes a
-Phase 0.5 ahead of Fas 1 proper) unless told otherwise.
+unchecked, actually-buildable item in those two docs (skip anything
+blocked on something outside this repo, e.g. external infra access this
+project doesn't control) unless told otherwise.
 
 ## Claude Code subagents for this project
 
@@ -107,7 +99,7 @@ the architect draft an ADR for X"):
 7. **ide-buddy** — default day-to-day pairing/debugging when nothing above
    clearly fits.
 
-See [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) for how these map onto the Fas 1–4
+See [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) for how these map onto the Fas 1–6
 roadmap.
 
 ## Language notes
@@ -160,9 +152,9 @@ not just advisory.
 ## Open decisions to surface, not silently pick
 
 - Final app name (still open — see docs/PROJECT.md banner for candidates).
-- Three data-model gaps flagged by security-reviewer during the Phase 0
-  review, tracked in [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md)'s Phase 0 section,
-  to resolve before ADR-0002 becomes real schema in Phase 1: isolating
-  `real_name`, whether consent should gate account creation (not just
-  media) for the youngest players, and constraining `BadgeAward.context`
-  from becoming a freeform PII/location backdoor.
+
+(The three Phase 0 data-model gaps previously tracked here — isolating
+`real_name`, consent gating account creation, constraining
+`BadgeAward.context` — were resolved via ADR-0002's addendum and shipped
+in Phase 1; see docs/ACTION_PLAN.md's Phase 0 section for the closed
+checklist if that history is ever needed.)

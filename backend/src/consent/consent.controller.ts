@@ -14,6 +14,8 @@ import {
   renderConsentApprovedPage,
   renderConsentConfirmPage,
   renderConsentInvalidPage,
+  renderSelfVerificationApprovedPage,
+  renderSelfVerificationConfirmPage,
 } from './consent-page.templates';
 import { ConsentService } from './consent.service';
 
@@ -38,9 +40,11 @@ export class ConsentController {
     @Res() res: Response,
   ): Promise<void> {
     const preview = await this.consentService.previewByToken(token);
-    const html = preview
-      ? renderConsentConfirmPage(preview.screenName)
-      : renderConsentInvalidPage();
+    const html = !preview
+      ? renderConsentInvalidPage()
+      : preview.isSelfVerification
+        ? renderSelfVerificationConfirmPage(preview.screenName)
+        : renderConsentConfirmPage(preview.screenName);
     res.status(HttpStatus.OK).type('html').send(html);
   }
 
@@ -57,9 +61,11 @@ export class ConsentController {
     // parent double-tapping the button, or the flow being exercised twice
     // for testing) — rendered as a friendly "already confirmed" page, not
     // an error, per the task's idempotent-feeling requirement.
-    const html = result
-      ? renderConsentApprovedPage(result.screenName)
-      : renderConsentAlreadyUsedPage();
+    const html = !result
+      ? renderConsentAlreadyUsedPage()
+      : result.isSelfVerification
+        ? renderSelfVerificationApprovedPage(result.screenName)
+        : renderConsentApprovedPage(result.screenName);
     res.status(HttpStatus.OK).type('html').send(html);
   }
 }

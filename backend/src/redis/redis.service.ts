@@ -25,6 +25,22 @@ function consentReminderCooldownKey(playerId: string): string {
   return `consent-reminder:${playerId}:cooldown`;
 }
 
+function sessionReissueCooldownKey(playerId: string): string {
+  return `session-reissue:${playerId}:cooldown`;
+}
+
+function sessionReissueDailyCapKey(playerId: string): string {
+  return `session-reissue:${playerId}:daily-cap`;
+}
+
+function contactChangeCooldownKey(playerId: string): string {
+  return `contact-change:${playerId}:cooldown`;
+}
+
+function contactChangeDailyCapKey(playerId: string): string {
+  return `contact-change:${playerId}:daily-cap`;
+}
+
 function chatSendRateLimitKey(playerId: string): string {
   return `chat-send:${playerId}:window`;
 }
@@ -57,6 +73,43 @@ function clipReportNotifyCooldownKey(uploaderPlayerId: string): string {
 // in this app (ADR-0002) — it's a UX rate limit, not the security boundary
 // (that's the captain check + the mailed token itself).
 const CONSENT_REMINDER_COOLDOWN_SECONDS = 5 * 60;
+
+// docs/adr/0004-coach-auth-and-session-reissue.md's 2026-07-27 addendum —
+// same per-player cooldown-lock shape/reasoning as the consent reminder
+// above, bounding both trigger surfaces (captain-triggered and the new
+// self-service lookup) against inbox-spam harassment of the same family,
+// not a security boundary in itself (that's redemption being bound to
+// parent_contact, not bearer possession of the code). This alone only
+// bounds *burst* rate (one claim per 5 minutes) — see the daily cap below
+// for why that's not sufficient on its own.
+const SESSION_REISSUE_COOLDOWN_SECONDS = 5 * 60;
+
+// security-reviewer finding (2026-07-27, before this shipped): the 5-minute
+// cooldown above still allows up to ~288 forced session-invalidations +
+// parent_contact emails per day for one player, since `reissue-request` is
+// unauthenticated and needs no secret (team invite codes are meant to be
+// shared, screen names are visible to any teammate via the roster) — the
+// exact same "sustained volume, not just burst" gap this codebase already
+// found and fixed for consent-reminder resends (that finding recommended
+// "a daily cap per target (e.g. 3/day)", applied here verbatim, same
+// reasoning as chatReportNotifyCooldown/clipReportNotifyCooldown's 24h
+// caps). Bounds the *whole* reissue action (token_version bump + email),
+// not just the notification, since forced logout itself is the harm here,
+// not only the email.
+const SESSION_REISSUE_DAILY_CAP_WINDOW_SECONDS = 60 * 60 * 24;
+const SESSION_REISSUE_DAILY_CAP_MAX_PER_WINDOW = 3;
+
+// docs/adr/0012-profile-page-and-contact-email-change.md — same two-layer
+// shape as session reissue directly above (burst cooldown + daily cap),
+// applied preemptively rather than waiting for a repeat security-reviewer
+// finding, now that the pattern is established. Smaller attack surface
+// than session reissue's (the caller must already hold a valid session
+// for the target account — no unauthenticated trigger), but the same
+// "real family's inbox" harm applies regardless of how a session was
+// obtained.
+const CONTACT_CHANGE_COOLDOWN_SECONDS = 5 * 60;
+const CONTACT_CHANGE_DAILY_CAP_WINDOW_SECONDS = 60 * 60 * 24;
+const CONTACT_CHANGE_DAILY_CAP_MAX_PER_WINDOW = 3;
 
 // docs/api/phase2.6b-contract.md endpoint 1: "a burst allowance rather than
 // a strict per-message gate... exact window backend-developer's call."
@@ -195,6 +248,73 @@ export class RedisService {
     return result === 'OK';
   }
 
+  /** Same lock shape as tryClaimConsentReminderCooldown, for
+   * SessionService's reissue-email send (ADR-0004's 2026-07-27
+   * addendum). Bounds burst rate only — see tryClaimSessionReissueDailyCap
+   * for sustained-volume protection. */
+  async tryClaimSessionReissueCooldown(
+    playerId: string,
+    ttlSeconds: number = SESSION_REISSUE_COOLDOWN_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      sessionReissueCooldownKey(playerId),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
+  }
+
+  /** Same fixed-window shape as tryClaimClipUploadAllowance — a
+   * security-reviewer finding on the 2026-07-27 addendum's first cut,
+   * fixed before shipping: the burst cooldown above alone still allows
+   * ~288 forced session-invalidations + parent_contact emails per day for
+   * one player, since the endpoint that triggers this needs no secret. */
+  async tryClaimSessionReissueDailyCap(
+    playerId: string,
+    maxPerWindow: number = SESSION_REISSUE_DAILY_CAP_MAX_PER_WINDOW,
+    windowSeconds: number = SESSION_REISSUE_DAILY_CAP_WINDOW_SECONDS,
+  ): Promise<boolean> {
+    const key = sessionReissueDailyCapKey(playerId);
+    const count = await this.client.incr(key);
+    if (count === 1) {
+      await this.client.expire(key, windowSeconds);
+    }
+    return count <= maxPerWindow;
+  }
+
+  /** Same lock shape as tryClaimSessionReissueCooldown, for
+   * ProfileService's contact-change-request (ADR-0012). */
+  async tryClaimContactChangeCooldown(
+    playerId: string,
+    ttlSeconds: number = CONTACT_CHANGE_COOLDOWN_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      contactChangeCooldownKey(playerId),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
+  }
+
+  /** Same fixed-window shape as tryClaimSessionReissueDailyCap, for the
+   * same "burst cooldown alone isn't enough" reasoning (ADR-0012). */
+  async tryClaimContactChangeDailyCap(
+    playerId: string,
+    maxPerWindow: number = CONTACT_CHANGE_DAILY_CAP_MAX_PER_WINDOW,
+    windowSeconds: number = CONTACT_CHANGE_DAILY_CAP_WINDOW_SECONDS,
+  ): Promise<boolean> {
+    const key = contactChangeDailyCapKey(playerId);
+    const count = await this.client.incr(key);
+    if (count === 1) {
+      await this.client.expire(key, windowSeconds);
+    }
+    return count <= maxPerWindow;
+  }
+
   /**
    * Fixed-window burst allowance for chat sends (docs/api/phase2.6b-
    * contract.md endpoint 1) — an atomic INCR, with EXPIRE set only on the
@@ -299,6 +419,39 @@ export class RedisService {
       'NX',
     );
     return result === 'OK';
+  }
+
+  /**
+   * Backs `RedisThrottlerStorage` (`common/throttler/`), which plugs into
+   * `@nestjs/throttler` as its `ThrottlerStorage` in place of the library's
+   * default in-memory Map. Same fixed-window INCR+EXPIRE-on-first-hit shape
+   * as the chat-send/clip-upload allowances above, just keyed generically
+   * (the throttler library owns key construction) and returning the raw
+   * count/remaining-TTL pair that `ThrottlerStorageRecord` needs, rather
+   * than a boolean, since the guard itself decides pass/block from these.
+   * Not a Lua script/atomic transaction, same as this file's other counters
+   * — a rare race only ever loses a fraction of a request from the ceiling
+   * on a single window, never breaks the block itself.
+   */
+  async throttlerIncrement(
+    key: string,
+    ttlMilliseconds: number,
+  ): Promise<{ totalHits: number; ttlMillisecondsRemaining: number }> {
+    const totalHits = await this.client.incr(key);
+    if (totalHits === 1) {
+      await this.client.pexpire(key, ttlMilliseconds);
+    }
+    const ttlMillisecondsRemaining = await this.client.pttl(key);
+    return {
+      totalHits,
+      // A key can in principle have no TTL (e.g. NX SET raced with a
+      // concurrent expiry) — fall back to the full window rather than a
+      // negative/absent value confusing the caller's "seconds remaining".
+      ttlMillisecondsRemaining:
+        ttlMillisecondsRemaining > 0
+          ? ttlMillisecondsRemaining
+          : ttlMilliseconds,
+    };
   }
 
   async quit(): Promise<void> {

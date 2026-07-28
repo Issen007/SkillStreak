@@ -17,6 +17,7 @@ import {
   TeammateEntry,
 } from '../players/players.service';
 import { TransferCaptaincyDto } from '../players/dto/transfer-captaincy.dto';
+import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { CreateWeeklyGoalDto } from './dto/create-weekly-goal.dto';
 import { UpdateWeeklyGoalDto } from './dto/update-weekly-goal.dto';
 import {
@@ -33,6 +34,18 @@ interface CaptainTransferResponse {
   previousCaptainPlayerId: string;
   newCaptainPlayerId: string;
   transferredAt: string;
+}
+
+interface PendingJoinEntry {
+  playerId: string;
+  screenName: string;
+  avatarId: string;
+  createdAt: string;
+}
+
+interface TeamJoinDecisionResponse {
+  playerId: string;
+  teamJoinStatus: TeamJoinStatus;
 }
 
 // Every team-scoped `/api/v1/teams/:teamId/...` route in this app lives
@@ -136,6 +149,65 @@ export class WeeklyGoalController {
       newCaptainPlayerId: result.newCaptainPlayerId,
       transferredAt: result.transferredAt.toISOString(),
     };
+  }
+
+  // Fas 4 (captain approval for new team joins,
+  // docs/adr/0009-self-service-team-creation.md's 2026-07-27 addendum) —
+  // delegates straight to PlayersService, same reasoning as
+  // captain-transfer above (Player-table-only, no Challenge/
+  // TeamSeasonPot dependency).
+  @UseGuards(JwtAuthGuard)
+  @Get('pending-joins')
+  async getPendingJoins(
+    @Param('teamId') teamId: string,
+    @CurrentPlayerId() playerId: string,
+  ): Promise<{ pending: PendingJoinEntry[] }> {
+    const players = await this.playersService.listPendingJoins(
+      teamId,
+      playerId,
+    );
+    return {
+      pending: players.map((player) => ({
+        playerId: player.id,
+        screenName: player.screenName,
+        avatarId: player.avatarId,
+        createdAt: player.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('pending-joins/:playerId/approve')
+  @HttpCode(HttpStatus.OK)
+  async approveJoin(
+    @Param('teamId') teamId: string,
+    @Param('playerId') targetPlayerId: string,
+    @CurrentPlayerId() playerId: string,
+  ): Promise<TeamJoinDecisionResponse> {
+    const target = await this.playersService.decideTeamJoin(
+      teamId,
+      playerId,
+      targetPlayerId,
+      TeamJoinStatus.APPROVED,
+    );
+    return { playerId: target.id, teamJoinStatus: target.teamJoinStatus };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('pending-joins/:playerId/reject')
+  @HttpCode(HttpStatus.OK)
+  async rejectJoin(
+    @Param('teamId') teamId: string,
+    @Param('playerId') targetPlayerId: string,
+    @CurrentPlayerId() playerId: string,
+  ): Promise<TeamJoinDecisionResponse> {
+    const target = await this.playersService.decideTeamJoin(
+      teamId,
+      playerId,
+      targetPlayerId,
+      TeamJoinStatus.REJECTED,
+    );
+    return { playerId: target.id, teamJoinStatus: target.teamJoinStatus };
   }
 
   // Fas 2.6a (ADR-0006 Decision 2, endpoint 10) — team-membership only, not
