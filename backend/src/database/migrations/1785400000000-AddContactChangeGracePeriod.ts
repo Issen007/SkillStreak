@@ -13,9 +13,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 // recovery channel in two quick authenticated calls, before the old
 // address's original informational email could plausibly prompt anyone
 // to react.
-export class AddContactChangeGracePeriod1785400000000
-  implements MigrationInterface
-{
+export class AddContactChangeGracePeriod1785400000000 implements MigrationInterface {
   name = 'AddContactChangeGracePeriod1785400000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -18,9 +18,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 // rewriting the column, then drop the old type. Guarded by an explicit
 // check that no row actually uses 'self_email_link' — this shouldn't
 // silently discard real audit-trail data.
-export class AddSelfEmailLinkConsentMethod1785130000000
-  implements MigrationInterface
-{
+export class AddSelfEmailLinkConsentMethod1785130000000 implements MigrationInterface {
   name = 'AddSelfEmailLinkConsentMethod1785130000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -30,9 +28,9 @@ export class AddSelfEmailLinkConsentMethod1785130000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const inUse: Array<{ count: string }> = await queryRunner.query(
+    const inUse = (await queryRunner.query(
       `SELECT COUNT(*)::text AS count FROM "parental_consent_record" WHERE "method" = 'self_email_link'`,
-    );
+    )) as Array<{ count: string }>;
     if (Number(inUse[0].count) > 0) {
       throw new Error(
         'Cannot revert AddSelfEmailLinkConsentMethod: parental_consent_record has rows using self_email_link. ' +

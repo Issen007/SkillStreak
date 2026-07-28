@@ -66,8 +66,7 @@ export class ObjectStorageService implements OnModuleInit {
       this.configService.get<string>('MINIO_BUCKET') ?? DEFAULT_CLIP_BUCKET;
     const credentials = {
       accessKeyId: this.configService.get<string>('MINIO_ACCESS_KEY') ?? '',
-      secretAccessKey:
-        this.configService.get<string>('MINIO_SECRET_KEY') ?? '',
+      secretAccessKey: this.configService.get<string>('MINIO_SECRET_KEY') ?? '',
     };
     this.client = new S3Client({
       endpoint: this.configService.get<string>('MINIO_ENDPOINT'),
