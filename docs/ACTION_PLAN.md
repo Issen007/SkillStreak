@@ -1532,6 +1532,53 @@ treat `security-reviewer` involvement as blocking, not a final check.
       covered by the pre-beta pass below (rate limiting already existed
       from Phase 1), but not a complete Fas 4 pass.
 
+## Phase 4.1 — Profile page (not yet designed)
+
+**Added 2026-07-28, from the project owner directly.** A profile page
+reachable via a profile icon in the top-right corner: optionally set a
+real name, view (not necessarily freely edit — see below) birth year,
+and change login-related email addresses — the player's own (already
+doubling as the login email for the 13+ self-verification cohort,
+ADR-0002's addendum §2) and the parent's. A change should automatically
+email both the parent and the player's own email that the details
+changed.
+
+**Flagged, not silently scoped as ordinary CRUD — this is the same risk
+class as `docs/adr/0004-coach-auth-and-session-reissue.md`'s 2026-07-27
+redesign, not a routine settings screen.** `parent_contact` is
+effectively the trust root for the entire account-recovery mechanism
+(session reissue emails there; 13+ self-verification emails there too).
+A feature that lets a user change that email is, in practice, "swap out
+the account's recovery path" — not a harmless setting, the exact same
+risk class that caused the original session-reissue vulnerability. Open
+questions for a real design pass (architect + security-reviewer,
+blocking before any code, per CLAUDE.md):
+
+- **Email the OLD contact too, not just the new one, on any change** —
+  otherwise an attacker who already controls a hijacked session could
+  silently swap out the real parent's address and permanently lock the
+  actual guardian out of the recovery path. The standard pattern (used
+  by most real products for exactly this reason): notify the old address
+  as a warning ("this changed — was that you?"), and require confirmation
+  via the NEW address before the change actually takes effect — the
+  session-reissue code infrastructure already built this session is
+  directly reusable for that confirmation step.
+- **Should birth year even be freely editable after onboarding?** The
+  year drives the self-verification threshold (13+,
+  `isSelfVerificationAge`), which in turn decides whether an account
+  requires parental approval or just the player's own email. A free
+  edit after account creation is a potential parental-consent bypass, not
+  just a typo fix. May need to be locked after first approval, or require
+  the consent flow to run again if an edit crosses the 13-year line.
+- **"Email as login"** — this app has no password-based login at all
+  today (see ADR-0004's explicit decision *not* to build one for this
+  userbase). This item should probably reuse the session-reissue
+  mechanism (a code emailed to the new/old address) rather than inventing
+  a password system — an architect decision, not assumed here.
+- Real name is lower-risk (already optional, already isolated in
+  `PlayerPrivateInfo` per ADR-0002's addendum §1) — that part of the
+  feature is straightforward.
+
 ## Phase 6 — Public Shorts feed, reactions & personal archive
 
 **Added 2026-07-27, from the project owner directly** (not yet designed —
