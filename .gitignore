@@ -171,6 +171,7 @@ k8s/secret.yaml
 # before doing that, it's a bigger call than this file.
 docs/BACKLOG.md
 docs/PROJECT.md
+docs/FUTURE_IDEAS.md
 .venv
 env/
 venv/
