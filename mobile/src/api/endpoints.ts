@@ -13,6 +13,8 @@ import type {
   CreatePlayerRequest,
   CreatePlayerResponse,
   CreateTrainingLogRequest,
+  ConfirmContactChangeRequest,
+  ConfirmContactChangeResponse,
   CreateWeeklyGoalRequest,
   CurrentGoalResponse,
   DeleteClipResponse,
@@ -21,6 +23,7 @@ import type {
   LeaderboardResponse,
   PendingJoinsResponse,
   PlayerMeResponse,
+  PlayerProfileResponse,
   PostChatMessageRequest,
   PostChatMessageResponse,
   RedeemSessionResponse,
@@ -28,6 +31,8 @@ import type {
   ReportChatMessageResponse,
   ReportClipRequest,
   ReportClipResponse,
+  RequestContactChangeRequest,
+  RequestContactChangeResponse,
   RequestSessionReissueRequest,
   SessionReissueSelfServiceResponse,
   SessionReissueTriggerResponse,
@@ -37,6 +42,7 @@ import type {
   TeamRosterResponse,
   TrainingLogResponse,
   UnblockChatPlayerResponse,
+  UpdateProfileRequest,
   UpdateWeeklyGoalRequest,
   WeeklyGoalRow,
 } from './types';
@@ -119,6 +125,46 @@ export function triggerSessionReissue(
   return apiClient.request<SessionReissueTriggerResponse>(
     `/players/${encodeURIComponent(playerId)}/session-reissue`,
     { method: 'POST', auth: true },
+  );
+}
+
+// docs/adr/0012-profile-page-and-contact-email-change.md (Fas 4.1) — the
+// profile page. All four require auth and operate on the caller's own
+// account (`/players/me/...`, no playerId param).
+
+export function getProfile(): Promise<PlayerProfileResponse> {
+  return apiClient.request<PlayerProfileResponse>('/players/me/profile', {
+    auth: true,
+  });
+}
+
+export function updateProfile(
+  body: UpdateProfileRequest,
+): Promise<{ updated: true }> {
+  return apiClient.request<{ updated: true }>('/players/me/profile', {
+    method: 'PATCH',
+    body,
+    auth: true,
+  });
+}
+
+/** Never returns the code — it's emailed to the new address, and a
+ * notification (no code) goes to the old one. See the ADR for why. */
+export function requestContactChange(
+  body: RequestContactChangeRequest,
+): Promise<RequestContactChangeResponse> {
+  return apiClient.request<RequestContactChangeResponse>(
+    '/players/me/contact-change-request',
+    { method: 'POST', body, auth: true },
+  );
+}
+
+export function confirmContactChange(
+  body: ConfirmContactChangeRequest,
+): Promise<ConfirmContactChangeResponse> {
+  return apiClient.request<ConfirmContactChangeResponse>(
+    '/players/me/contact-change-confirm',
+    { method: 'POST', body, auth: true },
   );
 }
 
