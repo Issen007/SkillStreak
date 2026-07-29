@@ -1,0 +1,372 @@
+<title>SkillStreak — Fas 4.2: Radera konto (GDPR)</title>
+<style>
+  :root {
+    --chrome-bg: #F1EFEA;
+    --chrome-bg-alt: #E8E4DC;
+    --chrome-text: #1B1B3A;
+    --chrome-text-muted: #6B6B85;
+    --chrome-line: #D8D4CA;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --chrome-bg: #16151C;
+      --chrome-bg-alt: #1E1D26;
+      --chrome-text: #F1EFEA;
+      --chrome-text-muted: #9A97AC;
+      --chrome-line: #322F3C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --chrome-bg: #16151C;
+    --chrome-bg-alt: #1E1D26;
+    --chrome-text: #F1EFEA;
+    --chrome-text-muted: #9A97AC;
+    --chrome-line: #322F3C;
+  }
+  :root[data-theme="light"] {
+    --chrome-bg: #F1EFEA;
+    --chrome-bg-alt: #E8E4DC;
+    --chrome-text: #1B1B3A;
+    --chrome-text-muted: #6B6B85;
+    --chrome-line: #D8D4CA;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--chrome-bg);
+    color: var(--chrome-text);
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    padding: 40px 20px 64px;
+  }
+
+  .chrome-heading { text-align: center; max-width: 760px; margin-bottom: 6px; }
+  .chrome-eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--chrome-text-muted); margin: 0 0 6px;
+  }
+  .chrome-title {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 26px; margin: 0 0 8px; text-wrap: balance;
+  }
+  .chrome-sub { font-size: 14px; color: var(--chrome-text-muted); margin: 0; line-height: 1.5; }
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 28px;
+    max-width: 1600px;
+  }
+
+  .frame-block { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .frame-label {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 14px;
+    text-align: center;
+    max-width: 300px;
+    color: var(--chrome-text);
+  }
+  .frame-label small { display: block; font-weight: 400; font-size: 11.5px; color: var(--chrome-text-muted); margin-top: 3px; }
+
+  /* ---- phone frame ---- */
+  .phone {
+    width: 300px;
+    height: 650px;
+    border-radius: 38px;
+    background: #0d0c14;
+    padding: 11px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 24px 48px -18px rgba(0,0,0,0.45);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    border-radius: 28px;
+    background: #FAFAF7;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+    color: #1B1B3A;
+  }
+  .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 96px; height: 20px; background: #0d0c14; border-radius: 0 0 14px 14px; z-index: 5;
+  }
+  .statusbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px 3px; font-size: 12px; font-weight: 700;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .statusbar .icons { display: flex; gap: 4px; align-items: center; opacity: 0.85; }
+
+  .content {
+    flex: 1; overflow-y: auto; padding: 4px 18px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .page-heading {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 19px; margin: 6px 0 0;
+  }
+  .sub { font-size: 12.5px; color: #6B6B85; line-height: 1.5; margin: 0; }
+
+  .card {
+    background: #fff; border: 1px solid #E3DED2; border-radius: 16px;
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
+  }
+
+  .bullets { display: flex; flex-direction: column; gap: 8px; margin: 2px 0; }
+  .bullet { font-size: 12px; line-height: 1.5; padding-left: 16px; position: relative; color: #47455C; }
+  .bullet::before { content: "•"; position: absolute; left: 0; color: #1B1B3A; font-weight: 700; }
+
+  .tip-row {
+    background: #FFF8E8; border: 1px solid #FFE7A8; border-radius: 14px;
+    padding: 10px 12px; font-size: 11.5px; line-height: 1.5; color: #47455C;
+  }
+
+  .warn-row {
+    background: #F2EFF8; border: 1px solid #D8D0EC; border-radius: 14px;
+    padding: 10px 12px; font-size: 11.5px; line-height: 1.5; color: #47455C;
+  }
+
+  .waiting-card {
+    background: #FFF4E8; border: 1.5px solid #FFD9A8; border-radius: 20px;
+    padding: 16px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .waiting-head { display: flex; align-items: center; gap: 8px; }
+  .waiting-icon-small { font-size: 19px; }
+  .waiting-title { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 14.5px; }
+  .waiting-body-small { font-size: 11.5px; color: #47455C; line-height: 1.5; }
+  .waiting-action { font-size: 11.5px; font-weight: 700; color: #6B6B85; align-self: flex-start; margin-top: 2px; }
+
+  .captain-box {
+    border: 1.5px solid #E3DED2; border-radius: 14px; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 6px; background: #fff;
+  }
+  .captain-box-title { font-weight: 700; font-size: 12.5px; }
+  .successor-row { display: flex; align-items: center; gap: 8px; }
+  .successor-row .row-avatar { width: 26px; height: 26px; font-size: 12px; }
+  .successor-name { font-size: 12px; font-weight: 700; flex: 1; }
+  .pill-btn {
+    border-radius: 999px; border: 1.5px solid #1B1B3A; padding: 4px 12px;
+    font-size: 10.5px; font-weight: 700; background: #fff; color: #1B1B3A;
+  }
+
+  .btn {
+    border-radius: 14px; padding: 13px 14px; text-align: center;
+    font-weight: 700; font-size: 13.5px; border: none;
+  }
+  .btn-primary { background: #FF6B35; color: #fff; }
+  .btn-danger { background: #C1432F; color: #fff; }
+  .btn-secondary { background: #fff; color: #1B1B3A; border: 1.5px solid #1B1B3A; }
+  .btn-disabled { background: #DAD6CB; color: #8F8C9E; }
+  .btn-text { background: transparent; color: #6B6B85; padding-top: 6px; }
+  .btn-text-error { background: transparent; color: #C1432F; padding-top: 6px; }
+
+  .row-avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: #FFEFE7;
+    display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;
+  }
+  .teammate-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border: 1.5px solid #E3DED2; border-radius: 14px; background: #fff;
+  }
+  .teammate-row.selected { border-color: #FF6B35; background: #FFEFE7; }
+  .teammate-row span { font-size: 12.5px; font-weight: 700; flex: 1; }
+  .radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #6B6B85; flex-shrink: 0; }
+  .radio.on { border-color: #FF6B35; background: radial-gradient(#FF6B35 0 40%, transparent 42%); }
+
+  .sheet-overlay {
+    position: absolute; inset: 0; background: rgba(27,27,58,0.35);
+    display: flex; align-items: flex-end; z-index: 20;
+  }
+  .sheet {
+    width: 100%; background: #FAFAF7; border-radius: 22px 22px 0 0;
+    padding: 18px 18px 22px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .sheet-heading { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 16px; text-align: center; }
+  .sheet-body { font-size: 12.5px; color: #47455C; line-height: 1.55; text-align: center; }
+
+  .waiting-icon { font-size: 40px; text-align: center; margin-top: 50px; }
+  .waiting-heading { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 19px; text-align: center; }
+  .waiting-body { font-size: 13px; color: #47455C; text-align: center; line-height: 1.5; padding: 0 6px; }
+  .waiting-body-muted { font-size: 11.5px; color: #6B6B85; text-align: center; line-height: 1.5; padding: 0 10px; }
+
+  .profile-row {
+    background: #fff; border: 1px solid #E3DED2; border-radius: 16px;
+    padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+  }
+  .profile-row .label { font-size: 10px; font-weight: 700; color: #6B6B85; text-transform: uppercase; letter-spacing: 0.4px; }
+</style>
+
+<div class="chrome-heading">
+  <p class="chrome-eyebrow">Design mockup — companion to phase4.2-account-erasure-flows.md</p>
+  <h1 class="chrome-title">Fas 4.2: Radera konto (GDPR)</h1>
+  <p class="chrome-sub">Fem representativa vyer, inte en fullständig redraw av varje state —
+  se flödesdokumentet för Trigger/API/Copy/Next per skärm.</p>
+</div>
+
+<div class="row">
+
+  <!-- SCREEN 1: E2 request screen, captain-gate variant A -->
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">●●●</span></div>
+        <div class="content">
+          <h2 class="page-heading">Radera ditt konto?</h2>
+          <div class="bullets">
+            <div class="bullet">All din träningshistorik, dina märken och dina klipp raderas för alltid.</div>
+            <div class="bullet">Du försvinner från laget. Dina meddelanden i lagchatten blir anonyma — laget påverkas inte annars.</div>
+            <div class="bullet">Det går inte att ångra så fort de 30 dagarna har gått.</div>
+          </div>
+          <div class="tip-row">ℹ️ Vi skickar ett mejl som du (eller en förälder) måste bekräfta — bara att trycka på knappen nedan gör ingenting än. Så fort mejlet är bekräftat har du 30 dagar på dig att ångra dig.</div>
+          <div class="captain-box">
+            <div class="captain-box-title">👑 Du är lagets kapten</div>
+            <div class="sub" style="margin:0;">Du måste välja vem som tar över innan du kan gå vidare.</div>
+            <div class="successor-row">
+              <div class="row-avatar">🦉</div>
+              <div class="successor-name">SnabbaBenet</div>
+              <div class="pill-btn">Ändra</div>
+            </div>
+          </div>
+          <div style="flex:1;"></div>
+          <button class="btn btn-danger">Radera mitt konto</button>
+          <button class="btn btn-text">Avbryt</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-label">E2 — Radera ditt konto?
+      <small>Variant A: kapten med ≥1 lagkompis — efterträdare krävs innan primärknappen aktiveras.</small>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: E3 successor picker -->
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">●●●</span></div>
+        <div class="content">
+          <h2 class="page-heading">Vem tar över som kapten?</h2>
+          <p class="sub">Den du väljer blir lagets kapten den dag ditt konto raderas — inte förrän dess. Du är kapten som vanligt tills dess.</p>
+          <div class="teammate-row selected">
+            <div class="row-avatar">🦉</div>
+            <span>SnabbaBenet</span>
+            <div class="radio on"></div>
+          </div>
+          <div class="teammate-row">
+            <div class="row-avatar">🐼</div>
+            <span>Pandemonium</span>
+            <div class="radio"></div>
+          </div>
+          <div class="teammate-row">
+            <div class="row-avatar">🦊</div>
+            <span>FloorballStar15</span>
+            <div class="radio"></div>
+          </div>
+          <div style="flex:1;"></div>
+          <button class="btn btn-primary">Klar</button>
+          <button class="btn btn-text">Avbryt</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-label">E3 — Vem tar över som kapten?
+      <small>Ingen "(Du)"-rad, till skillnad från K4 — ingen tvetydighet att lösa upp här.</small>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: E4 confirm sheet -->
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">●●●</span></div>
+        <div class="content" style="justify-content:flex-end; padding:0;"></div>
+        <div class="sheet-overlay">
+          <div class="sheet">
+            <div class="sheet-heading">Är du säker?</div>
+            <div class="sheet-body">Vi skickar ett mejl som måste bekräftas för att sätta igång de 30 dagarna. Ångrar du dig kan du avbryta när som helst innan de gått ut.</div>
+            <div class="sheet-body" style="font-weight:700;">SnabbaBenet tar över som kapten den dag kontot raderas.</div>
+            <button class="btn btn-danger">Ja, radera mitt konto</button>
+            <button class="btn btn-text">Avbryt</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="frame-label">E4 — Är du säker? (bekräftelseark)
+      <small>DangerButton här är ett medvetet undantag — se flödesdokumentets Judgment call 2.</small>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: E5 check email -->
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">●●●</span></div>
+        <div class="content">
+          <div class="waiting-icon">📩</div>
+          <div class="waiting-heading">Kolla inkorgen</div>
+          <div class="waiting-body">Vi har skickat ett mejl med en länk. Öppna mejlet och tryck på länken för att sätta igång de 30 dagarna — det går bra att vänta och göra det imorgon också.</div>
+          <div class="waiting-body-muted">Trycker du inte på länken händer ingenting — kontot är kvar precis som vanligt.</div>
+          <div style="flex:1;"></div>
+          <button class="btn btn-primary">Till profilen</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-label">E5 — Kolla inkorgen
+      <small>Inget kodfält, till skillnad från confirmChange — bekräftelsen sker via en mejlad länk, inte en inmatad kod.</small>
+    </div>
+  </div>
+
+  <!-- SCREEN 5: E6 persistent Profile status card, grace_period variant -->
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">●●●</span></div>
+        <div class="content">
+          <h2 class="page-heading">Din profil</h2>
+          <p class="sub" style="margin-top:-6px;">FloorballStar15</p>
+
+          <div class="waiting-card">
+            <div class="waiting-head">
+              <div class="waiting-icon-small">⏳</div>
+              <div class="waiting-title">Ditt konto raderas den 27 augusti 2026.</div>
+            </div>
+            <div class="waiting-body-small">Kontot funkar precis som vanligt fram tills dess. Ångrar du dig kan du avbryta när som helst innan dess. SnabbaBenet tar över som kapten den dagen.</div>
+            <div class="waiting-action">Ångra raderingen</div>
+          </div>
+
+          <div class="profile-row">
+            <div style="flex:1;">
+              <div class="label">Avatar</div>
+              <div style="font-size:22px;">🦊</div>
+            </div>
+          </div>
+          <div class="profile-row">
+            <div style="flex:1;">
+              <div class="label">Namn</div>
+              <div style="font-size:14px; font-weight:700;">Inte angivet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="frame-label">E6 — Profilbanderoll, grace_period
+      <small>Samma lugna ⏳/pendingBg-språk som "requested" — allvaret bärs av texten, inte färgen.</small>
+    </div>
+  </div>
+
+</div>

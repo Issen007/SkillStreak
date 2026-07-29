@@ -497,3 +497,113 @@ export class InvalidOrExpiredContactChangeCodeException extends AppException {
     );
   }
 }
+
+// --- Fas 4 (self-service GDPR account erasure) -------------------------------
+// docs/adr/0013-account-erasure.md.
+
+export class ErasureBlockedPendingContactChangeException extends AppException {
+  constructor() {
+    // Decision 2's blocking security-reviewer finding — closes the chained
+    // contact-change/erasure hijack path. The caller must let the pending
+    // contact-change either apply or be cancelled first, then request
+    // erasure again.
+    super(
+      'erasure_blocked_pending_contact_change',
+      'An unresolved contact-change is still in flight for this account; let it apply or cancel it first, then request erasure again.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class ErasureRateLimitedException extends AppException {
+  constructor() {
+    // Same per-player cooldown-lock + daily-cap shape/reasoning as
+    // ContactChangeRateLimitedException/SessionReissueRateLimitedException
+    // — the realistic abuse surface is "a compromised session spamming a
+    // family's inbox with a scary email," identical threat model.
+    super(
+      'erasure_rate_limited',
+      'An account-erasure request was already made recently; try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+export class ErasureSuccessorRequiredException extends AppException {
+  constructor() {
+    // ADR-0013 Decision 4 — "the current captain chooses," no optional
+    // fallback field: a captain with at least one teammate must name a
+    // successor up front.
+    super(
+      'erasure_successor_required',
+      'successorPlayerId is required: the caller is the team captain and has at least one teammate.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class ErasureSuccessorNotAllowedException extends AppException {
+  constructor() {
+    super(
+      'erasure_successor_not_allowed',
+      'successorPlayerId must be omitted: the caller is not currently a captain with a teammate to hand off to.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class ErasureSuccessorInvalidException extends AppException {
+  constructor() {
+    // Deliberately generic, same posture as CaptainTransferTargetNotOnTeamException
+    // — covers "not on this team," "is the requester themselves," and "is
+    // themselves already mid-erasure" without distinguishing which.
+    super(
+      'erasure_successor_invalid',
+      'successorPlayerId must name a different teammate on the same team who is not themselves mid-erasure.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class ErasureAlreadyActiveException extends AppException {
+  constructor() {
+    // Defensive backstop for idx_account_erasure_request_one_active_per_player
+    // — should be unreachable in the normal single-request flow (the caller
+    // would need to race two concurrent requests), kept for the same
+    // reason CaptainTransferConflictException exists.
+    super(
+      'erasure_already_active',
+      'An account-erasure request is already in progress for this account.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class ErasureRequestNotActiveException extends AppException {
+  constructor() {
+    // Thrown only by the authenticated cancel path (POST /me/erasure/cancel)
+    // — unlike the mailed-link cancel routes (which use the friendly no-op
+    // idiom, since an already-consumed link is an expected case there), an
+    // authenticated caller with no active request is a genuine stale-state
+    // client error, mirrors ConsentNotPendingException/TeamJoinNotPendingException.
+    super(
+      'erasure_request_not_active',
+      'There is no requested/grace_period account-erasure request to cancel for this account.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+// ADR-0013 Decision 4 — PlayersService.transferCaptaincy's new rejection:
+// a captain can no longer hand off onto a teammate who is themselves
+// already mid-erasure (requested or grace_period), closing the gap where
+// that handoff would need immediate unwinding a moment later.
+export class CaptainTransferTargetMidErasureException extends AppException {
+  constructor() {
+    super(
+      'captain_transfer_target_mid_erasure',
+      'newCaptainPlayerId has an active account-erasure request and cannot be made captain.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}

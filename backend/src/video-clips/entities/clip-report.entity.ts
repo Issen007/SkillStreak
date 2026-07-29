@@ -44,8 +44,16 @@ export class ClipReport {
 
   // Denormalized at write time (ADR-0010 Decision 5) — survives clip_id
   // going null when the clip is later deleted.
-  @Column({ name: 'reported_uploader_player_id', type: 'uuid' })
-  reportedUploaderPlayerId!: string;
+  //
+  // ON DELETE SET NULL, nullable, per docs/adr/0013-account-erasure.md
+  // Decision 6/Open Questions #2 (was CASCADE until then, the project
+  // owner's 2026-07-29 decision): this is not "their content" to delete —
+  // it's someone else's accountability record about them, and a genuine
+  // safety report must outlive the account it was filed against, mirroring
+  // clip_id's own already-established "outlive the thing it reported"
+  // pattern.
+  @Column({ name: 'reported_uploader_player_id', type: 'uuid', nullable: true })
+  reportedUploaderPlayerId!: string | null;
 
   @Column({
     type: 'enum',

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AccountErasureModule } from './account-erasure/account-erasure.module';
 import { AppConfigModule } from './config/app-config.module';
 import { RedisThrottlerStorage } from './common/throttler/redis-throttler-storage.service';
 import { RedisThrottlerStorageModule } from './common/throttler/redis-throttler-storage.module';
@@ -91,6 +92,7 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     ProfileModule,
     TeamChatModule,
     VideoClipsModule,
+    AccountErasureModule,
   ],
   providers: [
     {
