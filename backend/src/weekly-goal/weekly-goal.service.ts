@@ -51,7 +51,10 @@ export interface GoalProgressSummary {
   startDate: string;
   endDate: string;
   status: ChallengeStatus;
-  createdByPlayerId: string;
+  // Nullable since docs/adr/0013-account-erasure.md Decision 6 — set null
+  // once the authoring captain's own account is erased (the goal itself,
+  // and any bonus already awarded from it, outlives them).
+  createdByPlayerId: string | null;
   progressMinutes: number;
   percentComplete: number;
   goalMet: boolean;
@@ -69,7 +72,8 @@ export interface GoalProgressSummary {
 export interface WeeklyGoalRow {
   id: string;
   teamId: string;
-  createdByPlayerId: string;
+  // See GoalProgressSummary.createdByPlayerId's comment.
+  createdByPlayerId: string | null;
   title: string;
   description: string;
   targetMetric: string;

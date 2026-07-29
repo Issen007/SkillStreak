@@ -25,10 +25,15 @@ export class Challenge {
   // Renamed from created_by_coach_id (Phase 1 held no data in this column —
   // no Challenge CRUD existed before Phase 2) — the creator is now always a
   // player (specifically, whoever was captain at creation time), per
-  // ADR-0005 Decision 1/2. FK retargeted to player.id, ON DELETE RESTRICT:
-  // don't silently orphan a goal by deleting the player who authored it.
-  @Column({ name: 'created_by_player_id', type: 'uuid' })
-  createdByPlayerId!: string;
+  // ADR-0005 Decision 1/2. FK retargeted to player.id.
+  //
+  // ON DELETE SET NULL, nullable, per docs/adr/0013-account-erasure.md
+  // Decision 6 (was RESTRICT until then): this is shared team-level state
+  // (a weekly goal other teammates already earned bonus points from) that
+  // outlives the player who authored it — "detach the identity, keep the
+  // row," the same pattern VideoClip.taggedPlayerId already established.
+  @Column({ name: 'created_by_player_id', type: 'uuid', nullable: true })
+  createdByPlayerId!: string | null;
 
   @Column({ type: 'varchar' })
   title!: string;

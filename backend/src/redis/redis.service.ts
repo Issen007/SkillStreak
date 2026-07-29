@@ -65,6 +65,14 @@ function clipReportNotifyCooldownKey(uploaderPlayerId: string): string {
   return `clip-report-notify:${uploaderPlayerId}:cooldown`;
 }
 
+function erasureRequestCooldownKey(playerId: string): string {
+  return `erasure-request:${playerId}:cooldown`;
+}
+
+function erasureRequestDailyCapKey(playerId: string): string {
+  return `erasure-request:${playerId}:daily-cap`;
+}
+
 // docs/api/phase2-contract.md endpoint 3: "rate-limited per player" — a
 // per-IP @Throttle() (as used elsewhere in this codebase) doesn't express
 // that on its own, since a captain's IP isn't the thing being limited, the
@@ -155,6 +163,15 @@ const CLIP_REPORT_COOLDOWN_SECONDS = 30;
 // fix — ADR-0010 Decision 4 explicitly reuses this mechanism for the
 // uploader's parent + coach notification.
 const CLIP_REPORT_NOTIFY_COOLDOWN_SECONDS = 60 * 60 * 24;
+
+// docs/adr/0013-account-erasure.md Decision 3 — same two-layer shape
+// (burst cooldown + daily cap) as session-reissue/contact-change: "the
+// realistic abuse surface is a compromised session spamming a family's
+// inbox with a scary email," identical reasoning to those precedents, not
+// a new threat model.
+const ERASURE_REQUEST_COOLDOWN_SECONDS = 5 * 60;
+const ERASURE_REQUEST_DAILY_CAP_WINDOW_SECONDS = 60 * 60 * 24;
+const ERASURE_REQUEST_DAILY_CAP_MAX_PER_WINDOW = 3;
 
 @Injectable()
 export class RedisService {
@@ -419,6 +436,52 @@ export class RedisService {
       'NX',
     );
     return result === 'OK';
+  }
+
+  /** Same lock shape as tryClaimSessionReissueCooldown/
+   * tryClaimContactChangeCooldown, for AccountErasureService's
+   * request-erasure endpoint (ADR-0013 Decision 3). Bounds burst rate
+   * only — see tryClaimErasureRequestDailyCap for sustained-volume
+   * protection. */
+  async tryClaimErasureRequestCooldown(
+    playerId: string,
+    ttlSeconds: number = ERASURE_REQUEST_COOLDOWN_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      erasureRequestCooldownKey(playerId),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
+  }
+
+  /** Same fixed-window shape as tryClaimContactChangeDailyCap/
+   * tryClaimSessionReissueDailyCap — the burst cooldown above alone still
+   * allows a couple hundred forced-erasure-email sends per day. */
+  async tryClaimErasureRequestDailyCap(
+    playerId: string,
+    maxPerWindow: number = ERASURE_REQUEST_DAILY_CAP_MAX_PER_WINDOW,
+    windowSeconds: number = ERASURE_REQUEST_DAILY_CAP_WINDOW_SECONDS,
+  ): Promise<boolean> {
+    const key = erasureRequestDailyCapKey(playerId);
+    const count = await this.client.incr(key);
+    if (count === 1) {
+      await this.client.expire(key, windowSeconds);
+    }
+    return count <= maxPerWindow;
+  }
+
+  /**
+   * docs/adr/0013-account-erasure.md Decision 6 — sorted-set entries don't
+   * expire on their own, so a deleted player's streak would otherwise show
+   * teammates a frozen "ghost" score indefinitely. Every other Redis key
+   * touching this player (rate-limit/cooldown claims) is deliberately left
+   * alone — harmless, they expire on their own short TTLs regardless.
+   */
+  async removeFromLeaderboard(teamId: string, playerId: string): Promise<void> {
+    await this.client.zrem(teamStreakLeaderboardKey(teamId), playerId);
   }
 
   /**

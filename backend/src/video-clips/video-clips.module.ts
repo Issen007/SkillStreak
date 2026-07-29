@@ -57,5 +57,13 @@ import { VideoProcessingService } from './video-processing.service';
     VideoProcessingService,
     ClipRetentionService,
   ],
+  // ObjectStorageService only, added for
+  // docs/adr/0013-account-erasure.md — AccountErasureModule reuses
+  // ObjectStorageService.deleteObjectIfExists (never re-implements/forks
+  // its own MinIO client) for the same delete-if-exists purge
+  // ClipRetentionService already relies on. Nothing else here is exported:
+  // VideoClipsService/VideoProcessingService/ClipRetentionService remain
+  // this module's own, not reusable elsewhere.
+  exports: [ObjectStorageService],
 })
 export class VideoClipsModule {}

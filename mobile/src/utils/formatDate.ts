@@ -31,6 +31,33 @@ export function formatSwedishDate(isoDate: string): string {
   return `${day} ${SWEDISH_MONTHS[month - 1]}`;
 }
 
+/** Fas 4.2, Screen E6's grace-period date ("27 augusti 2026") — unlike
+ * `formatSwedishDate` above (day+month only, fine for goal end dates/
+ * `lastTrainedDate`, which are always read within the same year they're
+ * shown), the 30-day erasure grace period can span a year boundary, so the
+ * year is worth stating explicitly here. Accepts a full ISO timestamp (as
+ * returned by `scheduledFor`), not just a date. Manual formatting, same
+ * Hermes/ICU reasoning as the rest of this file. */
+export function formatSwedishDateWithYear(isoDateTime: string): string {
+  const isoDate = isoDateTime.slice(0, 10);
+  const parts = isoDate.split('-');
+  if (parts.length !== 3) return isoDateTime;
+  const [yearStr, monthStr, dayStr] = parts;
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    month < 1 ||
+    month > 12 ||
+    !Number.isInteger(day)
+  ) {
+    return isoDateTime;
+  }
+  return `${day} ${SWEDISH_MONTHS[month - 1]} ${year}`;
+}
+
 /** Fas 2.6b, Screen CH1's message timestamps — "clock time only for
  * today's messages, date + time if older" per the flow doc. Manual
  * formatting (not `Intl.DateTimeFormat`), same Hermes/ICU reasoning as

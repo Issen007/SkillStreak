@@ -272,6 +272,26 @@ export class PlayerPrivateInfoService {
   }
 
   /**
+   * docs/adr/0013-account-erasure.md Decision 2's blocking security-reviewer
+   * fix — a direct, raw read of `pendingParentContact IS NOT NULL`,
+   * deliberately NOT going through getEffective(), so this check itself can
+   * never trigger the very lazy-apply side effect it exists to catch ahead
+   * of (calling getEffective() here would apply a due-but-not-yet-applied
+   * pending change as a side effect of merely checking for one, which is
+   * exactly the state this method must observe, not resolve). Used by
+   * AccountErasureService.requestErasure to refuse a new erasure request
+   * outright (409) while any contact-change — still within its own 24h
+   * window, or already past due but not yet lazily applied by some other
+   * read — is unresolved.
+   */
+  async hasPendingContactChange(playerId: string): Promise<boolean> {
+    const info = await this.privateInfoRepository.findOne({
+      where: { playerId },
+    });
+    return info?.pendingParentContact != null;
+  }
+
+  /**
    * The read path every getter above goes through: if a confirmed
    * contact change's grace period has elapsed, applies it inline (in its
    * own short transaction, row-locked) before returning — a lazy
