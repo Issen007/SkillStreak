@@ -274,12 +274,35 @@ jobs:
         env:
           OWNER: ${{ github.repository_owner }}
 
-      # 2. Inject Secrets securely (Our previous fix)
+      # 2. Inject Secrets securely — one GitHub secret per key (matching
+      # KUBE_TOKEN/KUBE_URL), not a single opaque SKILLSTREAK_SECRET_YAML
+      # blob. Rotating any one credential (e.g. a routine JWT_SECRET
+      # rotation) now only needs `gh secret set THAT_KEY`, not a full
+      # rewrite-and-repaste of every value at once. Adding a new required
+      # key (see backend/src/config/env.validation.ts) means: add it as a
+      # GitHub secret, add it to both the env: block and the
+      # --from-literal list below, and to k8s/secret.yaml.example's
+      # stringData for local/manual setups.
       - name: Inject Production Secrets
         env:
-          PROD_SECRETS: ${{ secrets.SKILLSTREAK_SECRET_YAML }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          PII_ENCRYPTION_KEY: ${{ secrets.PII_ENCRYPTION_KEY }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
+          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
         run: |
-          printf '%s\n' "$PROD_SECRETS" > k8s/secret.yaml
+          kubectl create secret generic skillstreak-secret \
+            --namespace skillstreak \
+            --from-literal=POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+            --from-literal=JWT_SECRET="$JWT_SECRET" \
+            --from-literal=PII_ENCRYPTION_KEY="$PII_ENCRYPTION_KEY" \
+            --from-literal=SMTP_USER="$SMTP_USER" \
+            --from-literal=SMTP_PASSWORD="$SMTP_PASSWORD" \
+            --from-literal=MINIO_ROOT_USER="$MINIO_ROOT_USER" \
+            --from-literal=MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
+            --dry-run=client -o yaml > k8s/secret.yaml
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
