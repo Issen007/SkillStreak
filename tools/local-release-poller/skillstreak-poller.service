@@ -1,5 +1,5 @@
 [Unit]
-Description=Poll GitHub for a new SkillStreak release and deploy it to the local microk8s cluster
+Description=Poll GitHub for a new SkillStreak prerelease commit and deploy it to the local microk8s cluster
 Wants=network-online.target
 After=network-online.target
 

@@ -1,14 +1,13 @@
 # local-release-poller
 
-A small script + systemd user timer that watches for new SkillStreak
-GitHub Releases and automatically redeploys the local microk8s test
-cluster (namespace `skillstreak`) to whatever version it finds — the
-"automatically download and test the new version locally" half of the
-`prerelease` → `main` → auto-release pipeline (see the root
-[`CLAUDE.md`](../../CLAUDE.md)'s "Git workflow rule" section for the full
-chain: `prerelease` merges, then `main` merges trigger
-`.github/workflows/ci-cd.yml`'s `release` job, which is what this tool
-polls for).
+A small script + systemd user timer that watches for new commits on the
+SkillStreak `prerelease` branch and automatically redeploys the local
+microk8s test cluster (namespace `skillstreak`, on this machine — ubuntu01,
+`192.168.55.x`, no public DNS/TLS) to whatever it finds. This cluster is
+the **internal test environment** and only ever tracks `prerelease` — the
+public isstech-2 cluster is the opposite, only ever running what's built
+from `main` (see the root [`CLAUDE.md`](../../CLAUDE.md)'s "Git workflow
+rule" section for the full branch split).
 
 Not part of the SkillStreak product itself — a standalone local-dev tool,
 same posture as `tools/lab-access/`.
@@ -16,18 +15,33 @@ same posture as `tools/lab-access/`.
 ## What it actually does
 
 `poll-and-deploy.sh`:
-1. Asks GitHub's public REST API for this repo's latest release tag (no
-   auth needed — GHCR packages and the releases API are both public here).
-2. Compares it to the last version it successfully deployed (tracked in
-   `~/.local/state/skillstreak-poller/current-version`).
-3. If there's a newer one, runs `kubectl set image` on `deployment/api`
-   and `deployment/site` in the `skillstreak` namespace to point at
-   `ghcr.io/issen007/skillstreak-{api,site}:<new-version>`, then waits for
-   the rollout.
+1. Asks GitHub's public REST API for the latest commit SHA on `prerelease`
+   (no auth needed — GHCR packages and this API are both public here).
+2. Compares it to the last commit it successfully deployed (tracked in
+   `~/.local/state/skillstreak-poller/current-sha`).
+3. If there's a newer one, confirms both images actually exist on GHCR yet
+   (`.github/workflows/ci-cd.yml`'s `internal-images` job — the only job
+   that pushes `prerelease-<sha>`-tagged images — takes a couple of
+   minutes after the commit lands; this just quietly retries next tick
+   rather than failing loudly if it's still running), then runs
+   `kubectl set image` on `deployment/api` and `deployment/site` in the
+   `skillstreak` namespace to point at
+   `ghcr.io/issen007/skillstreak-{api,site}:prerelease-<sha>`, and waits
+   for the rollout.
 
-It does **not** `docker pull` anything itself — pointing a Deployment at a
-new image tag is enough; Kubernetes' own containerd on the node pulls it,
-completely separately from this machine's own Docker daemon/image cache.
+Unlike the api image, the site image isn't interchangeable with what the
+public cluster runs — it bakes in `192.168.55.71`/`192.168.55.72` (this
+cluster's own metallb LoadBalancer IPs) at Docker build time instead of
+`skillstreak.xyz`, per `internal-images`' own build-args. That's the whole
+reason this tool tracks a separate `prerelease-<sha>` tag rather than
+reusing whatever `main`'s pipeline already publishes.
+
+It does **not** `docker pull` anything itself to actually run the new
+images — pointing a Deployment at a new image tag is enough; Kubernetes'
+own containerd on the node pulls it, completely separately from this
+machine's own Docker daemon/image cache. It does use this machine's Docker
+daemon for the lightweight `docker manifest inspect` existence check in
+step 3 above, which doesn't pull image layers.
 
 ## Installing the timer (user-level, no root needed)
 
@@ -47,7 +61,7 @@ journalctl --user -u skillstreak-poller.service -n 50 --no-pager
 ```
 
 Run it once by hand instead of waiting for the timer (e.g. right after a
-merge to `main`, to see it work immediately):
+merge to `prerelease`, to see it work immediately):
 
 ```bash
 systemctl --user start skillstreak-poller.service
