@@ -26,6 +26,7 @@ interface ProfileBody {
   realName: string | null;
   birthYear: number;
   parentContact: string;
+  avatarId: string;
 }
 
 // docs/adr/0012-profile-page-and-contact-email-change.md. Same real-
@@ -143,7 +144,7 @@ describe('Phase 4.1: profile page & contact-email change (e2e)', () => {
   }
 
   describe('GET /players/me/profile', () => {
-    it('returns realName (null by default), birthYear, and parentContact', async () => {
+    it('returns realName (null by default), birthYear, parentContact, and avatarId', async () => {
       const { sessionToken } = await createPlayer('profile-get@example.com');
 
       const response = await request(app.getHttpServer())
@@ -155,6 +156,7 @@ describe('Phase 4.1: profile page & contact-email change (e2e)', () => {
         realName: null,
         birthYear: 2013,
         parentContact: 'profile-get@example.com',
+        avatarId: 'fox',
       });
     });
 
@@ -198,6 +200,40 @@ describe('Phase 4.1: profile page & contact-email change (e2e)', () => {
         .set('Authorization', `Bearer ${sessionToken}`)
         .expect(200);
       expect((afterClear.body as ProfileBody).realName).toBeNull();
+    });
+
+    it('changes avatarId — never touches realName/birthYear/parentContact', async () => {
+      const { sessionToken } = await createPlayer(
+        'profile-patch-avatar@example.com',
+      );
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/players/me/profile')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({ avatarId: 'wolf' })
+        .expect(200);
+
+      const after = await request(app.getHttpServer())
+        .get('/api/v1/players/me/profile')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .expect(200);
+      expect((after.body as ProfileBody).avatarId).toBe('wolf');
+      expect((after.body as ProfileBody).realName).toBeNull();
+      expect((after.body as ProfileBody).birthYear).toBe(2013);
+      expect((after.body as ProfileBody).parentContact).toBe(
+        'profile-patch-avatar@example.com',
+      );
+    });
+
+    it('rejects an empty-string avatarId (whitelist validation)', async () => {
+      const { sessionToken } = await createPlayer(
+        'profile-patch-avatar-empty@example.com',
+      );
+      await request(app.getHttpServer())
+        .patch('/api/v1/players/me/profile')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({ avatarId: '' })
+        .expect(400);
     });
 
     it('rejects birthYear in the request body (whitelist validation, no update path exists)', async () => {

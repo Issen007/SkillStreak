@@ -175,10 +175,12 @@ export interface PlayerProfileResponse {
   realName: string | null;
   birthYear: number;
   parentContact: string;
+  avatarId: string;
 }
 
 export interface UpdateProfileRequest {
   realName?: string | null;
+  avatarId?: string;
 }
 
 export interface RequestContactChangeRequest {

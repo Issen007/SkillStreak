@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryLink } from '../components/SecondaryLink';
@@ -7,6 +7,7 @@ import { TextField } from '../components/TextField';
 import { Toast } from '../components/Toast';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
+import { clearSessionToken } from '../api/authStorage';
 import {
   confirmContactChange,
   getProfile,
@@ -15,13 +16,19 @@ import {
 } from '../api/endpoints';
 import { ApiError } from '../api/ApiError';
 import type { PlayerProfileResponse } from '../api/types';
+import { AVATAR_CATALOG } from '../onboarding/avatarCatalog';
 
 interface ProfileScreenProps {
   screenName: string;
   onBack: () => void;
+  /** Same "clear the stored token, then let the caller navigate away"
+   * split HomeScreen already uses for a stale/invalidated session
+   * (`onSessionInvalid`) — a deliberate logout ends up in the exact same
+   * place (onboarding, no session), so it reuses that same callback. */
+  onLogout: () => void;
 }
 
-type ProfileView = 'view' | 'editName' | 'requestChange' | 'confirmChange';
+type ProfileView = 'view' | 'editName' | 'editAvatar' | 'requestChange' | 'confirmChange';
 
 /** Fas 4.1 — docs/adr/0012-profile-page-and-contact-email-change.md.
  * Reached by tapping the avatar circle in `AppHeader`. Own local
@@ -29,7 +36,7 @@ type ProfileView = 'view' | 'editName' | 'requestChange' | 'confirmChange';
  * posture as every other multi-step screen in this app. Birth year is
  * shown, never editable (decision 2 — a self-verification-age bypass
  * risk) — there is no input for it anywhere in this file. */
-export function ProfileScreen({ screenName, onBack }: ProfileScreenProps) {
+export function ProfileScreen({ screenName, onBack, onLogout }: ProfileScreenProps) {
   const [profile, setProfile] = useState<PlayerProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -40,6 +47,9 @@ export function ProfileScreen({ screenName, onBack }: ProfileScreenProps) {
 
   const [nameInput, setNameInput] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
+
+  const [avatarSelection, setAvatarSelection] = useState<string | null>(null);
+  const [avatarSaving, setAvatarSaving] = useState(false);
 
   const [contactInput, setContactInput] = useState('');
   const [contactError, setContactError] = useState<string | null>(null);
@@ -79,6 +89,23 @@ export function ProfileScreen({ screenName, onBack }: ProfileScreenProps) {
       setToastMessage('Något gick fel. Testa igen.');
     } finally {
       setNameSaving(false);
+    }
+  };
+
+  const handleSaveAvatar = async () => {
+    if (!avatarSelection) return;
+    setAvatarSaving(true);
+    try {
+      await updateProfile({ avatarId: avatarSelection });
+      setProfile((prev) => (prev ? { ...prev, avatarId: avatarSelection } : prev));
+      setView('view');
+      setToastDurationMs(2000);
+      setToastMessage('Sparat!');
+    } catch {
+      setToastDurationMs(2000);
+      setToastMessage('Något gick fel. Testa igen.');
+    } finally {
+      setAvatarSaving(false);
     }
   };
 
@@ -136,6 +163,11 @@ export function ProfileScreen({ screenName, onBack }: ProfileScreenProps) {
     }
   };
 
+  const handleLogout = async () => {
+    await clearSessionToken();
+    onLogout();
+  };
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -170,6 +202,39 @@ export function ProfileScreen({ screenName, onBack }: ProfileScreenProps) {
         />
         <View style={styles.spacer} />
         <PrimaryButton label="Spara" onPress={() => void handleSaveName()} loading={nameSaving} />
+        <SecondaryLink label="Avbryt" onPress={() => setView('view')} />
+      </ScrollView>
+    );
+  }
+
+  if (view === 'editAvatar') {
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Text style={styles.heading}>Välj avatar</Text>
+        <Text style={styles.sub}>Ingen bild behövs — välj en figur du gillar.</Text>
+        <View style={styles.avatarGrid}>
+          {AVATAR_CATALOG.map((option) => {
+            const selected = option.avatarId === avatarSelection;
+            return (
+              <Pressable
+                key={option.avatarId}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                onPress={() => setAvatarSelection(option.avatarId)}
+                style={[styles.avatarCell, selected && styles.avatarCellSelected]}
+              >
+                <Text style={styles.avatarCellEmoji}>{option.emoji}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <View style={styles.spacer} />
+        <PrimaryButton
+          label="Spara"
+          onPress={() => void handleSaveAvatar()}
+          disabled={!avatarSelection || avatarSelection === profile.avatarId}
+          loading={avatarSaving}
+        />
         <SecondaryLink label="Avbryt" onPress={() => setView('view')} />
       </ScrollView>
     );
@@ -245,6 +310,20 @@ export function ProfileScreen({ screenName, onBack }: ProfileScreenProps) {
         <Text style={styles.greeting}>{screenName}</Text>
 
         <View style={styles.card}>
+          <Text style={styles.fieldLabel}>Avatar</Text>
+          <Text style={styles.avatarPreviewEmoji}>
+            {AVATAR_CATALOG.find((a) => a.avatarId === profile.avatarId)?.emoji ?? '🙂'}
+          </Text>
+          <SecondaryLink
+            label="Ändra"
+            onPress={() => {
+              setAvatarSelection(profile.avatarId);
+              setView('editAvatar');
+            }}
+          />
+        </View>
+
+        <View style={styles.card}>
           <Text style={styles.fieldLabel}>Namn</Text>
           <Text style={styles.fieldValue}>{profile.realName ?? 'Inte angivet'}</Text>
           <SecondaryLink
@@ -272,6 +351,7 @@ export function ProfileScreen({ screenName, onBack }: ProfileScreenProps) {
         </View>
 
         <SecondaryLink label="Tillbaka" onPress={onBack} />
+        <SecondaryLink label="Logga ut" onPress={() => void handleLogout()} />
       </ScrollView>
 
       {toastMessage ? (
@@ -342,6 +422,31 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 11.5,
     color: colors.textMuted,
+  },
+  avatarPreviewEmoji: {
+    fontSize: 32,
+  },
+  avatarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  avatarCell: {
+    width: '22.5%',
+    aspectRatio: 1,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarCellSelected: {
+    borderColor: colors.flame,
+    backgroundColor: colors.flameTint,
+  },
+  avatarCellEmoji: {
+    fontSize: 26,
   },
   centered: {
     flex: 1,

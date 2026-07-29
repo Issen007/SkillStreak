@@ -54,15 +54,16 @@ export class ProfileController {
     @CurrentPlayerId() playerId: string,
     @Body() dto: UpdateProfileDto,
   ): Promise<{ updated: true }> {
-    // realName undefined (omitted from the request body) means "leave
-    // unchanged" — this handler is only reached at all when the DTO's
-    // whitelist validation already accepted the body, so there's nothing
-    // else to update yet (birth year has no update path at all, per
-    // decision 2), but written as an explicit check rather than always
-    // calling through so a future second field doesn't silently inherit
-    // this one's "only if present" behavior by accident.
+    // realName/avatarId undefined (omitted from the request body) means
+    // "leave unchanged" — birth year has no update path at all, per
+    // decision 2. Each field is an explicit check rather than always
+    // calling through, so a future third field doesn't silently inherit
+    // this "only if present" behavior by accident.
     if (dto.realName !== undefined) {
       await this.profileService.updateRealName(playerId, dto.realName);
+    }
+    if (dto.avatarId !== undefined) {
+      await this.profileService.updateAvatarId(playerId, dto.avatarId);
     }
     return { updated: true };
   }
