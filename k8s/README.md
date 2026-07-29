@@ -89,6 +89,33 @@ against a real container, PVC provisioning succeeding on the target
 cluster's StorageClass, etc.). Treat this as a solid first draft, not a
 tested one.
 
+## Internal test cluster (ubuntu01) — tracks `prerelease`, not `main`
+
+Everything above describes the public cluster (`isstech-2`), which only
+ever runs what `main` builds. There's a second, separate deployment: a
+microk8s cluster on `ubuntu01` (`192.168.55.x`, LAN-only, no public
+DNS/TLS), namespace `skillstreak` there too, with its own Postgres/Redis/
+MinIO — a real test database, not shared with production. It exists so
+`prerelease` work can be exercised end-to-end before it ever reaches
+`main`, per the root `CLAUDE.md`'s git workflow rule.
+
+It's kept up to date automatically by `tools/local-release-poller/`
+(a systemd user timer on ubuntu01 itself, not this repo's CI) polling for
+new `prerelease` commits, and by `.github/workflows/ci-cd.yml`'s
+`internal-images` job, which builds and pushes
+`ghcr.io/issen007/skillstreak-{api,site}:prerelease-<sha>` on every push to
+`prerelease` — a separate tag from what `main`'s `deploy`/`release` jobs
+push, because the site image bakes in this cluster's own LAN addresses
+(`192.168.55.71` api, `192.168.55.72` site/try-it) at Docker build time
+instead of `skillstreak.xyz`. See that tool's own README for exactly how
+the poller works.
+
+No Ingress/TLS on this cluster — reached directly by its metallb
+LoadBalancer IPs over plain HTTP, which is fine for an internal-only test
+environment. `skillstreak-config` there is applied by hand (not by CI,
+same posture as `k8s/secret.yaml` — see "Deploy order" below), pointed at
+those same LAN addresses.
+
 ## Files
 
 | File | What it is |
