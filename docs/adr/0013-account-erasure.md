@@ -4,13 +4,17 @@
 
 Accepted — 2026-07-29. Both decision points originally left open
 (email-gates-the-clock, and `ClipReport` survival) were resolved by the
-project owner the same day — see Open Questions below. **Blocking
-security-reviewer sign-off still required before backend-developer/
-frontend-developer build against this**, per CLAUDE.md's standing rule —
-this feature touches auth (session/captaincy validity during a 30-day
-window), media (hard-deleting video of a child), and the entirety of a
-child's account data at once, i.e. all three of this project's standing
-blocking-review triggers simultaneously, not just one.
+project owner the same day — see Open Questions below. A blocking
+security-reviewer pass on 2026-07-29 found one confirmed blocking issue
+and two further required-before-implementation issues, all closed by this
+revision in place (Decisions 2, 4, 5, 6, 8 below) — see the callout at the
+end of Consequences for what changed and why. **Blocking security-reviewer
+re-confirmation still required before backend-developer/frontend-developer
+build against this**, per CLAUDE.md's standing rule — this feature touches
+auth (session/captaincy validity during a 30-day window), media
+(hard-deleting video of a child), and the entirety of a child's account
+data at once, i.e. all three of this project's standing blocking-review
+triggers simultaneously, not just one.
 
 ## Context
 
@@ -101,19 +105,27 @@ soft reference" as `BadgeAward.awarded_by`'s `'system'` sentinel).
 
 ```
 AccountErasureRequest
-  id                       uuid, PK
-  player_id                uuid            -- no FK, see above
-  team_id                  uuid            -- no FK, see above
-  successor_player_id      uuid, nullable  -- locked in at confirm time, see Decision 4
-  status                   enum: requested / grace_period / cancelled / executed
-  confirm_code             varchar, nullable, unique   -- single-use, nulled on use
-  confirm_code_expires_at  timestamptz, nullable
-  confirmed_at             timestamptz, nullable       -- grace-period clock start
-  scheduled_for            timestamptz, nullable       -- confirmed_at + 30 days
-  cancel_code              varchar, nullable, unique   -- single-use, valid whole grace period
-  cancelled_at             timestamptz, nullable
-  executed_at              timestamptz, nullable
-  created_at               timestamptz
+  id                          uuid, PK
+  player_id                   uuid            -- no FK, see above
+  team_id                     uuid            -- no FK, see above
+  recipient_contact_snapshot  varchar, nullable -- encrypted (AES-256-GCM,
+                                                    same utility as
+                                                    PlayerPrivateInfo, ADR-
+                                                    0011); resolved and
+                                                    stored exactly once, at
+                                                    request time; see
+                                                    Decision 2's contact-
+                                                    change-race fix
+  successor_player_id         uuid, nullable  -- locked in at confirm time, see Decision 4
+  status                      enum: requested / grace_period / cancelled / executed
+  confirm_code                varchar, nullable, unique   -- single-use, nulled on use
+  confirm_code_expires_at     timestamptz, nullable
+  confirmed_at                timestamptz, nullable       -- grace-period clock start
+  scheduled_for                timestamptz, nullable       -- confirmed_at + 30 days
+  cancel_code                 varchar, nullable, unique   -- single-use, valid whole grace period
+  cancelled_at                timestamptz, nullable
+  executed_at                 timestamptz, nullable
+  created_at                  timestamptz
 ```
 
 Only one **active** (`requested`/`grace_period`) row per `player_id` at a
@@ -167,6 +179,66 @@ action a real player will only ever take once. Rejected as the *default*
 here specifically because of the password-less-session risk above, but
 flagged, not dismissed — see Open Questions.
 
+### The unsettled-contact-change interaction — closing a chained-hijack path (security-reviewer finding, 2026-07-29, blocking)
+
+**Confirmed by reading the code**: `PlayerPrivateInfoService
+.getParentContact()` calls `getEffective()`, which lazily applies any
+*due* pending contact-change on the read itself (`isChangeDue()`/
+`applyPendingContactChange()`). Both this feature's emails — the
+confirm-code email at request time and the cancel-link email at confirm
+time — resolve their recipient by calling `getParentContact()`. Chained
+with ADR-0012's own already-accepted residual risk (a hijacked
+`parent_contact` that the real family's old-address cancel-link didn't
+stop in time simply becomes, after 24h, the sole live value, with nothing
+left to distinguish it from a legitimate change) — a compromised session
+that already won that race could, in the same sitting, immediately trigger
+its *own* erasure request and have **both** the confirm code and the
+day-30 cancel link land in the attacker's own inbox, with zero visibility
+to the real family at any point in a 30-day, irreversible, whole-account
+destruction. This is a materially worse outcome than the risk ADR-0012
+already accepted (a redirected recovery channel) — full, family-invisible
+data destruction, not just a redirected inbox.
+
+**Fix: gate the erasure request on there being no unresolved contact-change
+in flight, and snapshot the recipient once, never re-resolve it a second
+time.**
+
+1. Before creating the `AccountErasureRequest` row, check a new, narrow
+   `PlayerPrivateInfoService.hasPendingContactChange(playerId)` — a
+   **direct read of `pendingParentContact IS NOT NULL`**, deliberately
+   *not* going through `getEffective()`, so the check itself can never
+   trigger the very lazy-apply side effect it exists to catch ahead of.
+   If a change is still in flight (whether still inside its own 24h
+   window, or already past due but not yet lazily applied by some other
+   read), the erasure request is refused outright:
+   **`409 erasure_blocked_pending_contact_change`**. The caller must let
+   that change either apply or be cancelled first, then request erasure
+   again. `AccountErasureModule` imports `PlayerPrivateInfoModule`
+   directly for this one narrow read — the same already-established
+   pattern `ProfileModule` already uses, not a new exception to
+   ADR-0002 addendum §1's "only this module may touch this table" rule.
+2. Once cleared, `getParentContact()` is called **exactly once**, at
+   request time (its own lazy-apply is safe here, precisely because step
+   1 just confirmed there is nothing pending to spuriously apply), and the
+   resolved value is stored — encrypted with the same AES-256-GCM utility
+   `PlayerPrivateInfo` already uses (ADR-0011), not a new one — directly
+   on `AccountErasureRequest.recipient_contact_snapshot` (Decision 1).
+   **Both** the request-time confirm-code email and the confirm-time
+   cancel-link email are sent to this single snapshotted value;
+   `PlayerPrivateInfoService` is never queried again for the remainder of
+   that request's lifecycle.
+
+This closes the finding precisely: even if a contact-change (legitimate or
+not) is initiated in the hours between request and confirm, it cannot
+retarget where either erasure email goes, because there is no second read
+left to retarget. It deliberately does **not** attempt to retroactively
+detect or unwind an *already fully-applied* prior hijack — a
+`pendingParentContact` that had already settled to `null` before this
+feature was ever involved is indistinguishable from a legitimate change by
+design, per ADR-0012's own accepted residual gap. That remains ADR-0012's
+known, accepted risk; this ADR closes the *new* chained path this feature
+would otherwise have opened, not the older, already-accepted one.
+
 ## Decision — 3: state machine and API surface
 
 New module `backend/src/account-erasure/` (mirrors `profile/`'s reasoning
@@ -182,16 +254,23 @@ POST /api/v1/players/me/erasure/request
                                        (not-captain, or captain-but-last-
                                        player-on-team) — see Decision 4/5
   -> { requested: true, expiresAt }
+  Refuses with 409 erasure_blocked_pending_contact_change if
+  PlayerPrivateInfo has an unresolved pending contact-change in flight —
+  see Decision 2's contact-change-race fix.
   Rate-limited (burst cooldown + daily cap), same RedisService pattern
   as session-reissue/contact-change (tryClaimErasureRequestCooldown /
   ...DailyCap) — the realistic abuse surface is "a compromised session
   spamming a family's inbox with a scary email," identical reasoning to
   the existing precedents, not a new threat model.
-  Best-effort email to parent_contact with the confirm code, 24h TTL —
-  longer than the 15-minute norm elsewhere in this app (session-reissue,
-  contact-change) because this is a materially bigger decision than a
-  single-sitting action; a family should be able to read it, think about
-  it overnight, and come back, not be forced to act "right now."
+  Best-effort email to the request-time snapshot of parent_contact
+  (Decision 2) with the confirm code — generated via the existing
+  generateHumanCode (common/crypto/human-code.util.ts), the same single
+  utility ADR-0012's contact-change flow already reuses, not a third
+  bespoke generator — 24h TTL, longer than the 15-minute norm elsewhere in
+  this app (session-reissue, contact-change) because this is a materially
+  bigger decision than a single-sitting action; a family should be able to
+  read it, think about it overnight, and come back, not be forced to act
+  "right now."
 
 GET  /api/v1/players/erasure-confirm/:code   -- unauthenticated preview,
                                                  no side effects (mirrors
@@ -207,8 +286,9 @@ POST /api/v1/players/erasure-confirm/:code   -- unauthenticated, the
   erasure) if one was supplied; sets confirmed_at = now(),
   scheduled_for = confirmed_at + 30 days, status -> grace_period,
   generates cancel_code (valid the whole 30 days). Sends the distinct
-  cancel-link email (Decision 2). Does NOT flip is_captain yet — see
-  Decision 4.
+  cancel-link email (Decision 2), to the same recipient_contact_snapshot
+  the request-time email went to — never re-resolved from
+  PlayerPrivateInfo. Does NOT flip is_captain yet — see Decision 4.
 
 GET  /api/v1/players/me/erasure/status
   -> { status: 'none' | 'requested' | 'grace_period', scheduledFor? }
@@ -238,6 +318,12 @@ POST /api/v1/players/erasure-cancel/:code      -- unauthenticated, the
                                   idiom as ConsentService.approve /
                                   ProfileService.cancelContactChange)
 ```
+
+All four unauthenticated routes above (`erasure-confirm`/`erasure-cancel`,
+both GET and POST) are throttled the same way ADR-0012's analogous
+`contact-change-cancel` GET/POST pair already is (`@Throttle`, per-IP) —
+the same defense-in-depth posture this codebase already applies to every
+unauthenticated-by-necessity route, not a new one invented here.
 
 Both cancel routes call the same internal
 `AccountErasureService.cancel(playerId)` — no `token_version` bump on
@@ -277,33 +363,102 @@ Concretely:
   interim actions get undone?) that deferring the flip avoids entirely:
   if they cancel, **nothing about captaincy ever changed**, full stop, no
   special-case undo logic needed.
-- **The one unavoidable exception to "no auto-pick"**: if, by execution
-  time, the named successor is no longer valid (left the team, or is
-  themselves mid-erasure) — or a successor was never named because the
-  team had no other players at request time but has since gained new
-  members — there is no human synchronously present at a background
-  sweep's execution moment to ask. In this narrow case only, the sweep
-  auto-assigns to the longest-tenured remaining teammate (earliest
-  `createdAt`) and sends a best-effort notification. This is a mechanical
-  necessity of unattended execution, not a policy preference for
-  auto-selection — the interactive path always requires an explicit named
-  choice.
+- **The execution-time captain check is a live re-check, not scoped to
+  one named scenario (security-reviewer finding, 2026-07-29)**: at
+  execution, immediately before applying any flip, the check is simply
+  "is this player captain *right now*," independent of what was true at
+  request or confirm time. This deliberately covers more than "the named
+  successor stopped being valid" — it also covers a **non-captain**
+  requesting erasure correctly with no successor (none was required at
+  the time), who then independently becomes captain afterward via an
+  ordinary, unrelated `transferCaptaincy` call before their own execution
+  date. Any time that live check reads `isCaptain: true` with no
+  still-valid named successor, the auto-fallback below applies — the
+  trigger is the flag's current state at the moment of execution, not
+  which of the several possible ways it got there. Implementers must not
+  special-case only the "team had no other players at request time but
+  gained members later" scenario described below; that is one instance of
+  this rule, not the whole rule.
+- **`PlayersService.transferCaptaincy` (ADR-0006's existing endpoint,
+  unchanged in every other respect) now also rejects a target with an
+  active (`requested`/`grace_period`) `AccountErasureRequest`** — a new
+  `CaptainTransferTargetMidErasureException` (`409`), checked inside the
+  same row-locked transaction as the existing
+  `newCaptainPlayerId === requesterId` check. Without this, a captain
+  could hand off onto a teammate already mid-erasure themselves, only for
+  that handoff to need immediate unwinding a moment later.
+- **Module wiring**: `AccountErasureModule` already needs `PlayersModule`
+  (to call `transferCaptaincy`/`findByIdForUpdate` at execution time), so
+  `PlayersModule` cannot also import `AccountErasureModule` back to check
+  the `account_erasure_request` table without a module cycle. Resolved
+  the same way `WeeklyGoalModule` already avoids an equivalent cycle with
+  `TrainingLogsModule`: `PlayersModule` registers `AccountErasureRequest`
+  via its **own** `TypeOrmModule.forFeature([AccountErasureRequest])` and
+  queries it as a plain repository lookup directly inside
+  `PlayersService` — not a service-to-service call into
+  `AccountErasureService`. Both the `transferCaptaincy` rejection above
+  and the auto-fallback candidate query below use this same repository.
+- **The auto-fallback candidate query (longest-tenured remaining
+  teammate) excludes anyone who currently holds an active
+  `AccountErasureRequest` themselves (security-reviewer finding,
+  2026-07-29)** — without this, a same-sweep-run auto-pick could crown
+  someone captain moments before their own row is deleted later in the
+  identical run, since neither this sweep nor `ClipRetentionService`
+  (which it mirrors) guarantees any row-processing order. The
+  zero-remaining-candidates case this exclusion can create (every
+  teammate, including the requester, erasing in the same run) is handled
+  by Decision 5's batching, not as a separate special case here.
 - **If the requester cancels, no captaincy consequence at all** (see
   above) — worth calling out because it's the one place this design might
   surprise someone: naming a successor during the request does not "use
   it up" or partially apply anything unless execution actually happens.
 
-## Decision — 5: last-player-deletes-team
+## Decision — 5: last-player-deletes-team — batched per team within a sweep run
 
 Checked **fresh at execution time**, not at request/confirm time — the
 roster can change over 30 days (other players separately requesting and
 completing their own erasure, new joins via invite code), so "am I the
 last one" is only meaningful as of the moment it actually matters.
 
-**Mechanism: because every team-scoped table's FK ultimately roots at
-either `team_id` or (transitively) `player_id`, and `player.team_id` is
-itself `ON DELETE CASCADE` from `team`, deleting the last player's team
-reduces to one clean cascading operation**, not a manual per-entity walk:
+**Refined per a security-reviewer finding (2026-07-29): "last one" has to
+account for other players *from the same team* whose erasure is executing
+in this exact same sweep run, not just the team's currently-stored player
+count.** Three players on one team, all past their `scheduled_for` on the
+same day, processed one row at a time with no ordering guarantee (the same
+posture `ClipRetentionService` already has, deliberately not strengthened
+here either) could otherwise each individually see "2 other players still
+on the roster" and skip the team-cascade path entirely — or worse, have a
+captain auto-fallback try to crown one of the other two, who is also being
+deleted in the same run.
+
+**Fix: `AccountErasureSweepService` groups this run's due rows by
+`team_id` before processing any of them.** For each team with at least one
+due row:
+
+1. Compute `survivingCount` = that team's current roster size minus the
+   number of that team's players in *this run's* due-row batch (not minus
+   one — minus however many of the team are being executed together).
+2. **If `survivingCount === 0`** (every remaining player on the team is
+   being executed in this same run — including, trivially, the ordinary
+   single-player case): treat the **entire batch** as the last-player path
+   below, once, for the team as a whole — not per individual row. A
+   captain auto-fallback is never attempted for any row in this batch,
+   since there is nobody left to hand off to.
+3. **If `survivingCount > 0`**: process each of that team's batch rows
+   individually per Decision 6, and — this is what closes the
+   zero-candidates half of Decision 4's auto-fallback — draw any needed
+   captain auto-fallback candidate *only* from the surviving set (current
+   roster minus this entire batch), never from another player in the same
+   batch. Because that pool is defined as "the team minus everyone
+   erasing this run," it is never accidentally empty while
+   `survivingCount > 0`, and row-processing order within the batch no
+   longer matters for this purpose.
+
+**Mechanism for the `survivingCount === 0` case, unchanged from the
+original design**: because every team-scoped table's FK ultimately roots
+at either `team_id` or (transitively) `player_id`, and `player.team_id` is
+itself `ON DELETE CASCADE` from `team`, deleting the whole batch reduces
+to one clean cascading operation, not a manual per-entity/per-row walk:
 
 1. **Enumerate and hard-delete every `VideoClip` object for the team from
    MinIO first** (`ObjectStorageService.deleteObjectIfExists`, same
@@ -314,15 +469,16 @@ reduces to one clean cascading operation**, not a manual per-entity walk:
 2. `DELETE FROM team WHERE id = :teamId`. Cascades, in order, to: `Season`,
    `TeamSeasonPot`, `Challenge` (via `team_id`), `TeamChatMessage` (via
    `team_id`), `VideoClip` rows (objects already purged in step 1), and
-   `Player` (via `team_id` CASCADE) — which itself further cascades to
+   `Player` (via `team_id` CASCADE, covering every player in the batch at
+   once — not one `DELETE` per row) — which itself further cascades to
    `PlayerPrivateInfo`, `ParentalConsentRecord`, `BadgeAward`,
    `TrainingLogEntry`, `TeamChatBlock`, `ClipReport`,
    `TeamChatMessageReport`. One statement, inside one transaction,
    correctly tears down everything scoped to that team with no bespoke
-   per-entity delete calls beyond the MinIO purge.
-3. If the requester **cancels** during the grace period, none of this
-   happens — the team continues exactly as before, same as any other
-   cancellation.
+   per-entity or per-row delete calls beyond the MinIO purge.
+3. If a requester **cancels** during the grace period before their
+   `scheduled_for`, their row simply never enters a future run's batch —
+   the team continues exactly as before, same as any other cancellation.
 
 ## Decision — 6: per-entity rules for "content you own" (non-last-player case)
 
@@ -360,6 +516,16 @@ stays in the past, and the next day's sweep simply retries the whole
 thing — safe, because every step is either idempotent or inside the same
 all-or-nothing transaction.
 
+**The `TeamChatMessage` content-anonymizing `UPDATE` lives only inside
+`AccountErasureService`'s own execution transaction** (security-reviewer
+note, 2026-07-29) — it must never be exposed as a general-purpose
+repository method callable from anywhere else in this codebase. There is
+no DB-level guard preventing misuse of such a method if one existed; the
+actual protection is simply not writing one anywhere reusable, the same
+discipline this codebase already relies on elsewhere (e.g. `storage_key`
+never being client-suppliable is enforced by never accepting it as input,
+not by a constraint).
+
 ## Decision — 7: fully live account during the grace period; in-app cancel is primary, mailed link is a backup
 
 **Nothing about the account is restricted during the 30 days.** No
@@ -384,10 +550,10 @@ cancel exists because the confirm-code and the cancel-link go to
 *different, potentially adversarial* parties (an attacker-controlled new
 address vs. the legitimate old address) — forcing a fresh login is
 warranted because a hijacker might still hold the live session. Here, the
-confirm email and the cancel email go to the **same** address
-(`parent_contact`), in the **same** flow, with no attacker-controlled
-alternate destination anywhere in the sequence — there's no adversarial
-party for a token bump to protect against.
+confirm email and the cancel email go to the **same** snapshotted address
+(Decision 2), in the **same** flow, with no attacker-controlled alternate
+destination anywhere in the sequence — there's no adversarial party for a
+token bump to protect against.
 
 ## Decision — 8: scheduled sweep, mirroring `ClipRetentionService`
 
@@ -395,19 +561,24 @@ New `AccountErasureSweepService`, `@Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)`
 (daily is plenty granular for a 30-day window — no need for the hourly
 cadence the video-upload abandoned-TTL sweep needed). Finds
 `AccountErasureRequest` rows where `status = 'grace_period' AND
-scheduled_for <= now()`, executes each per Decision 5/6, and — same
-per-row try/catch/leave-for-next-run posture as `ClipRetentionService` —
-a failure on one row is logged and retried the next day, never blocks
-other rows in the same run. Inherits the existing `replicas: 1`
-single-runner constraint already documented (`k8s/README.md`) for the
-other two sweeps in this codebase; if the API is ever scaled beyond one
-replica, this needs the same kind of guard that gap already requires
-solving, not a new problem invented here.
+scheduled_for <= now()`, **groups them by `team_id` before processing any
+of them** (Decision 5's refinement), and executes each team's batch per
+Decision 5/6 — same per-row-turned-per-batch try/catch/leave-for-next-run
+posture as `ClipRetentionService`: a failure on one team's batch is
+logged and retried the next day, never blocks another team's batch in the
+same run. Inherits the existing `replicas: 1` single-runner constraint
+already documented (`k8s/README.md`) for the other two sweeps in this
+codebase; if the API is ever scaled beyond one replica, this needs the
+same kind of guard that gap already requires solving, not a new problem
+invented here.
 
 ## Migrations needed
 
-- New table `account_erasure_request` (Decision 1), with the partial
-  unique index on `player_id WHERE status IN ('requested', 'grace_period')`.
+- New table `account_erasure_request` (Decision 1), including the
+  `recipient_contact_snapshot` column (encrypted, same AES-256-GCM utility
+  as `PlayerPrivateInfo`, ADR-0011 — see Decision 2's contact-change-race
+  fix) and the partial unique index on `player_id WHERE status IN
+  ('requested', 'grace_period')`.
 - `challenge.created_by_player_id`: drop the `RESTRICT` FK, add it back
   `ON DELETE SET NULL`, column becomes nullable.
 - `team_chat_message.sender_player_id`: drop the `RESTRICT` FK, add it
@@ -426,6 +597,13 @@ solving, not a new problem invented here.
   `training_log_entry`/`badge_award`/`team_chat_block`/`clip_report`
   (`reporter_player_id`) — all already `CASCADE`, all confirmed correct
   above.
+- No schema change is needed for the Decision 4 fixes (the
+  `transferCaptaincy` mid-erasure rejection, or the auto-fallback
+  exclusion) — both are new application-level queries against the
+  already-defined `account_erasure_request` table, wired into
+  `PlayersModule` via its own `TypeOrmModule.forFeature` (see Decision 4's
+  "Module wiring"), plus one new `CaptainTransferTargetMidErasureException`
+  following this codebase's existing `AppException` pattern exactly.
 
 ## Consequences
 
@@ -444,15 +622,39 @@ solving, not a new problem invented here.
   codebase insists on holds under erasure exactly as it does everywhere
   else.
 - One new table, no changes to `PlayerPrivateInfo`'s existing encryption
-  boundary (ADR-0011) — erasure just deletes the whole row, it doesn't
-  need to reason about the encrypted fields specially.
+  boundary (ADR-0011) beyond reusing its utility for one new column —
+  erasure otherwise just deletes the whole `PlayerPrivateInfo` row, it
+  doesn't need to reason about its own encrypted fields specially.
+- `PlayersModule` gains a direct `TypeOrmModule.forFeature([AccountErasureRequest])`
+  registration purely to query that table without importing
+  `AccountErasureModule` back (Decision 4) — the same "register the
+  entity directly, not the whole owning module" technique
+  `WeeklyGoalModule` already uses to avoid an equivalent cycle with
+  `TrainingLogsModule`; not a new architectural pattern for this codebase.
 - Real, novel tension surfaced, not resolved here (see Open Questions):
-  a player currently under active moderation report (`ClipReport`/
-  `TeamChatMessageReport`) can, today, close their own account and (for
-  the `ClipReport.reported_uploader_player_id` case specifically) erase
-  the evidence of the report against them along with everything else.
-  This app has no admin/moderation-review workflow to hook a "hold" into
-  even if one were wanted — worth a decision, not an oversight.
+  a player currently under active moderation report
+  (`TeamChatMessageReport`) can, today, close their own account while that
+  report is still open. This app has no admin/moderation-review workflow
+  to hook a "hold" into even if one were wanted — worth a decision, not an
+  oversight.
+- **Security-reviewer's 2026-07-29 blocking pass, and what changed as a
+  result**: one confirmed blocking finding (the chained contact-change/
+  erasure hijack path — Decision 2's new subsection, plus the new
+  `recipient_contact_snapshot` column) and two further
+  required-before-implementation findings (Decision 4's execution-time
+  captain-check reframing, `transferCaptaincy`'s new mid-erasure
+  rejection, and the auto-fallback exclusion query; Decision 5's
+  team-batched sweep processing to close the zero-candidates/ordering gap)
+  are all closed in place above. Two minor/advisory notes were folded in
+  as small explicit additions (Decision 6's note that the chat-anonymizing
+  `UPDATE` is transaction-local only; Decision 3's explicit throttle and
+  code-generation-utility callouts). Everything else in that review came
+  back clean and required no change: the Decision 5 cascade-delete claim
+  was verified line-by-line against the actual migrations, `JwtAuthGuard`'s
+  session-invalidation-on-delete claim was confirmed correct by reading the
+  guard directly, and no inconsistency was found between Decision 2/6/
+  Migrations/Open Questions on the two points the project owner had
+  already resolved.
 
 ## Open questions for the project owner
 
