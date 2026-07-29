@@ -124,6 +124,15 @@ export class PlayersService {
     return player;
   }
 
+  /** docs/adr/0012's addendum (2026-07-28) — profile-page avatar editing.
+   * Not PII, no confirmation flow: same low-risk "direct write" posture
+   * as PlayerPrivateInfoService.updateRealName. No server-side whitelist
+   * against AVATAR_CATALOG, matching onboarding's own existing validation
+   * posture for this field (see UpdateProfileDto). */
+  async updateAvatarId(playerId: string, avatarId: string): Promise<void> {
+    await this.playerRepository.update({ id: playerId }, { avatarId });
+  }
+
   async updateStreakFields(
     manager: EntityManager,
     playerId: string,

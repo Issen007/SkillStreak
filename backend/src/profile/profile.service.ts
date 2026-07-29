@@ -37,6 +37,7 @@ export interface PlayerProfile {
   realName: string | null;
   birthYear: number;
   parentContact: string;
+  avatarId: string;
 }
 
 export interface RequestContactChangeResponse {
@@ -84,6 +85,7 @@ export class ProfileService {
       // to assert non-null here rather than threading a third optional
       // state through the response type for an unreachable case.
       parentContact: parentContact as string,
+      avatarId: player.avatarId,
     };
   }
 
@@ -92,6 +94,10 @@ export class ProfileService {
     realName: string | null,
   ): Promise<void> {
     await this.playerPrivateInfoService.updateRealName(playerId, realName);
+  }
+
+  async updateAvatarId(playerId: string, avatarId: string): Promise<void> {
+    await this.playersService.updateAvatarId(playerId, avatarId);
   }
 
   /**

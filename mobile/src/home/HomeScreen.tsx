@@ -229,6 +229,7 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
       <ProfileScreen
         screenName={me.player.screenName}
         onBack={() => setView('home')}
+        onLogout={onSessionInvalid}
       />
     );
   }

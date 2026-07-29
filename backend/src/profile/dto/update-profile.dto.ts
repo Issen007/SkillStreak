@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 // Same trim-before-validate reasoning as create-player.dto.ts.
 const trimString = ({ value }: { value: unknown }) =>
@@ -10,12 +10,23 @@ const trimString = ({ value }: { value: unknown }) =>
 // not a product statement about ideal name length.
 const MAX_REAL_NAME_LENGTH = 80;
 
+// Same cap as create-player.dto.ts's own MAX_AVATAR_ID_LENGTH (not
+// imported — each DTO in this app defines its own length constants
+// rather than sharing them, same posture as MAX_REAL_NAME_LENGTH above).
+// No server-side whitelist against AVATAR_CATALOG here either, matching
+// onboarding's own existing validation posture for this field — it's a
+// non-PII, client-side emoji-lookup key with a safe fallback if unknown,
+// not a security-relevant value.
+const MAX_AVATAR_ID_LENGTH = 50;
+
 // docs/adr/0012-profile-page-and-contact-email-change.md decision 4 —
-// real name only. Birth year is deliberately absent: read-only on the
-// profile page (decision 2), no update path exists for it anywhere.
-// Contact-email changes go through the separate request/confirm DTOs
-// below, not this one, since that flow needs the notify-old/confirm-new
-// dance, not a direct write.
+// real name, plus avatarId (added 2026-07-28, same low-risk "direct
+// PATCH, no confirmation flow" reasoning — a display choice, not an
+// account-recovery-adjacent field). Birth year is deliberately absent:
+// read-only on the profile page (decision 2), no update path exists for
+// it anywhere. Contact-email changes go through the separate
+// request/confirm DTOs below, not this one, since that flow needs the
+// notify-old/confirm-new dance, not a direct write.
 export class UpdateProfileDto {
   // Explicit `null` clears a previously-set name (the field is optional,
   // per PlayerPrivateInfo.realName's own "some parents will prefer not
@@ -26,4 +37,12 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(MAX_REAL_NAME_LENGTH)
   realName?: string | null;
+
+  // Not nullable — unlike realName, every account always has an avatar
+  // (set at onboarding); there's no "clear it" state to represent.
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(MAX_AVATAR_ID_LENGTH)
+  avatarId?: string;
 }
