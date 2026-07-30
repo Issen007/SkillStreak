@@ -36,8 +36,25 @@ rules:
     resources: ["deployments"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
-    resources: ["services", "configmaps", "secrets", "persistentvolumeclaims"]
+    resources: ["services", "configmaps", "persistentvolumeclaims"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # secrets get their own, narrower rule (security-reviewer finding,
+  # 2026-07-30) — the deploy job only ever create/updates the one named
+  # Secret it manages (`kubectl apply -f k8s/secret.yaml`), which needs
+  # `get` (kubectl apply reads the live object first to compute its patch
+  # — this can't be dropped without breaking every deploy, unlike the
+  # original finding's literal "drop get" suggestion) and
+  # `create`/`update`/`patch`, but never `list`/`watch` (nothing here ever
+  # enumerates or watches the namespace's secrets) or `delete` (no deploy
+  # step ever deletes a Secret). `resourceNames` additionally means this
+  # token cannot read or touch any *other* secret that might ever exist in
+  # this namespace, even with the verbs above — the actual point of this
+  # change: a leaked KUBE_TOKEN before this could `kubectl get secret
+  # <anything>`, now it can only ever act on this one named object.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["skillstreak-secret"]
+    verbs: ["get", "create", "update", "patch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
