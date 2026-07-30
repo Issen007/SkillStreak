@@ -1738,6 +1738,48 @@ player, all behind a 30-day grace period. See
       real code and a live Postgres/Redis/MinIO stack at each step, not
       taken on any agent's self-report alone.
 
+## Phase 4.3 — Multi-language support (part a: locale architecture) — design done 2026-07-30
+
+**Fas 4 item 5 in `docs/PROJECT.md`, moved up the roadmap 2026-07-27 at the
+project owner's explicit request**: a player should be able to choose a
+language at onboarding, early — not bolted on after every screen/email
+already exists in Swedish only. Explicitly split into two parts: (a) the
+architecture — a language picker + a stored `locale` field, build early;
+(b) the content — full translation into English, Finnish, Danish,
+Norwegian, can follow gradually once (a) exists. See
+`docs/adr/0014-multi-language-support.md` for the full design — summary
+here for the checklist.
+
+- [x] **architect**: designed (a) only, no translation content, no code.
+      `locale` lands as a new column directly on `Player` (not
+      `PlayerPrivateInfo` — read broadly like `birthYear`, not sensitive
+      like `realName`/`parentContact`), a **fixed 5-value Postgres enum**
+      (`sv`, `en`, `fi`, `da`, `nb` — deliberately no region subtag, tied
+      to the no-location-tracking constraint) rather than a freeform
+      BCP-47 tag, default `sv` so the migration needs no backfill
+      judgment call. Mobile: a new first onboarding screen (`O0`, before
+      `O1EnterCode`) plus `i18next`/`react-i18next`/`expo-localization`
+      (chosen over `react-native-localize`+`i18n-js` for compile-time key
+      safety, and over `react-intl`/FormatJS as unneeded ICU ceremony),
+      with `fallbackLng: 'sv'` so an unfinished language renders Swedish
+      instead of breaking — the mechanism that makes part (b) incremental.
+      Backend mail templates: every `buildXEmail` gains a required
+      `locale` param resolved via a `COPY[locale] ?? COPY.sv` fallback, so
+      the plumbing ships today with zero translation-content dependency;
+      confirmed validation/error-message localization needs no backend
+      change at all (already solved by the existing stable-`code` +
+      client-side-copy pattern from `AppException`/`ApiError`).
+      Explicitly flagged, not silently dropped: `Coach.locale` and
+      coach-recipient/mixed-audience notification emails (chat-report,
+      clip-report) are out of scope for this pass. Also flagged: part (b)
+      should prioritize the parental-consent/self-verification email
+      templates first once translation starts, since a consent decision
+      made in a language the recipient can't confidently read is a real
+      comprehension risk to that consent's validity, not just cosmetic.
+- [ ] **security-reviewer**, **backend-developer**, **frontend-developer**:
+      not started — this phase is design-only so far, per the project
+      owner's own "architecture now, content gradually" sequencing.
+
 ## Phase 6 — Public Shorts feed, reactions & personal archive
 
 **Added 2026-07-27, from the project owner directly** (not yet designed —
