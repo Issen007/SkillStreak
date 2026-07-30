@@ -38,23 +38,30 @@ rules:
   - apiGroups: [""]
     resources: ["services", "configmaps", "persistentvolumeclaims"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  # secrets get their own, narrower rule (security-reviewer finding,
-  # 2026-07-30) — the deploy job only ever create/updates the one named
-  # Secret it manages (`kubectl apply -f k8s/secret.yaml`), which needs
-  # `get` (kubectl apply reads the live object first to compute its patch
-  # — this can't be dropped without breaking every deploy, unlike the
-  # original finding's literal "drop get" suggestion) and
-  # `create`/`update`/`patch`, but never `list`/`watch` (nothing here ever
-  # enumerates or watches the namespace's secrets) or `delete` (no deploy
-  # step ever deletes a Secret). `resourceNames` additionally means this
-  # token cannot read or touch any *other* secret that might ever exist in
-  # this namespace, even with the verbs above — the actual point of this
-  # change: a leaked KUBE_TOKEN before this could `kubectl get secret
-  # <anything>`, now it can only ever act on this one named object.
+  # secrets get their own, narrower rules (security-reviewer finding,
+  # 2026-07-30) — split into two because a rule with `resourceNames` set
+  # doesn't just fail to *restrict* `create` (as Kubernetes' own docs
+  # phrase it), it makes `create` inapplicable via that rule entirely —
+  # confirmed live via `kubectl auth can-i create secrets`, which is why
+  # this isn't one combined rule the way the first attempt at this fix
+  # was. `get`/`update`/`patch` are scoped to the one named Secret this
+  # deploy job actually manages (`kubectl apply -f k8s/secret.yaml` needs
+  # `get` to read the live object before it can compute a patch — dropping
+  # it, per this finding's original wording, would break every deploy,
+  # not just tighten it); `create` is deliberately its own unscoped rule,
+  # needed for the real disaster-recovery case of bootstrapping this
+  # Secret on a fresh cluster (this session hit exactly that scenario
+  # once already) — it grants no read-back capability on its own, so it
+  # can't be used to discover or read any other secret in the namespace.
+  # Never `list`/`watch` (nothing here ever enumerates or watches
+  # secrets) or `delete` (no deploy step ever deletes one).
   - apiGroups: [""]
     resources: ["secrets"]
     resourceNames: ["skillstreak-secret"]
-    verbs: ["get", "create", "update", "patch"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
