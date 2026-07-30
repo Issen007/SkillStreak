@@ -1,48 +1,41 @@
 # Cilium Gateway API resources exposing api/site externally on this
-# cluster (isstech-2). Promoted from an earlier temp/gateway-api.yaml
-# experiment to a tracked manifest now that the mechanism is proven
-# working (see k8s/README.md's "External access" section for the full
-# story of why this exists instead of ingress-nginx/a LoadBalancer
-# Service).
+# cluster. Uses Safespring's own pre-installed `cilium` GatewayClass
+# directly (no custom GatewayClass/CiliumGatewayClassConfig) — this
+# cluster's Cilium install runs Gateway API in hostNetwork mode (confirmed
+# live: the Envoy proxy actually binds ports 80/443 on every node's real
+# interface, e.g. `curl http://<any-node-internal-ip>:80/` gets a real
+# Envoy 404, not connection-refused), which is also why the generated
+# Service's type (ClusterIP/NodePort/LoadBalancer) doesn't matter for
+# actual traffic routing here — Safespring's own operator logs say so
+# explicitly ("Gateway API host networking is enabled, externalTrafficPolicy
+# will be ignored"). This matches Safespring's own Kubernetes Traffic
+# Management docs, which forward their "Elastic IP" product's L4 traffic
+# (ports 80/443/6443/50000) straight to whatever's listening on those
+# literal node ports — exactly what hostNetwork mode provides.
+#
+# An earlier cluster (isstech-2) needed a custom GatewayClass +
+# CiliumGatewayClassConfig (service.type: NodePort) because its Cilium
+# install did NOT have hostNetwork mode enabled — that workaround doesn't
+# apply here and isn't needed; don't reintroduce it without first
+# confirming (the same way this comment does) that hostNetwork mode is
+# actually off on whatever cluster this is being applied to.
 #
 # One shared Gateway for both api and site — each HTTPRoute's own
 # `hostnames` list determines which listener(s) it actually attaches to,
 # so a single Gateway with multiple HTTPS listeners (one per public
 # hostname) is simpler than juggling several Gateways.
-apiVersion: cilium.io/v2alpha1
-kind: CiliumGatewayClassConfig
-metadata:
-  name: skillstreak-gateway-config
-  namespace: skillstreak
-spec:
-  service:
-    type: NodePort
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: GatewayClass
-metadata:
-  name: skillstreak-cilium
-spec:
-  controllerName: io.cilium/gateway-controller
-  parametersRef:
-    group: cilium.io
-    kind: CiliumGatewayClassConfig
-    name: skillstreak-gateway-config
-    namespace: skillstreak
----
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: skillstreak-gateway
   namespace: skillstreak
 spec:
-  gatewayClassName: skillstreak-cilium
+  gatewayClassName: cilium
   listeners:
-    # No hostname restriction — matches any Host, so (a) the old
-    # apps.isstech-2.paas.safedc.net hostnames keep working over plain
-    # HTTP, and (b) cert-manager's ACME HTTP01 solver can attach a
-    # temporary HTTPRoute here for any hostname's challenge (see
-    # cluster-issuer.yaml's gatewayHTTPRoute solver).
+    # No hostname restriction — matches any Host, so cert-manager's ACME
+    # HTTP01 solver can attach a temporary HTTPRoute here for any
+    # hostname's challenge (see cluster-issuer.yaml's gatewayHTTPRoute
+    # solver).
     - name: http
       port: 80
       protocol: HTTP
