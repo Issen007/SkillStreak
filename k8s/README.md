@@ -178,6 +178,55 @@ these manifests don't strictly depend on apply ordering — Kubernetes will
 retry until dependencies like the Secret/ConfigMap exist — but applying in
 the order above is easier to reason about and debug on a first attempt.)
 
+## MinIO scoped credentials (`MINIO_CLIPS_ACCESS_KEY`/`SECRET_KEY`)
+
+Added 2026-07-30, closing a security-review finding: the `api` Deployment
+no longer authenticates to MinIO with the root user/password — a
+compromised `api` process previously had full MinIO admin access (every
+team's clips, plus bucket/user/policy management), not just the `clips`
+bucket it actually needs. It now uses a dedicated, non-root user with a
+custom least-privilege policy. Recreate this if the cluster is ever
+rebuilt from scratch, or to rotate the key:
+
+```bash
+# From a pod that can reach the in-cluster MinIO Service (e.g. a
+# temporary `kubectl run mc-admin --image=minio/mc:latest --command --
+# sleep 600` pod, `kubectl exec`'d into):
+mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+
+mc admin policy create local clips-rw - <<'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": ["arn:aws:s3:::clips"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": ["arn:aws:s3:::clips/*"]
+    }
+  ]
+}
+EOF
+
+mc admin user add local <new-access-key> <new-secret-key>
+mc admin policy attach local clips-rw --user <new-access-key>
+```
+
+Then `gh secret set MINIO_CLIPS_ACCESS_KEY`/`MINIO_CLIPS_SECRET_KEY` (so
+the next CI deploy picks it up) and, for immediate effect on the running
+cluster, `kubectl patch secret skillstreak-secret` with the new values
+followed by `kubectl rollout restart deployment/api`. Verify the new key
+can read/write `clips/*` but gets `Access Denied` on `mc admin info`/`mc
+mb` — proves it's scoped, not another root-equivalent key.
+
+`MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` still exist (`minio-deployment.yaml`
+needs them to boot the server itself, and the recreate steps above need
+them once) — just nothing application-facing uses them anymore.
+
 ## Known gaps / deliberate TODOs
 
 - **`cluster-issuer.yaml` isn't applied by CI.** It's cluster-scoped
