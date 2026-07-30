@@ -32,16 +32,26 @@ spec:
       labels:
         app: site
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101 # nginx:1.27-alpine's built-in `nginx` user
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: site
           image: # PLACEHOLDER — see comment above
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
-            - containerPort: 80
+            - containerPort: 8080
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 8080
               httpHeaders:
                 - name: Host
                   value: skillstreak.app2.isstech.io
@@ -52,7 +62,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 8080
               httpHeaders:
                 - name: Host
                   value: skillstreak.app2.isstech.io
