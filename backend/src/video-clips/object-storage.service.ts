@@ -159,12 +159,21 @@ export class ObjectStorageService implements OnModuleInit {
    * because: (a) real AWS S3 does document support for this condition key,
    * so this becomes a real, working control for free if this project ever
    * moves off self-hosted MinIO onto AWS S3 per ADR-0010's own portability
-   * framing; (b) a future MinIO release may add support. **Until then, the
-   * *only* active control against an oversized PUT to a leaked presigned
-   * URL is the primary one the ADR already names**: the API only ever
-   * hands out one rate-limited, validated presigned URL per request — this
-   * bucket-policy layer is not currently adding anything on top of that on
-   * MinIO, and should not be assumed to.
+   * framing (see docs/BACKLOG.md's Safespring S3 entry); (b) a future
+   * MinIO release may add support.
+   *
+   * **Narrower residual gap than it looks in isolation, 2026-07-30**: two
+   * independent app-level controls already close most of what this policy
+   * would have added. `VideoClipsService.completeUpload` HEADs the real
+   * uploaded object and deletes+rejects it (before ever buffering it into
+   * memory) if its actual size/content-type don't match what was
+   * declared, and `ClipRetentionService`'s sweep deletes any abandoned
+   * `pending_upload` row — completed or not — after
+   * `CLIP_PENDING_UPLOAD_TTL_MINUTES` (default 60). An oversized PUT to a
+   * leaked presigned URL can never become a servable clip either way —
+   * what's genuinely uncovered is the storage/bandwidth spent during the
+   * PUT itself and until one of those two cleanups runs: a real but
+   * transient-cost risk, not a "the file gets served" risk.
    */
   private async configureMaxObjectSizePolicy(): Promise<void> {
     const policy = {
@@ -192,10 +201,18 @@ export class ObjectStorageService implements OnModuleInit {
         }),
       );
     } catch (error) {
-      this.logger.warn(
-        `Could not set the max-object-size bucket policy on "${this.bucket}" — falling back to app-level validation only: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+      // error, not warn — this is a known, permanent limitation (not
+      // transient), and should stay visible to monitoring without anyone
+      // needing to already suspect it's broken. See the class comment
+      // above for why this is a narrower gap than it sounds in isolation.
+      this.logger.error(
+        `Could not set the max-object-size bucket policy on "${this.bucket}" ` +
+          '(this MinIO instance does not support the s3:content-length-range ' +
+          'condition key) — the completeUpload size/type check and the ' +
+          `pending-upload retention sweep still prevent an oversized clip from ` +
+          `ever being served: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
       );
     }
   }
