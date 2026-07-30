@@ -1581,6 +1581,163 @@ period → lazy apply on the next read once elapsed. Mobile UI verified via
 a real browser session against the live backend, including the
 grace-period toast copy.
 
+## Phase 4.2 — Self-service GDPR account erasure — done 2026-07-29
+
+**Added 2026-07-29, from the project owner directly**: delete-yourself
+under Profile, deleting all content you own, handing off captaincy to a
+named successor if applicable, deleting the whole team if you're its last
+player, all behind a 30-day grace period. See
+`docs/adr/0013-account-erasure.md` for the full design and its rationale
+— summary here for the checklist.
+
+- [x] **architect**: full design — new `AccountErasureRequest` table (not
+      columns on `Player`, since this state must outlive the row it's
+      about), extends ADR-0012's request/confirm/grace-period/cancel shape
+      and ADR-0006's captain-handoff philosophy, a per-entity hard-delete-
+      vs-anonymize table for every piece of player/team-owned data in this
+      codebase, and resolves three existing `ON DELETE RESTRICT` foreign
+      keys each added specifically because "no player-deletion feature
+      exists yet." Two decisions explicitly left to the project owner
+      (email-gates-the-30-day-clock vs. tap-starts-it-immediately; whether
+      a safety report survives the reported player's own deletion) were
+      both resolved the same day.
+- [x] **security-reviewer**: **blocking pass found one confirmed,
+      serious issue** — a chained hijack where a session that already won
+      ADR-0012's own known residual race (a redirected `parent_contact`)
+      could ride this new feature to full, family-invisible, irreversible
+      account destruction — plus two further required-before-
+      implementation gaps in the captain-successor handoff (live
+      re-check timing; auto-fallback candidate exclusion/ordering across
+      simultaneous same-team erasures). Architect revised the ADR in
+      place to close all three; **re-confirmation pass verified the fixes
+      against the actual code (not just the ADR's claims) and cleared it
+      for implementation**, with two non-blocking advisory notes for the
+      implementers.
+- [x] **ux-designer**: designed the Profile-screen flow —
+      `docs/design/phase4.2-account-erasure-flows.md` (+ companion
+      mockup). New E-prefix screens: entry link, the request screen (with
+      its three captain-gate variants), the successor picker, a
+      `DangerButton`-styled confirm sheet (a deliberate, reasoned
+      broadening of that component's usual "instantly irreversible
+      only" criterion), a mailed-link "check your email" state (no
+      in-app code field, unlike ADR-0012's confirm screen — deliberate,
+      since an in-app code would let a borrowed session complete the
+      confirm itself, defeating the whole point of gating the clock on
+      email), and the persistent grace-period status card with a
+      single-tap, no-confirm-sheet in-app cancel (the one deliberate
+      exception to this app's usual confirm-before-acting habit, since
+      undoing a deletion is the one place friction would be perverse).
+- [x] **backend-developer**: new `backend/src/account-erasure/` module,
+      migration (new table + all four FK changes), the contact-change-race
+      fix (`PlayerPrivateInfoService.hasPendingContactChange`, deliberately
+      not routed through the lazy-apply path it guards against, with its
+      own unit test proving that), the deferred-captain-flip mechanics and
+      `transferCaptaincy`'s new mid-erasure rejection, the team-batched
+      daily sweep, and the full per-entity erasure implementation. 254/254
+      unit tests, 126/126 e2e tests (15 suites, including a new 13-test
+      `phase4.2-account-erasure.e2e-spec.ts`), lint/build/migration
+      up-down-up all independently re-verified by the orchestrating
+      session against a real Postgres/Redis/MinIO stack, not just taken on
+      the implementing agent's word.
+      One discrepancy between the ux-designer's and backend-developer's
+      parallel work (the design doc assumed `403`/`404` on an invalid
+      `successorPlayerId`; the actual API returns `409
+      erasure_successor_invalid`, matching this codebase's existing
+      generic-exception style) was caught and reconciled in the design
+      doc before frontend-developer started building.
+- [x] **frontend-developer**: built all six E-prefix screens/components
+      against the actual backend API (verified live: started the real
+      backend locally and drove every endpoint with curl to confirm each
+      response shape/error code the client handles actually occurs as
+      coded, not just typechecked). `tsc --noEmit` and `expo-doctor`
+      (18/18) both independently re-verified clean by the orchestrating
+      session, not just taken on the implementing agent's word.
+      One real gap surfaced and fixed directly by the orchestrating
+      session rather than another full agent round-trip: `GET
+      .../erasure/status` never actually returned the named successor's
+      screen name, so E6's grace-period card silently couldn't show
+      "{successor} tar över som kapten den dagen" as the design doc
+      specified — added `successorScreenName` to the status response
+      (omitted when no still-valid successor was locked in at confirm
+      time, which is correct per Decision 4, not a bug) and wired it
+      through `ErasureStatusCard`. Full backend test suite (254 unit/126
+      e2e) and mobile typecheck re-verified clean after this change.
+- [x] **code-critic**: full-diff review found **one confirmed, serious
+      bug**: the deferred captain-flip at execution time reuses
+      `PlayersService.transferCaptaincy`'s exact transaction (as the ADR
+      specifies), but that method unconditionally requires the *acting*
+      player's own `parentalConsentStatus === APPROVED` — a gate meant
+      for live HTTP-driven captain actions, not the departing player
+      being passed through as "requester" purely to reuse the transaction
+      shape. A self-created team's founding captain with pending consent
+      (an explicitly valid state per ADR-0009) could request their own
+      erasure normally, then have execution silently, permanently fail
+      every night forever at the sweep's per-team try/catch — the
+      account never actually gets deleted. No existing test caught this
+      because every fixture uses an already-consent-approved player.
+      Also flagged: mobile had no handler for three backend error codes
+      (`erasure_successor_required`/`erasure_successor_not_allowed`/
+      `erasure_already_active`) — fixed directly by the orchestrating
+      session (routes back to Profile's main view and refreshes status,
+      matching the existing pattern for the codes that were handled); and
+      a low-severity, not-confirmed non-atomic roster-read-then-cascade-
+      delete race in the team-deletion path, mirroring
+      `ClipRetentionService`'s already-accepted no-extra-locking posture
+      — left as-is, not blocking. Sent the consent-gate bug back to
+      backend-developer along with the test-coverage gap that let it
+      through (no e2e test exercises ≥2 players from the same team
+      erasing in the same sweep run against a real transaction, only
+      mocked) — fixing both together, since a real multi-player-batch
+      test is what should have caught this in the first place.
+      **Fixed**: `PlayersService` gained a private `flipCaptaincy` core
+      (shared by `transferCaptaincy` and a new `applyDeferredCaptainHandoff`,
+      the two differing only on whether the requester's own consent is
+      checked — the erasure execution path correctly skips it, since
+      `departingPlayerId` isn't performing a live authorized action, the
+      handoff was already authorized when they named this successor
+      during their own request). `transferCaptaincy`'s public signature
+      and behavior for its real (HTTP-driven) callers is unchanged. New
+      real e2e coverage (not mocked) proves the exact bug scenario now
+      completes, plus two genuine multi-player-same-team-same-sweep-run
+      batch cases. 259/259 unit, 129/129 e2e, independently re-verified
+      by the orchestrating session against the real stack, not just
+      taken on the implementing agent's word. Sent back to code-critic
+      for a focused re-check of the fix specifically (not a full
+      re-review) — **cleared**, with one residual, explicitly
+      non-blocking gap: the third new test's title overclaimed what it
+      actually verified (it never reached the real auto-fallback path).
+      Closed as its own fast follow-up: renamed that test to match
+      reality and added a genuine real-sweep test proving auto-fallback
+      correctly excludes both a named successor who invalidates
+      themselves *after* the captain's own confirm (proving the
+      execution-time re-check specifically, not confirm-time clearing)
+      and a second, simultaneously-due batch-mate — 259/259 unit,
+      **130/130 e2e**, re-verified directly by the orchestrating session.
+- [x] **security-reviewer**: **cleared to merge, no new findings.** Final
+      pass on the actual finished implementation (not just the design) —
+      independently re-verified the contact-change-race fix and the
+      recipient-snapshot mechanism against the real code, reviewed the
+      mobile UI for the first time (no leakage beyond the existing
+      team-scoped roster read, `successorPlayerId` re-validated
+      server-side at three independent points regardless of client
+      input), confirmed the four unauthenticated confirm/cancel routes
+      properly escape their only interpolated values and all carry real
+      `@Throttle` decorators (spot-checked directly, not just claimed),
+      audited every `RESTRICT` FK against `player`/`team` in the schema
+      and confirmed this migration converts exactly the three that
+      needed it with nothing missed, and confirmed the finished feature
+      holds every one of CLAUDE.md's constraints (closed team bubbles,
+      anonymization, parental-approval posture, no location tracking).
+      **This closes the full review chain for Phase 4.2**: architect →
+      security-reviewer (blocking, 1 confirmed + 2 required findings, all
+      closed and re-confirmed) → ux-designer → backend-developer →
+      frontend-developer → code-critic (1 confirmed + 1 coverage-gap
+      finding, both closed and re-confirmed) → security-reviewer (final,
+      clean). Every claim from every agent in this chain was
+      independently re-verified by the orchestrating session against the
+      real code and a live Postgres/Redis/MinIO stack at each step, not
+      taken on any agent's self-report alone.
+
 ## Phase 6 — Public Shorts feed, reactions & personal archive
 
 **Added 2026-07-27, from the project owner directly** (not yet designed —

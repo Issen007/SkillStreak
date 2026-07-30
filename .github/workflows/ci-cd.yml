@@ -274,12 +274,35 @@ jobs:
         env:
           OWNER: ${{ github.repository_owner }}
 
-      # 2. Inject Secrets securely (Our previous fix)
+      # 2. Inject Secrets securely — one GitHub secret per key (matching
+      # KUBE_TOKEN/KUBE_URL), not a single opaque SKILLSTREAK_SECRET_YAML
+      # blob. Rotating any one credential (e.g. a routine JWT_SECRET
+      # rotation) now only needs `gh secret set THAT_KEY`, not a full
+      # rewrite-and-repaste of every value at once. Adding a new required
+      # key (see backend/src/config/env.validation.ts) means: add it as a
+      # GitHub secret, add it to both the env: block and the
+      # --from-literal list below, and to k8s/secret.yaml.example's
+      # stringData for local/manual setups.
       - name: Inject Production Secrets
         env:
-          PROD_SECRETS: ${{ secrets.SKILLSTREAK_SECRET_YAML }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          PII_ENCRYPTION_KEY: ${{ secrets.PII_ENCRYPTION_KEY }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
+          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
         run: |
-          printf '%s\n' "$PROD_SECRETS" > k8s/secret.yaml
+          kubectl create secret generic skillstreak-secret \
+            --namespace skillstreak \
+            --from-literal=POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+            --from-literal=JWT_SECRET="$JWT_SECRET" \
+            --from-literal=PII_ENCRYPTION_KEY="$PII_ENCRYPTION_KEY" \
+            --from-literal=SMTP_USER="$SMTP_USER" \
+            --from-literal=SMTP_PASSWORD="$SMTP_PASSWORD" \
+            --from-literal=MINIO_ROOT_USER="$MINIO_ROOT_USER" \
+            --from-literal=MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
+            --dry-run=client -o yaml > k8s/secret.yaml
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -503,3 +526,75 @@ jobs:
             TRY_IT_URL=https://try.skillstreak.xyz
             EXPO_PUBLIC_JOIN_URL=https://skillstreak.xyz
           tags: ${{ env.LOWER_SITE_IMAGE }}:${{ steps.version.outputs.version }}
+
+  internal-images:
+    name: Build and Push Internal Test Images
+    runs-on: ubuntu-latest
+    # `prerelease` only ever deploys to the internal microk8s cluster on
+    # ubuntu01 (192.168.55.x, no public DNS/TLS) — never the public
+    # isstech-2 cluster, which only ever runs what's built from `main` (see
+    # the `deploy`/`release` jobs above). This job's only reason to exist:
+    # site/Dockerfile bakes API_BASE_URL/TRY_IT_URL/etc. into the image at
+    # build time, so the internal cluster needs its OWN image tagged with
+    # its own LAN addresses — reusing a `main`-built image would silently
+    # ship the public skillstreak.xyz URLs to a tester on the internal
+    # network (confirmed happening in practice before this job existed:
+    # ubuntu01 was running a site image built for the public domain).
+    # tools/local-release-poller/poll-and-deploy.sh is what actually
+    # deploys these — it polls this branch's latest commit, not this job
+    # directly; this job's only responsibility is to make the
+    # prerelease-<sha> images exist on GHCR for it to find.
+    needs: [backend-test, compose-smoke-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/prerelease'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Downcase repository owner for Docker
+        run: |
+          echo "LOWER_IMAGE=ghcr.io/${OWNER,,}/skillstreak-api" >> "$GITHUB_ENV"
+          echo "LOWER_SITE_IMAGE=ghcr.io/${OWNER,,}/skillstreak-site" >> "$GITHUB_ENV"
+        env:
+          OWNER: ${{ github.repository_owner }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # No build-args needed — the api image never bakes in any URL, it
+      # reads APP_PUBLIC_URL/CORS_ORIGIN/etc. from the ConfigMap at
+      # runtime (ubuntu01's own k8s/configmap.yaml equivalent already
+      # points at its own 192.168.55.x addresses, applied by hand — see
+      # k8s/README.md). Tagged prerelease-<sha> so the poller can tell
+      # this apart from main's github.sha-tagged and vX.Y.Z-tagged images.
+      - name: Build and Push Internal API Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ env.LOWER_IMAGE }}:prerelease-${{ github.sha }}
+
+      # These four addresses are ubuntu01's own metallb LoadBalancer IPs
+      # (api=192.168.55.71, site=192.168.55.72) — see k8s/README.md and
+      # skillstreak-config's live values on that cluster. try-it has no
+      # hostname to route by on a bare LAN IP, so it's served on its own
+      # port (site/nginx.conf's second server block, listen 8081) instead
+      # of a Host-header vhost like the public deployment uses.
+      - name: Build and Push Internal Site Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./site/Dockerfile
+          push: true
+          build-args: |
+            EXPO_PUBLIC_API_URL=http://192.168.55.71
+            API_BASE_URL=http://192.168.55.71
+            TRY_IT_URL=http://192.168.55.72:8081
+            EXPO_PUBLIC_JOIN_URL=http://192.168.55.72
+          tags: ${{ env.LOWER_SITE_IMAGE }}:prerelease-${{ github.sha }}

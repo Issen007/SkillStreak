@@ -2,6 +2,7 @@ import { apiClient } from './client';
 import type {
   BlockChatPlayerRequest,
   BlockChatPlayerResponse,
+  CancelErasureResponse,
   CaptainTransferRequest,
   CaptainTransferResponse,
   ChatMessagesResponse,
@@ -18,6 +19,7 @@ import type {
   CreateWeeklyGoalRequest,
   CurrentGoalResponse,
   DeleteClipResponse,
+  ErasureStatusResponse,
   GoalHistoryResponse,
   InvitePreviewResponse,
   LeaderboardResponse,
@@ -33,6 +35,8 @@ import type {
   ReportClipResponse,
   RequestContactChangeRequest,
   RequestContactChangeResponse,
+  RequestErasureRequest,
+  RequestErasureResponse,
   RequestSessionReissueRequest,
   SessionReissueSelfServiceResponse,
   SessionReissueTriggerResponse,
@@ -448,6 +452,44 @@ export function deleteClip(teamId: string, clipId: string): Promise<DeleteClipRe
     `/teams/${encodeURIComponent(teamId)}/clips/${encodeURIComponent(clipId)}`,
     { method: 'DELETE', auth: true },
   );
+}
+
+// --- Fas 4.2 additions, per docs/adr/0013-account-erasure.md Decision 3 ----
+// (self-service GDPR account erasure). All three require auth and operate on
+// the caller's own account (`/players/me/...`, no playerId param). The two
+// unauthenticated confirm/cancel-by-code routes are plain HTML pages the
+// mailed link opens directly (backend-developer's job, not an in-app
+// screen) — no client function for those two.
+
+/** Screen E4's confirm sheet — the bare in-app tap this creates does
+ * nothing durable on its own (Decision 2): the 30-day clock only starts
+ * once the mailed confirm code is redeemed. */
+export function requestErasure(
+  body: RequestErasureRequest,
+): Promise<RequestErasureResponse> {
+  return apiClient.request<RequestErasureResponse>('/players/me/erasure/request', {
+    method: 'POST',
+    body,
+    auth: true,
+  });
+}
+
+/** Backs Screen E1/E6 — fetched alongside `getProfile()` on every Profile
+ * screen load (`Promise.all`, not a second round-trip), per the flow doc. */
+export function getErasureStatus(): Promise<ErasureStatusResponse> {
+  return apiClient.request<ErasureStatusResponse>('/players/me/erasure/status', {
+    auth: true,
+  });
+}
+
+/** Screen E6's "Ångra begäran"/"Ångra raderingen" action — the
+ * authenticated, PRIMARY cancel path (Decision 7); the mailed cancel link
+ * is a backup, not called from the app. */
+export function cancelErasure(): Promise<CancelErasureResponse> {
+  return apiClient.request<CancelErasureResponse>('/players/me/erasure/cancel', {
+    method: 'POST',
+    auth: true,
+  });
 }
 
 /** 5. POST /teams/:teamId/clips/:clipId/report — auth required,

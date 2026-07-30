@@ -79,9 +79,14 @@ export interface ChatMessageResponse {
 
 export interface ChatMessageListItem {
   id: string;
-  senderPlayerId: string;
-  senderScreenName: string;
-  senderAvatarId: string;
+  // Nullable since docs/adr/0013-account-erasure.md Decision 6: an erased
+  // player's messages are anonymized in place (sender_player_id set null,
+  // content overwritten with a fixed placeholder), never hard-deleted, to
+  // preserve the flat feed's continuity. All three sender fields are null
+  // together, never independently.
+  senderPlayerId: string | null;
+  senderScreenName: string | null;
+  senderAvatarId: string | null;
   content: string;
   createdAt: string;
   reportedByMe: boolean;
@@ -250,12 +255,31 @@ export class TeamChatService {
     const reportedMessageIds = new Set(myReports.map((r) => r.messageId));
 
     return messages.map((message) => {
+      // docs/adr/0013-account-erasure.md Decision 6 — a message whose
+      // sender has since erased their account has sender_player_id = null
+      // (set in the same transaction that deletes their Player row), by
+      // construction never a *dangling* reference to a since-deleted
+      // player id. Rendered as an anonymized entry, not an error.
+      if (message.senderPlayerId === null) {
+        return {
+          id: message.id,
+          senderPlayerId: null,
+          senderScreenName: null,
+          senderAvatarId: null,
+          content: message.content,
+          createdAt: message.createdAt.toISOString(),
+          reportedByMe: reportedMessageIds.has(message.id),
+        };
+      }
+
       const sender = playerById.get(message.senderPlayerId);
       if (!sender) {
-        // Can't occur given the API contract: a message's sender is always
-        // whoever posted it, which postMessage only ever allows for a
-        // current team member, and player rows aren't deleted. Surfaced as
-        // a 500, not defended against as normal client input.
+        // Can't occur given the API contract: a message's sender is either
+        // null (anonymized, handled above) or whoever posted it, which
+        // postMessage only ever allows for a current team member, and a
+        // player row is never deleted without first nulling every message
+        // it sent (AccountErasureService). Surfaced as a 500, not defended
+        // against as normal client input.
         throw new Error(
           `TeamChatMessage ${message.id} references sender ${message.senderPlayerId} not found on team ${teamId}`,
         );
@@ -335,12 +359,19 @@ export class TeamChatService {
       throw error;
     }
 
-    await this.sendReportNotificationBestEffort(
-      teamId,
-      message.senderPlayerId,
-      dto.reason,
-      message.content,
-    );
+    // A report against an already-anonymized message (its sender erased
+    // their own account since the message was sent) has nobody left to
+    // notify — docs/adr/0013-account-erasure.md Decision 6 keeps the
+    // report row itself intact regardless (a moderation record, not "their
+    // content"), it just has no live target for this notification anymore.
+    if (message.senderPlayerId !== null) {
+      await this.sendReportNotificationBestEffort(
+        teamId,
+        message.senderPlayerId,
+        dto.reason,
+        message.content,
+      );
+    }
 
     return {
       reportId: report.id,

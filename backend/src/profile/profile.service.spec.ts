@@ -13,14 +13,17 @@ function buildService(overrides: {
       birthYear: 2013,
       screenName: 'FloorballStar15',
       tokenVersion: 1,
+      avatarId: 'fox',
     }),
     findByIdForUpdate: jest.fn().mockResolvedValue({
       id: 'player-1',
       birthYear: 2013,
       screenName: 'FloorballStar15',
       tokenVersion: 1,
+      avatarId: 'fox',
     }),
     bumpTokenVersion: jest.fn().mockResolvedValue(undefined),
+    updateAvatarId: jest.fn().mockResolvedValue(undefined),
     ...overrides.playersService,
   };
   const playerPrivateInfoService = {
@@ -72,7 +75,7 @@ function buildService(overrides: {
 }
 
 describe('ProfileService.getProfile', () => {
-  it('combines birthYear (Player) with realName/parentContact (PlayerPrivateInfo)', async () => {
+  it('combines birthYear/avatarId (Player) with realName/parentContact (PlayerPrivateInfo)', async () => {
     const { service } = buildService({
       playerPrivateInfoService: {
         getRealName: jest.fn().mockResolvedValue('Åsa Öberg'),
@@ -84,6 +87,7 @@ describe('ProfileService.getProfile', () => {
       realName: 'Åsa Öberg',
       birthYear: 2013,
       parentContact: 'parent@example.com',
+      avatarId: 'fox',
     });
   });
 });
@@ -95,6 +99,17 @@ describe('ProfileService.updateRealName', () => {
     expect(playerPrivateInfoService.updateRealName).toHaveBeenCalledWith(
       'player-1',
       'New Name',
+    );
+  });
+});
+
+describe('ProfileService.updateAvatarId', () => {
+  it('delegates directly to PlayersService', async () => {
+    const { service, playersService } = buildService({});
+    await service.updateAvatarId('player-1', 'wolf');
+    expect(playersService.updateAvatarId).toHaveBeenCalledWith(
+      'player-1',
+      'wolf',
     );
   });
 });

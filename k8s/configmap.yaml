@@ -25,7 +25,16 @@ data:
   # port 587/STARTTLS, same user/pass auth (mail.service.ts unchanged).
   SMTP_HOST: "smtp.gmail.com"
   SMTP_PORT: "587"
-  SMTP_FROM: "SkillStreak <noreply@yourdomain.example>"
+  # Must be the real SMTP_USER account (see k8s/secret.yaml.example) or a
+  # verified Gmail "Send As" alias of it — a From address on a domain
+  # Gmail isn't authenticated to send as gets silently spam-filtered by
+  # the recipient's mail server (no bounce, no app-visible error; the
+  # send call itself succeeds either way) rather than rejected outright.
+  # Confirmed live 2026-07-29: this was still the placeholder domain
+  # below while SMTP_USER was already a real noreply@isstech.io account —
+  # every session-reissue email sent while that mismatch existed "sent"
+  # successfully per the app's own logs but never reached a real inbox.
+  SMTP_FROM: "SkillStreak <noreply@isstech.io>"
   # Real public domain (skillstreak.xyz, acquired 2026-07-28) via
   # skillstreak-gateway's TLS listeners — see gateway.yaml/certificate.yaml.
   # Parental-consent email links point here — this is still a TEST

@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import {
   CaptainConsentRequiredException,
   CaptainTransferConflictException,
+  CaptainTransferTargetMidErasureException,
   CaptainTransferTargetNotOnTeamException,
   CaptainTransferToSelfException,
   NotTeamCaptainException,
@@ -12,9 +13,18 @@ import {
   TeamMismatchException,
 } from '../common/errors/exceptions';
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
+import {
+  AccountErasureRequest,
+  AccountErasureStatus,
+} from '../account-erasure/entities/account-erasure-request.entity';
 import { ParentalConsentStatus } from './player-consent-status.enum';
 import { TeamJoinStatus } from './team-join-status.enum';
 import { Player } from './entities/player.entity';
+
+const ACTIVE_ERASURE_STATUSES = [
+  AccountErasureStatus.REQUESTED,
+  AccountErasureStatus.GRACE_PERIOD,
+];
 
 const ONE_CAPTAIN_PER_TEAM_CONSTRAINT = 'idx_player_one_captain_per_team';
 
@@ -55,6 +65,15 @@ export class PlayersService {
     private readonly dataSource: DataSource,
     @InjectRepository(Player)
     private readonly playerRepository: Repository<Player>,
+    // docs/adr/0013-account-erasure.md Decision 4's "Module wiring" —
+    // registered via this module's OWN TypeOrmModule.forFeature (see
+    // players.module.ts), not by importing AccountErasureModule (which
+    // would cycle, since that module already imports PlayersModule for
+    // transferCaptaincy/findByIdForUpdate at execution time). Same
+    // "register the entity directly" technique WeeklyGoalModule already
+    // uses to avoid an equivalent cycle with TrainingLogsModule.
+    @InjectRepository(AccountErasureRequest)
+    private readonly accountErasureRequestRepository: Repository<AccountErasureRequest>,
   ) {}
 
   /** Creates the onboarding "shell" row — see docs/adr/0002 addendum §2. */
@@ -122,6 +141,15 @@ export class PlayersService {
       throw new PlayerNotFoundException();
     }
     return player;
+  }
+
+  /** docs/adr/0012's addendum (2026-07-28) — profile-page avatar editing.
+   * Not PII, no confirmation flow: same low-risk "direct write" posture
+   * as PlayerPrivateInfoService.updateRealName. No server-side whitelist
+   * against AVATAR_CATALOG, matching onboarding's own existing validation
+   * posture for this field (see UpdateProfileDto). */
+  async updateAvatarId(playerId: string, avatarId: string): Promise<void> {
+    await this.playerRepository.update({ id: playerId }, { avatarId });
   }
 
   async updateStreakFields(
@@ -214,55 +242,144 @@ export class PlayersService {
     requesterId: string,
     newCaptainPlayerId: string,
   ): Promise<CaptainTransferResult> {
-    return this.dataSource.transaction(async (manager) => {
-      const requester = await this.findByIdForUpdate(manager, requesterId);
-      if (requester.teamId !== teamId) {
-        throw new TeamMismatchException();
-      }
-      if (!requester.isCaptain) {
-        throw new NotTeamCaptainException();
-      }
-      // Same acting-captain consent gate as assertIsCaptainOfTeam (see its
-      // comment) — transferCaptaincy does its own inline captain check
-      // (row-locked, not via assertIsCaptainOfTeam) so this needs its own
-      // copy of the same rule.
-      if (requester.parentalConsentStatus !== ParentalConsentStatus.APPROVED) {
-        throw new CaptainConsentRequiredException();
-      }
-      if (newCaptainPlayerId === requesterId) {
-        throw new CaptainTransferToSelfException();
-      }
+    return this.dataSource.transaction((manager) =>
+      this.flipCaptaincy(manager, teamId, requesterId, newCaptainPlayerId, {
+        requireRequesterConsent: true,
+      }),
+    );
+  }
 
-      // findByIdForUpdate already throws PlayerNotFoundException if
-      // newCaptainPlayerId doesn't exist at all.
-      const target = await this.findByIdForUpdate(manager, newCaptainPlayerId);
-      if (target.teamId !== teamId) {
-        throw new CaptainTransferTargetNotOnTeamException();
-      }
-
-      const repository = manager.getRepository(Player);
-      requester.isCaptain = false;
-      await repository.save(requester);
-      target.isCaptain = true;
-      try {
-        await repository.save(target);
-      } catch (error) {
-        if (isPostgresUniqueViolation(error, ONE_CAPTAIN_PER_TEAM_CONSTRAINT)) {
-          // Should be unreachable given the locks above — kept as a
-          // backstop, same posture as WeeklyGoalService's equivalent catch
-          // for idx_challenge_one_active_goal_per_team.
-          throw new CaptainTransferConflictException();
-        }
-        throw error;
-      }
-
-      return {
+  /**
+   * docs/adr/0013-account-erasure.md Decision 4 — applies the deferred
+   * captain flip at execution time, "reusing transferCaptaincy's exact
+   * transaction, just invoked by the sweep job instead of an HTTP call
+   * from the captain." Deliberately NOT `transferCaptaincy` itself with a
+   * bypass flag threaded through its public signature — that would widen a
+   * security-relevant method's surface in a way a future, unrelated call
+   * site could misuse without understanding why the bypass exists. This is
+   * its own distinctly-named method instead, calling the same shared
+   * `flipCaptaincy` core with `requireRequesterConsent: false`.
+   *
+   * Why skipping the requester's own consent check here is correct, not a
+   * weakening: `transferCaptaincy`'s consent gate protects a *live,
+   * HTTP-driven* action — "is the person acting right now actually
+   * authorized to act." Here, `departingPlayerId` isn't acting; they
+   * already authorized this exact handoff (by naming `successorPlayerId`
+   * at their own erasure request, itself correctly requiring no consent
+   * check — GDPR erasure cannot be conditioned on parental consent status)
+   * and it has already been re-validated for validity twice since (at
+   * confirm time, and again immediately before this call via
+   * `resolveExecutionTimeSuccessor`/`isSuccessorStillValid`). Applying it
+   * is a system action carrying out a previously-authorized decision, not
+   * a new authorization decision — the departing player's own
+   * (potentially still-pending, per ADR-0009) consent status has no
+   * bearing on whether *that* is legitimate.
+   *
+   * A confirmed bug this method fixes: a self-created team's founding
+   * captain (ADR-0009 explicitly allows this to exist with
+   * `parentalConsentStatus: pending`) requesting their own erasure with a
+   * chosen successor used to hang forever — every nightly sweep re-threw
+   * `CaptainConsentRequiredException` from `transferCaptaincy`, retried
+   * identically the next night, since nothing about that player's own
+   * consent status ever changes on its own.
+   *
+   * Every other check `transferCaptaincy` performs (team match, self-
+   * transfer, target-still-on-team, target-not-mid-erasure) is kept —
+   * cheap, and a defensive backstop even though the erasure execution path
+   * already independently guarantees most of them via
+   * `resolveExecutionTimeSuccessor`'s fresh re-validation immediately
+   * before this call.
+   */
+  async applyDeferredCaptainHandoff(
+    teamId: string,
+    departingPlayerId: string,
+    successorPlayerId: string,
+  ): Promise<CaptainTransferResult> {
+    return this.dataSource.transaction((manager) =>
+      this.flipCaptaincy(
+        manager,
         teamId,
-        previousCaptainPlayerId: requester.id,
-        newCaptainPlayerId: target.id,
-        transferredAt: new Date(),
-      };
-    });
+        departingPlayerId,
+        successorPlayerId,
+        { requireRequesterConsent: false },
+      ),
+    );
+  }
+
+  /**
+   * The shared core behind transferCaptaincy/applyDeferredCaptainHandoff —
+   * see transferCaptaincy's own comment for the locking/re-check reasoning
+   * (fixed lock order, row-locked isCaptain re-check under that lock).
+   * `requireRequesterConsent` is the one axis the two public callers
+   * differ on — see applyDeferredCaptainHandoff's comment for why that
+   * split is correct, not a weakening.
+   */
+  private async flipCaptaincy(
+    manager: EntityManager,
+    teamId: string,
+    requesterId: string,
+    newCaptainPlayerId: string,
+    options: { requireRequesterConsent: boolean },
+  ): Promise<CaptainTransferResult> {
+    const requester = await this.findByIdForUpdate(manager, requesterId);
+    if (requester.teamId !== teamId) {
+      throw new TeamMismatchException();
+    }
+    if (!requester.isCaptain) {
+      throw new NotTeamCaptainException();
+    }
+    // Same acting-captain consent gate as assertIsCaptainOfTeam (see its
+    // comment) — only meaningful for a live, HTTP-driven transfer; see
+    // applyDeferredCaptainHandoff's comment for why the erasure execution
+    // path deliberately skips it.
+    if (
+      options.requireRequesterConsent &&
+      requester.parentalConsentStatus !== ParentalConsentStatus.APPROVED
+    ) {
+      throw new CaptainConsentRequiredException();
+    }
+    if (newCaptainPlayerId === requesterId) {
+      throw new CaptainTransferToSelfException();
+    }
+
+    // findByIdForUpdate already throws PlayerNotFoundException if
+    // newCaptainPlayerId doesn't exist at all.
+    const target = await this.findByIdForUpdate(manager, newCaptainPlayerId);
+    if (target.teamId !== teamId) {
+      throw new CaptainTransferTargetNotOnTeamException();
+    }
+    // docs/adr/0013-account-erasure.md Decision 4 (security-reviewer
+    // finding, 2026-07-29) — a captain can no longer hand off onto a
+    // teammate who is themselves already mid-erasure (requested or
+    // grace_period), closing the gap where that handoff would need
+    // immediate unwinding a moment later. Checked here, under the same
+    // row lock already held on `target` above.
+    if (await this.hasActiveErasureRequest(target.id, manager)) {
+      throw new CaptainTransferTargetMidErasureException();
+    }
+
+    const repository = manager.getRepository(Player);
+    requester.isCaptain = false;
+    await repository.save(requester);
+    target.isCaptain = true;
+    try {
+      await repository.save(target);
+    } catch (error) {
+      if (isPostgresUniqueViolation(error, ONE_CAPTAIN_PER_TEAM_CONSTRAINT)) {
+        // Should be unreachable given the locks above — kept as a
+        // backstop, same posture as WeeklyGoalService's equivalent catch
+        // for idx_challenge_one_active_goal_per_team.
+        throw new CaptainTransferConflictException();
+      }
+      throw error;
+    }
+
+    return {
+      teamId,
+      previousCaptainPlayerId: requester.id,
+      newCaptainPlayerId: target.id,
+      transferredAt: new Date(),
+    };
   }
 
   /**
@@ -533,6 +650,76 @@ export class PlayersService {
     player.consentToken = null;
     player.consentTokenExpiresAt = null;
     return repository.save(player);
+  }
+
+  /**
+   * docs/adr/0013-account-erasure.md Decision 4 — does this player
+   * currently hold an active (requested/grace_period)
+   * `AccountErasureRequest`? Used by transferCaptaincy's new rejection
+   * above, and by findAutoFallbackCaptainCandidate below.
+   */
+  async hasActiveErasureRequest(
+    playerId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const repository = manager
+      ? manager.getRepository(AccountErasureRequest)
+      : this.accountErasureRequestRepository;
+    const count = await repository.count({
+      where: { playerId, status: In(ACTIVE_ERASURE_STATUSES) },
+    });
+    return count > 0;
+  }
+
+  /**
+   * docs/adr/0013-account-erasure.md Decision 4/5 — the auto-fallback
+   * captain candidate: the longest-tenured (earliest-joined) teammate not
+   * in `excludePlayerIds` (the departing player, plus — when called from
+   * a same-team sweep batch — every other player erasing in that same
+   * run) AND not themselves currently mid-erasure (security-reviewer
+   * finding, 2026-07-29: without this second exclusion, a same-sweep-run
+   * auto-pick could crown someone captain moments before their own row is
+   * deleted later in the identical run, since neither this sweep nor
+   * ClipRetentionService guarantees any row-processing order). Returns
+   * `null` if no eligible candidate remains (the "every teammate is also
+   * erasing this run" case — handled by AccountErasureSweepService's
+   * batching routing that scenario through the team-cascade path instead,
+   * never through this method).
+   */
+  async findAutoFallbackCaptainCandidate(
+    teamId: string,
+    excludePlayerIds: string[],
+    manager?: EntityManager,
+  ): Promise<Player | null> {
+    const playerRepository = manager
+      ? manager.getRepository(Player)
+      : this.playerRepository;
+    const erasureRepository = manager
+      ? manager.getRepository(AccountErasureRequest)
+      : this.accountErasureRequestRepository;
+
+    const qb = playerRepository
+      .createQueryBuilder('player')
+      .where('player.team_id = :teamId', { teamId })
+      .orderBy('player.created_at', 'ASC');
+    if (excludePlayerIds.length > 0) {
+      qb.andWhere('player.id NOT IN (:...excludePlayerIds)', {
+        excludePlayerIds,
+      });
+    }
+    const candidates = await qb.getMany();
+    if (candidates.length === 0) return null;
+
+    const activeErasureRows = await erasureRepository.find({
+      where: {
+        playerId: In(candidates.map((candidate) => candidate.id)),
+        status: In(ACTIVE_ERASURE_STATUSES),
+      },
+    });
+    const excludedByErasure = new Set(
+      activeErasureRows.map((row) => row.playerId),
+    );
+    return candidates.find((c) => !excludedByErasure.has(c.id)) ?? null;
   }
 }
 

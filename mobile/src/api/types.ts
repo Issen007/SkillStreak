@@ -175,10 +175,12 @@ export interface PlayerProfileResponse {
   realName: string | null;
   birthYear: number;
   parentContact: string;
+  avatarId: string;
 }
 
 export interface UpdateProfileRequest {
   realName?: string | null;
+  avatarId?: string;
 }
 
 export interface RequestContactChangeRequest {
@@ -585,6 +587,32 @@ export interface ReportClipResponse {
   reportId: string;
   clipId: string;
   createdAt: string;
+}
+
+// --- Fas 4.2 shapes, mirroring docs/adr/0013-account-erasure.md Decision 3 -
+// (self-service GDPR account erasure). The two unauthenticated
+// confirm/cancel-by-code routes are plain HTML pages the mailed link opens
+// directly — no request/response shape needed here for those.
+
+export interface RequestErasureRequest {
+  successorPlayerId?: string;
+}
+
+export interface RequestErasureResponse {
+  requested: true;
+  expiresAt: string;
+}
+
+export type ErasureStatus = 'none' | 'requested' | 'grace_period';
+
+export interface ErasureStatusResponse {
+  status: ErasureStatus;
+  scheduledFor?: string;
+  successorScreenName?: string;
+}
+
+export interface CancelErasureResponse {
+  cancelled: true;
 }
 
 // --- Error envelope -----------------------------------------------------------

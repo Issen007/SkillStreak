@@ -29,12 +29,15 @@ export class TeamChatMessage {
   @Column({ name: 'team_id', type: 'uuid' })
   teamId!: string;
 
-  // ON DELETE RESTRICT at the DB level (see the migration) — same
-  // precedent as Challenge.created_by_player_id: don't silently orphan a
-  // message by deleting a player who doesn't exist as a deletable entity
-  // yet anyway.
-  @Column({ name: 'sender_player_id', type: 'uuid' })
-  senderPlayerId!: string;
+  // ON DELETE SET NULL at the DB level (see the AddAccountErasure
+  // migration) — docs/adr/0013-account-erasure.md Decision 6: an erased
+  // player's messages are anonymized in place (this column set null,
+  // `content` overwritten with a fixed placeholder), never hard-deleted,
+  // to preserve the remaining team's flat chat feed continuity. That
+  // UPDATE lives only inside AccountErasureService's own execution
+  // transaction — see that service's comment.
+  @Column({ name: 'sender_player_id', type: 'uuid', nullable: true })
+  senderPlayerId!: string | null;
 
   @Column({ type: 'varchar', length: 500 })
   content!: string;

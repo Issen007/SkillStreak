@@ -39,9 +39,13 @@ export class VideoClip {
   @Column({ name: 'team_id', type: 'uuid' })
   teamId!: string;
 
-  // ON DELETE RESTRICT at the DB level (see the migration) — same
-  // precedent as TeamChatMessage.sender_player_id: no player-deletion
-  // feature exists yet, so don't silently orphan a clip by allowing one.
+  // ON DELETE CASCADE at the DB level (see the AddAccountErasure
+  // migration) — a BACKSTOP only, per docs/adr/0013-account-erasure.md
+  // Decision 6: AccountErasureService always deletes the MinIO object,
+  // then this row, explicitly in application code first (Postgres cascade
+  // can never reach object storage), so this FK just guarantees the row
+  // can't get stuck if the app-level walk ever misses one. Was RESTRICT
+  // before this ADR ("no player-deletion feature exists yet").
   @Column({ name: 'uploader_player_id', type: 'uuid' })
   uploaderPlayerId!: string;
 
