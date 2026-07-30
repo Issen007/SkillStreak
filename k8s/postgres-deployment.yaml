@@ -22,9 +22,38 @@ spec:
       labels:
         app: postgres
     spec:
+      # Security hardening, 2026-07-30. postgres:18-alpine's own entrypoint
+      # already re-execs itself as the `postgres` user (uid 70) via gosu
+      # when it starts as root — running non-root at the k8s level from the
+      # very first instant just skips that internal re-exec (the `id -u`
+      # check it gates on is simply already false), it doesn't fight it.
+      # The one real risk is volume ownership: this PVC may have mixed
+      # ownership from when every pod here ran as root, so an initContainer
+      # unconditionally fixes it before the main container ever starts,
+      # rather than assuming the existing ownership is already correct.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70 # postgres:18-alpine's built-in `postgres` user
+        runAsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: fix-data-dir-ownership
+          image: postgres:18-alpine
+          command: ["sh", "-c", "chown -R 70:70 /var/lib/postgresql"]
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql
       containers:
         - name: postgres
           image: postgres:18-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 5432
           env:
