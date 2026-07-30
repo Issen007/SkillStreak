@@ -1,11 +1,15 @@
 # One multi-SAN certificate covering every real public hostname, so
 # gateway.yaml's four HTTPS listeners can all reference the same Secret.
-# Starts on letsencrypt-staging (see cluster-issuer.yaml's comment) —
-# switch issuerRef to letsencrypt-prod once `kubectl describe certificate
-# skillstreak-xyz-tls -n skillstreak` shows Ready, then delete this
-# Secret so cert-manager reissues a trusted one. Do not let real
-# parental-consent emails go out before that cutover — see the warning in
-# k8s/README.md.
+# Cut over to letsencrypt-prod 2026-07-30, after confirming Ready on
+# letsencrypt-staging first (see cluster-issuer.yaml's comment) and
+# deleting the stale staging-issued Secret so cert-manager reissued a
+# trusted one. Getting either issuer to actually complete its HTTP-01
+# challenges required a manual workaround for a Cilium Gateway API bug
+# (github.com/cilium/cilium#44123 — a wildcard HTTP listener alongside
+# per-hostname HTTPS listeners silently drops ALL plain-HTTP routing) —
+# see docs/BACKLOG.md's "Cilium Gateway API wildcard HTTP listener bug"
+# entry for the workaround and why it will recur at every renewal until
+# that upstream issue is fixed.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -14,7 +18,7 @@ metadata:
 spec:
   secretName: skillstreak-xyz-tls
   issuerRef:
-    name: letsencrypt-staging
+    name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
     - skillstreak.xyz
