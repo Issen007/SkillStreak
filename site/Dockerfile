@@ -120,4 +120,14 @@ RUN QR_TARGET="$(cat /tmp/qr-target.txt)" \
     && mv /tmp/download.html.new /usr/share/nginx/marketing/download.html \
     && grep -qF "<svg" /usr/share/nginx/marketing/download.html
 
-EXPOSE 80 8081
+# Runs as a non-root user (security hardening, 2026-07-30 — k8s's
+# securityContext sets runAsUser/runAsNonRoot; this just makes the image
+# itself work under that, not only when run as root during a manual
+# `docker run`). nginx:1.27-alpine's default paths (pid file, cache dir)
+# are root-owned by default — redirect the pid file somewhere always
+# writable and chown the cache dir to the image's existing `nginx` user
+# (uid 101) rather than inventing a new one.
+RUN sed -i 's#^pid .*#pid /tmp/nginx.pid;#' /etc/nginx/nginx.conf \
+    && chown -R nginx:nginx /var/cache/nginx
+
+EXPOSE 8080 8081
