@@ -3,6 +3,13 @@
 # listeners) — the `http` listener has no hostname restriction, so plain
 # HTTP on any of these hostnames also works (and is what cert-manager's
 # ACME HTTP01 challenge uses, see cluster-issuer.yaml).
+#
+# Only the real public skillstreak.xyz hostnames are listed — an earlier
+# cluster (isstech-2) also carried its own internal PaaS testing hostnames
+# (*.apps.isstech-2.paas.safedc.net) here; this cluster has a different
+# internal hostname scheme and doesn't need an equivalent entry to
+# function (those were a convenience for reaching the app before the real
+# domain had DNS, not a requirement).
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -12,7 +19,6 @@ spec:
   parentRefs:
     - name: skillstreak-gateway
   hostnames:
-    - "skillstreak.apps.isstech-2.paas.safedc.net"
     - "skillstreak.xyz"
     - "www.skillstreak.xyz"
     - "try.skillstreak.xyz"
@@ -30,7 +36,6 @@ spec:
   parentRefs:
     - name: skillstreak-gateway
   hostnames:
-    - "skillstreak-api.apps.isstech-2.paas.safedc.net"
     - "api.skillstreak.xyz"
   rules:
     - matches:
