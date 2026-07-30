@@ -292,6 +292,8 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
           MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
+          MINIO_CLIPS_ACCESS_KEY: ${{ secrets.MINIO_CLIPS_ACCESS_KEY }}
+          MINIO_CLIPS_SECRET_KEY: ${{ secrets.MINIO_CLIPS_SECRET_KEY }}
         run: |
           kubectl create secret generic skillstreak-secret \
             --namespace skillstreak \
@@ -302,6 +304,8 @@ jobs:
             --from-literal=SMTP_PASSWORD="$SMTP_PASSWORD" \
             --from-literal=MINIO_ROOT_USER="$MINIO_ROOT_USER" \
             --from-literal=MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
+            --from-literal=MINIO_CLIPS_ACCESS_KEY="$MINIO_CLIPS_ACCESS_KEY" \
+            --from-literal=MINIO_CLIPS_SECRET_KEY="$MINIO_CLIPS_SECRET_KEY" \
             --dry-run=client -o yaml > k8s/secret.yaml
 
       - name: Log in to GitHub Container Registry
