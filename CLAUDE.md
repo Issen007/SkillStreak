@@ -149,6 +149,41 @@ something version-controlled here. That still needs to be turned on
 `prerelease`) for "always tested before merge" to actually be enforced,
 not just advisory.
 
+## Environment parity — every URL/link must match wherever it's deployed
+
+This project runs in exactly two places, per the Git workflow rule above:
+**production** (`main` → the public `skillstreak` cluster, real
+`https://skillstreak.xyz`/`api.skillstreak.xyz`/`try.skillstreak.xyz`
+domains) and **internal test** (`prerelease` → the `ubuntu01` microk8s
+cluster, LAN-only `192.168.55.x` addresses, no public DNS/TLS). Any change
+that touches a URL, hostname, link, QR code, deep link, CORS origin, or
+similar environment-specific value must work correctly in **both** places,
+matching whichever one it actually lands on — never hardcode one
+environment's value as if it were universal.
+
+The existing mechanism for this is build-time, not runtime: `.github/
+workflows/ci-cd.yml` builds **separate Docker images per environment**
+(the `deploy`/`release` jobs bake the real domains for `main`; the
+`internal-images` job bakes the `192.168.55.x` LAN addresses for
+`prerelease`), and backend config comes from each cluster's own
+`ConfigMap`/`Secret`, not a shared one. Reuse this pattern — don't invent a
+second, runtime-detection mechanism alongside it. See `site/Dockerfile`'s
+build-arg/placeholder scheme and the two CI jobs' differing `build-args`
+for the existing convention to extend.
+
+**Why this is called out explicitly**: confirmed live 2026-07-30 that
+production's `site` Deployment was, for a stretch of time, running an
+`internal-images`-built (`prerelease-<sha>`-tagged) image instead of the
+correct `main`-built one — real visitors to `skillstreak.xyz`'s "Skaffa
+appen" QR-code page saw an unreachable internal LAN IP
+(`192.168.55.72:8081`) instead of the real domain. The two environments'
+images were both correctly built by CI; something outside CI (most likely
+the shared-kubeconfig/wrong-`kubectl`-context risk noted in this repo's
+own handoff docs) pointed production at the wrong one. Before considering
+any environment-touching change done, verify which image/config is
+*actually* live on each cluster — don't assume the last CI run is what's
+currently running.
+
 ## Open decisions to surface, not silently pick
 
 - Final app name (still open — see docs/PROJECT.md banner for candidates).
