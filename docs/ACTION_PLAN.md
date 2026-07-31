@@ -353,6 +353,77 @@ data yet to migrate): all migrations ran automatically via the entrypoint,
 62 unit + 24 e2e tests pass, the seed script runs cleanly, `/health`
 responds.
 
+**Per-player completion correction, 2026-07-31**: raised by the project
+owner directly — the weekly goal's progress formula above
+(`SUM(duration_minutes)` across every team member's logs) meant one
+highly active player could complete the whole team's goal alone, with
+teammates who never trained. Same class of change as the 2026-07-05
+bonus-formula correction above — a correction to an already-shipped,
+already-reviewed formula, not a new feature — and got the same rigor.
+Full chain, each stage independently re-verified against the actual
+result, not taken on the prior stage's word:
+- [x] **architect**: `docs/adr/0015-weekly-goal-per-player-completion.md`.
+      `goalMet` now requires every *eligible* current roster member
+      (`parentalConsentStatus`/`teamJoinStatus` both approved, joined on
+      or before the goal's `startDate`) to individually reach
+      `targetValue` — with an explicit vacuous-truth guard (an empty
+      eligible roster is never vacuously "met"). The bonus payout
+      formula/transaction/idempotency lock from the 2026-07-05 correction
+      are **unchanged** — only the crossing predicate changed. Also added
+      session-count goals (the project owner's own example, "run 2
+      times," was a count, not a minutes threshold — a shape that didn't
+      exist before) via five new `WeeklyGoalTargetMetric` values rather
+      than a new column, and a `PlayerGoalProgress.exclusionReason` field
+      — a real privacy finding surfaced during design, not assumed safe:
+      a teammate's consent-pending/revoked state is gated captain-only,
+      mirroring `PlayersService.getRoster`'s existing pattern. Departed/
+      erased players (`docs/adr/0013-account-erasure.md` Decision 6) are
+      excluded from the check for free, via the same live-roster query
+      the pooled formula already used, not a new mechanism.
+- [x] **ux-designer**: `docs/design/phase2.10-per-player-goal-flows.md` +
+      a companion mockup. Redesigned `GoalCard` to lead with "X av Y
+      lagkamrater klara," a new per-teammate status screen (G1D — three
+      roster-ordered sections, never re-sorted, to avoid an implicit
+      ranking), and a minutes/sessions toggle on the goal builder.
+      Also caught and fixed a real pre-existing gap unrelated to this
+      change: the "Laget" tab fetched `dashboard.weeklyGoal` but never
+      rendered it at all.
+- [x] **backend-developer**: implemented all of the above against
+      `weekly-goal.service.ts`/`weekly-goal-target-metric.enum.ts`,
+      updated `api/phase2-contract.md` for the (deliberately) breaking
+      contract change (`progressMinutes` renamed `teamBonusBasisMinutes`
+      rather than reused with new meaning, so an un-updated client fails
+      a type check instead of silently rendering a stale number under a
+      misleading label). 267/267 backend unit tests.
+- [x] **frontend-developer**: wired the mobile client to the new
+      contract — `GoalCard` redesign, the new G1D screen, the K1 gap fix,
+      the goal-builder unit toggle. Clean `tsc --noEmit`, `expo-doctor`
+      18/18.
+- [x] **code-critic**: full-diff review, one real finding —
+      **CONFIRMED**: `backend/test/phase2.e2e-spec.ts`'s two
+      goal-completion-bonus e2e tests still asserted the *old* pooled-sum
+      crossing behavior and were genuinely failing against the new code
+      (verified directly, not taken on the reviewer's word: `2 failed, 18
+      passed`). Fixed: both tests rewritten so every eligible player
+      individually reaches `targetValue` before asserting the bonus
+      fires. The first fix attempt had its own bug, caught before
+      considering this closed: the concurrency test's captain logged
+      *before* the 10 team members existed, briefly making the captain
+      the only eligible player and completing the goal prematurely —
+      fixed by creating the full roster before anyone logs. Everything
+      else code-critic checked (the vacuous-truth guard, the
+      `exclusionReason` gating, the unchanged bonus transaction, the new
+      session-count query branching, the `Europe/Stockholm`-aware
+      mid-week-joiner check, roster-order preservation on the frontend)
+      came back clean, independently confirmed. Final state: 267/267
+      backend unit tests, 20/20 e2e (`phase2.e2e-spec.ts`), mobile
+      typecheck and `expo-doctor` clean — every number in this entry was
+      re-run by the orchestrating session, not just reported.
+
+Shipped as one commit (backend + mobile together, per the ADR's own
+"no partial deploy" requirement for a breaking contract change), merged
+to `prerelease`.
+
 ## Phase 2.5 — Verify and Security check ("Fas 2.5")
 
 This phase is a deliberate pause after the Phase 2 pivot, to let the
