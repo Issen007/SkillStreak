@@ -7,7 +7,7 @@ import { SecondaryButton } from '../../components/SecondaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import type { GoalBuilderData } from '../types';
+import { targetUnitForMetric, type GoalBuilderData } from '../types';
 
 interface KB4Props {
   data: GoalBuilderData;
@@ -47,12 +47,15 @@ export function KB4Review({
       <GoalCard
         title={data.title}
         description={data.description}
-        progressMinutes={0}
-        targetValue={data.targetValue ?? 0}
-        percentComplete={0}
-        endDate={data.endDate}
-        goalMet={false}
         targetMetric={data.targetMetric ?? 'total-minuter'}
+        targetUnit={targetUnitForMetric(data.targetMetric ?? 'total-minuter')}
+        targetValue={data.targetValue ?? 0}
+        eligiblePlayerCount={0}
+        completedPlayerCount={0}
+        percentComplete={0}
+        goalMet={false}
+        endDate={data.endDate}
+        isPreview
       />
 
       {errorText ? <Text style={styles.error}>{errorText}</Text> : null}

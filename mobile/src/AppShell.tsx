@@ -73,6 +73,12 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [teamId, setTeamId] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
+  // Screen K1's "Se vem som är klar →" shortcut (Fas 2.10) needs the "Mål"
+  // tab to mount straight onto Screen G1D, not G1's card — this tracks
+  // that one-shot intent. Reset to 'card' on every *manual* tab-bar tap
+  // (see `handleTabSelect`) so a later plain "Mål" tap doesn't
+  // accidentally reopen G1D from a stale value.
+  const [goalTabInitialView, setGoalTabInitialView] = useState<'card' | 'detail'>('card');
   const [catchUpBanner, setCatchUpBanner] = useState<{ awardedPoints: number } | null>(null);
   const [captainBanner, setCaptainBanner] = useState<CaptainBannerState | null>(null);
   const [chatUnread, setChatUnread] = useState(false);
@@ -249,7 +255,22 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
     void runForegroundChecks();
   }, [runForegroundChecks]);
 
-  const handleNavigateToGoalTab = useCallback(() => setActiveTab('goal'), []);
+  const handleNavigateToGoalTab = useCallback(() => {
+    setGoalTabInitialView('card');
+    setActiveTab('goal');
+  }, []);
+
+  const handleSeeGoalDetail = useCallback(() => {
+    setGoalTabInitialView('detail');
+    setActiveTab('goal');
+  }, []);
+
+  // Manual tab-bar taps always land on G1's card, never on a stale 'detail'
+  // left over from a previous "Se vem som är klar" shortcut tap.
+  const handleTabSelect = useCallback((tab: TabKey) => {
+    if (tab === 'goal') setGoalTabInitialView('card');
+    setActiveTab(tab);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -291,7 +312,7 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
 
         {activeTab === 'goal' ? (
           teamId ? (
-            <GoalScreen teamId={teamId} />
+            <GoalScreen teamId={teamId} initialView={goalTabInitialView} />
           ) : (
             <View style={styles.centered}>
               <ActivityIndicator color={colors.flame} size="large" />
@@ -305,6 +326,7 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
               teamId={teamId}
               viewerPlayerId={playerId}
               onManageGoal={handleNavigateToGoalTab}
+              onSeeGoalDetail={handleSeeGoalDetail}
               onCaptainTransferred={handleCaptainTransferred}
             />
           ) : (
@@ -326,7 +348,7 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
 
       <TabBar
         activeTab={activeTab}
-        onSelect={setActiveTab}
+        onSelect={handleTabSelect}
         goalTabDot={catchUpBanner !== null}
         chatTabDot={chatUnread}
         clipsTabDot={clipsUnread}

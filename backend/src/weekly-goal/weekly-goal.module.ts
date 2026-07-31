@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { Challenge } from '../challenges/entities/challenge.entity';
+import { Player } from '../players/entities/player.entity';
 import { PlayersModule } from '../players/players.module';
 import { Team } from '../teams/entities/team.entity';
 import { TeamPoolModule } from '../team-pool/team-pool.module';
@@ -18,10 +19,16 @@ import { WeeklyGoalService } from './weekly-goal.service';
 // TrainingLogsModule's comment — importing each other back would cycle).
 // Team is registered the same narrow way (not by importing TeamsModule)
 // purely so the dashboard can read the team's own inviteCode — added
-// 2026-07-26 for the "invite a friend" share feature (Laget tab).
+// 2026-07-26 for the "invite a friend" share feature (Laget tab). Player is
+// registered the same way again (not via PlayersModule's own repository) so
+// docs/adr/0015-weekly-goal-per-player-completion.md's eligible-roster
+// query can run inside the *same* transaction/manager as the bonus check
+// (`processGoalBonusForLog`) — PlayersModule is still imported separately
+// for its service-layer checks (assertTeamMembership/assertIsCaptainOfTeam/
+// listByTeam), this is purely the extra repository handle.
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Challenge, TrainingLogEntry, Team]),
+    TypeOrmModule.forFeature([Challenge, TrainingLogEntry, Team, Player]),
     AuthModule,
     PlayersModule,
     TeamPoolModule,

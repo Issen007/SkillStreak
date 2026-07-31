@@ -6,8 +6,13 @@ import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { TARGET_METRIC_OPTIONS, targetMetricLabel } from '../types';
-import type { WeeklyGoalTargetMetric } from '../../api/types';
+import {
+  TARGET_METRIC_OPTIONS,
+  targetMetricLabel,
+  targetUnitForMetric,
+  targetUnitLabel,
+} from '../types';
+import type { WeeklyGoalTargetMetric, WeeklyGoalTargetUnit } from '../../api/types';
 
 interface KB2Props {
   initialTargetMetric: WeeklyGoalTargetMetric | null;
@@ -16,40 +21,97 @@ interface KB2Props {
   onBack: () => void;
 }
 
-/** Screen KB2 — target metric + team-wide target value. */
+const UNIT_PLACEHOLDER: Record<WeeklyGoalTargetUnit, string> = {
+  minutes: 'T.ex. 20',
+  sessions: 'T.ex. 3',
+};
+
+/** Screen KB2 — activity type + per-player target, redesigned 2026-07-31
+ * per docs/adr/0015-weekly-goal-per-player-completion.md +
+ * docs/design/phase2.10-per-player-goal-flows.md: a new unit toggle
+ * (minuter/pass) drives which of the 10 `WeeklyGoalTargetMetric` values
+ * gets submitted, and every string is reworded from "the team's total" to
+ * "each player." */
 export function KB2TargetMetric({
   initialTargetMetric,
   initialTargetValue,
   onNext,
   onBack,
 }: KB2Props) {
-  const [targetMetric, setTargetMetric] = useState<WeeklyGoalTargetMetric | null>(
-    initialTargetMetric,
+  const initialOption = initialTargetMetric
+    ? TARGET_METRIC_OPTIONS.find(
+        (option) =>
+          option.minutesValue === initialTargetMetric || option.sessionsValue === initialTargetMetric,
+      ) ?? null
+    : null;
+
+  const [selectedUnit, setSelectedUnit] = useState<WeeklyGoalTargetUnit>(
+    initialTargetMetric ? targetUnitForMetric(initialTargetMetric) : 'minutes',
+  );
+  const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(
+    initialOption ? TARGET_METRIC_OPTIONS.indexOf(initialOption) : null,
   );
   const [targetValueText, setTargetValueText] = useState(
     initialTargetValue !== null ? String(initialTargetValue) : '',
   );
 
+  const selectedOption = selectedOptionIndex !== null ? TARGET_METRIC_OPTIONS[selectedOptionIndex] : null;
+  const targetMetric =
+    selectedOption !== null
+      ? selectedUnit === 'minutes'
+        ? selectedOption.minutesValue
+        : selectedOption.sessionsValue
+      : null;
   const targetValue = Number.parseInt(targetValueText, 10);
   const canSubmit = targetMetric !== null && Number.isFinite(targetValue) && targetValue > 0;
+  const unitLabel = targetUnitLabel(selectedUnit);
+
+  // Switching units resets the numeric field — a "20" typed while
+  // "Minuter" was selected shouldn't silently become "20 pass" by muscle
+  // memory (the flow doc's explicit guard).
+  const handleSelectUnit = (unit: WeeklyGoalTargetUnit) => {
+    if (unit === selectedUnit) return;
+    setSelectedUnit(unit);
+    setTargetValueText('');
+  };
 
   return (
     <ScreenContainer scroll>
-      <Text style={styles.heading}>Vad ska laget samla ihop — tillsammans?</Text>
+      <Text style={styles.heading}>Vad ska varje spelare klara den här veckan?</Text>
       <Text style={styles.sub}>
-        Vi räknar allas loggade träningstid, inte antal moves — så välj den typ av träning som
-        passar bäst.
+        Varje spelare i laget behöver nå målet på egen hand — välj om det räknas i minuter eller
+        pass, och vilken typ av träning som gäller.
       </Text>
 
+      <View style={styles.unitRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: selectedUnit === 'minutes' }}
+          onPress={() => handleSelectUnit('minutes')}
+          style={[styles.unitPill, selectedUnit === 'minutes' && styles.unitPillSelected]}
+        >
+          <Text style={styles.unitPillLabel}>⏱️ Minuter</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: selectedUnit === 'sessions' }}
+          onPress={() => handleSelectUnit('sessions')}
+          style={[styles.unitPill, selectedUnit === 'sessions' && styles.unitPillSelected]}
+        >
+          <Text style={styles.unitPillLabel}>🔁 Antal pass</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.unitHelper}>Ett pass = en loggad träning, oavsett hur lång den var.</Text>
+
       <View style={styles.chipRow}>
-        {TARGET_METRIC_OPTIONS.map((option) => {
-          const selected = option.value === targetMetric;
+        {TARGET_METRIC_OPTIONS.map((option, index) => {
+          const selected = index === selectedOptionIndex;
           return (
             <Pressable
-              key={option.value}
+              key={option.label}
               accessibilityRole="button"
               accessibilityState={{ selected }}
-              onPress={() => setTargetMetric(option.value)}
+              onPress={() => setSelectedOptionIndex(index)}
               style={[styles.chip, selected && styles.chipSelected]}
             >
               <Text style={styles.chipEmoji}>{option.icon}</Text>
@@ -59,21 +121,23 @@ export function KB2TargetMetric({
         })}
       </View>
 
-      <Text style={styles.label}>Mål (minuter, hela lagets summa)</Text>
+      <Text style={styles.label}>Mål per spelare ({unitLabel})</Text>
       <TextInput
         keyboardType="number-pad"
-        placeholder="T.ex. 600"
+        placeholder={UNIT_PLACEHOLDER[selectedUnit]}
         placeholderTextColor={colors.textMuted}
         value={targetValueText}
         onChangeText={setTargetValueText}
         style={styles.input}
       />
-      <Text style={styles.helper}>Det här är hela lagets totalsumma, inte per spelare.</Text>
+      <Text style={styles.helper}>
+        Det här är målet varje spelare behöver nå på egen hand — inte lagets totalsumma.
+      </Text>
 
       {targetMetric && canSubmit ? (
         <View style={styles.previewCallout}>
           <Text style={styles.previewText}>
-            Laget försöker tillsammans samla {targetValue} minuter{' '}
+            Varje spelare i laget behöver samla {targetValue} {unitLabel}{' '}
             {targetMetricLabel(targetMetric).toLowerCase()} innan målet slutar.
           </Text>
         </View>
@@ -103,6 +167,33 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: colors.textMuted,
     textAlign: 'center',
+  },
+  unitRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  unitPill: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  unitPillSelected: {
+    borderColor: colors.gold,
+    backgroundColor: '#FFF7E0',
+  },
+  unitPillLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  unitHelper: {
+    fontFamily: fonts.body,
+    fontSize: 11.5,
+    color: colors.textMuted,
   },
   chipRow: {
     flexDirection: 'row',
