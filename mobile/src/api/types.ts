@@ -500,6 +500,24 @@ export type ChatReportReason =
   | 'spam'
   | 'other';
 
+/** ADR-0017 (2026-07-31) — the nullable `clip` block on both `POST
+ * .../chat/messages`'s response and `GET .../chat/messages`'s rows. Every
+ * field here is resolved *live*, per request, from the clip's current row
+ * (Decision 2) — never a snapshot. `null` on the `GET` shape collapses
+ * every one of "never had a clipId," "clip self-deleted/expired,"
+ * "clip report-hidden," and "viewer has blocked the uploader" into the
+ * identical value — the client cannot and should not try to tell these
+ * apart (see `ClipUnavailablePlaceholder`). */
+export interface MessageClipEmbed {
+  clipId: string;
+  uploaderPlayerId: string;
+  uploaderScreenName: string;
+  uploaderAvatarId: string;
+  caption: string | null;
+  playbackUrl: string;
+  createdAt: string;
+}
+
 /** endpoint 2, `GET .../chat/messages` row shape — also the shape of
  * endpoint 1's `POST .../chat/messages` response, minus `reportedByMe`
  * (a message the sender just posted couldn't have been reported by them
@@ -510,6 +528,7 @@ export interface ChatMessage {
   senderScreenName: string;
   senderAvatarId: string;
   content: string;
+  clip: MessageClipEmbed | null;
   createdAt: string;
   reportedByMe: boolean;
 }
@@ -520,6 +539,9 @@ export interface ChatMessagesResponse {
 
 export interface PostChatMessageRequest {
   content: string;
+  // ADR-0017 Decision 5 — must resolve to a `published` clip on this team;
+  // `404 clip_not_found` otherwise. Omitted entirely for a text-only send.
+  clipId?: string;
 }
 
 export interface PostChatMessageResponse {
@@ -529,6 +551,10 @@ export interface PostChatMessageResponse {
   senderScreenName: string;
   senderAvatarId: string;
   content: string;
+  // Always populated when `clipId` was sent and accepted; `null` only when
+  // no `clipId` was sent (ADR-0017 Decision 5) — the send response never
+  // returns the "unavailable" null-for-another-reason case `GET` can.
+  clip: MessageClipEmbed | null;
   createdAt: string;
 }
 

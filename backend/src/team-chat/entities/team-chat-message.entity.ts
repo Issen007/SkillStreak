@@ -42,6 +42,21 @@ export class TeamChatMessage {
   @Column({ type: 'varchar', length: 500 })
   content!: string;
 
+  // docs/adr/0017-chat-clip-attachments.md Decision 4 — a plain, single-
+  // column, nullable FK to video_clip.id, ON DELETE SET NULL at the DB
+  // level (see the AddChatClipAttachments migration). Deliberately NOT part
+  // of a composite FK with team_id (Decision 1 explains why that would be
+  // wrong — a clip's own hard-delete would then null this message's own
+  // team_id too). Team-scoping of this reference is enforced entirely in
+  // application code: TeamChatService.postMessage asserts
+  // clip.teamId === teamId at write time, and the read-time query's join
+  // predicate re-asserts it (plus clip.status === 'published') on every
+  // read — never trust this column alone. No other clip data (caption,
+  // uploader, thumbnail) is ever stored on this row (Decision 2) — every
+  // read resolves the embed live from the current VideoClip row.
+  @Column({ name: 'clip_id', type: 'uuid', nullable: true })
+  clipId!: string | null;
+
   @Column({
     type: 'enum',
     enum: ChatMessageStatus,

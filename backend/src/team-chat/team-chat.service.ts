@@ -12,6 +12,7 @@ import {
   ChatMessageRejectedByFilterException,
   ChatReportRateLimitedException,
   ChatSendRateLimitedException,
+  ClipNotFoundException,
   ConsentRequiredException,
   TeamJoinApprovalRequiredException,
   TeamMismatchException,
@@ -19,6 +20,7 @@ import {
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
 import { buildChatReportNotificationEmail } from '../mail/templates/chat-report-notification-email.template';
 import { MailService } from '../mail/mail.service';
+import { Player } from '../players/entities/player.entity';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
 import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { PlayersService } from '../players/players.service';
@@ -27,6 +29,12 @@ import { Coach } from '../coaches/entities/coach.entity';
 import { TeamCoach } from '../teams/entities/team-coach.entity';
 import { TeamsService } from '../teams/teams.service';
 import { RedisService } from '../redis/redis.service';
+import { ObjectStorageService } from '../video-clips/object-storage.service';
+import { CLIP_PLAYBACK_URL_EXPIRES_SECONDS } from '../video-clips/video-clip.constants';
+import {
+  VideoClip,
+  VideoClipStatus,
+} from '../video-clips/entities/video-clip.entity';
 import type { ChatModerationCheck } from './chat-moderation-check.interface';
 import { CHAT_MODERATION_CHECK } from './chat-moderation-check.interface';
 import { BlockChatPlayerDto } from './dto/block-chat-player.dto';
@@ -67,6 +75,21 @@ function assertTeamJoinApproved(status: TeamJoinStatus): void {
   }
 }
 
+// docs/adr/0017-chat-clip-attachments.md Decision 5 — the nullable `clip`
+// block on both the send response and the list response. Nothing here is
+// ever a snapshot: every field is resolved live, per request, from the
+// clip's *current* row (Decision 2) — this interface shape is what that
+// live resolution produces, not what's stored anywhere.
+export interface ChatClipEmbed {
+  clipId: string;
+  uploaderPlayerId: string;
+  uploaderScreenName: string;
+  uploaderAvatarId: string;
+  caption: string | null;
+  playbackUrl: string;
+  createdAt: string;
+}
+
 export interface ChatMessageResponse {
   id: string;
   teamId: string;
@@ -74,6 +97,11 @@ export interface ChatMessageResponse {
   senderScreenName: string;
   senderAvatarId: string;
   content: string;
+  // Always populated when a clipId was sent and accepted (it was just
+  // validated as `published` one query earlier in the same request); null
+  // only when no clipId was sent (ADR-0017 Decision 5). The `null`-on-
+  // unavailable case only ever arises later, on GET.
+  clip: ChatClipEmbed | null;
   createdAt: string;
 }
 
@@ -88,8 +116,27 @@ export interface ChatMessageListItem {
   senderScreenName: string | null;
   senderAvatarId: string | null;
   content: string;
+  // Null whenever: the message never had a clipId; the referenced clip is
+  // gone (self-deleted/expired); the referenced clip is hidden; or the
+  // viewer has blocked the clip's uploader (ADR-0017 Decision 2). The
+  // client cannot and should not try to distinguish these — one
+  // placeholder, always.
+  clip: ChatClipEmbed | null;
   createdAt: string;
   reportedByMe: boolean;
+}
+
+// Raw columns selected alongside the hydrated TeamChatMessage entity by
+// listMessages's LEFT JOIN (ADR-0017 Decision 1/2) — see
+// resolveClipEmbedFromRawRow. All null together whenever the join predicate
+// excluded the row (no clipId, wrong team, not published, or the viewer has
+// blocked the uploader).
+interface ChatMessageClipRawRow {
+  clipId: string | null;
+  clipUploaderPlayerId: string | null;
+  clipStorageKey: string | null;
+  clipCaption: string | null;
+  clipCreatedAt: Date | string | null;
 }
 
 export interface ChatReportResponse {
@@ -125,6 +172,13 @@ export class TeamChatService {
     private readonly teamsService: TeamsService,
     private readonly redisService: RedisService,
     private readonly mailService: MailService,
+    // docs/adr/0017-chat-clip-attachments.md — team-chat/'s first
+    // dependency on video-clips/, one-directional and read-only, scoped to
+    // exactly the loaded-row (postMessage) / join-predicate (listMessages)
+    // checks Decision 1 describes, plus reusing the same presigned-GET
+    // mechanism the clip feed already uses (Decision 5's "reuse whatever
+    // presigning mechanism the feed endpoint already uses").
+    private readonly objectStorageService: ObjectStorageService,
     @Inject(CHAT_MODERATION_CHECK)
     private readonly chatModerationCheck: ChatModerationCheck,
     @InjectRepository(TeamChatMessage)
@@ -137,19 +191,35 @@ export class TeamChatService {
     private readonly teamCoachRepository: Repository<TeamCoach>,
     @InjectRepository(Coach)
     private readonly coachRepository: Repository<Coach>,
+    @InjectRepository(VideoClip)
+    private readonly videoClipRepository: Repository<VideoClip>,
   ) {}
 
   /**
-   * docs/api/phase2.6b-contract.md endpoint 1. Order: team membership ->
-   * consent gate (same check/error as POST /training-logs, per ADR-0007's
-   * extension of ADR-0002 addendum §2) -> the send-rate-limit allowance ->
-   * the moderation check -> persist. The rate limit is claimed *before* the
-   * moderation check runs (a deliberate choice, not specified by the
-   * contract): otherwise an attacker could send unlimited filter-probing
-   * junk with zero cost as long as every attempt gets rejected, using this
-   * endpoint to reverse-engineer the wordlist for free. Charging the
-   * allowance for every *attempt* (accepted or filtered) is the more
-   * conservative, abuse-resistant order.
+   * docs/api/phase2.6b-contract.md endpoint 1 / docs/adr/0017-chat-clip-
+   * attachments.md Decision 5. Order: team membership -> consent gate (same
+   * check/error as POST /training-logs, per ADR-0007's extension of
+   * ADR-0002 addendum §2) -> team-join-approval gate -> **new**: if
+   * `clipId` is present, resolve + validate it (ADR-0017 Decision 1 —
+   * loaded-row team+published check, 404 clip_not_found either way, merged
+   * so this can't be used as a cross-team existence oracle) -> **new**: the
+   * combined "content or clipId, not neither" 400 (ADR-0017 Decision 4) ->
+   * the send-rate-limit allowance -> the moderation check -> persist. The
+   * new clip checks run *before* the rate-limit claim and the moderation
+   * check, matching the ADR's explicit "clip resolution before an invalid
+   * reference could spend a moderation check on text that would be
+   * discarded anyway." The *existing* rate-limit-claimed-before-moderation
+   * relationship itself is untouched (ADR-0017 says both are "unchanged") —
+   * that ordering is a deliberate ADR-0007 anti-abuse property (see below),
+   * not something this ADR revisits.
+   *
+   * The rate limit is claimed *before* the moderation check runs (a
+   * deliberate choice, not specified by either contract): otherwise an
+   * attacker could send unlimited filter-probing junk with zero cost as
+   * long as every attempt gets rejected, using this endpoint to
+   * reverse-engineer the wordlist for free. Charging the allowance for
+   * every *attempt* (accepted or filtered) is the more conservative,
+   * abuse-resistant order.
    */
   async postMessage(
     teamId: string,
@@ -163,6 +233,34 @@ export class TeamChatService {
     assertConsentApproved(player.parentalConsentStatus);
     assertTeamJoinApproved(player.teamJoinStatus);
 
+    let clip: VideoClip | null = null;
+    if (dto.clipId) {
+      clip = await this.videoClipRepository.findOne({
+        where: {
+          id: dto.clipId,
+          teamId,
+          status: VideoClipStatus.PUBLISHED,
+        },
+      });
+      if (!clip) {
+        // Deliberately the same generic 404 as
+        // docs/api/phase3-contract.md's own clip_not_found — merges "no
+        // such clip," "wrong team," and "not published yet" into one
+        // response (ADR-0017 Decision 1).
+        throw new ClipNotFoundException();
+      }
+    }
+
+    // ADR-0017 Decision 4 — "a message must contain at least one of
+    // non-empty content or a clipId; both absent/empty is 400." dto.content
+    // is already trimmed by the DTO's own @Transform, so an empty string
+    // here means "empty or whitespace-only as submitted."
+    if (!dto.content && !clip) {
+      throw new BadRequestException(
+        'content must be non-empty unless clipId is present.',
+      );
+    }
+
     const claimed =
       await this.redisService.tryClaimChatSendAllowance(requesterId);
     if (!claimed) {
@@ -172,7 +270,9 @@ export class TeamChatService {
     const moderation = await this.chatModerationCheck.check(dto.content);
     if (!moderation.allowed) {
       // Never partially stored/redacted — the message either sends as
-      // written or doesn't send at all (ADR-0007 Decision 2).
+      // written or doesn't send at all (ADR-0007 Decision 2). Never
+      // re-checks a clip's own caption — that was already moderation-
+      // checked at upload time (ADR-0017 Decision 5).
       throw new ChatMessageRejectedByFilterException();
     }
 
@@ -181,6 +281,7 @@ export class TeamChatService {
         teamId,
         senderPlayerId: requesterId,
         content: dto.content,
+        clipId: clip?.id ?? null,
         status: ChatMessageStatus.VISIBLE,
       }),
     );
@@ -192,21 +293,39 @@ export class TeamChatService {
       senderScreenName: player.screenName,
       senderAvatarId: player.avatarId,
       content: message.content,
+      clip: clip ? await this.buildClipEmbed(clip) : null,
       createdAt: message.createdAt.toISOString(),
     };
   }
 
   /**
-   * docs/api/phase2.6b-contract.md endpoint 2. The status filter
-   * (`!= 'hidden'`) and the per-viewer block filter (`NOT EXISTS` against
-   * TeamChatBlock scoped to the requester) are applied in this single
-   * query — the one thing ADR-0007 Decision 5 / the contract's implementer
-   * note is explicit must not be two layered post-processing passes, since
-   * that's the one place a future refactor could silently drop a filter and
-   * leak a blocked/hidden message. Sender enrichment (screenName/avatarId)
-   * and `reportedByMe` are deliberately separate follow-up queries — the
-   * contract's "one query" requirement is specifically about visibility,
-   * not about every field in the response.
+   * docs/api/phase2.6b-contract.md endpoint 2 / docs/adr/0017-chat-clip-
+   * attachments.md Decisions 1-2. The status filter (`!= 'hidden'`) and the
+   * per-viewer block filter on the *message's own sender* (`NOT EXISTS`
+   * against TeamChatBlock scoped to the requester) are applied in this
+   * single query — the one thing ADR-0007 Decision 5 / the contract's
+   * implementer note is explicit must not be two layered post-processing
+   * passes, since that's the one place a future refactor could silently
+   * drop a filter and leak a blocked/hidden message.
+   *
+   * The clip embed is resolved via a `LEFT JOIN` whose predicate itself
+   * encodes every visibility rule for the attachment — `clip.team_id =
+   * message.team_id`, `clip.status = 'published'`, and a second, *clip-
+   * uploader-scoped* `NOT EXISTS` against TeamChatBlock (extending the same
+   * per-viewer block precedent to the embed, ADR-0017 Decision 2) — all in
+   * the same query as the join itself, not a bare id join followed by an
+   * app-level filter (ADR-0017 Decision 1's "structural, not a code-review
+   * reminder" bar). A row's clip columns come back entirely null whenever
+   * any one of those conditions fails, and `resolveClipEmbedFromRawRow`
+   * below collapses every such case to the identical `clip: null` — the
+   * client cannot and should not distinguish "no clipId," "clip deleted/
+   * expired," "clip hidden," or "uploader blocked" (Decision 2).
+   *
+   * Sender enrichment (screenName/avatarId), `reportedByMe`, and the clip
+   * embed's own uploader lookup/presigned URL are deliberately separate
+   * follow-up steps — the contract's "one query" requirement is
+   * specifically about *visibility* (which rows/attachments are even
+   * allowed to be seen), not about every field in the response.
    */
   async listMessages(
     teamId: string,
@@ -218,6 +337,24 @@ export class TeamChatService {
 
     const qb = this.messageRepository
       .createQueryBuilder('message')
+      .leftJoin(
+        VideoClip,
+        'clip',
+        `clip.id = message.clip_id
+           AND clip.team_id = message.team_id
+           AND clip.status = :clipStatus
+           AND NOT EXISTS (
+             SELECT 1 FROM team_chat_block clip_block
+             WHERE clip_block.blocker_player_id = :requesterId
+               AND clip_block.blocked_player_id = clip.uploader_player_id
+           )`,
+        { clipStatus: VideoClipStatus.PUBLISHED, requesterId },
+      )
+      .addSelect('clip.id', 'clipId')
+      .addSelect('clip.uploader_player_id', 'clipUploaderPlayerId')
+      .addSelect('clip.storage_key', 'clipStorageKey')
+      .addSelect('clip.caption', 'clipCaption')
+      .addSelect('clip.created_at', 'clipCreatedAt')
       .where('message.team_id = :teamId', { teamId })
       .andWhere('message.status = :status', {
         status: ChatMessageStatus.VISIBLE,
@@ -237,14 +374,17 @@ export class TeamChatService {
 
     qb.orderBy('message.created_at', 'ASC').limit(limit);
 
-    const messages = await qb.getMany();
+    const { entities: messages, raw } = await qb.getRawAndEntities();
     if (messages.length === 0) {
       return [];
     }
 
-    // Sender enrichment: listByTeam is a full-team read, fine at this
-    // project's repeatedly-stated "a handful of players" scale (same
-    // reasoning WeeklyGoalService's roster/dashboard already rely on).
+    // Sender/uploader enrichment: listByTeam is a full-team read, fine at
+    // this project's repeatedly-stated "a handful of players" scale (same
+    // reasoning WeeklyGoalService's roster/dashboard already rely on) — a
+    // clip's uploader is always a current team member too (same guarantee
+    // VideoClipsService.listClips already relies on), so this one roster
+    // read covers both.
     const players = await this.playersService.listByTeam(teamId);
     const playerById = new Map(players.map((p) => [p.id, p]));
 
@@ -254,46 +394,127 @@ export class TeamChatService {
     });
     const reportedMessageIds = new Set(myReports.map((r) => r.messageId));
 
-    return messages.map((message) => {
-      // docs/adr/0013-account-erasure.md Decision 6 — a message whose
-      // sender has since erased their account has sender_player_id = null
-      // (set in the same transaction that deletes their Player row), by
-      // construction never a *dangling* reference to a since-deleted
-      // player id. Rendered as an anonymized entry, not an error.
-      if (message.senderPlayerId === null) {
+    return Promise.all(
+      messages.map(async (message, index) => {
+        const clip = await this.resolveClipEmbedFromRawRow(
+          raw[index] as ChatMessageClipRawRow,
+          teamId,
+          playerById,
+        );
+
+        // docs/adr/0013-account-erasure.md Decision 6 — a message whose
+        // sender has since erased their account has sender_player_id = null
+        // (set in the same transaction that deletes their Player row), by
+        // construction never a *dangling* reference to a since-deleted
+        // player id. Rendered as an anonymized entry, not an error.
+        if (message.senderPlayerId === null) {
+          return {
+            id: message.id,
+            senderPlayerId: null,
+            senderScreenName: null,
+            senderAvatarId: null,
+            content: message.content,
+            clip,
+            createdAt: message.createdAt.toISOString(),
+            reportedByMe: reportedMessageIds.has(message.id),
+          };
+        }
+
+        const sender = playerById.get(message.senderPlayerId);
+        if (!sender) {
+          // Can't occur given the API contract: a message's sender is
+          // either null (anonymized, handled above) or whoever posted it,
+          // which postMessage only ever allows for a current team member,
+          // and a player row is never deleted without first nulling every
+          // message it sent (AccountErasureService). Surfaced as a 500, not
+          // defended against as normal client input.
+          throw new Error(
+            `TeamChatMessage ${message.id} references sender ${message.senderPlayerId} not found on team ${teamId}`,
+          );
+        }
         return {
           id: message.id,
-          senderPlayerId: null,
-          senderScreenName: null,
-          senderAvatarId: null,
+          senderPlayerId: message.senderPlayerId,
+          senderScreenName: sender.screenName,
+          senderAvatarId: sender.avatarId,
           content: message.content,
+          clip,
           createdAt: message.createdAt.toISOString(),
           reportedByMe: reportedMessageIds.has(message.id),
         };
-      }
+      }),
+    );
+  }
 
-      const sender = playerById.get(message.senderPlayerId);
-      if (!sender) {
-        // Can't occur given the API contract: a message's sender is either
-        // null (anonymized, handled above) or whoever posted it, which
-        // postMessage only ever allows for a current team member, and a
-        // player row is never deleted without first nulling every message
-        // it sent (AccountErasureService). Surfaced as a 500, not defended
-        // against as normal client input.
-        throw new Error(
-          `TeamChatMessage ${message.id} references sender ${message.senderPlayerId} not found on team ${teamId}`,
-        );
-      }
-      return {
-        id: message.id,
-        senderPlayerId: message.senderPlayerId,
-        senderScreenName: sender.screenName,
-        senderAvatarId: sender.avatarId,
-        content: message.content,
-        createdAt: message.createdAt.toISOString(),
-        reportedByMe: reportedMessageIds.has(message.id),
-      };
-    });
+  /**
+   * docs/adr/0017-chat-clip-attachments.md Decision 5 — builds the `clip`
+   * embed for `POST .../chat/messages`'s response, from an already-loaded,
+   * already-validated `VideoClip` row (postMessage just confirmed
+   * `teamId`/`published` one query earlier in the same request, so no
+   * re-check is needed here). Reuses `ObjectStorageService`'s presigned-GET
+   * mechanism, identical to the clip feed's own (never cached/reused across
+   * requests, per ADR-0010 Decision 2).
+   */
+  private async buildClipEmbed(clip: VideoClip): Promise<ChatClipEmbed> {
+    const uploader = await this.playersService.findByIdOrThrow(
+      clip.uploaderPlayerId,
+    );
+    const playbackUrl = await this.objectStorageService.createPresignedGetUrl(
+      clip.storageKey,
+      CLIP_PLAYBACK_URL_EXPIRES_SECONDS,
+    );
+    return {
+      clipId: clip.id,
+      uploaderPlayerId: clip.uploaderPlayerId,
+      uploaderScreenName: uploader.screenName,
+      uploaderAvatarId: uploader.avatarId,
+      caption: clip.caption,
+      playbackUrl,
+      createdAt: clip.createdAt.toISOString(),
+    };
+  }
+
+  /**
+   * docs/adr/0017-chat-clip-attachments.md Decision 2 — collapses
+   * `listMessages`'s joined raw clip columns into the response's `clip`
+   * field. `row.clipId` is null whenever the join predicate excluded the
+   * row for *any* reason (no clipId on the message, wrong team, not
+   * published, or the viewer has blocked the clip's uploader) — this method
+   * doesn't and can't distinguish which, by construction, matching the
+   * contract's "one placeholder, always."
+   */
+  private async resolveClipEmbedFromRawRow(
+    row: ChatMessageClipRawRow,
+    teamId: string,
+    playerById: Map<string, Player>,
+  ): Promise<ChatClipEmbed | null> {
+    if (!row.clipId) {
+      return null;
+    }
+    const uploader = playerById.get(row.clipUploaderPlayerId as string);
+    if (!uploader) {
+      // Can't occur given the API contract: the join predicate already
+      // confirmed this clip belongs to `teamId`, and every clip's uploader
+      // is a current member of the team it was uploaded to (same guarantee
+      // VideoClipsService.listClips already relies on for its own identical
+      // guard). Surfaced as a 500, not defended against as normal input.
+      throw new Error(
+        `VideoClip ${row.clipId} references uploader ${row.clipUploaderPlayerId} not found on team ${teamId}`,
+      );
+    }
+    const playbackUrl = await this.objectStorageService.createPresignedGetUrl(
+      row.clipStorageKey as string,
+      CLIP_PLAYBACK_URL_EXPIRES_SECONDS,
+    );
+    return {
+      clipId: row.clipId,
+      uploaderPlayerId: uploader.id,
+      uploaderScreenName: uploader.screenName,
+      uploaderAvatarId: uploader.avatarId,
+      caption: row.clipCaption,
+      playbackUrl,
+      createdAt: new Date(row.clipCreatedAt as string).toISOString(),
+    };
   }
 
   /**

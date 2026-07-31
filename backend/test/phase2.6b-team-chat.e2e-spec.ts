@@ -16,9 +16,23 @@ import {
   ChatMessageStatus,
   TeamChatMessage,
 } from '../src/team-chat/entities/team-chat-message.entity';
+import {
+  VideoClip,
+  VideoClipStatus,
+} from '../src/video-clips/entities/video-clip.entity';
 
 interface ApiErrorBody {
   error: { code: string; message: string };
+}
+
+interface ChatClipEmbedBody {
+  clipId: string;
+  uploaderPlayerId: string;
+  uploaderScreenName: string;
+  uploaderAvatarId: string;
+  caption: string | null;
+  playbackUrl: string;
+  createdAt: string;
 }
 
 interface ChatMessageBody {
@@ -28,6 +42,7 @@ interface ChatMessageBody {
   senderScreenName: string;
   senderAvatarId: string;
   content: string;
+  clip: ChatClipEmbedBody | null;
   createdAt: string;
 }
 
@@ -36,6 +51,7 @@ interface ChatMessageListItemBody {
   senderPlayerId: string;
   senderScreenName: string;
   content: string;
+  clip: ChatClipEmbedBody | null;
   createdAt: string;
   reportedByMe: boolean;
 }
@@ -111,6 +127,31 @@ describe('Fas 2.6b: team chat (e2e)', () => {
       player.tokenVersion,
     );
     return { playerId: player.id, sessionToken };
+  }
+
+  /** Direct-insert helper, mirroring phase3-video-clips.e2e-spec.ts's
+   * identically-named fixture — a plausible-looking storageKey is fine
+   * here since these tests never mint a real object, only presigned GET
+   * request signatures. */
+  async function createPublishedClip(
+    teamId: string,
+    uploaderPlayerId: string,
+    overrides: Partial<{ caption: string | null }> = {},
+  ) {
+    return dataSource.getRepository(VideoClip).save(
+      dataSource.getRepository(VideoClip).create({
+        teamId,
+        uploaderPlayerId,
+        taggedPlayerId: null,
+        storageKey: `clips/${teamId}/${randomUUID()}.mp4`,
+        mimeType: 'video/mp4',
+        fileSizeBytes: 1000,
+        durationSeconds: 10,
+        caption: overrides.caption ?? 'Zorro-fint #47!',
+        status: VideoClipStatus.PUBLISHED,
+        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      }),
+    );
   }
 
   describe('POST /chat/messages', () => {
@@ -476,6 +517,241 @@ describe('Fas 2.6b: team chat (e2e)', () => {
         .delete(`/api/v1/teams/${teamId}/chat/blocks/${targetId}`)
         .set('Authorization', `Bearer ${blockerToken}`)
         .expect(200);
+    });
+  });
+
+  // docs/adr/0017-chat-clip-attachments.md end-to-end coverage — attaching
+  // one of the team's own published Shorts clips to a chat message.
+  describe('POST /chat/messages with clipId (ADR-0017)', () => {
+    it('attaching a valid own-team published clip succeeds and the response includes it', async () => {
+      const teamId = await createTeam();
+      const { sessionToken: senderToken } = await createPlayer(teamId);
+      const { playerId: uploaderId } = await createPlayer(teamId);
+      const clip = await createPublishedClip(teamId, uploaderId, {
+        caption: 'Se den har fintan!',
+      });
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${senderToken}`)
+        .send({ content: 'Kolla klippet!', clipId: clip.id })
+        .expect(201);
+
+      const body = response.body as ChatMessageBody;
+      expect(body.content).toBe('Kolla klippet!');
+      expect(body.clip).toMatchObject({
+        clipId: clip.id,
+        uploaderPlayerId: uploaderId,
+        caption: 'Se den har fintan!',
+      });
+      expect(typeof body.clip?.playbackUrl).toBe('string');
+    });
+
+    it('accepts an empty content string when a valid clipId is present (a clip attached with nothing else to say)', async () => {
+      const teamId = await createTeam();
+      const { sessionToken: senderToken } = await createPlayer(teamId);
+      const { playerId: uploaderId } = await createPlayer(teamId);
+      const clip = await createPublishedClip(teamId, uploaderId);
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${senderToken}`)
+        .send({ content: '', clipId: clip.id })
+        .expect(201);
+
+      expect((response.body as ChatMessageBody).content).toBe('');
+      expect((response.body as ChatMessageBody).clip?.clipId).toBe(clip.id);
+    });
+
+    it('rejects a clipId belonging to another team with 404 clip_not_found', async () => {
+      const teamId = await createTeam();
+      const otherTeamId = await createTeam();
+      const { sessionToken: senderToken } = await createPlayer(teamId);
+      const { playerId: otherUploaderId } = await createPlayer(otherTeamId);
+      const otherTeamClip = await createPublishedClip(
+        otherTeamId,
+        otherUploaderId,
+      );
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${senderToken}`)
+        .send({ content: 'kolla', clipId: otherTeamClip.id })
+        .expect(404);
+      expect((response.body as ApiErrorBody).error.code).toBe('clip_not_found');
+
+      const stored = await dataSource
+        .getRepository(TeamChatMessage)
+        .find({ where: { teamId } });
+      expect(stored).toHaveLength(0);
+    });
+
+    it('rejects a nonexistent clipId with 404 clip_not_found, and rejects a not-yet-published clip on this team the same way', async () => {
+      const teamId = await createTeam();
+      const { sessionToken: senderToken } = await createPlayer(teamId);
+      const { playerId: uploaderId } = await createPlayer(teamId);
+
+      const nonexistent = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${senderToken}`)
+        .send({ content: 'kolla', clipId: randomUUID() })
+        .expect(404);
+      expect((nonexistent.body as ApiErrorBody).error.code).toBe(
+        'clip_not_found',
+      );
+
+      const pendingClip = await dataSource.getRepository(VideoClip).save(
+        dataSource.getRepository(VideoClip).create({
+          teamId,
+          uploaderPlayerId: uploaderId,
+          storageKey: `clips/${teamId}/${randomUUID()}.mp4`,
+          mimeType: 'video/mp4',
+          fileSizeBytes: 1000,
+          durationSeconds: 10,
+          status: VideoClipStatus.PENDING_UPLOAD,
+        }),
+      );
+      const pending = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${senderToken}`)
+        .send({ content: 'kolla', clipId: pendingClip.id })
+        .expect(404);
+      expect((pending.body as ApiErrorBody).error.code).toBe('clip_not_found');
+    });
+
+    it('rejects empty content with no clipId, unchanged, even though content is no longer unconditionally required', async () => {
+      const teamId = await createTeam();
+      const { sessionToken } = await createPlayer(teamId);
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({ content: '' })
+        .expect(400);
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'validation_error',
+      );
+    });
+
+    it("lets any teammate attach any other teammate's published clip, not just their own", async () => {
+      const teamId = await createTeam();
+      const { sessionToken: senderToken } = await createPlayer(teamId);
+      const { playerId: uploaderId } = await createPlayer(teamId);
+      const clip = await createPublishedClip(teamId, uploaderId);
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${senderToken}`)
+        .send({ content: 'utmaning!', clipId: clip.id })
+        .expect(201);
+    });
+  });
+
+  describe('GET /chat/messages — clip embed resolution (ADR-0017)', () => {
+    it('a message referencing a clip that gets deleted afterward renders with clip: null on a subsequent GET', async () => {
+      const teamId = await createTeam();
+      const { sessionToken: senderToken } = await createPlayer(teamId);
+      const { playerId: uploaderId } = await createPlayer(teamId);
+      const clip = await createPublishedClip(teamId, uploaderId);
+
+      const postResponse = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${senderToken}`)
+        .send({ content: 'kolla innan den forsvinner', clipId: clip.id })
+        .expect(201);
+      const messageId = (postResponse.body as ChatMessageBody).id;
+
+      // Simulate the clip's own independent lifecycle — self-delete or the
+      // 90-day retention sweep both hard-delete the VideoClip row, which
+      // fires the FK's ON DELETE SET NULL on team_chat_message.clip_id.
+      await dataSource.getRepository(VideoClip).delete({ id: clip.id });
+
+      const listResponse = await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${senderToken}`)
+        .expect(200);
+      const entry = (
+        listResponse.body as { messages: ChatMessageListItemBody[] }
+      ).messages.find((m) => m.id === messageId);
+      expect(entry?.clip).toBeNull();
+      // The message text itself survives the clip's own deletion unchanged
+      // (ADR-0017 Decision 6 — message immutability is unaffected).
+      expect(entry?.content).toBe('kolla innan den forsvinner');
+    });
+
+    it('a message referencing a clip whose uploader the viewer has blocked renders with clip: null for that viewer only', async () => {
+      const teamId = await createTeam();
+      const { sessionToken: senderToken } = await createPlayer(teamId);
+      const { playerId: uploaderId } = await createPlayer(teamId);
+      const { playerId: viewerId, sessionToken: viewerToken } =
+        await createPlayer(teamId);
+      const { sessionToken: bystanderToken } = await createPlayer(teamId);
+      const clip = await createPublishedClip(teamId, uploaderId);
+
+      const postResponse = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${senderToken}`)
+        .send({ content: 'kolla detta', clipId: clip.id })
+        .expect(201);
+      const messageId = (postResponse.body as ChatMessageBody).id;
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/chat/blocks`)
+        .set('Authorization', `Bearer ${viewerToken}`)
+        .send({ blockedPlayerId: uploaderId })
+        .expect(200);
+
+      const viewerList = await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${viewerToken}`)
+        .expect(200);
+      const viewerEntry = (
+        viewerList.body as { messages: ChatMessageListItemBody[] }
+      ).messages.find((m) => m.id === messageId);
+      // The message text still renders (its own sender isn't blocked) —
+      // only the embed resolves to null for this one viewer.
+      expect(viewerEntry).toBeDefined();
+      expect(viewerEntry?.content).toBe('kolla detta');
+      expect(viewerEntry?.clip).toBeNull();
+
+      const bystanderList = await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${bystanderToken}`)
+        .expect(200);
+      const bystanderEntry = (
+        bystanderList.body as { messages: ChatMessageListItemBody[] }
+      ).messages.find((m) => m.id === messageId);
+      expect(bystanderEntry?.clip?.clipId).toBe(clip.id);
+      void viewerId;
+    });
+
+    it('a message referencing a report-hidden clip renders with clip: null for every viewer', async () => {
+      const teamId = await createTeam();
+      const { sessionToken: senderToken } = await createPlayer(teamId);
+      const { playerId: uploaderId } = await createPlayer(teamId);
+      const clip = await createPublishedClip(teamId, uploaderId);
+
+      const postResponse = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${senderToken}`)
+        .send({ content: 'kolla detta ocksa', clipId: clip.id })
+        .expect(201);
+      const messageId = (postResponse.body as ChatMessageBody).id;
+
+      // Report-driven hide (ADR-0010 Decision 4) is the only other way,
+      // besides deletion, a previously-attached clip stops resolving.
+      await dataSource
+        .getRepository(VideoClip)
+        .update({ id: clip.id }, { status: VideoClipStatus.HIDDEN });
+
+      const listResponse = await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${senderToken}`)
+        .expect(200);
+      const entry = (
+        listResponse.body as { messages: ChatMessageListItemBody[] }
+      ).messages.find((m) => m.id === messageId);
+      expect(entry?.clip).toBeNull();
     });
   });
 });

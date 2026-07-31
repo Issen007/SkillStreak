@@ -288,6 +288,7 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
               teamId={teamId}
               viewerPlayerId={playerId}
               onOpened={() => setChatUnread(false)}
+              onGoToClipsTab={() => setActiveTab('clips')}
             />
           ) : (
             <View style={styles.centered}>

@@ -1,5 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ClipEmbed } from './ClipEmbed';
+import { ClipUnavailablePlaceholder } from './ClipUnavailablePlaceholder';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
@@ -9,19 +11,32 @@ import type { ChatMessage } from '../../api/types';
 interface MessageBubbleProps {
   message: ChatMessage;
   isOwn: boolean;
+  viewerPlayerId: string;
   /** Tap-to-reveal, not long-press (per the flow doc's judgment call 6) —
-   * whether the "🚩 Rapportera" link is currently shown under this
-   * particular message. Only ever true for one message at a time (parent
-   * owns this as a single `revealedMessageId`). */
+   * whether the report link(s) are currently shown under this particular
+   * message. Only ever true for one message at a time (parent owns this
+   * as a single `revealedMessageId`). */
   reportRevealed: boolean;
-  /** Tapping a teammate's message *body* toggles `reportRevealed` for this
-   * message (never available on the viewer's own messages). */
+  /** ADR-0017 Part E's 3-case "clip unavailable" placeholder logic — a
+   * free logical inference plus a per-session "seen with a clip" set,
+   * both computed by `ChatScreen` (needs cross-message/poll-history state
+   * this component doesn't have). */
+  showClipPlaceholder: boolean;
+  /** "Only one embedded clip plays at a time" — whether *this* message's
+   * clip is the currently-active one. */
+  isClipActive: boolean;
+  onClipActivate: () => void;
   onTapBody: () => void;
-  onTapReport: () => void;
+  onTapReportMessage: () => void;
+  onTapReportClip: () => void;
   /** Tapping the avatar/screen name (not the body) opens Screen CH4 — a
    * physically different tap target on purpose, per the flow doc's
    * judgment call 7. Never available on the viewer's own messages. */
   onTapSender: () => void;
+  /** The clip embed's own "Klipp av {uploaderScreenName}" line — a third,
+   * spatially separate tap target opening CH4 for the *clip's* uploader,
+   * per this addendum's judgment call 25. */
+  onTapClipUploader: () => void;
 }
 
 /** Screen CH1's message row. Own messages: right-aligned, `pausedBg`/
@@ -30,17 +45,38 @@ interface MessageBubbleProps {
  * this exact color already appears in docs/design/phase2.6-2.7-mockup.html's
  * own `.msg-row.mine .msg-bubble`, confirmed not to read as alarming here
  * despite also meaning "paused consent" elsewhere in this app — the tone
- * is neutral/soft, not warning-colored, in either context). */
+ * is neutral/soft, not warning-colored, in either context).
+ *
+ * ADR-0017 Part E: text and a clip render together in one bubble (never
+ * either/or), and the tap-to-reveal report zone now shows up to *two*
+ * buttons — "Rapportera meddelandet" and/or "Rapportera klippet" — driven
+ * by "reporting yourself protects no one," applied independently to the
+ * message's sender and the clip's uploader (frequently different people,
+ * since any teammate can attach any team clip). See the flow doc's
+ * decision table; the four booleans below reproduce it exactly. */
 export function MessageBubble({
   message,
   isOwn,
+  viewerPlayerId,
   reportRevealed,
+  showClipPlaceholder,
+  isClipActive,
+  onClipActivate,
   onTapBody,
-  onTapReport,
+  onTapReportMessage,
+  onTapReportClip,
   onTapSender,
+  onTapClipUploader,
 }: MessageBubbleProps) {
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === message.senderAvatarId)?.emoji ?? '🙂';
   const timestamp = formatChatTimestamp(message.createdAt);
+
+  const clip = message.clip;
+  const clipUploaderIsViewer = clip !== null && clip.uploaderPlayerId === viewerPlayerId;
+  const canReportMessage = !isOwn;
+  const canReportClip = clip !== null && !clipUploaderIsViewer;
+  const canReportSomething = canReportMessage || canReportClip;
+  const showAttribution = clip !== null && clip.uploaderPlayerId !== message.senderPlayerId;
 
   return (
     <View style={[styles.row, isOwn ? styles.rowMine : styles.rowTheirs]}>
@@ -52,19 +88,41 @@ export function MessageBubble({
       ) : null}
 
       <Pressable
-        onPress={isOwn ? undefined : onTapBody}
-        accessibilityRole={isOwn ? undefined : 'button'}
+        onPress={canReportSomething ? onTapBody : undefined}
+        accessibilityRole={canReportSomething ? 'button' : undefined}
         style={[styles.bubble, isOwn ? styles.bubbleMine : styles.bubbleTheirs]}
       >
-        <Text style={styles.content}>{message.content}</Text>
+        {message.content ? <Text style={styles.content}>{message.content}</Text> : null}
+
+        {clip ? (
+          <ClipEmbed
+            clip={clip}
+            showAttribution={showAttribution}
+            attributionTappable={clip.uploaderPlayerId !== viewerPlayerId}
+            isActive={isClipActive}
+            onActivate={onClipActivate}
+            onTapAttribution={onTapClipUploader}
+          />
+        ) : showClipPlaceholder ? (
+          <ClipUnavailablePlaceholder />
+        ) : null}
       </Pressable>
 
       <Text style={styles.time}>{timestamp}</Text>
 
       {reportRevealed ? (
-        <Pressable onPress={onTapReport} accessibilityRole="button">
-          <Text style={styles.reportLink}>🚩 Rapportera</Text>
-        </Pressable>
+        <View style={styles.reportRow}>
+          {canReportMessage ? (
+            <Pressable onPress={onTapReportMessage} accessibilityRole="button">
+              <Text style={styles.reportLink}>🚩 Rapportera meddelandet</Text>
+            </Pressable>
+          ) : null}
+          {canReportClip ? (
+            <Pressable onPress={onTapReportClip} accessibilityRole="button">
+              <Text style={styles.reportLink}>🚩 Rapportera klippet</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
     </View>
   );
@@ -101,6 +159,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 9,
     paddingHorizontal: 12,
+    gap: 6,
   },
   bubbleTheirs: {
     backgroundColor: colors.white,
@@ -126,10 +185,14 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     paddingHorizontal: 4,
   },
+  reportRow: {
+    flexDirection: 'row',
+    gap: 14,
+    paddingHorizontal: 4,
+  },
   reportLink: {
     fontFamily: fonts.bodyBold,
     fontSize: 11,
     color: colors.error,
-    paddingHorizontal: 4,
   },
 });
