@@ -781,6 +781,13 @@ describe('Phase 2 API (e2e)', () => {
 
   describe('Goal-completion bonus (ADR-0005 Decision 3, the core Phase 2 mechanic)', () => {
     it('fires exactly once — the crossing log gets the bonus, an earlier log gets null, a later log also gets null', async () => {
+      // ADR-0015: goalMet requires every eligible roster member to
+      // individually reach targetValue, not a pooled team sum — so this
+      // fixture uses exactly two eligible players (the captain and one
+      // team member; the captain is itself an eligible roster row, per
+      // ADR-0015 Decision 2) and has each independently reach the full
+      // target, rather than splitting a shared total across them the way
+      // the old pooled rule allowed.
       const { teamId, potId } = await createTeamFixture();
       const today = stockholmDateString();
       const { sessionToken: captainToken } = await createCaptain(teamId);
@@ -800,25 +807,28 @@ describe('Phase 2 API (e2e)', () => {
         .expect(201);
 
       const { sessionToken: tokenA } = await createTeamMember(teamId);
-      const { sessionToken: tokenB } = await createTeamMember(teamId);
 
-      // First log (20 min): below target — no bonus.
+      // First log: the captain alone reaches 30 — but player A, the other
+      // eligible player, hasn't logged anything yet, so the goal isn't
+      // met yet. No bonus.
       const firstResponse = await request(app.getHttpServer())
         .post('/api/v1/training-logs')
-        .set('Authorization', `Bearer ${tokenA}`)
-        .send({ activityType: 'fitness', durationMinutes: 20 })
+        .set('Authorization', `Bearer ${captainToken}`)
+        .send({ activityType: 'fitness', durationMinutes: 30 })
         .expect(201);
       expect((firstResponse.body as TrainingLogBody).goalBonus).toBeNull();
 
-      // Second log (15 min): team-wide progress is now 35 >= 30 — this is
-      // the one-time crossing. awardedPoints = 5 + 35 = 40.
+      // Second log: player A also reaches 30 — now every eligible player
+      // has individually hit the target. This is the one-time crossing.
+      // awardedPoints = 5 + team-wide minutes at the moment of crossing
+      // (30 + 30 = 60) = 65.
       const secondResponse = await request(app.getHttpServer())
         .post('/api/v1/training-logs')
-        .set('Authorization', `Bearer ${tokenB}`)
-        .send({ activityType: 'fitness', durationMinutes: 15 })
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ activityType: 'fitness', durationMinutes: 30 })
         .expect(201);
       const second = secondResponse.body as TrainingLogBody;
-      expect(second.goalBonus).toEqual({ awardedPoints: 40 });
+      expect(second.goalBonus).toEqual({ awardedPoints: 65 });
 
       // Third log: goal already met — no further bonus, ever.
       const thirdResponse = await request(app.getHttpServer())
@@ -828,12 +838,12 @@ describe('Phase 2 API (e2e)', () => {
         .expect(201);
       expect((thirdResponse.body as TrainingLogBody).goalBonus).toBeNull();
 
-      // Team pool reflects the base points (20+15+5=40) plus the one-time
-      // bonus (40) exactly once: 80.
+      // Team pool reflects the base points (30+30+5=65) plus the one-time
+      // bonus (65) exactly once: 130.
       const pot = await dataSource
         .getRepository(TeamSeasonPot)
         .findOneOrFail({ where: { id: potId } });
-      expect(pot.pointsTotal).toBe(80);
+      expect(pot.pointsTotal).toBe(130);
 
       // The persisted bonus fields are visible on GET weekly-goal, for a
       // teammate who opens the app after the fact.
@@ -842,7 +852,7 @@ describe('Phase 2 API (e2e)', () => {
         .set('Authorization', `Bearer ${tokenA}`)
         .expect(200);
       const goal = (goalResponse.body as { goal: GoalBody }).goal;
-      expect(goal.bonusPointsAwarded).toBe(40);
+      expect(goal.bonusPointsAwarded).toBe(65);
       expect(goal.bonusAwardedAt).not.toBeNull();
       expect(goal.goalMet).toBe(true);
     });
@@ -885,12 +895,36 @@ describe('Phase 2 API (e2e)', () => {
     });
 
     it('concurrency: N simultaneous crossing-adjacent logs award the bonus exactly once', async () => {
+      // ADR-0015: goalMet now requires every eligible player to
+      // individually reach targetValue. Setting targetValue equal to
+      // DURATION_MINUTES means each of the 10 players' *own* single log
+      // exactly satisfies *their own* requirement — so completion can
+      // only happen once all 10 have logged, and (because of the row
+      // lock's serialization) that can only become true on whichever one
+      // of the 10 concurrent requests happens to be processed *last* in
+      // the lock's serialization order. This is still exactly the
+      // scenario ADR-0005 Decision 3's row lock exists to serialize
+      // (multiple teammates logging around the same time), just driven by
+      // per-player completion instead of a pooled sum crossing a
+      // threshold.
       const { teamId, potId } = await createTeamFixture();
       const today = stockholmDateString();
       const { sessionToken: captainToken } = await createCaptain(teamId);
-      const TARGET_VALUE = 100;
       const CONCURRENT_PLAYER_COUNT = 10;
-      const DURATION_MINUTES = 15; // 10 * 15 = 150 >= 100, crosses partway through
+      const DURATION_MINUTES = 15;
+      const TARGET_VALUE = DURATION_MINUTES; // each player's own single log exactly meets it
+
+      // Create the full 11-player roster (captain + 10 team members)
+      // *before* the goal exists, so every player's `createdAt` is safely
+      // on-or-before `goal.startDate` (ADR-0015 Decision 2's
+      // `joined_after_start` eligibility check) and the eligible roster
+      // is the full 11 for the entire test, not a subset that grows
+      // mid-test.
+      const tokens = await Promise.all(
+        Array.from({ length: CONCURRENT_PLAYER_COUNT }, () =>
+          createTeamMember(teamId),
+        ),
+      );
 
       await request(app.getHttpServer())
         .post(`/api/v1/teams/${teamId}/weekly-goal`)
@@ -906,16 +940,22 @@ describe('Phase 2 API (e2e)', () => {
         })
         .expect(201);
 
-      const tokens = await Promise.all(
-        Array.from({ length: CONCURRENT_PLAYER_COUNT }, () =>
-          createTeamMember(teamId),
-        ),
-      );
+      // The captain is itself an eligible roster row (ADR-0015 Decision
+      // 2) — log its own target *before* the concurrent batch below, so
+      // completion during the race depends purely on the 10 team members,
+      // not on an 11th player who never gets a chance to log. At this
+      // point all 10 team members already exist (created above) but
+      // haven't logged anything, so the captain's own log can't complete
+      // the goal alone.
+      const captainLogResponse = await request(app.getHttpServer())
+        .post('/api/v1/training-logs')
+        .set('Authorization', `Bearer ${captainToken}`)
+        .send({ activityType: 'fitness', durationMinutes: DURATION_MINUTES })
+        .expect(201);
+      expect((captainLogResponse.body as TrainingLogBody).goalBonus).toBeNull();
 
-      // Fire every player's first log essentially simultaneously — this is
-      // exactly the scenario ADR-0005 Decision 3's row lock exists to
-      // serialize (multiple teammates logging around the same time near
-      // the end of the week).
+      // Fire every player's first (and only) log essentially
+      // simultaneously.
       const responses = await Promise.all(
         tokens.map(({ sessionToken }) =>
           request(app.getHttpServer())
@@ -935,28 +975,28 @@ describe('Phase 2 API (e2e)', () => {
       const withBonus = bodies.filter((b) => b.goalBonus !== null);
 
       // Exactly one request may have caused the crossing — never zero
-      // (progress does reach the target) and never more than one (that's
-      // the idempotency guarantee the row lock provides).
+      // (the captain already hit its own target above, so progress does
+      // reach "every eligible player done" once the last of these 10
+      // lands) and never more than one (that's the idempotency guarantee
+      // the row lock provides).
       expect(withBonus).toHaveLength(1);
 
-      // awardedPoints = 5 + progress-*at-the-moment-of-crossing*, per
-      // ADR-0005 Decision 3 — NOT 5 + the eventual grand total. Under real
-      // concurrency, the row lock serializes the ten requests into *some*
-      // arrival order, and whichever one is the first (in that order) to
-      // push cumulative progress past TARGET_VALUE is "the crossing," using
-      // only the logs committed so far — which may be fewer than all ten.
-      // So the exact award isn't predictable, but it must be
-      // `5 + a multiple of DURATION_MINUTES that's >= TARGET_VALUE and
-      // <= the grand total` (every log here is the same size).
+      // Because every one of the 10 required team members needs their own
+      // individual log (the captain already logged its own target above),
+      // the goal can only become met once all 10 have landed — which,
+      // under serialization, means every one of the 9 *other* requests
+      // has already fully committed by the time the 10th (in lock order,
+      // not necessarily request-array order) runs its check. So unlike
+      // the old pooled model, the award here is fully deterministic, not
+      // a range: 5 + the full total (the captain's own log plus all 10
+      // team members').
       const awardedPoints = withBonus[0].goalBonus?.awardedPoints ?? 0;
-      const totalMinutes = CONCURRENT_PLAYER_COUNT * DURATION_MINUTES;
-      const progressAtCrossing = awardedPoints - 5;
-      expect(progressAtCrossing % DURATION_MINUTES).toBe(0);
-      expect(progressAtCrossing).toBeGreaterThanOrEqual(TARGET_VALUE);
-      expect(progressAtCrossing).toBeLessThanOrEqual(totalMinutes);
+      const teamMemberMinutes = CONCURRENT_PLAYER_COUNT * DURATION_MINUTES;
+      const totalMinutes = teamMemberMinutes + DURATION_MINUTES; // + the captain's own log
+      expect(awardedPoints).toBe(5 + totalMinutes);
 
-      // Base points always land for all ten logs regardless of race
-      // ordering; the bonus, whatever its exact amount, is added exactly
+      // Base points always land for all eleven logs (captain + 10 team
+      // members) regardless of race ordering; the bonus is added exactly
       // once on top.
       const pot = await dataSource
         .getRepository(TeamSeasonPot)
