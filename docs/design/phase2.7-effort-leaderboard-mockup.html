@@ -1,0 +1,324 @@
+<title>SkillStreak — ADR-0016: Bästa laginsats (fairness-adjusted leaderboard)</title>
+<style>
+  :root {
+    --chrome-bg: #F1EFEA;
+    --chrome-bg-alt: #E8E4DC;
+    --chrome-text: #1B1B3A;
+    --chrome-text-muted: #6B6B85;
+    --chrome-line: #D8D4CA;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --chrome-bg: #16151C;
+      --chrome-bg-alt: #1E1D26;
+      --chrome-text: #F1EFEA;
+      --chrome-text-muted: #9A97AC;
+      --chrome-line: #322F3C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --chrome-bg: #16151C;
+    --chrome-bg-alt: #1E1D26;
+    --chrome-text: #F1EFEA;
+    --chrome-text-muted: #9A97AC;
+    --chrome-line: #322F3C;
+  }
+  :root[data-theme="light"] {
+    --chrome-bg: #F1EFEA;
+    --chrome-bg-alt: #E8E4DC;
+    --chrome-text: #1B1B3A;
+    --chrome-text-muted: #6B6B85;
+    --chrome-line: #D8D4CA;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--chrome-bg);
+    color: var(--chrome-text);
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    padding: 40px 20px 64px;
+  }
+
+  .chrome-heading { text-align: center; max-width: 780px; margin-bottom: 6px; }
+  .chrome-eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--chrome-text-muted); margin: 0 0 6px;
+  }
+  .chrome-title {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 26px; margin: 0 0 8px; text-wrap: balance;
+  }
+  .chrome-sub { font-size: 14px; color: var(--chrome-text-muted); margin: 0; line-height: 1.5; }
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 28px;
+    max-width: 1500px;
+  }
+
+  .frame-block { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .frame-label {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 14px;
+    text-align: center;
+    max-width: 300px;
+    color: var(--chrome-text);
+  }
+  .frame-label small { display: block; font-weight: 400; font-size: 11.5px; color: var(--chrome-text-muted); margin-top: 3px; }
+
+  /* ---- phone frame ---- */
+  .phone {
+    width: 300px;
+    height: 650px;
+    border-radius: 38px;
+    background: #0d0c14;
+    padding: 11px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 24px 48px -18px rgba(0,0,0,0.45);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .screen {
+    width: 100%; height: 100%;
+    border-radius: 28px;
+    background: #FAFAF7;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+    color: #1B1B3A;
+  }
+  .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 96px; height: 20px; background: #0d0c14; border-radius: 0 0 14px 14px; z-index: 5;
+  }
+  .statusbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px 3px; font-size: 12px; font-weight: 700;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .statusbar .icons { display: flex; gap: 4px; align-items: center; opacity: 0.85; }
+
+  .content {
+    flex: 1; overflow-y: auto; padding: 4px 18px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  .page-heading {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 20px; margin: 6px 0 0;
+  }
+
+  .card {
+    background: #fff; border: 1px solid #E3DED2; border-radius: 18px;
+    padding: 14px; display: flex; flex-direction: column; gap: 3px;
+  }
+  .card-title { font-weight: 700; font-size: 12.5px; }
+  .card-points { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 20px; margin-top: 2px; }
+  .card-rank { font-weight: 700; font-size: 12.5px; color: #B37B00; }
+  .card-effort { font-weight: 700; font-size: 11px; color: #B37B00; opacity: 0.85; margin-top: 1px; }
+  .card-hint { font-weight: 700; font-size: 11px; color: #6B6B85; margin-top: 4px; }
+
+  /* Segmented control */
+  .segmented {
+    display: flex; background: #fff; border: 1px solid #E3DED2; border-radius: 14px;
+    padding: 3px; gap: 3px;
+  }
+  .segment {
+    flex: 1; text-align: center; padding: 9px 4px; border-radius: 11px;
+    font-size: 12px; font-weight: 700; color: #1B1B3A;
+  }
+  .segment.active { background: #FFB800; color: #1B1B3A; }
+  .segment.inactive { color: #6B6B85; }
+
+  .caption { font-size: 10.5px; color: #6B6B85; text-align: center; margin: 2px 0 -2px; }
+  .info-link { font-size: 11px; font-weight: 700; color: #1B1B3A; text-align: center; text-decoration: underline; margin-bottom: 2px; }
+
+  .nudge {
+    font-size: 11px; font-weight: 700; color: #B37B00; background: #FFF7E0;
+    border: 1px solid #FFD873; border-radius: 12px; padding: 8px 10px; text-align: center;
+  }
+
+  /* Leaderboard rows */
+  .lb-row {
+    display: flex; align-items: center; gap: 10px; padding: 11px 10px;
+    border-radius: 14px; border: 1px solid transparent;
+  }
+  .lb-row.me { background: #FFF7E0; border-color: #FFD873; }
+  .lb-rank { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 14px; width: 42px; }
+  .lb-name-wrap { flex: 1; min-width: 0; }
+  .lb-name { font-size: 13px; font-weight: 700; }
+  .lb-sub { font-size: 10px; color: #6B6B85; font-weight: 700; }
+  .lb-points { font-size: 12.5px; font-weight: 700; color: #B37B00; text-align: right; white-space: nowrap; }
+  .lb-me-tag { font-size: 9.5px; font-weight: 700; color: #B37B00; background: #FFEFC2; border-radius: 999px; padding: 2px 7px; margin-left: 4px; }
+
+  .tab-bar {
+    display: flex; border-top: 1px solid #E3DED2; background: #fff; flex-shrink: 0;
+  }
+  .tab-item { flex: 1; text-align: center; padding: 8px 0 10px; font-size: 9.5px; font-weight: 700; color: #6B6B85; position: relative; }
+  .tab-item.active { color: #1B1B3A; }
+  .tab-icon { font-size: 17px; display: block; margin-bottom: 2px; }
+
+  /* sheet overlay */
+  .sheet-overlay {
+    position: absolute; inset: 0; background: rgba(27,27,58,0.35);
+    display: flex; align-items: flex-end; z-index: 20;
+  }
+  .sheet {
+    width: 100%; background: #FAFAF7; border-radius: 22px 22px 0 0;
+    padding: 18px 18px 22px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .sheet-heading { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 16px; text-align: center; }
+  .sheet-body { font-size: 12.5px; color: #47455C; line-height: 1.5; text-align: left; }
+  .sheet-own { font-size: 12.5px; color: #1B1B3A; font-weight: 700; line-height: 1.5; text-align: left;
+    background: #FFF7E0; border: 1px solid #FFD873; border-radius: 12px; padding: 10px 12px; }
+  .btn {
+    border-radius: 14px; padding: 12px 14px; text-align: center;
+    font-weight: 700; font-size: 13.5px; border: none;
+  }
+  .btn-primary { background: #FF6B35; color: #fff; }
+</style>
+
+<div class="chrome-heading">
+  <p class="chrome-eyebrow">Design mockup — companion to phase2.6-2.7-flows.md's ADR-0016 addendum</p>
+  <h1 class="chrome-title">ADR-0016: "Bästa laginsats" — fairness-adjusted VM-Guld-tabellen</h1>
+  <p class="chrome-sub">Three representative screens: the updated home-card, the new effort-tab list, and the
+  explainer sheet. The existing "Mest poäng" tab is unchanged — see phase2.6-2.7-mockup.html's Screen 4.</p>
+</div>
+
+<div class="row">
+
+  <!-- SCREEN 1: Home card with new effort line -->
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">●●●</span></div>
+        <div class="content">
+          <h2 class="page-heading">Hem 🏠</h2>
+
+          <div class="card" style="margin-top:8px;">
+            <div class="card-title">🥇 VM-Guld-tabellen</div>
+            <div class="card-points">1 280 poäng</div>
+            <div class="card-rank">4:e plats av 4 lag</div>
+            <div class="card-effort">🌟 1:a bäst i laginsats</div>
+            <div class="card-hint">Se tabellen →</div>
+          </div>
+
+          <div class="card" style="opacity:0.55;">
+            <div class="card-title">🔥 Din streak</div>
+            <div class="card-points" style="color:#FF6B35;">6 dagar</div>
+          </div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab-item active"><span class="tab-icon">🏠</span>Hem</div>
+          <div class="tab-item"><span class="tab-icon">💬</span>Chatt</div>
+          <div class="tab-item"><span class="tab-icon">🎯</span>Mål</div>
+          <div class="tab-item"><span class="tab-icon">👥</span>Laget</div>
+        </div>
+      </div>
+    </div>
+    <div class="frame-label">LB1 — Hem-kortet, uppdaterat
+      <small>Ett nytt, litet, nedtonat rad tillagd — raw rank förblir det primära numret. Kortet är
+      fortfarande en enda tryckyta till LB2 (Mest poäng-fliken).</small>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: Effort tab -->
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">●●●</span></div>
+        <div class="content">
+          <h2 class="page-heading">VM-Guld-tabellen 🥇</h2>
+
+          <div class="segmented">
+            <div class="segment inactive">🥇 Mest poäng</div>
+            <div class="segment active">💪 Bästa laginsats</div>
+          </div>
+          <div class="caption">Ett rättvist snitt — så kan även mindre lag vinna.</div>
+          <div class="info-link">ⓘ Så räknar vi ut det</div>
+
+          <div class="lb-row me">
+            <div class="lb-rank">🏆 1:a</div>
+            <div class="lb-name-wrap">
+              <div class="lb-name">IBK Falken P13<span class="lb-me-tag">Ditt lag</span></div>
+              <div class="lb-sub">3-5 spelare</div>
+            </div>
+            <div class="lb-points">300,0<br>p/spelare</div>
+          </div>
+          <div class="lb-row">
+            <div class="lb-rank">2:a</div>
+            <div class="lb-name-wrap">
+              <div class="lb-name">IBK Härnösand P12</div>
+              <div class="lb-sub">6+ spelare</div>
+            </div>
+            <div class="lb-points">200,0<br>p/spelare</div>
+          </div>
+          <div class="lb-row">
+            <div class="lb-rank">3:e</div>
+            <div class="lb-name-wrap">
+              <div class="lb-name">Sundsvall Innebandy P13</div>
+              <div class="lb-sub">6+ spelare</div>
+            </div>
+            <div class="lb-points">180,0<br>p/spelare</div>
+          </div>
+          <div class="lb-row">
+            <div class="lb-rank">4:e</div>
+            <div class="lb-name-wrap">
+              <div class="lb-name">Örnsköldsvik IBK</div>
+              <div class="lb-sub">6+ spelare</div>
+            </div>
+            <div class="lb-points">150,0<br>p/spelare</div>
+          </div>
+        </div>
+        <div class="tab-bar">
+          <div class="tab-item"><span class="tab-icon">🏠</span>Hem</div>
+          <div class="tab-item"><span class="tab-icon">💬</span>Chatt</div>
+          <div class="tab-item"><span class="tab-icon">🎯</span>Mål</div>
+          <div class="tab-item active"><span class="tab-icon">👥</span>Laget</div>
+        </div>
+      </div>
+    </div>
+    <div class="frame-label">LB2 — "Bästa laginsats" (ny flik)
+      <small>Samma data från samma svar som Mest poäng — bytet är omedelbart, ingen laddning.
+      pointsPerPlayer är framträdande; adjustedScore visas aldrig på en rad.</small>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: LB3 explainer sheet -->
+  <div class="frame-block">
+    <div class="phone">
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="statusbar"><span>9:41</span><span class="icons">●●●</span></div>
+        <div class="content" style="justify-content:flex-end; padding:0;"></div>
+        <div class="sheet" style="position:absolute; bottom:0; left:0; right:0;">
+          <div class="sheet-heading">Så räknar vi ut Bästa laginsats</div>
+          <div class="sheet-body">Vi jämför hur många poäng varje lag får per spelare — inte bara
+            lagets totalsumma. Så kan även ett litet lag vinna genom att alla kämpar på.</div>
+          <div class="sheet-body">Om ett lag är litet räknar vi lite försiktigt, så att några enstaka
+            riktigt bra dagar inte råkar ge förstaplatsen av en slump. Ju fler spelare ett lag har,
+            desto mer litar vi på deras eget snitt.</div>
+          <div class="sheet-own">Ditt lag: 300,0 p/spelare med 4 spelare → 231,5 p när vi räknar rättvist.</div>
+          <button class="btn btn-primary">Okej, jag fattar!</button>
+        </div>
+      </div>
+    </div>
+    <div class="frame-label">LB3 — Info-sheet
+      <small>Inte en engångsförklaring (ingen local-flag-spärr) — nåbar när som helst via
+      ⓘ-länken. adjustedScore visas bara här, kopplat till lagets egna redan betrodda siffror.</small>
+    </div>
+  </div>
+
+</div>

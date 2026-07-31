@@ -36,6 +36,8 @@ interface PlayerMeResponse {
   };
   // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed,
   // rank/teamCount added — see TeamPoolService.getRankAndTeamCountOrThrow.
+  // ADR-0016 Decision 5 (additive): effortRank/eligiblePlayerCount added
+  // alongside — see TeamPoolService.getEffortRankAndEligibleCountOrThrow.
   teamPool: {
     seasonId: string;
     seasonLabel: string;
@@ -43,6 +45,8 @@ interface PlayerMeResponse {
     status: string;
     rank: number;
     teamCount: number;
+    effortRank: number | null;
+    eligiblePlayerCount: number;
   };
 }
 
@@ -79,6 +83,10 @@ export class PlayersController {
 
     const { rank, teamCount } =
       await this.teamPoolService.getRankAndTeamCountOrThrow(player.teamId);
+    const { effortRank, eligiblePlayerCount } =
+      await this.teamPoolService.getEffortRankAndEligibleCountOrThrow(
+        player.teamId,
+      );
 
     const today = stockholmDateString();
     // Derived straight from Postgres (the source of truth), same as the
@@ -112,6 +120,8 @@ export class PlayersController {
         status: pot.status,
         rank,
         teamCount,
+        effortRank,
+        eligiblePlayerCount,
       },
     };
   }

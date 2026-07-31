@@ -10,6 +10,7 @@ import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { Player } from '../players/entities/player.entity';
 import { WeeklyGoalTargetMetric } from './weekly-goal-target-metric.enum';
 import { WeeklyGoalService } from './weekly-goal.service';
+import { EffortLeaderboardRow } from '../team-pool/team-pool.service';
 
 // Chainable fake query builder — every method returns `this` except the
 // terminal ones (getOne/getRawOne/getRawMany/getMany), which are
@@ -685,5 +686,117 @@ describe('WeeklyGoalService.getCurrentGoalForTeam — per-player breakdown (ADR-
       expect(player.eligible).toBe(false);
       expect(player.exclusionReason).toBe('consent_revoked');
     });
+  });
+});
+
+// docs/adr/0016-cross-team-leaderboard-fairness.md's 2026-07-31 addendum —
+// the actual call site of the privacy fix (bucketEligiblePlayerCount).
+// TeamPoolService's own unit tests cover the bucket boundaries and the
+// shrinkage math in isolation; this describe block exists specifically to
+// guard the wiring in getLeaderboard() itself, so a future refactor that
+// accidentally passed the exact eligiblePlayerCount straight through to
+// effortLeaderboard (reintroducing the leak security-reviewer caught)
+// would fail a test, not just ship silently.
+describe('WeeklyGoalService.getLeaderboard — ADR-0016 eligiblePlayerCount bucketing wiring', () => {
+  const teamId = 'team-1';
+  const requesterId = 'player-1';
+
+  function buildService(effortRows: EffortLeaderboardRow[]) {
+    const playersService = {
+      assertTeamMembership: jest.fn().mockResolvedValue(undefined),
+    };
+    const teamPoolService = {
+      getLeaderboard: jest.fn().mockResolvedValue([]),
+      getEffortLeaderboard: jest.fn().mockResolvedValue(effortRows),
+    };
+
+    const service = new WeeklyGoalService(
+      undefined as never,
+      playersService as never,
+      teamPoolService as never,
+      undefined as never,
+      undefined as never,
+      undefined as never,
+      undefined as never,
+    );
+
+    return { service };
+  }
+
+  it('never exposes an exact eligiblePlayerCount on any effortLeaderboard row, own team included — only the bucketed range', async () => {
+    const { service } = buildService([
+      {
+        rank: 1,
+        teamId: 'team-1', // the requesting team's own row
+        teamName: 'IBK Falken P13',
+        eligiblePlayerCount: 4,
+        pointsPerPlayer: 300,
+        adjustedScore: 231.5,
+      },
+      {
+        rank: 2,
+        teamId: 'team-2',
+        teamName: 'IBK Härnösand P12',
+        eligiblePlayerCount: 15,
+        pointsPerPlayer: 200,
+        adjustedScore: 199.0,
+      },
+      {
+        rank: 3,
+        teamId: 'team-3',
+        teamName: 'A tiny new team',
+        eligiblePlayerCount: 1,
+        pointsPerPlayer: 500,
+        adjustedScore: 176.9,
+      },
+    ]);
+
+    const result = await service.getLeaderboard(teamId, requesterId);
+
+    for (const row of result.effortLeaderboard) {
+      expect(row).not.toHaveProperty('eligiblePlayerCount');
+      expect(['1-2', '3-5', '6+']).toContain(row.eligiblePlayerCountRange);
+    }
+    expect(
+      result.effortLeaderboard.find((r) => r.teamId === 'team-1')!
+        .eligiblePlayerCountRange,
+    ).toBe('3-5');
+    expect(
+      result.effortLeaderboard.find((r) => r.teamId === 'team-2')!
+        .eligiblePlayerCountRange,
+    ).toBe('6+');
+    // The single-player team — the exact scenario the finding was about —
+    // must never surface as a bare '1' anywhere in the response.
+    expect(
+      result.effortLeaderboard.find((r) => r.teamId === 'team-3')!
+        .eligiblePlayerCountRange,
+    ).toBe('1-2');
+  });
+
+  it("still exposes the requesting team's own exact eligiblePlayerCount via requestingTeamEffort — unaffected by the bucketing fix", async () => {
+    const { service } = buildService([
+      {
+        rank: 1,
+        teamId: 'team-1',
+        teamName: 'IBK Falken P13',
+        eligiblePlayerCount: 4,
+        pointsPerPlayer: 300,
+        adjustedScore: 231.5,
+      },
+    ]);
+
+    const result = await service.getLeaderboard(teamId, requesterId);
+
+    expect(result.requestingTeamEffort).not.toBeNull();
+    expect(result.requestingTeamEffort!.eligiblePlayerCount).toBe(4);
+  });
+
+  it('returns requestingTeamEffort: null when the requesting team has no eligible players (absent from effortRows)', async () => {
+    const { service } = buildService([]);
+
+    const result = await service.getLeaderboard(teamId, requesterId);
+
+    expect(result.requestingTeamEffort).toBeNull();
+    expect(result.effortLeaderboard).toEqual([]);
   });
 });
