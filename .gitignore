@@ -85,6 +85,8 @@ target/
 profile_default/
 ipython_config.py
 
+
+
 # pyenv
 #   For a library or package, you might want to ignore these files since the code is
 #   intended to run in multiple environments; otherwise, check them in:
@@ -172,6 +174,8 @@ k8s/secret.yaml
 docs/BACKLOG.md
 docs/PROJECT.md
 docs/FUTURE_IDEAS.md
+docs/ACTION_PLAN.md
+docs/MANUAL_CHANGES.md
 .venv
 env/
 venv/
