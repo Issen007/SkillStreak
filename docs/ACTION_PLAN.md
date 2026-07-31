@@ -1034,6 +1034,142 @@ code-critic finding fixed and independently re-verified by security-reviewer,
 not just noted. One non-blocking follow-up remains tracked (the in-memory/
 multi-replica throttler gap above) for before real external-beta traffic.
 
+## Phase 2.11 — Chat message clip attachments (ADR-0017)
+
+Raised via `docs/BACKLOG.md`'s "Link/attach a Shorts video inside a chat
+message" entry, reiterated directly by the project owner 2026-07-30: let
+a player attach one of the team's existing Shorts clips to a team chat
+message, so "check out this trick" can point at a specific video instead
+of describing it in text. Sits on top of two already-shipped,
+already-reviewed features (ADR-0007 team chat, ADR-0010 video clips) and
+had to re-prove team-scoping across their intersection from scratch, the
+same bar ADR-0008/ADR-0016 set for any query crossing a team boundary.
+
+- [x] **architect**: `docs/adr/0017-chat-clip-attachments.md`. Team-scoping
+      enforced at two independent application layers — a write-time
+      loaded-row check (`clip.teamId === teamId && clip.status ===
+      'published'`, else `404 clip_not_found`) and a read-time join
+      predicate (team + status + per-viewer block, all in the `JOIN`'s
+      `ON` clause, not a bare id-join filtered afterward) — deliberately
+      **not** a composite FK, since `ON DELETE SET NULL` on one would null
+      the message's own `team_id` alongside `clip_id` on every clip
+      self-delete/expiry. No data ever snapshotted onto the chat message
+      (`clip_id` is the only new column) — a hide/delete of a clip takes
+      effect instantly and uniformly everywhere it's referenced, with no
+      second, driftable copy. One clip per message (nullable FK column,
+      not a join table); compose-time picker reuses the existing `GET
+      .../teams/:teamId/clips` feed endpoint verbatim, no new endpoint.
+- [x] **ux-designer**: `docs/design/phase2.6-2.7-flows.md` Part E. New
+      Screen CH6 (compose-time picker, a grid — not a list — of paused
+      first-frame cards), CH1 diffs (a 🎬 attach button, a removable
+      clip-preview chip, in-message clip embed with "only one clip plays
+      at a time"), the generic non-alarming "Videon är inte längre
+      tillgänglig" placeholder, and the report-affordance split
+      ("Rapportera meddelandet" / "Rapportera klippet" as up to two
+      buttons from the existing tap-to-reveal zone, driven by
+      "reporting yourself protects no one" applied independently to the
+      message's sender and the clip's uploader, since Decision 3 means
+      they're frequently different people). Reuses V9/V10 (clip
+      report/confirmation) unmodified.
+- [x] **backend-developer**: migration (nullable `clip_id` + partial index
+      + FK, `ON DELETE SET NULL`, no other table touched), `TeamChatService`
+      clip resolution/validation at write time, the content-or-clipId
+      combined validation, the join-predicate change to the message-list
+      query, the per-viewer block filter extended to the embed. Contract
+      doc updated to match.
+- [x] **frontend-developer**: `ChatScreen.tsx` wired to the new
+      `ComposeBar`/`MessageBubble` prop contracts and `ClipAttachSheet`;
+      new components `ClipEmbed`, `ClipPickerCard`,
+      `ClipUnavailablePlaceholder`, `PausedClipThumbnail`. Two-report-button
+      split, per-viewer block extended to clip uploaders, "only one clip
+      plays at a time" state.
+- [x] **code-critic**: one **CONFIRMED** finding, fixed — the chat poll only
+      ever appended newly-seen messages (`after`-cursor), so a clip that
+      became unavailable (hard-delete/report-hide/uploader block) *while a
+      message referencing it was already rendered on an open device* never
+      re-resolved to `clip: null` there, undercutting the ADR's own "takes
+      effect instantly and uniformly" guarantee for exactly the case — an
+      already-open chat — it matters most for. Fixed by reconciling the
+      most recent window on every poll tick instead of only appending.
+      **A second regression was caught and fixed while implementing that
+      fix, before it ever shipped**: naively replacing each message with
+      its fresh copy on every poll would have restarted playback for
+      anyone actively watching an embedded clip, since `playbackUrl` is
+      re-presigned (a different string) on every response even when the
+      underlying clip hasn't changed, and `expo-video`'s `useVideoPlayer`
+      memoizes its player by that string's *value* (confirmed by reading
+      the hook's own source), not a stable reference. Fixed by merging
+      field-by-field — only `clip` flipping to `null` and `reportedByMe`
+      changing are ever applied to an already-rendered message; everything
+      else, `playbackUrl` included, keeps its exact existing object.
+      Everything else checked (write/read-time team-scoping, the no-snapshot
+      guarantee, the content-or-clipId validation, the 3-case placeholder
+      logic's cases 1 and 3, the report-affordance table, the migration
+      shape) came back correct against the ADR/flow doc. One trivial
+      unused-field cleanup (`ClipReportTarget.messageId`, flagged as dead
+      by the reviewer's own comment) also removed.
+- [x] **security-reviewer**: **clean sign-off**, no findings — the
+      blocking confirmation pass ADR-0017's hand-off section required.
+      Independently verified both required checks by reading the actual
+      query/join code (not the ADR's claims) and re-running the e2e suite
+      live against real Postgres/Redis/MinIO: write-time + read-time
+      team-scoping structurally closes the boundary (traced the exact
+      `findOne`/`leftJoin` calls), and no clip data is ever snapshotted
+      onto `TeamChatMessage` — every field in the response is resolved
+      live, per request, from the current `VideoClip` row. Also confirmed:
+      the per-viewer block filter genuinely covers the clip-uploader case
+      (not just the message-sender case), the two report flows
+      (message/clip) stay fully independent per Decision 6, and attaching
+      a clip doesn't bypass or cheapen the existing chat send-rate-limit.
+
+**Fas 2.11 has cleared every gate and is merged to `prerelease`.**
+294/294 backend unit tests, mobile `tsc`/`expo-doctor` clean. Both the
+mandatory code-critic pass and the ADR-required security-reviewer
+confirmation are complete, with code-critic's one real finding (plus the
+playback-interruption regression caught while fixing it) resolved and
+verified, not just noted.
+
+## Unplanned fix, 2026-07-31 — clip upload failing on the "try it" website
+
+Raised by the project owner directly: uploading a clip via
+`try.skillstreak.xyz` on a phone browser always failed with a generic
+"Uppladdningen lyckades inte den här gången" error. Two independent bugs,
+both required for a browser upload to work at all, neither related to the
+Safespring S3 migration itself (initial suspicion, ruled out — production
+API/S3 reachability and TLS were both confirmed healthy first):
+
+- `expo-file-system`'s `createUploadTask`/`uploadAsync` (used for the
+  native app's presigned-PUT step) has **no web implementation at all** —
+  its own `.web.ts` shim doesn't define the native method, so it throws
+  immediately on every attempt, from a fresh page load through both
+  automatic retries.
+- Separately, even a correct web upload path would still have failed: the
+  video-clip storage bucket (self-hosted MinIO internally, Safespring S3
+  in production) never had a CORS policy configured, and a browser
+  enforces CORS on a direct cross-origin `PUT` from the site's own origin
+  straight to the storage endpoint — unlike the native app's direct
+  native-module HTTP call, which was never subject to browser CORS.
+
+Fixed both, on a short-lived `fix/clip-upload-web-cors` branch, merged to
+`prerelease`: `ObjectStorageService.configureCorsPolicy()` applies a
+`PUT`-only bucket CORS policy at boot, reusing the exact `CORS_ORIGIN`
+origin list `main.ts` already trusts for the API's own CORS (no new,
+parallel trust list); `V6UploadProgress.tsx` gained a `Platform.OS ===
+'web'` branch using `XMLHttpRequest` (for cross-browser upload-progress
+events) against a `Blob` fetched from the picked file's `blob:` URI,
+native path unchanged. **security-reviewer** signed off (scoped review,
+media-upload path) — confirmed the bucket CORS policy doesn't widen
+exposure beyond origins already trusted with `Authorization`-bearing API
+access, the web path doesn't skip any server-side validation
+(`completeUpload`'s HEAD-and-compare check is unchanged and platform-
+agnostic), and cancel (`xhr.abort()`) mirrors the native path's existing
+best-effort-cleanup posture. One tightening applied from that review:
+narrowed the bucket CORS policy to `PUT` only (`GET`/`HEAD` were
+unnecessary — clip playback is a plain `<video>`-element load, which
+browsers don't subject to CORS at all). 286/286 backend unit tests
+(this branch, before Fas 2.11 above added its own), mobile `tsc`/
+`expo-doctor` clean.
+
 ## Phase 3 — Media & social ("Fas 3")
 
 This phase is the highest privacy risk (video, a feed, tagging teammates) —
