@@ -750,6 +750,78 @@ flagged (block-management is currently client-cache-backed only), and the
 already-accepted Phase 1 gap, now slightly more visible now that a
 leaderboard exists to compare against).
 
+**Cross-team fairness correction, 2026-07-31**: raised by the project
+owner directly — the VM-Guld cross-team leaderboard's raw-summed-points
+ranking structurally favored a large roster over a small one regardless
+of per-player effort (a 15-person team outscores a 4-person team just by
+having more people logging, not by training harder). Same class of
+change as the two corrections above — a correction to an already-shipped,
+already-reviewed formula (ADR-0008), not a new feature — and got the same
+rigor, plus one blocking finding caught mid-chain:
+- [x] **architect**: `docs/adr/0016-cross-team-leaderboard-fairness.md`.
+      Additive second ranking ("Bästa laginsats") alongside the existing
+      raw-total leaderboard — nothing about `pointsTotal`/`rank` changes.
+      Shrinkage-adjusted points-per-eligible-player formula
+      (`adjustedScore = (n/(n+k))·teamAverage + (k/(n+k))·leagueMean`,
+      `k = GREATEST(3, median(eligiblePlayerCount))`) chosen over a
+      minimum-team-size floor (rejected — excludes the exact team the
+      complaint is about) or plain percentile ranking (rejected —
+      reorders noise, doesn't reduce it). Eligibility reuses ADR-0015's
+      exact definition. A new count-only join to `Player` (just
+      `COUNT(...)`, no other column) was flagged explicitly as needing
+      independent security-reviewer sign-off before ship — the first time
+      any cross-team query has joined to `Player` at all, a boundary
+      ADR-0008 otherwise holds absolutely.
+- [x] **ux-designer** + **backend-developer** (parallel): new
+      two-segment tab on the leaderboard screen, an opt-in info sheet
+      explaining the math (with `adjustedScore` deliberately never shown
+      on a row — only `pointsPerPlayer`, the "honest" number, plus
+      `eligiblePlayerCount` so a small team's win is self-evident), one
+      new muted line on the dashboard home-card. Backend: 275/275 unit
+      tests, 130/130 e2e, worked-example math independently re-verified
+      by hand.
+- [x] **security-reviewer** — **not a clean pass, a real finding**:
+      `eligiblePlayerCount` shown on *every other* team's leaderboard row
+      degenerates, for the 1-2-player teams this app already permits
+      (no minimum-roster-size concept exists), to one specific named
+      child's exact consent/join-approval status crossing a team
+      boundary — precisely the class of leak ADR-0008's "Player data
+      never crosses a team boundary" rule and CLAUDE.md's non-negotiable
+      parental-approval constraint exist to prevent. Blocked ship pending
+      a fix, correctly — this is exactly what the mandatory review before
+      any new `Player` join was for.
+- [x] **architect** (fix addendum to the same ADR): weighed a display
+      floor (rejected — same "hides the exact team the feature exists to
+      showcase" problem as Decision 2's rejected ranking floor) against
+      dropping the field entirely (rejected — guts the "why did the small
+      team win" legibility the whole feature is for) and chose bucketing
+      the cross-team-visible value into `'1-2'`/`'3-5'`/`'6+'` ranges
+      instead of an exact integer. Closes the exact leak (the 0→1
+      transition that IS a consent-approval event is never observable
+      through this field again) while a team's own numbers — shown only
+      to itself, in the info sheet — stay exact.
+- [x] **backend-developer** + **ux-designer** (parallel): implemented
+      the bucketing fix (`TeamPoolService.bucketEligiblePlayerCount`,
+      applied only when building the cross-team response array; the
+      internal ranking math stays on exact integers throughout) and
+      updated the design doc's row copy/example to match.
+- [x] **frontend-developer**: wired the mobile client to the corrected
+      contract. Clean `tsc --noEmit`, `expo-doctor` 18/18.
+- [x] **code-critic**: full-diff review, caught the bucketing fix hadn't
+      propagated to the static HTML design-mockup companion file (still
+      showing pre-fix exact counts — fixed) plus two real test-coverage
+      gaps: the actual bucketing call site in `weekly-goal.service.ts`
+      had zero test coverage (a future refactor could have silently
+      reintroduced the leak with nothing failing), and the "exactly one
+      qualifying team" / "every team tied" edge cases were untested —
+      both added. Shrinkage math, edge cases, and the mobile/backend
+      contract otherwise came back clean.
+
+Final state: 286/286 backend unit tests, 130/130 e2e, mobile
+`tsc`/`expo-doctor` clean — every number re-run by the orchestrating
+session at every stage, not just reported by an agent. Shipped as one
+commit (backend + mobile + docs together), merged to `prerelease`.
+
 ## Phase 2.9 — Self-service team creation
 
 The project owner's instruction: if the invite code a new person enters at
