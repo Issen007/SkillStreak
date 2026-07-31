@@ -48,7 +48,7 @@ export function GoalBonusTakeover({ awardedPoints, onDismiss }: GoalBonusTakeove
     >
       <Text style={styles.icon}>🏆🎉</Text>
       <Text style={styles.headline}>Laget nådde veckans mål!</Text>
-      <Text style={styles.sub}>Din logg var den som knuffade laget över målet!</Text>
+      <Text style={styles.sub}>Din träning var den sista pusselbiten — nu har alla i laget klarat sitt mål!</Text>
       <Text style={styles.points}>
         +{numberFormatter.format(awardedPoints)} bonuspoäng till lagets pott! 🥇
       </Text>

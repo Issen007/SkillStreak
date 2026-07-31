@@ -16,6 +16,13 @@ Companion mockup: `docs/design/phase2.6-2.7-mockup.html` (same phone-frame
 pattern as `phase1-mockup.html`/`phase2-mockup.html`) — four illustrative
 screens, not a full redraw of every state described below.
 
+**Addendum, 2026-07-31 (ADR-0016):** Part D below is extended with a second,
+fairness-adjusted ranking ("Bästa laginsats") added to Screens LB1 and LB2 —
+see the "Addendum" subsection at the end of Part D. This does not redesign
+the ranking math (that's `docs/adr/0016-cross-team-leaderboard-fairness.md`,
+already decided) — only the UX built on top of it. Its own companion mockup:
+`docs/design/phase2.7-effort-leaderboard-mockup.html`.
+
 **Read this first if you're frontend-developer:** three of the four parts
 below touch code that already exists (`mobile/src/team/TeamScreen.tsx`,
 `mobile/src/home/components/TeamPoolCard.tsx`, `mobile/src/goal/`) — this
@@ -719,7 +726,233 @@ pattern as G1/CH1.
 
 ---
 
-## Judgment calls made in this doc (flagging, not silently deciding)
+### Addendum (2026-07-31, ADR-0016) — "Bästa laginsats" fairness-adjusted ranking
+
+Adds a second ranking, additive only — **nothing above this line changes.**
+Built against `docs/adr/0016-cross-team-leaderboard-fairness.md`'s Decision
+5 response shape (`requestingTeamEffort`/`effortLeaderboard` on the same
+`GET /teams/:teamId/leaderboard` call LB2 already makes, plus
+`effortRank`/`eligiblePlayerCount` on the dashboard/`me` `teamPool` block
+LB1 already reads). No new endpoint, no new network round-trip anywhere in
+this addendum.
+
+**Naming call:** tab labels are **"Mest poäng"** (existing raw view,
+unchanged) and **"Bästa laginsats"** (new). "Laginsats" ("team effort") is
+plain, warm, ordinary Swedish a 9-year-old already understands without
+explanation, and it reads like something you'd genuinely be proud of, not
+like a stats-nerd label — consistent with this app's "reads as celebration,
+not algorithm output" brief. Kept it over the alternative "Poäng per
+spelare," which is more literally accurate but frames the tab around a
+number rather than a feeling, and over "Rättvis tabell" ("fair table"),
+which invites the (unhelpful) implication that the other tab is *unfair*.
+
+#### Screen LB2 — updated: tab/segmented control
+
+**Layout, top of the existing list, directly under the "VM-Guld-tabellen
+🥇" heading:** a two-segment pill control, equal width, big tap targets
+(this app's "big obvious targets" rule applies here as much as anywhere —
+this is the one new interactive control this addendum introduces):
+
+- **"🥇 Mest poäng"** (default/initial tab — preserves today's behavior for
+  a player who's never seen this control before)
+- **"💪 Bästa laginsats"**
+
+Active segment: `gold` fill, `ink` text (reusing the existing `btn-gold`
+treatment already in this app's component vocabulary — no new button
+variant). Inactive segment: plain `white`/`paper` fill, `ink` text,
+`border` outline. **Switching tabs is instant, client-side only** — both
+rankings already arrived in the one `GET .../leaderboard` response LB2
+already fetches, so there is no loading state on tab switch, ever. Worth
+stating explicitly because every other state transition in this screen
+today *does* show a spinner (initial load) — this one deliberately doesn't,
+and should read as snappy, not broken.
+
+**Why gold, not flame, for the active-tab fill:** both rankings are
+team-level ("ours") data per style-guide.md's flame/gold distinction —
+neither view is "mine" in the streak sense, so flame is never a candidate
+color anywhere on this screen, unchanged from today.
+
+##### "Mest poäng" tab (selected)
+
+Unchanged, byte-for-byte, from the existing LB2 spec above — same list,
+same tie caption, same banners. **One small optional addition, flagged as
+a nicety, cuttable:** if `requestingTeamEffort` is non-null and its `rank`
+is numerically better than `requestingTeam.rank` (a genuine "you're doing
+better than the raw total suggests" fact, not shown for its own sake but
+because it's the one thing this tab can't otherwise tell a small team), a
+single small tappable line appears below the tab control, above the list:
+
+> **"🌟 Era spelare kämpar bra! Kolla Bästa laginsats →"**
+
+Tapping it switches to the effort tab (same as tapping the segment
+directly) — this is a discovery nudge, not a new destination. Skip this
+entirely if it adds meaningful complexity to build; the tab itself is
+always visible and reachable regardless.
+
+##### "Bästa laginsats" tab (new)
+
+**API data:** `effortLeaderboard` (the list) + `requestingTeamEffort` (own
+team's row data — used only for the nudge above and LB3's sheet, not
+rendered as a separate summary block; the own-team row is highlighted
+in-place, same convention as "Mest poäng," not pinned to the top).
+
+A permanent, non-conditional one-line caption directly under the tab
+control (unlike the raw tab's tie caption, which only appears when
+relevant — this one always appears here, because *every* row on this tab
+needs the same one-time framing, not just rows involved in a tie):
+
+> **"Ett rättvist snitt — så kan även mindre lag vinna."**
+
+Followed by a small, always-visible text link, right-aligned or directly
+under the caption: **"ⓘ Så räknar vi ut det"** → opens Screen LB3.
+
+**Row layout — deliberate choice of what's prominent vs. secondary,**
+directly answering the task's central question:
+
+- **Rank** (same `swedishOrdinal` cell as today), **prefixed with 🏆 when
+  `rank === 1`** — for *whichever* team currently holds the top spot, not
+  only the viewer's own. This is the one small addition to a row that
+  isn't the viewer's own team, and it's deliberate: a trophy on the actual
+  leader is an ordinary, universally-understood sports-table convention
+  (a kid who's never touched this app before still reads "🏆 1:a" as
+  "this team is winning right now"), and it costs nothing extra to build —
+  same `rank === 1` check either way, no viewer-specific branch. When the
+  viewer's own team happens to be that row, the trophy + the existing
+  gold-tinted "own row" highlight + the existing "Ditt lag" tag combine
+  into a genuine "we're the effort champions" moment **without a single
+  new string** — celebration by composition, not by new copy.
+- **Team name** (unchanged treatment) **+ a small muted inline count**
+  directly after it, reusing the "·" separator this app already uses
+  elsewhere (`GoalScreen`'s history recap line): **"IBK Falken P13 · 1-2
+  spelare."** Shown as a bucketed range (`'1-2'` / `'3-5'` / `'6+'`,
+  `eligiblePlayerCountRange`), not an exact number — a raw count for a very
+  small team would double as that team's exact consent/approval status,
+  which is a per-child fact this app never surfaces across a team boundary
+  (per ADR-0016's 2026-07-31 addendum). The bucket still earns its place on
+  every row: it's the piece of context that makes "how can a small team
+  rank above a 15-player team" self-explanatory at a glance, not a mystery.
+- **`pointsPerPlayer` is the visually prominent number** on the right,
+  same visual weight/position `pointsTotal` has on the raw tab (bold,
+  `goldText`, right-aligned): **"{value} p/spelare"** (one decimal,
+  sv-SE formatting, e.g. "72,5 p/spelare"). This is a deliberate call: it's
+  the "honest, unadjusted" number per the ADR, and — worth naming
+  explicitly — **"points per player" is exactly the same shape of stat as
+  the "poäng per match" a floorball-following kid already sees in real
+  league tables**, so this isn't a new kind of number to learn, just a
+  familiar sports-stat framing applied to training effort.
+- **`adjustedScore` does not appear on the row at all.** This is the
+  answer to the task's central question: it's the number that actually
+  decided the rank, but showing an abstract "shrunk toward the mean" value
+  next to the honest per-player average on every single row would invite
+  exactly the confusion the task worries about ("why does the order not
+  match the number I can see") for no real benefit to a 9-year-old
+  glancing at a list. It's fully available — see LB3 — but only for anyone
+  who deliberately goes looking for the explanation, not thrust in front
+  of every row by default. Prominent-number and de-emphasized-number,
+  concretely: `pointsPerPlayer` is a first-class row field; `adjustedScore`
+  is one sentence inside an opt-in help sheet.
+
+**Tie handling:** identical mechanism to the raw tab (`hasTie()` over
+`.rank`, same caption **"Delad poäng ger samma placering."**) — this
+function already operates generically on any list with a `rank` field, so
+it's reused verbatim against `effortLeaderboard`, not reimplemented.
+
+**Empty/graceful states, mirroring the raw tab's own posture exactly:**
+
+- `requestingTeamEffort === null` (own team currently has 0 eligible
+  players — every player still consent-pending, or a brand-new
+  self-created team): a plain, non-alarming banner at the top of the list,
+  same visual treatment as the raw tab's "no active season" banner:
+  > **"Ert lag är inte med i den här listan än — det behövs minst en
+  > godkänd spelare."** The rest of the list still renders normally below
+  > it, nothing highlighted.
+- `effortLeaderboard.length === 0` (no team anywhere currently qualifies):
+  > **"Ingen laginsats att visa än."** / sub: **"Kom tillbaka när fler lag
+  > har godkända spelare."**
+- Single-qualifying-team case reads correctly as-is, same posture as the
+  raw tab's own single-team case — not specially hidden.
+
+---
+
+#### Screen LB3 — "Så räknar vi ut Bästa laginsats" (info sheet)
+
+**Trigger:** the "ⓘ Så räknar vi ut det" link on the effort tab. **Not**
+gated by a one-time local flag, unlike CH0 — this is reference material a
+player might want to re-check any time curiosity strikes (e.g. after their
+team's rank changes), not a one-time onboarding moment, so it stays
+reachable forever rather than being shown once and hidden.
+
+Layout: a bottom sheet, same visual pattern as CH2/K4's confirm sheets —
+quick to open, quick to dismiss, not a full-screen interrupt for what is,
+after all, just an explanation, not a decision.
+
+- Heading: **"Så räknar vi ut Bästa laginsats"**
+- Body, three short lines, deliberately not one dense paragraph (skimmable
+  in the "two minutes between picking up the phone and getting bored"
+  window this app is designed for):
+  > **"Vi jämför hur många poäng varje lag får per spelare — inte bara
+  > lagets totalsumma. Så kan även ett litet lag vinna genom att alla
+  > kämpar på."**
+  >
+  > **"Om ett lag är litet räknar vi lite försiktigt, så att några enstaka
+  > riktigt bra dagar inte råkar ge förstaplatsen av en slump. Ju fler
+  > spelare ett lag har, desto mer litar vi på deras eget snitt."**
+- **Own-team transparency line — shown only when `requestingTeamEffort` is
+  non-null**, the one place `adjustedScore` is actually surfaced, in
+  context, attached to a number the player already trusts
+  (`pointsPerPlayer`) rather than floating on its own:
+  > **"Ditt lag: {pointsPerPlayer} p/spelare med {eligiblePlayerCount}
+  > spelare → {adjustedScore} p när vi räknar rättvist."**
+  >
+  > (This line reads `requestingTeamEffort.eligiblePlayerCount` — the
+  > requesting team's own exact count, never bucketed. Only `'1-2'`/`'3-5'`/
+  > `'6+'` on *other* teams' effort-tab rows is bucketed; a team always sees
+  > its own exact number here, unaffected by ADR-0016's 2026-07-31
+  > addendum.)
+- Button: **"Okej, jag fattar!"** (identical copy to CH0's dismiss button —
+  deliberate reuse, not a new phrase to write/translate for the same
+  "got it, thanks" moment).
+
+**Next:** dismiss → back to the effort tab, unchanged.
+
+---
+
+#### Screen LB1 — updated: dashboard/"Laget" home-card gets a compact effort line
+
+The card stays compact by design — this is a teaser, not the leaderboard
+itself, and the task's own brief is explicit about not cluttering it. Exact
+placement, in order (top to bottom, nothing above this line changes):
+
+1. "🥇 VM-Guld-tabellen" (unchanged)
+2. Big points figure (unchanged)
+3. Rank line, **"{rank} plats av {teamCount} lag"** (unchanged)
+4. **New, small, muted line — only rendered when `effortRank` is present**
+   (i.e., an active season exists **and** the team has at least one
+   eligible player; absent in both the "between seasons" case and the
+   "0 eligible players" case, same graceful-omission convention the rank
+   line itself already uses for "between seasons"):
+   > **"🌟 {effortRank as ordinal} bäst i laginsats"** — e.g. "🌟 2:a bäst i
+   > laginsats."
+5. "Se tabellen →" tap hint (unchanged)
+
+**Deliberately not shown on the card:** `eligiblePlayerCount`,
+`pointsPerPlayer`, `adjustedScore` — none of those numbers earn a place on
+a glanceable teaser card; they live on LB2/LB3 for anyone who taps through.
+One small emoji-prefixed line is the entire footprint this feature gets on
+the home card, styled visually secondary to the existing rank line (smaller
+size, same `goldText`/muted family, not competing with the big points
+figure for attention).
+
+**Tap target unchanged:** the whole card is still one `Pressable`, opening
+LB2 on the default "Mest poäng" tab, same as today. **Considered and cut:**
+making the new effort line its own nested tap target that deep-links
+straight to the effort tab — technically awkward (nested `Pressable`s) for
+a low-value shortcut, and this app already has a documented aversion to
+multiple tap targets on a small, frequently-glanced card (see K1's
+teammates-list judgment call). One tap target, one destination, stays true
+here too.
+
+---
 
 1. **Teammates list is a new, always-visible baseline section on K1**, not
    folded into the captain-only K2 — the whole point of `GET
@@ -784,6 +1017,43 @@ pattern as G1/CH1.
     fixed suffix, and baking it into a template string would both be wrong
     and violate CLAUDE.md's i18n instruction.
 
+**Addendum (2026-07-31, ADR-0016):**
+
+16. **Tab name "Bästa laginsats," not "Poäng per spelare" or "Rättvis
+    tabell"** — the first names a feeling worth being proud of, matching
+    this app's "reads as celebration" brief; the second frames the tab
+    around a stat, not a feeling; the third implies the other tab is
+    unfair, which isn't a message this app wants to send about a number
+    (raw total) it also wants teams to stay proud of.
+17. **`pointsPerPlayer` is a first-class, prominent row field;
+    `adjustedScore` never appears on a row at all**, only inside the opt-in
+    LB3 explainer sheet, attached to the player's own team's already-
+    trusted numbers — directly answers the task's "does the abstract
+    ranking number need a tooltip, or should it be de-emphasized" question
+    in favor of full de-emphasis over a tooltip-per-row.
+18. **`eligiblePlayerCountRange` — a bucketed range (`'1-2'`/`'3-5'`/`'6+'`),
+    not an exact count — is shown inline on every effort-tab row** (unlike
+    `adjustedScore`). It's still the piece of context that makes "how did a
+    small team out-rank a big one" legible at a glance without requiring the
+    explainer sheet; it's bucketed rather than exact because, on any other
+    team's row, an exact small count would double as that one child's
+    consent/approval status (ADR-0016's 2026-07-31 addendum) — the range
+    keeps the row's legibility purpose intact while not exposing that. The
+    requesting team's own numbers (LB3's transparency line, the dashboard
+    home-card) are unaffected and stay exact.
+19. **A 🏆 marks whichever team is rank 1 on the effort tab, not only the
+    viewer's own team** — an ordinary, universally-read sports-table
+    convention that costs no viewer-specific branch, and produces a
+    genuine "we're the effort champions" moment purely by composition
+    (trophy + existing own-row highlight + existing "Ditt lag" tag) when
+    it does land on the viewer's team, with zero new copy needed for that
+    case specifically.
+20. **The dashboard home-card's new effort line is one small, emoji-
+    prefixed string, with its own nested tap target explicitly considered
+    and cut** — the card stays a single `Pressable` to one destination,
+    consistent with this doc's own earlier judgment call (item 2) against
+    stacking multiple tap targets on a small, frequently-glanced surface.
+
 ## Flagged for others, not decided here
 
 - **Architect:** consider a small `GET /teams/:teamId/chat/blocks`
@@ -802,3 +1072,12 @@ pattern as G1/CH1.
   Decision 3's residual risk in mind — worth confirming the *copy*, not
   just the endpoints, doesn't accidentally overpromise a review guarantee
   this app can't deliver.
+- **Frontend-developer (ADR-0016 addendum):** `pointsPerPlayer`/
+  `adjustedScore` need a one-decimal, sv-SE-formatted number helper
+  (`Intl.NumberFormat('sv-SE', { minimumFractionDigits: 1,
+  maximumFractionDigits: 1 })` or equivalent) distinct from the existing
+  whole-number `numberFormatter` both `LeaderboardScreen.tsx` and
+  `TeamPoolCard.tsx` already use for `pointsTotal` — don't reuse the
+  existing formatter as-is, it would drop the decimal. The "Mest poäng"
+  tab's optional discovery nudge (this addendum's cuttable nicety) is a
+  judgment call for build-time, not required for this feature to ship.

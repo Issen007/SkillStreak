@@ -46,7 +46,7 @@ export function CatchUpBanner({ awardedPoints, onDismiss }: CatchUpBannerProps) 
     <Animated.View style={[styles.container, { opacity }]} pointerEvents="box-none">
       <Pressable onPress={handleTap} style={styles.pressable}>
         <Text style={styles.text}>
-          🎉 Laget nådde veckans mål! Laget fick +{numberFormatter.format(awardedPoints)}{' '}
+          🎉 Alla i laget klarade veckans mål! Laget fick +{numberFormatter.format(awardedPoints)}{' '}
           bonuspoäng.
         </Text>
       </Pressable>

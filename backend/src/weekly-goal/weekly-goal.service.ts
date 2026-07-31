@@ -9,7 +9,9 @@ import {
   InvalidChallengeTransitionException,
 } from '../common/errors/exceptions';
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
+import { stockholmDateString } from '../common/time/stockholm-date.util';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
+import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { PlayersService } from '../players/players.service';
 import { Player } from '../players/entities/player.entity';
 import { Team } from '../teams/entities/team.entity';
@@ -22,7 +24,10 @@ import {
 } from '../challenges/entities/challenge.entity';
 import { CreateWeeklyGoalDto } from './dto/create-weekly-goal.dto';
 import { UpdateWeeklyGoalDto } from './dto/update-weekly-goal.dto';
-import { ACTIVITY_TYPE_BY_TARGET_METRIC } from './weekly-goal-target-metric.enum';
+import {
+  ACTIVITY_TYPE_BY_TARGET_METRIC,
+  TARGET_UNIT_BY_TARGET_METRIC,
+} from './weekly-goal-target-metric.enum';
 import { isLegalWeeklyGoalTransition } from './weekly-goal-transition.util';
 
 const ONE_ACTIVE_GOAL_PER_TEAM_CONSTRAINT =
@@ -41,6 +46,30 @@ function isActiveGoalUniqueViolation(error: unknown): boolean {
   return isPostgresUniqueViolation(error, ONE_ACTIVE_GOAL_PER_TEAM_CONSTRAINT);
 }
 
+// docs/adr/0015-weekly-goal-per-player-completion.md Decision 3 — every
+// current roster member appears here, eligible or not (excluded players
+// stay in the list with `eligible: false`, so a captain/teammate looking
+// at "4 of 6 done" can see who's missing, not just a shorter list).
+export interface PlayerGoalProgress {
+  playerId: string;
+  screenName: string;
+  avatarId: string;
+  eligible: boolean;
+  // Captain-only (ADR-0015 Decision 4 — a real privacy finding, mirrors
+  // PlayersService.getRoster's existing captain-only consentStatus gating).
+  // Always null for a non-captain viewer, regardless of the real reason,
+  // including for excluded players. `eligible: false` itself stays visible
+  // to everyone; only the *why* is gated.
+  exclusionReason:
+    | 'joined_after_start'
+    | 'consent_pending'
+    | 'consent_revoked'
+    | 'team_join_pending'
+    | null;
+  progressValue: number; // minutes or session count, per targetUnit
+  goalMet: boolean; // always false when eligible is false
+}
+
 export interface GoalProgressSummary {
   id: string;
   teamId: string;
@@ -55,9 +84,28 @@ export interface GoalProgressSummary {
   // once the authoring captain's own account is erased (the goal itself,
   // and any bonus already awarded from it, outlives them).
   createdByPlayerId: string | null;
-  progressMinutes: number;
-  percentComplete: number;
+  // ADR-0015 Decision 3 — derived from TARGET_UNIT_BY_TARGET_METRIC, saves
+  // the client its own copy of that lookup table.
+  targetUnit: 'minutes' | 'sessions';
+  players: PlayerGoalProgress[];
+  eligiblePlayerCount: number;
+  completedPlayerCount: number;
+  // MEANING CHANGED by ADR-0015 Decision 2: no longer "team-wide pooled
+  // total >= targetValue" — now "every eligible current roster member
+  // individually reached targetValue" (false, never vacuously true, when
+  // eligiblePlayerCount is 0).
   goalMet: boolean;
+  // MEANING CHANGED by ADR-0015 Decision 3:
+  // completedPlayerCount / eligiblePlayerCount * 100, 0 if
+  // eligiblePlayerCount is 0 — no longer a share of a team-wide pooled
+  // total.
+  percentComplete: number;
+  // RENAMED from progressMinutes (ADR-0015 Decision 3) — a deliberate
+  // breaking rename, not additive: this is the bonus-payout basis only
+  // (team-wide minutes logged toward this metric/date-range), it no longer
+  // decides goalMet, and an old client should fail a type check rather
+  // than silently render this number under the old, now-misleading label.
+  teamBonusBasisMinutes: number;
   bonusAwardedAt: string | null;
   bonusPointsAwarded: number | null;
 }
@@ -131,6 +179,8 @@ export interface DashboardResponse {
   // there's no fixed maximum to be a percentage of anymore. rank/teamCount
   // replace it, computed by the same shared TeamPoolService query the
   // leaderboard endpoint and GET /players/me both reuse.
+  // ADR-0016 Decision 5 (additive): effortRank/eligiblePlayerCount added
+  // alongside, computed by TeamPoolService.getEffortRankAndEligibleCountOrThrow.
   teamPool: {
     seasonId: string;
     seasonLabel: string;
@@ -138,6 +188,8 @@ export interface DashboardResponse {
     status: string;
     rank: number;
     teamCount: number;
+    effortRank: number | null;
+    eligiblePlayerCount: number;
     last7DaysLoggedCount: number;
   };
   weeklyGoal: {
@@ -145,6 +197,11 @@ export interface DashboardResponse {
     // createdByPlayerId/bonusPointsAwarded from the dashboard's `current`
     // block (unlike endpoints 7/8, which do include bonusPointsAwarded) —
     // matched exactly here rather than a superset, to avoid contract drift.
+    // ADR-0015 Decision 3 keeps this same field-inclusion policy: every new
+    // field it adds to GoalProgressSummary (targetUnit/players/
+    // eligiblePlayerCount/completedPlayerCount/teamBonusBasisMinutes) is
+    // included here too, since the dashboard is exactly where the
+    // per-teammate view needs to render.
     current: Omit<
       GoalProgressSummary,
       'createdByPlayerId' | 'teamId' | 'bonusPointsAwarded'
@@ -162,6 +219,25 @@ export interface LeaderboardEntry {
   isRequestingTeam: boolean;
 }
 
+// ADR-0016 Decision 5 (additive) — the shrinkage-adjusted "effort" view
+// alongside LeaderboardEntry above.
+// eligiblePlayerCountRange is bucketed ('1-2' | '3-5' | '6+'), not an exact
+// integer — per the ADR's 2026-07-31 addendum, a cross-team-visible exact
+// count on a small team is a de-facto single-child consent/join-approval
+// leak. Renamed (not just retyped) from eligiblePlayerCount so a future
+// contributor can't accidentally treat it as a number (sort/sum it).
+// requestingTeamEffort below is unaffected — it never crosses a team
+// boundary, so it keeps the exact eligiblePlayerCount integer.
+export interface EffortLeaderboardEntry {
+  rank: number;
+  teamId: string;
+  teamName: string;
+  eligiblePlayerCountRange: '1-2' | '3-5' | '6+';
+  pointsPerPlayer: number;
+  adjustedScore: number;
+  isRequestingTeam: boolean;
+}
+
 export interface LeaderboardResponse {
   requestingTeam: {
     teamId: string;
@@ -170,6 +246,18 @@ export interface LeaderboardResponse {
     rank: number;
   } | null;
   leaderboard: LeaderboardEntry[];
+  // ADR-0016 Decision 5 (additive, existing fields above unchanged).
+  // Null when the requesting team's own eligiblePlayerCount is 0, same
+  // posture as requestingTeam's own null case.
+  requestingTeamEffort: {
+    teamId: string;
+    teamName: string;
+    eligiblePlayerCount: number;
+    pointsPerPlayer: number;
+    adjustedScore: number;
+    rank: number;
+  } | null;
+  effortLeaderboard: EffortLeaderboardEntry[];
 }
 
 function percentOf(numerator: number, denominator: number): number {
@@ -201,6 +289,12 @@ export class WeeklyGoalService {
     private readonly trainingLogEntryRepository: Repository<TrainingLogEntry>,
     @InjectRepository(Team)
     private readonly teamRepository: Repository<Team>,
+    // ADR-0015 Decision 5 — a second, narrow handle on Player (alongside
+    // PlayersService's own) so the eligible-roster query can run against
+    // the *same* manager as processGoalBonusForLog's row-locked
+    // transaction; see weekly-goal.module.ts's comment.
+    @InjectRepository(Player)
+    private readonly playerRepository: Repository<Player>,
   ) {}
 
   /**
@@ -249,16 +343,178 @@ export class WeeklyGoalService {
     return Number(raw?.sum ?? 0);
   }
 
+  /**
+   * docs/adr/0015-weekly-goal-per-player-completion.md Decision 2/5 — the
+   * per-player counterpart to computeTeamProgress: `GROUP BY player_id`,
+   * summed or counted per `TARGET_UNIT_BY_TARGET_METRIC[targetMetric]`,
+   * same team/date-range/activity-type filters. "Session count" means
+   * number of qualifying TrainingLogEntry rows, not distinct days.
+   */
+  private async computePerPlayerProgress(
+    manager: EntityManager | undefined,
+    teamId: string,
+    targetMetric: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<Map<string, number>> {
+    const repository = manager
+      ? manager.getRepository(TrainingLogEntry)
+      : this.trainingLogEntryRepository;
+
+    const targetUnit =
+      TARGET_UNIT_BY_TARGET_METRIC[
+        targetMetric as keyof typeof TARGET_UNIT_BY_TARGET_METRIC
+      ];
+    const valueExpression =
+      targetUnit === 'sessions'
+        ? 'COUNT(*)'
+        : 'COALESCE(SUM(log.duration_minutes), 0)';
+
+    const qb = repository
+      .createQueryBuilder('log')
+      .select('log.player_id', 'playerId')
+      .addSelect(valueExpression, 'value')
+      .where('log.team_id = :teamId', { teamId })
+      .andWhere(
+        "(log.logged_at AT TIME ZONE 'Europe/Stockholm')::date BETWEEN :startDate AND :endDate",
+        { startDate, endDate },
+      )
+      .groupBy('log.player_id');
+
+    const activityType =
+      ACTIVITY_TYPE_BY_TARGET_METRIC[
+        targetMetric as keyof typeof ACTIVITY_TYPE_BY_TARGET_METRIC
+      ];
+    if (activityType) {
+      qb.andWhere('log.activity_type = :activityType', { activityType });
+    }
+
+    const rows = await qb.getRawMany<{ playerId: string; value: string }>();
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      map.set(row.playerId, Number(row.value));
+    }
+    return map;
+  }
+
+  /**
+   * docs/adr/0015-weekly-goal-per-player-completion.md Decision 2's
+   * eligible-roster predicate: a player could plausibly have logged
+   * anything toward this goal only if their consent AND team-join are both
+   * approved AND they joined on/before the goal's startDate — a direct
+   * consequence of TrainingLogsService.logTraining already refusing to log
+   * training at all otherwise. Priority among reasons (checked in this
+   * order) only matters for which single reason is reported when more than
+   * one applies; it doesn't affect `eligible` itself.
+   */
+  private computeExclusionReason(
+    player: Player,
+    goalStartDate: string,
+  ): PlayerGoalProgress['exclusionReason'] {
+    if (player.parentalConsentStatus === ParentalConsentStatus.REVOKED) {
+      return 'consent_revoked';
+    }
+    if (player.parentalConsentStatus !== ParentalConsentStatus.APPROVED) {
+      return 'consent_pending';
+    }
+    if (player.teamJoinStatus !== TeamJoinStatus.APPROVED) {
+      return 'team_join_pending';
+    }
+    if (stockholmDateString(player.createdAt) > goalStartDate) {
+      return 'joined_after_start';
+    }
+    return null;
+  }
+
+  /**
+   * docs/adr/0015-weekly-goal-per-player-completion.md Decision 2/5's core
+   * algorithm — live query against the current Player table (re-run every
+   * time, so a departed/erased player just stops appearing, per the ADR's
+   * "Departed/erased players" section) plus the per-player progress map.
+   * `goalMet` is explicitly `false` when `eligiblePlayerCount` is 0 — the
+   * required vacuous-truth guard, never true for "0 of 0 players done."
+   * Shared by buildGoalProgressSummary (the read paths) and
+   * processGoalBonusForLog (the bonus check), always against the same
+   * `manager` as the caller so both see a consistent snapshot.
+   */
+  private async buildPlayerGoalProgress(
+    manager: EntityManager | undefined,
+    goal: Challenge,
+  ): Promise<{
+    players: PlayerGoalProgress[];
+    eligiblePlayerCount: number;
+    completedPlayerCount: number;
+    goalMet: boolean;
+  }> {
+    const repository = manager
+      ? manager.getRepository(Player)
+      : this.playerRepository;
+    const rosterPlayers = await repository.find({
+      where: { teamId: goal.teamId },
+    });
+
+    const progressMap = await this.computePerPlayerProgress(
+      manager,
+      goal.teamId,
+      goal.targetMetric,
+      goal.startDate,
+      goal.endDate,
+    );
+
+    const players: PlayerGoalProgress[] = rosterPlayers.map((player) => {
+      const exclusionReason = this.computeExclusionReason(
+        player,
+        goal.startDate,
+      );
+      const eligible = exclusionReason === null;
+      const progressValue = progressMap.get(player.id) ?? 0;
+      return {
+        playerId: player.id,
+        screenName: player.screenName,
+        avatarId: player.avatarId,
+        eligible,
+        exclusionReason,
+        progressValue,
+        goalMet: eligible && progressValue >= goal.targetValue,
+      };
+    });
+
+    const eligiblePlayers = players.filter((p) => p.eligible);
+    const eligiblePlayerCount = eligiblePlayers.length;
+    const completedPlayerCount = eligiblePlayers.filter(
+      (p) => p.goalMet,
+    ).length;
+    // Vacuous-truth guard: an empty eligible roster must never read as
+    // "complete."
+    const goalMet =
+      eligiblePlayerCount > 0 && eligiblePlayers.every((p) => p.goalMet);
+
+    return { players, eligiblePlayerCount, completedPlayerCount, goalMet };
+  }
+
   private async buildGoalProgressSummary(
     goal: Challenge,
+    viewerIsCaptain: boolean,
   ): Promise<GoalProgressSummary> {
-    const progressMinutes = await this.computeTeamProgress(
+    const teamBonusBasisMinutes = await this.computeTeamProgress(
       undefined,
       goal.teamId,
       goal.targetMetric,
       goal.startDate,
       goal.endDate,
     );
+    const { players, eligiblePlayerCount, completedPlayerCount, goalMet } =
+      await this.buildPlayerGoalProgress(undefined, goal);
+    // ADR-0015 Decision 4 — captain-only exclusionReason; eligible: false
+    // itself stays visible to everyone.
+    const visiblePlayers = viewerIsCaptain
+      ? players
+      : players.map((player) => ({ ...player, exclusionReason: null }));
+    const targetUnit =
+      TARGET_UNIT_BY_TARGET_METRIC[
+        goal.targetMetric as keyof typeof TARGET_UNIT_BY_TARGET_METRIC
+      ];
+
     return {
       id: goal.id,
       teamId: goal.teamId,
@@ -270,9 +526,13 @@ export class WeeklyGoalService {
       endDate: goal.endDate,
       status: goal.status,
       createdByPlayerId: goal.createdByPlayerId,
-      progressMinutes,
-      percentComplete: percentOf(progressMinutes, goal.targetValue),
-      goalMet: progressMinutes >= goal.targetValue,
+      targetUnit,
+      players: visiblePlayers,
+      eligiblePlayerCount,
+      completedPlayerCount,
+      percentComplete: percentOf(completedPlayerCount, eligiblePlayerCount),
+      goalMet,
+      teamBonusBasisMinutes,
       bonusAwardedAt: goal.goalBonusAwardedAt
         ? goal.goalBonusAwardedAt.toISOString()
         : null,
@@ -449,7 +709,9 @@ export class WeeklyGoalService {
     );
     const goal = await this.findCurrentGoalForTeam(teamId);
     return {
-      goal: goal ? await this.buildGoalProgressSummary(goal) : null,
+      goal: goal
+        ? await this.buildGoalProgressSummary(goal, requester.isCaptain)
+        : null,
       viewerIsCaptain: requester.isCaptain,
     };
   }
@@ -458,7 +720,10 @@ export class WeeklyGoalService {
     teamId: string,
     requesterId: string,
   ): Promise<{ goals: GoalProgressSummary[] }> {
-    await this.playersService.assertTeamMembership(requesterId, teamId);
+    const requester = await this.playersService.assertTeamMembership(
+      requesterId,
+      teamId,
+    );
     const goals = await this.challengeRepository
       .createQueryBuilder('challenge')
       .where('challenge.team_id = :teamId', { teamId })
@@ -468,7 +733,9 @@ export class WeeklyGoalService {
       .getMany();
 
     const summaries = await Promise.all(
-      goals.map((goal) => this.buildGoalProgressSummary(goal)),
+      goals.map((goal) =>
+        this.buildGoalProgressSummary(goal, requester.isCaptain),
+      ),
     );
     // "Newest first" per the contract — Challenge has no createdAt, so
     // endDate is used as the best available recency proxy (flagged
@@ -501,6 +768,8 @@ export class WeeklyGoalService {
     }
     const { rank, teamCount } =
       await this.teamPoolService.getRankAndTeamCountOrThrow(teamId);
+    const { effortRank, eligiblePlayerCount } =
+      await this.teamPoolService.getEffortRankAndEligibleCountOrThrow(teamId);
     const last7DaysLoggedCount = await this.countRecentLogs(teamId, 7);
 
     const team = await this.teamRepository.findOne({ where: { id: teamId } });
@@ -517,11 +786,15 @@ export class WeeklyGoalService {
 
     let current: DashboardResponse['weeklyGoal']['current'] = null;
     if (currentGoal) {
-      const summary = await this.buildGoalProgressSummary(currentGoal);
+      const summary = await this.buildGoalProgressSummary(
+        currentGoal,
+        requester.isCaptain,
+      );
       // Built field-by-field (not a destructure-omit) so nothing needs an
       // unused-variable escape hatch — docs/api/phase2-contract.md endpoint
       // 1's example intentionally excludes createdByPlayerId/teamId/
-      // bonusPointsAwarded from this block (unlike endpoints 7/8).
+      // bonusPointsAwarded from this block (unlike endpoints 7/8); every
+      // other field, including ADR-0015's new ones, is included.
       current = {
         id: summary.id,
         title: summary.title,
@@ -531,9 +804,13 @@ export class WeeklyGoalService {
         startDate: summary.startDate,
         endDate: summary.endDate,
         status: summary.status,
-        progressMinutes: summary.progressMinutes,
-        percentComplete: summary.percentComplete,
+        targetUnit: summary.targetUnit,
+        players: summary.players,
+        eligiblePlayerCount: summary.eligiblePlayerCount,
+        completedPlayerCount: summary.completedPlayerCount,
         goalMet: summary.goalMet,
+        percentComplete: summary.percentComplete,
+        teamBonusBasisMinutes: summary.teamBonusBasisMinutes,
         bonusAwardedAt: summary.bonusAwardedAt,
       };
     }
@@ -550,6 +827,8 @@ export class WeeklyGoalService {
         status: pot.status,
         rank,
         teamCount,
+        effortRank,
+        eligiblePlayerCount,
         last7DaysLoggedCount,
       },
       weeklyGoal: { current, pastCount },
@@ -579,6 +858,31 @@ export class WeeklyGoalService {
     }));
 
     const mine = leaderboard.find((row) => row.isRequestingTeam);
+
+    // ADR-0016 Decision 5 (additive) — the shrinkage-adjusted effort view,
+    // computed alongside the raw-total view above rather than a second
+    // endpoint/round-trip. `effortRows` keeps the exact eligiblePlayerCount
+    // per docs/adr/0016...md's 2026-07-31 addendum — requestingTeamEffort
+    // below reads it directly off this raw, unbucketed row (own-team data
+    // never crosses a team boundary, so it stays exact); the bucketed
+    // TeamPoolService.bucketEligiblePlayerCount() is applied only when
+    // building the cross-team effortLeaderboard array.
+    const effortRows = await this.teamPoolService.getEffortLeaderboard();
+    const effortLeaderboard: EffortLeaderboardEntry[] = effortRows.map(
+      (row) => ({
+        rank: row.rank,
+        teamId: row.teamId,
+        teamName: row.teamName,
+        eligiblePlayerCountRange: TeamPoolService.bucketEligiblePlayerCount(
+          row.eligiblePlayerCount,
+        ),
+        pointsPerPlayer: row.pointsPerPlayer,
+        adjustedScore: row.adjustedScore,
+        isRequestingTeam: row.teamId === teamId,
+      }),
+    );
+    const mineEffort = effortRows.find((row) => row.teamId === teamId);
+
     return {
       requestingTeam: mine
         ? {
@@ -589,6 +893,17 @@ export class WeeklyGoalService {
           }
         : null,
       leaderboard,
+      requestingTeamEffort: mineEffort
+        ? {
+            teamId: mineEffort.teamId,
+            teamName: mineEffort.teamName,
+            eligiblePlayerCount: mineEffort.eligiblePlayerCount,
+            pointsPerPlayer: mineEffort.pointsPerPlayer,
+            adjustedScore: mineEffort.adjustedScore,
+            rank: mineEffort.rank,
+          }
+        : null,
+      effortLeaderboard,
     };
   }
 
@@ -649,12 +964,20 @@ export class WeeklyGoalService {
    * to the progress query below, and the row lock below serializes any
    * concurrent training-log write for the same team).
    *
+   * Crossing predicate revised by
+   * docs/adr/0015-weekly-goal-per-player-completion.md Decision 2/5: no
+   * longer a team-wide pooled-total check — every *eligible* current
+   * roster member must individually reach targetValue (vacuous-truth
+   * guarded: an empty eligible roster never counts as met). The lump-sum
+   * payout formula/transaction/idempotency flag below are unchanged; only
+   * this predicate changed.
+   *
    * Returns null whenever there's nothing new to report (no active goal,
    * this log's date is out of range, the goal was already met by an
-   * earlier log, or progress still falls short) — folding "already met"
-   * into the same null case as "not met yet" is deliberate, per the
-   * contract: a non-null result unambiguously means "this log just caused
-   * the one-time crossing."
+   * earlier log, or the per-player check still falls short) — folding
+   * "already met" into the same null case as "not met yet" is deliberate,
+   * per the contract: a non-null result unambiguously means "this log just
+   * caused the one-time crossing."
    */
   async processGoalBonusForLog(
     manager: EntityManager,
@@ -686,7 +1009,17 @@ export class WeeklyGoalService {
     }
     if (activeGoal.goalBonusAwardedAt !== null) return null;
 
-    const progress = await this.computeTeamProgress(
+    // ADR-0015 Decision 5 steps 3-4: eligible roster + per-player progress
+    // (same manager, so this sees the just-inserted log), then the
+    // per-player crossing check. `goalMet` here already folds in the
+    // vacuous-truth guard (false when eligiblePlayerCount is 0).
+    const { goalMet } = await this.buildPlayerGoalProgress(manager, activeGoal);
+    if (!goalMet) return null;
+
+    // Step 5: bonus basis is still the team-wide-minutes aggregate,
+    // unchanged (ADR-0015 Decision 2 keeps the payout formula/basis as-is
+    // — only the crossing predicate above changed).
+    const teamBonusBasisMinutes = await this.computeTeamProgress(
       manager,
       teamId,
       activeGoal.targetMetric,
@@ -694,13 +1027,10 @@ export class WeeklyGoalService {
       activeGoal.endDate,
     );
 
-    if (progress < activeGoal.targetValue) return null;
-
     // Flat +5, plus 1 point per team-wide minute — a one-time lump sum
     // (ADR-0005 Decision 3, corrected 2026-07-05), not a per-log/ongoing
-    // bonus. `progress` is the same number just computed for the target
-    // check, not a separate query.
-    const awardedPoints = 5 + progress;
+    // bonus.
+    const awardedPoints = 5 + teamBonusBasisMinutes;
     const updatedPot = await this.teamPoolService.addPoints(
       manager,
       teamSeasonPotId,

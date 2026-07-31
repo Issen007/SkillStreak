@@ -289,6 +289,7 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
           pointsTotal={me.teamPool.pointsTotal}
           rank={me.teamPool.rank}
           teamCount={me.teamPool.teamCount}
+          effortRank={me.teamPool.effortRank}
           onPress={() => setView('leaderboard')}
         />
       </View>

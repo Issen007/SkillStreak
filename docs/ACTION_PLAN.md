@@ -353,6 +353,77 @@ data yet to migrate): all migrations ran automatically via the entrypoint,
 62 unit + 24 e2e tests pass, the seed script runs cleanly, `/health`
 responds.
 
+**Per-player completion correction, 2026-07-31**: raised by the project
+owner directly — the weekly goal's progress formula above
+(`SUM(duration_minutes)` across every team member's logs) meant one
+highly active player could complete the whole team's goal alone, with
+teammates who never trained. Same class of change as the 2026-07-05
+bonus-formula correction above — a correction to an already-shipped,
+already-reviewed formula, not a new feature — and got the same rigor.
+Full chain, each stage independently re-verified against the actual
+result, not taken on the prior stage's word:
+- [x] **architect**: `docs/adr/0015-weekly-goal-per-player-completion.md`.
+      `goalMet` now requires every *eligible* current roster member
+      (`parentalConsentStatus`/`teamJoinStatus` both approved, joined on
+      or before the goal's `startDate`) to individually reach
+      `targetValue` — with an explicit vacuous-truth guard (an empty
+      eligible roster is never vacuously "met"). The bonus payout
+      formula/transaction/idempotency lock from the 2026-07-05 correction
+      are **unchanged** — only the crossing predicate changed. Also added
+      session-count goals (the project owner's own example, "run 2
+      times," was a count, not a minutes threshold — a shape that didn't
+      exist before) via five new `WeeklyGoalTargetMetric` values rather
+      than a new column, and a `PlayerGoalProgress.exclusionReason` field
+      — a real privacy finding surfaced during design, not assumed safe:
+      a teammate's consent-pending/revoked state is gated captain-only,
+      mirroring `PlayersService.getRoster`'s existing pattern. Departed/
+      erased players (`docs/adr/0013-account-erasure.md` Decision 6) are
+      excluded from the check for free, via the same live-roster query
+      the pooled formula already used, not a new mechanism.
+- [x] **ux-designer**: `docs/design/phase2.10-per-player-goal-flows.md` +
+      a companion mockup. Redesigned `GoalCard` to lead with "X av Y
+      lagkamrater klara," a new per-teammate status screen (G1D — three
+      roster-ordered sections, never re-sorted, to avoid an implicit
+      ranking), and a minutes/sessions toggle on the goal builder.
+      Also caught and fixed a real pre-existing gap unrelated to this
+      change: the "Laget" tab fetched `dashboard.weeklyGoal` but never
+      rendered it at all.
+- [x] **backend-developer**: implemented all of the above against
+      `weekly-goal.service.ts`/`weekly-goal-target-metric.enum.ts`,
+      updated `api/phase2-contract.md` for the (deliberately) breaking
+      contract change (`progressMinutes` renamed `teamBonusBasisMinutes`
+      rather than reused with new meaning, so an un-updated client fails
+      a type check instead of silently rendering a stale number under a
+      misleading label). 267/267 backend unit tests.
+- [x] **frontend-developer**: wired the mobile client to the new
+      contract — `GoalCard` redesign, the new G1D screen, the K1 gap fix,
+      the goal-builder unit toggle. Clean `tsc --noEmit`, `expo-doctor`
+      18/18.
+- [x] **code-critic**: full-diff review, one real finding —
+      **CONFIRMED**: `backend/test/phase2.e2e-spec.ts`'s two
+      goal-completion-bonus e2e tests still asserted the *old* pooled-sum
+      crossing behavior and were genuinely failing against the new code
+      (verified directly, not taken on the reviewer's word: `2 failed, 18
+      passed`). Fixed: both tests rewritten so every eligible player
+      individually reaches `targetValue` before asserting the bonus
+      fires. The first fix attempt had its own bug, caught before
+      considering this closed: the concurrency test's captain logged
+      *before* the 10 team members existed, briefly making the captain
+      the only eligible player and completing the goal prematurely —
+      fixed by creating the full roster before anyone logs. Everything
+      else code-critic checked (the vacuous-truth guard, the
+      `exclusionReason` gating, the unchanged bonus transaction, the new
+      session-count query branching, the `Europe/Stockholm`-aware
+      mid-week-joiner check, roster-order preservation on the frontend)
+      came back clean, independently confirmed. Final state: 267/267
+      backend unit tests, 20/20 e2e (`phase2.e2e-spec.ts`), mobile
+      typecheck and `expo-doctor` clean — every number in this entry was
+      re-run by the orchestrating session, not just reported.
+
+Shipped as one commit (backend + mobile together, per the ADR's own
+"no partial deploy" requirement for a breaking contract change), merged
+to `prerelease`.
+
 ## Phase 2.5 — Verify and Security check ("Fas 2.5")
 
 This phase is a deliberate pause after the Phase 2 pivot, to let the
@@ -678,6 +749,78 @@ flagged (block-management is currently client-cache-backed only), and the
 `getActivePotForTeam` between-seasons `500` behavior (an existing,
 already-accepted Phase 1 gap, now slightly more visible now that a
 leaderboard exists to compare against).
+
+**Cross-team fairness correction, 2026-07-31**: raised by the project
+owner directly — the VM-Guld cross-team leaderboard's raw-summed-points
+ranking structurally favored a large roster over a small one regardless
+of per-player effort (a 15-person team outscores a 4-person team just by
+having more people logging, not by training harder). Same class of
+change as the two corrections above — a correction to an already-shipped,
+already-reviewed formula (ADR-0008), not a new feature — and got the same
+rigor, plus one blocking finding caught mid-chain:
+- [x] **architect**: `docs/adr/0016-cross-team-leaderboard-fairness.md`.
+      Additive second ranking ("Bästa laginsats") alongside the existing
+      raw-total leaderboard — nothing about `pointsTotal`/`rank` changes.
+      Shrinkage-adjusted points-per-eligible-player formula
+      (`adjustedScore = (n/(n+k))·teamAverage + (k/(n+k))·leagueMean`,
+      `k = GREATEST(3, median(eligiblePlayerCount))`) chosen over a
+      minimum-team-size floor (rejected — excludes the exact team the
+      complaint is about) or plain percentile ranking (rejected —
+      reorders noise, doesn't reduce it). Eligibility reuses ADR-0015's
+      exact definition. A new count-only join to `Player` (just
+      `COUNT(...)`, no other column) was flagged explicitly as needing
+      independent security-reviewer sign-off before ship — the first time
+      any cross-team query has joined to `Player` at all, a boundary
+      ADR-0008 otherwise holds absolutely.
+- [x] **ux-designer** + **backend-developer** (parallel): new
+      two-segment tab on the leaderboard screen, an opt-in info sheet
+      explaining the math (with `adjustedScore` deliberately never shown
+      on a row — only `pointsPerPlayer`, the "honest" number, plus
+      `eligiblePlayerCount` so a small team's win is self-evident), one
+      new muted line on the dashboard home-card. Backend: 275/275 unit
+      tests, 130/130 e2e, worked-example math independently re-verified
+      by hand.
+- [x] **security-reviewer** — **not a clean pass, a real finding**:
+      `eligiblePlayerCount` shown on *every other* team's leaderboard row
+      degenerates, for the 1-2-player teams this app already permits
+      (no minimum-roster-size concept exists), to one specific named
+      child's exact consent/join-approval status crossing a team
+      boundary — precisely the class of leak ADR-0008's "Player data
+      never crosses a team boundary" rule and CLAUDE.md's non-negotiable
+      parental-approval constraint exist to prevent. Blocked ship pending
+      a fix, correctly — this is exactly what the mandatory review before
+      any new `Player` join was for.
+- [x] **architect** (fix addendum to the same ADR): weighed a display
+      floor (rejected — same "hides the exact team the feature exists to
+      showcase" problem as Decision 2's rejected ranking floor) against
+      dropping the field entirely (rejected — guts the "why did the small
+      team win" legibility the whole feature is for) and chose bucketing
+      the cross-team-visible value into `'1-2'`/`'3-5'`/`'6+'` ranges
+      instead of an exact integer. Closes the exact leak (the 0→1
+      transition that IS a consent-approval event is never observable
+      through this field again) while a team's own numbers — shown only
+      to itself, in the info sheet — stay exact.
+- [x] **backend-developer** + **ux-designer** (parallel): implemented
+      the bucketing fix (`TeamPoolService.bucketEligiblePlayerCount`,
+      applied only when building the cross-team response array; the
+      internal ranking math stays on exact integers throughout) and
+      updated the design doc's row copy/example to match.
+- [x] **frontend-developer**: wired the mobile client to the corrected
+      contract. Clean `tsc --noEmit`, `expo-doctor` 18/18.
+- [x] **code-critic**: full-diff review, caught the bucketing fix hadn't
+      propagated to the static HTML design-mockup companion file (still
+      showing pre-fix exact counts — fixed) plus two real test-coverage
+      gaps: the actual bucketing call site in `weekly-goal.service.ts`
+      had zero test coverage (a future refactor could have silently
+      reintroduced the leak with nothing failing), and the "exactly one
+      qualifying team" / "every team tied" edge cases were untested —
+      both added. Shrinkage math, edge cases, and the mobile/backend
+      contract otherwise came back clean.
+
+Final state: 286/286 backend unit tests, 130/130 e2e, mobile
+`tsc`/`expo-doctor` clean — every number re-run by the orchestrating
+session at every stage, not just reported by an agent. Shipped as one
+commit (backend + mobile + docs together), merged to `prerelease`.
 
 ## Phase 2.9 — Self-service team creation
 
@@ -1523,14 +1666,22 @@ treat `security-reviewer` involvement as blocking, not a final check.
 - [x] **backend-developer**: plain K8s manifests — pulled forward to
       2026-07-05 ahead of Phases 2–3, deliberately, to prepare for an early
       external beta. See "Pre-beta hardening pass" below for what shipped
-      and what's still open (notably: no TLS yet).
+      and what's still open. **TLS gap closed** — see Phase 4.4 below;
+      real DNS, a public IP, and a `letsencrypt-prod` cert are all live as
+      of 2026-07-31.
 - [ ] **architect**: Helm chart — not done; current manifests are plain
       YAML per the project owner's explicit request, not a rejection of
       Helm, just not needed yet.
-- [ ] **security-reviewer**: full production-hardening pass (secrets
-      management via a real secrets manager, network policy) — partially
-      covered by the pre-beta pass below (rate limiting already existed
-      from Phase 1), but not a complete Fas 4 pass.
+- [x] **security-reviewer**: full production-hardening pass — done
+      2026-07-30/31 as a live audit of the actual running cluster, not
+      just the code. See Phase 4.4 below for the full findings/fixes list.
+      **Two items from the original scope still genuinely open, not
+      silently dropped**: secrets management via a dedicated secrets
+      manager (still plain K8s Secrets, no Vault/equivalent) and
+      `NetworkPolicy` (pod-to-pod traffic inside the namespace is
+      currently unrestricted — nothing stops the `site` pod from talking
+      directly to `postgres`, for instance, even though nothing in the
+      app ever needs it to). Rate limiting already existed from Phase 1.
 
 ## Phase 4.1 — Profile page — done 2026-07-28
 
@@ -1779,6 +1930,207 @@ here for the checklist.
 - [ ] **security-reviewer**, **backend-developer**, **frontend-developer**:
       not started — this phase is design-only so far, per the project
       owner's own "architecture now, content gradually" sequencing.
+
+## Phase 4.4 — Public launch: DNS, TLS, and a full production security pass — done 2026-07-31
+
+Closes the actual headline blocker for a public launch (real DNS, a
+reachable public IP, a trusted cert), plus a live security audit of the
+running production cluster prompted by an incident found the same day.
+Everything below happened in one continuous session, 2026-07-30 through
+2026-07-31, against the real `skillstreak` production cluster — every
+claim was independently re-verified against live cluster state, not
+taken on faith from a config file or a CI green checkmark.
+
+**DNS, Elastic IP, TLS:**
+- [x] New production cluster (Safespring Kubernetes Engine, context
+      `skillstreak`) replaced `isstech-2` on 2026-07-30 — better
+      pre-configured out of the box: Cilium's own `cilium` GatewayClass
+      pre-installed, `cert-manager` already has `enableGatewayAPI: true`,
+      and Cilium's Gateway API runs in hostNetwork mode (Envoy binds
+      80/443 directly on every node — confirmed live), which is exactly
+      what Safespring's "Elastic IP" product (their BGP-anycast
+      load-balancer) forwards traffic to.
+- [x] `skillstreak.xyz` DNS delegation fixed (Squarespace, the project
+      owner's own registrar action — the domain had zero nameserver
+      delegation at the registry level until this) and Safespring's
+      Elastic IP received (`192.121.132.86`, confirmed live via direct
+      `curl` returning a real Envoy response, not a timeout).
+- [x] **A real, confirmed upstream Cilium bug blocked initial cert
+      issuance**: [cilium/cilium#44123](https://github.com/cilium/cilium/issues/44123)
+      — a wildcard HTTP listener (port 80, no hostname, needed so
+      cert-manager's ACME HTTP-01 solver can attach for any domain)
+      coexisting with per-hostname HTTPS listeners makes Cilium silently
+      drop the *entire* plain-HTTP route config, not just the
+      conflicting part. Confirmed directly: even a 4-hour-old, fully
+      `Accepted`/`ResolvedRefs` HTTPRoute returned a blind Envoy 404 with
+      zero virtual hosts actually present in the live
+      `CiliumEnvoyConfig`. Worked around by temporarily narrowing the
+      Gateway's HTTP listener to one hostname at a time
+      (`skillstreak.xyz` → `www.` → `try.` → `api.`), letting each
+      domain's ACME challenge validate individually before moving to the
+      next, then restoring the wildcard listener once the Certificate
+      finalized — repeated twice (once for `letsencrypt-staging`, once
+      for `letsencrypt-prod`, separate ACME orders). **This will recur at
+      every cert renewal (~60–90 days) unless the upstream bug is fixed
+      or a permanent workaround is chosen — tracked as an open item in
+      `docs/BACKLOG.md`, not designed here.**
+- [x] TLS live on `letsencrypt-prod` for `skillstreak.xyz`/`www`/`try`/
+      `api` — confirmed via `openssl s_client` and plain `curl` (no `-k`)
+      against the real production trust store, not staging.
+
+**Two live incidents found and fixed the same day, both stemming from the
+same root cause:**
+- [x] **Production `site` and `api` Deployments were intermittently
+      running `prerelease`-tagged (internal-test) images instead of
+      `main`-built ones.** Root cause: `tools/local-release-poller/
+      poll-and-deploy.sh` never specified `--context` on any of its
+      `kubectl` calls, relying entirely on this machine's *ambient
+      default* context — which had drifted to `skillstreak` (production)
+      instead of `microk8s` (its actual intended target). The poller
+      runs unattended every 5 minutes, so every push to `prerelease`
+      (including several made during this same session) silently
+      redeployed production with untested images. Confirmed no
+      data-integrity impact — `main` and `prerelease` had carried
+      byte-identical database migrations the entire window this was
+      active. Fixed at two levels: switched the machine's default context
+      back immediately, and hard-pinned every `kubectl` call in the
+      script to `--context microk8s` so this can't recur regardless of
+      what any other process later does to the shared kubeconfig's
+      default context. Documented as a new "Environment parity" section
+      in root `CLAUDE.md`, since the same root cause also caused a
+      second, independent incident (below).
+- [x] **The public "Skaffa appen" QR code/download page was showing an
+      unreachable internal LAN IP** (`192.168.55.72:8081`) instead of the
+      real domain — same root cause as above, not a missing
+      "environment-aware" mechanism (that mechanism, separate
+      build-arg-driven Docker images per environment, already existed
+      and was already correct). Fixed by redeploying the correct,
+      already-CI-built `main` image.
+
+**Full production security review — a live audit of the real running
+cluster, not a code-only review, prompted by the incidents above:**
+- [x] **All five pods (`api`/`site`/`redis`/`postgres`/`minio`) now run
+      non-root** with `allowPrivilegeEscalation: false`, all Linux
+      capabilities dropped, and a `RuntimeDefault` seccomp profile.
+      `api`/`redis` needed only the k8s-level `securityContext` (their
+      base images already ship a built-in non-root user). `site` (nginx)
+      needed real changes — nginx binds port 80 by default, which a
+      non-root process can't do, so `site/nginx.conf` now listens on
+      8080 internally (the Service's own externally-exposed port 80 is
+      unaffected) plus a build-time chown of nginx's cache dir and a
+      relocated pid file. `postgres`/`minio` were the highest-risk
+      changes (real persistent data, single-replica `Recreate` deploys,
+      so a wrong assumption means real downtime) — confirmed first that
+      `postgres`'s own image already re-execs itself to its non-root user
+      internally when started as root (so k8s-level enforcement doesn't
+      fight anything), while `minio` genuinely ran PID 1 as root with no
+      such mechanism. Neither PVC's existing ownership could be trusted
+      (both written to by root-running pods this whole time), so both
+      gained a root-running `initContainer` that unconditionally chowns
+      the volume before the now-permanently-non-root main container ever
+      touches it. Applied `minio` first as the lower-stakes test of the
+      pattern before touching `postgres`. Verified after each: correct
+      non-root uid, and for `postgres` specifically, full schema and all
+      12 migrations confirmed intact (zero player/team rows is real —
+      this cluster had only just become publicly reachable — not data
+      loss).
+- [x] **Backend API no longer holds MinIO/S3 root credentials.** It
+      previously authenticated with the same root user/password that
+      owned the entire object store — a compromised API process (real
+      attack surface: the mandatory `ffmpeg` remux over attacker-supplied
+      video, `docs/adr/0010-video-storage-and-serving.md` Decision 3)
+      inherited full admin access to every team's clips, not just its
+      own bucket, defeating the closed-team-bubble guarantee at the
+      storage layer. Minted a dedicated non-root user with a
+      least-privilege policy (`ListBucket`/`GetBucketLocation` on
+      `clips`, `GetObject`/`PutObject`/`DeleteObject` on `clips/*` only)
+      and repointed the app's credentials at it. Verified directly before
+      rollout: the new key can read/write/delete clips but gets `Access
+      Denied` on admin operations and can't see or create other buckets.
+- [x] **`github-actions-deployer`'s RBAC no longer grants read access to
+      every secret in the namespace.** It previously granted
+      `get`/`list`/`watch`/`create`/`update`/`patch`/`delete` on *all*
+      Secrets, unscoped by name — a leaked `KUBE_TOKEN` (a long-lived,
+      non-expiring token) could read every credential protecting child
+      data in one shot: `POSTGRES_PASSWORD`, `PII_ENCRYPTION_KEY`,
+      `JWT_SECRET`, `SMTP_PASSWORD`, `MINIO_ROOT_PASSWORD`. Split into a
+      `resourceNames`-scoped rule (`get`/`update`/`patch` on
+      `skillstreak-secret` only, no `list`/`watch`/`delete`) plus a
+      separate unscoped `create`-only rule for the real disaster-recovery
+      case of bootstrapping this Secret on a fresh cluster. **One real
+      mistake made and caught during this same pass, worth recording**:
+      the first version of this fix put `create` in the same
+      `resourceNames`-scoped rule as `get`/`update`/`patch`, which
+      silently made `create` inapplicable entirely (confirmed live via
+      `kubectl auth can-i create secrets` returning `no`) — Kubernetes
+      RBAC's `resourceNames` restriction doesn't merely fail to restrict
+      `create` as its own docs phrase it, a rule carrying `resourceNames`
+      doesn't authorize `create` via that rule at all. Caught via a
+      deliberate `auth can-i` verification pass (get/update/patch/create/
+      list/watch/delete/get-a-different-secret-name, each checked
+      individually) before considering the fix done, not assumed correct
+      because `kubectl apply` succeeded. Token-lifetime (long-lived vs.
+      short-lived/OIDC-federated) is still open, not designed here.
+- [x] **ADR-0010's mandatory max-object-size bucket policy** — confirmed
+      it silently never worked against self-hosted MinIO (`invalid
+      condition key` for `s3:content-length-range`), but the actual risk
+      was narrower than it looked in isolation: `VideoClipsService
+      .completeUpload` already HEADs the real uploaded object and
+      deletes+rejects it (before ever buffering it into memory) if its
+      actual size/content-type don't match what was declared, and
+      `ClipRetentionService`'s sweep deletes any abandoned
+      `pending_upload` row after `CLIP_PENDING_UPLOAD_TTL_MINUTES`
+      (default 60) regardless. An oversized PUT to a leaked presigned URL
+      could never actually become a *servable* clip either way — what
+      was uncovered was transient storage/bandwidth cost only. Upgraded
+      the silent `warn` to `error` (visible to monitoring without someone
+      already suspecting it's broken) with an accurate description.
+      **Then, as an unplanned side effect of the Safespring S3 migration
+      below, actually fully fixed** — confirmed live via `aws s3api
+      get-bucket-policy` that the same `PutBucketPolicy` call MinIO
+      always rejected succeeds cleanly against Safespring, so production
+      now has a genuine storage-layer control, not just the app-level
+      backstops (the internal test cluster, still self-hosted MinIO,
+      still relies on the app-level ones).
+
+**Object storage moved to Safespring S3 for production:**
+- [x] Production now points at Safespring's real S3-compatible storage
+      (`https://s3a4.sto2.safedc.net`) instead of the self-hosted
+      in-cluster MinIO Deployment — see `docs/BACKLOG.md`'s "Object
+      storage: generic naming + provider-per-environment" entry for the
+      full history. This closed a separate, pre-existing gap: self-hosted
+      MinIO never had a public-facing endpoint at all
+      (`MINIO_PUBLIC_ENDPOINT` was unset), so presigned upload/playback
+      URLs pointed at an internal-only cluster hostname no real phone or
+      browser could ever reach — video upload/playback had never actually
+      worked for a real external client on this cluster, only now
+      surfaced because the site itself only became genuinely public this
+      same session.
+      Turned out to need **no application code changes** — confirmed
+      directly against Safespring's own docs that region isn't used for
+      SigV4 signing and path-style addressing is supported, both already
+      matching what `ObjectStorageService` already did — purely a
+      config/credential swap (`k8s/configmap.yaml`'s `MINIO_ENDPOINT`,
+      `skillstreak-secret`'s `MINIO_CLIPS_ACCESS_KEY`/`SECRET_KEY`).
+      Verified end-to-end: full put/get/delete round-trip against the
+      real bucket with the app's actual credentials, anonymous access
+      confirmed still blocked (`404`, no listing/object leak).
+      **One residual, provider-imposed limitation, not something this
+      pass could design around**: Safespring's account here supports
+      only one account-wide access/secret key pair, not MinIO-style
+      scoped sub-users — production's credentials are therefore broader
+      than the least-privilege bar this same pass set for self-hosted
+      MinIO. The internal test cluster keeps self-hosted MinIO,
+      unchanged, exactly as the project owner's original split intended.
+      **The generic MinIO→Storage/S3 rename this entry's own backlog item
+      called for is still not done** — `MINIO_ENDPOINT` now holds a
+      non-MinIO URL in production, actively misleading, but left alone to
+      avoid scope-creeping a working fix.
+
+Full technical detail and exact commands for every item above are in
+`docs/BACKLOG.md` (the individual findings, most now marked resolved
+in-place) and `k8s/README.md` (the MinIO scoped-credential recreate/
+rotate runbook, the internal-cluster section).
 
 ## Phase 6 — Public Shorts feed, reactions & personal archive
 

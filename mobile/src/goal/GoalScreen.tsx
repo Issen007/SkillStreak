@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 're
 
 import { GoalCard } from './components/GoalCard';
 import { GoalBuilderFlow } from './GoalBuilderFlow';
+import { G1DTeammateStatus } from './screens/G1DTeammateStatus';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { SecondaryLink } from '../components/SecondaryLink';
@@ -16,18 +17,25 @@ import type { CurrentGoalResponse, GoalProgressSummary } from '../api/types';
 
 interface GoalScreenProps {
   teamId: string;
+  /** K1's ("Laget" tab) "Se vem som är klar →" shortcut lands directly on
+   * Screen G1D instead of G1's card, per docs/design/
+   * phase2.10-per-player-goal-flows.md — same "switch tab and open a
+   * specific state" pattern K1's "Hantera veckans mål" shortcut already
+   * uses. Defaults to 'card', the normal tab-bar entry point. */
+  initialView?: 'card' | 'detail';
 }
 
-type GoalViewState = 'card' | 'builder' | 'history';
+type GoalViewState = 'card' | 'builder' | 'history' | 'detail';
 
-/** Screen G1 — the "Mål" tab. Team-wide gold progress meter + captain-only
- * status-dependent actions, per docs/design/phase2-flows.md Part 3.
- * Self-contained fetch on mount, same pattern as HomeScreen/TeamScreen. */
-export function GoalScreen({ teamId }: GoalScreenProps) {
+/** Screen G1 — the "Mål" tab. Per-player completion card + captain-only
+ * status-dependent actions, per docs/adr/0015-weekly-goal-per-player-completion.md
+ * and docs/design/phase2.10-per-player-goal-flows.md. Self-contained fetch
+ * on mount, same pattern as HomeScreen/TeamScreen. */
+export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
   const [data, setData] = useState<CurrentGoalResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [view, setView] = useState<GoalViewState>('card');
+  const [view, setView] = useState<GoalViewState>(initialView);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [history, setHistory] = useState<GoalProgressSummary[] | null>(null);
@@ -183,7 +191,7 @@ export function GoalScreen({ teamId }: GoalScreenProps) {
               </Text>
               {item.status === 'completed' ? (
                 <Text style={styles.historyTally}>
-                  {item.progressMinutes} / {item.targetValue} minuter · +
+                  {item.completedPlayerCount} av {item.eligiblePlayerCount} lagkamrater klara · +
                   {item.bonusPointsAwarded ?? 0}p bonus
                 </Text>
               ) : null}
@@ -199,6 +207,18 @@ export function GoalScreen({ teamId }: GoalScreenProps) {
 
   const goal = data.goal;
 
+  if (view === 'detail' && goal) {
+    return (
+      <G1DTeammateStatus
+        goalTitle={goal.title}
+        players={goal.players}
+        targetValue={goal.targetValue}
+        targetUnit={goal.targetUnit}
+        onBack={() => setView('card')}
+      />
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.pageHeading}>Veckans mål 🎯</Text>
@@ -207,12 +227,15 @@ export function GoalScreen({ teamId }: GoalScreenProps) {
         <GoalCard
           title={goal.title}
           description={goal.description}
-          progressMinutes={goal.progressMinutes}
-          targetValue={goal.targetValue}
-          percentComplete={goal.percentComplete}
-          endDate={goal.endDate}
-          goalMet={goal.goalMet}
           targetMetric={goal.targetMetric}
+          targetUnit={goal.targetUnit}
+          targetValue={goal.targetValue}
+          eligiblePlayerCount={goal.eligiblePlayerCount}
+          completedPlayerCount={goal.completedPlayerCount}
+          percentComplete={goal.percentComplete}
+          goalMet={goal.goalMet}
+          endDate={goal.endDate}
+          onSeeDetail={() => setView('detail')}
         />
       ) : !data.viewerIsCaptain ? (
         <View style={styles.emptyCard}>

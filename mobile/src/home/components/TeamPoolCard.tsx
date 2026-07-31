@@ -12,6 +12,13 @@ interface TeamPoolCardProps {
    * dashboard/`me` response always includes it today. */
   rank?: number;
   teamCount?: number;
+  /** ADR-0016 addendum (2026-07-31) — the small "🌟 {ordinal} bäst i
+   * laginsats" teaser line. Rendered only when present and non-null: it's
+   * `undefined`/`null` between seasons (no active pot at all, same case as
+   * `rank`/`teamCount`) and also `null` specifically when this team has 0
+   * eligible players even during an active season — both cases are
+   * graceful omissions, not errors, per Screen LB1's spec. */
+  effortRank?: number | null;
   onPress: () => void;
 }
 
@@ -23,7 +30,13 @@ const numberFormatter = new Intl.NumberFormat('sv-SE');
  * for a bar to represent (ADR-0008 Decision 4). The whole card is now
  * tappable, opening Screen LB2's full leaderboard. Shared unchanged across
  * H1/K1 (only the numbers move), per this project's existing convention. */
-export function TeamPoolCard({ pointsTotal, rank, teamCount, onPress }: TeamPoolCardProps) {
+export function TeamPoolCard({
+  pointsTotal,
+  rank,
+  teamCount,
+  effortRank,
+  onPress,
+}: TeamPoolCardProps) {
   const hasActiveSeason = rank !== undefined && teamCount !== undefined;
 
   return (
@@ -45,6 +58,10 @@ export function TeamPoolCard({ pointsTotal, rank, teamCount, onPress }: TeamPool
           <Text style={styles.sub}>Ni är med igen så fort en ny säsong startar.</Text>
         </>
       )}
+
+      {effortRank != null ? (
+        <Text style={styles.effortLine}>🌟 {swedishOrdinal(effortRank)} bäst i laginsats</Text>
+      ) : null}
 
       <Text style={styles.tapHint}>Se tabellen →</Text>
     </Pressable>
@@ -83,6 +100,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 10.5,
     color: colors.textMuted,
+  },
+  // ADR-0016 addendum (2026-07-31) — deliberately smaller than `rankLine`
+  // and visually secondary, per Screen LB1's "one small emoji-prefixed
+  // line, not competing with the big points figure" spec.
+  effortLine: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    color: colors.goldText,
   },
   tapHint: {
     fontFamily: fonts.bodyBold,

@@ -115,19 +115,62 @@ Response `200`:
       "title": "Zorro-finter-veckan",
       "description": "Gör så många zorro-finter du kan innan fredag!",
       "targetMetric": "drill-minuter",
-      "targetValue": 600,
+      "targetValue": 60,
       "startDate": "2026-07-06",
       "endDate": "2026-07-12",
       "status": "active",
-      "progressMinutes": 420,
-      "percentComplete": 70.0,
+      "targetUnit": "minutes",
+      "players": [
+        {
+          "playerId": "uuid",
+          "screenName": "FloorballStar15",
+          "avatarId": "fox",
+          "eligible": true,
+          "exclusionReason": null,
+          "progressValue": 65,
+          "goalMet": true
+        },
+        {
+          "playerId": "uuid",
+          "screenName": "ZorroFan9",
+          "avatarId": "owl",
+          "eligible": true,
+          "exclusionReason": null,
+          "progressValue": 40,
+          "goalMet": false
+        },
+        {
+          "playerId": "uuid",
+          "screenName": "NyaSpelaren",
+          "avatarId": "bear",
+          "eligible": false,
+          "exclusionReason": null,
+          "progressValue": 0,
+          "goalMet": false
+        }
+      ],
+      "eligiblePlayerCount": 2,
+      "completedPlayerCount": 1,
       "goalMet": false,
+      "percentComplete": 50.0,
+      "teamBonusBasisMinutes": 105,
       "bonusAwardedAt": null
     },
     "pastCount": { "completed": 3, "cancelled": 1 }
   }
 }
 ```
+
+**Breaking change (2026-07-31), see
+[`docs/adr/0015-weekly-goal-per-player-completion.md`](../adr/0015-weekly-goal-per-player-completion.md):**
+the weekly team goal moved from a pooled-total model to a per-player
+completion model — every field inside `weeklyGoal.current` above except
+`id`/`title`/`description`/`targetMetric`/`targetValue`/`startDate`/
+`endDate`/`status`/`bonusAwardedAt` is new or changed meaning; see the
+"Weekly team goal" section below for the full field-by-field breakdown.
+`NyaSpelaren`'s `exclusionReason` is `null` above because this example
+shows a non-captain viewer (ADR-0015 Decision 4) — a captain viewing the
+same goal would see the real reason (e.g. `"joined_after_start"`).
 
 `weeklyGoal.current` is `null` if the team has no `active` goal and no
 unpublished `draft` either. If there's no `active` goal but a `draft`
@@ -249,6 +292,17 @@ fields. **New in this version:** at most one goal per team may be `active`
 at a time (DB-enforced, ADR-0005 Decision 2) — activating a second one
 while one is already active is rejected.
 
+**Breaking change (2026-07-31) —
+[`docs/adr/0015-weekly-goal-per-player-completion.md`](../adr/0015-weekly-goal-per-player-completion.md):**
+"goal met" no longer means the *team's pooled total* reached `targetValue`
+— it means **every eligible current roster member individually reached
+`targetValue`**. This affects endpoints 7 and 8's response shape below (and
+the `current` block in endpoint 1's dashboard response above), not
+endpoints 5/6's request shape. `targetMetric` also widens from 5 to 10
+accepted values (a `-pass` "session count" counterpart for each existing
+`-minuter` value) — old clients sending one of the 5 original values are
+unaffected.
+
 #### 5. `POST /api/v1/teams/:teamId/weekly-goal`
 
 Player auth + captain check (`403 not_team_captain`). Creates a new goal
@@ -260,8 +314,12 @@ Request:
 {
   title: string;
   description: string;
-  targetMetric: 'fitness-minuter' | 'drill-minuter' | 'running-minuter' | 'other-minuter' | 'total-minuter';
-  targetValue: number;       // positive integer, minutes
+  targetMetric:
+    | 'fitness-minuter' | 'drill-minuter' | 'running-minuter' | 'other-minuter' | 'total-minuter'
+    // NEW (ADR-0015 Decision 1) — session-count ("träningspass") goals,
+    // one -pass counterpart per existing -minuter value:
+    | 'fitness-pass' | 'drill-pass' | 'running-pass' | 'other-pass' | 'total-pass';
+  targetValue: number;       // positive integer — minutes or session count, per targetMetric's unit
   startDate: string;         // ISO date
   endDate: string;           // ISO date, must be > startDate
   status: 'draft' | 'active'; // only these two are legal at creation
@@ -316,26 +374,60 @@ Response `200`: the updated goal row, same shape as endpoint 5's response.
 #### 7. `GET /api/v1/teams/:teamId/weekly-goal`
 
 Player auth; `team_mismatch` check only — **open to any player on the
-team, not captain-gated.** Progress is a team-wide number every teammate
-should be able to see (that's the point of the feature), unlike the roster
-view.
+team, not captain-gated.** Per-player progress is visible to every
+teammate (that's the point of the feature — seeing who's done and who
+isn't), unlike the roster view; only one field within it
+(`players[].exclusionReason`) is captain-gated — see below.
 
 Response `200`:
 ```json
 {
   "goal": {
     "id": "uuid",
+    "teamId": "uuid",
     "title": "Zorro-finter-veckan",
     "description": "Gör så många zorro-finter du kan innan fredag!",
     "targetMetric": "drill-minuter",
-    "targetValue": 600,
+    "targetValue": 60,
     "startDate": "2026-07-06",
     "endDate": "2026-07-12",
     "status": "active",
     "createdByPlayerId": "uuid",
-    "progressMinutes": 420,
-    "percentComplete": 70.0,
+    "targetUnit": "minutes",
+    "players": [
+      {
+        "playerId": "uuid",
+        "screenName": "FloorballStar15",
+        "avatarId": "fox",
+        "eligible": true,
+        "exclusionReason": null,
+        "progressValue": 65,
+        "goalMet": true
+      },
+      {
+        "playerId": "uuid",
+        "screenName": "ZorroFan9",
+        "avatarId": "owl",
+        "eligible": true,
+        "exclusionReason": null,
+        "progressValue": 40,
+        "goalMet": false
+      },
+      {
+        "playerId": "uuid",
+        "screenName": "NyaSpelaren",
+        "avatarId": "bear",
+        "eligible": false,
+        "exclusionReason": "joined_after_start",
+        "progressValue": 0,
+        "goalMet": false
+      }
+    ],
+    "eligiblePlayerCount": 2,
+    "completedPlayerCount": 1,
     "goalMet": false,
+    "percentComplete": 50.0,
+    "teamBonusBasisMinutes": 105,
     "bonusAwardedAt": null,
     "bonusPointsAwarded": null
   },
@@ -344,24 +436,67 @@ Response `200`:
 ```
 
 `goal` is `null` (not an error) if the team has no `active` goal and no
-`draft` either. `progressMinutes`/`percentComplete`/`goalMet` are computed
-server-side from the team-wide aggregate (ADR-0005's formula) — never
-trusted from any client state. `viewerIsCaptain` lets the client show
-management actions (edit/publish/cancel) without a second call.
+`draft` either.
 
-**`bonusAwardedAt`/`bonusPointsAwarded` — added 2026-07-05** so a teammate
-who *didn't* trigger the bonus (i.e. opens the app after someone else's log
-already crossed the threshold) can still see the exact amount, per
-`docs/design/phase2-flows.md`'s Screen G3. `bonusPointsAwarded` is the same
-`5 + progress-at-crossing-time` value computed once in
-`TrainingLogsService.logTraining`'s transaction (ADR-0005 Decision 3) and
-persisted alongside `bonusAwardedAt`, not re-derived — a client-side guess
-like `5 + targetValue` would be wrong, since crossing-time progress almost
-always exceeds `targetValue` by however many minutes the crossing log
-contributed. Both fields are `null` until the bonus fires, then permanent
-for that goal (never cleared, matches `bonusAwardedAt`'s existing
-never-clawed-back semantics). Same two fields also appear on each entry in
-endpoint 8's history list.
+**Breaking change (2026-07-31,
+[ADR-0015](../adr/0015-weekly-goal-per-player-completion.md)):**
+`goalMet`/`percentComplete` no longer describe a team-wide pooled total —
+`goalMet` is true only once **every eligible current roster member has
+individually reached `targetValue`** (a team's live roster filtered to
+consent-approved + team-join-approved + joined on/before `startDate`;
+never vacuously true for an empty eligible roster — "0 of 0 players done"
+is always `goalMet: false`), and `percentComplete` is
+`completedPlayerCount / eligiblePlayerCount * 100` (`0` if
+`eligiblePlayerCount` is `0`). `progressMinutes` is **renamed**
+`teamBonusBasisMinutes` (not additive — a deliberate breaking rename so an
+un-updated client fails a type check instead of silently rendering a
+stale, now-mismatched number): it's still the team-wide minutes logged
+toward this metric/date-range, but is now *only* the bonus-payout basis,
+no longer what decides `goalMet`. Four new fields (`targetUnit`, `players`,
+`eligiblePlayerCount`, `completedPlayerCount`):
+
+- `targetUnit: 'minutes' | 'sessions'` — derived from `targetMetric`, so
+  the client doesn't need its own copy of that lookup.
+- `players: PlayerGoalProgress[]` — **every current roster member,
+  eligible or not** (excluded players stay in the list with
+  `eligible: false`, not dropped, so "4 of 6 done" can show who's
+  missing). `progressValue` is minutes or a session count, per
+  `targetUnit`. `exclusionReason` is one of `'joined_after_start' |
+  'consent_pending' | 'consent_revoked' | 'team_join_pending' | null` for
+  the team captain, but **always `null` for any non-captain viewer**,
+  regardless of the real reason — including for excluded players
+  (ADR-0015 Decision 4, a real privacy finding: consent state is a
+  teammate's private business, same boundary already enforced on
+  endpoint "roster"'s `consentStatus` field). `eligible: false` itself is
+  never gated — every teammate can see *that* someone isn't counted, just
+  not *why*, unless they're captain.
+- `eligiblePlayerCount` / `completedPlayerCount` — the denominator/
+  numerator behind `percentComplete` and `goalMet`.
+
+None of this is trusted from any client state — every field above is
+computed server-side, live, on every read. `viewerIsCaptain` lets the
+client show management actions (edit/publish/cancel) without a second
+call.
+
+**`bonusAwardedAt`/`bonusPointsAwarded` — added 2026-07-05, formula
+unchanged by ADR-0015** so a teammate who *didn't* trigger the bonus (i.e.
+opens the app after someone else's log already crossed the threshold) can
+still see the exact amount, per `docs/design/phase2-flows.md`'s Screen G3.
+`bonusPointsAwarded` is the same `5 + team-wide-minutes-at-crossing-time`
+value computed once in `TrainingLogsService.logTraining`'s transaction
+(ADR-0005 Decision 3, crossing *predicate* revised by ADR-0015 Decision 2 —
+the payout amount itself did not change) and persisted alongside
+`bonusAwardedAt`, not re-derived. Both fields are `null` until the bonus
+fires, then permanent for that goal (never cleared, matches
+`bonusAwardedAt`'s existing never-clawed-back semantics). Same two fields
+also appear on each entry in endpoint 8's history list.
+
+**Cosmetic-only consequence of this change, worth knowing about**: a goal
+whose bonus already fired under the *old* pooled rule (unaffected — bonuses
+are never clawed back) may now display `goalMet: false` in history if its
+actual per-player logs wouldn't satisfy the new rule. No points move; this
+is a display artifact of the rule changing underneath already-settled
+history (ADR-0015 Decision 2).
 
 #### 8. `GET /api/v1/teams/:teamId/weekly-goal/history`
 
@@ -406,6 +541,13 @@ transaction as the existing streak/pool logic (ADR-0005, Decision 3):
 point per team-wide minute logged toward the goal), not a per-log or
 ongoing bonus — see ADR-0005 Decision 3's correction note for why this
 changed from the original "+5 per log" design.
+
+**This response shape is unaffected by the 2026-07-31 per-player-completion
+change (ADR-0015)** — `goalBonus` still fires as a one-time lump sum with
+the same amount formula. Only the *predicate* deciding whether it fires
+changed (every eligible roster member individually reaching `targetValue`,
+not a pooled total) — see the "Weekly team goal" section's endpoint 7
+above for the full explanation.
 
 - `null`: no `active` weekly goal covers this log's date, the team's
   progress (including this log) is still below `targetValue`, or the goal

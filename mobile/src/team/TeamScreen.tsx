@@ -9,6 +9,7 @@ import { RosterScreen } from './RosterScreen';
 import { CaptainTransferScreen } from './CaptainTransferScreen';
 import { TeamPoolCard } from '../home/components/TeamPoolCard';
 import { LeaderboardScreen } from '../leaderboard/LeaderboardScreen';
+import { GoalCard } from '../goal/components/GoalCard';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Toast } from '../components/Toast';
 import {
@@ -34,6 +35,12 @@ interface TeamScreenProps {
   /** K1's "Hantera veckans mål" shortcut switches AppShell to the "Mål"
    * tab rather than duplicating that screen here. */
   onManageGoal: () => void;
+  /** K1's new "Se vem som är klar →" link (per docs/design/
+   * phase2.10-per-player-goal-flows.md) switches AppShell to the "Mål" tab
+   * and lands directly on Screen G1D, not G1's card — same shortcut
+   * pattern as `onManageGoal` above, just available to every viewer now,
+   * not only captains. */
+  onSeeGoalDetail: () => void;
   /** Fas 2.6a — tells AppShell this device just performed a captain
    * transfer, so its next foreground check doesn't also show Screen K5's
    * (optional) "handed off" banner for a change this device already knows
@@ -48,7 +55,13 @@ type TeamViewState = 'summary' | 'roster' | 'captain-transfer' | 'leaderboard';
  * additionally sees a distinct card with three shortcut buttons, per
  * docs/design/phase2-flows.md Part 1 + docs/design/phase2.6-2.7-flows.md
  * Part A. Self-contained fetch on mount, same pattern as HomeScreen. */
-export function TeamScreen({ teamId, viewerPlayerId, onManageGoal, onCaptainTransferred }: TeamScreenProps) {
+export function TeamScreen({
+  teamId,
+  viewerPlayerId,
+  onManageGoal,
+  onSeeGoalDetail,
+  onCaptainTransferred,
+}: TeamScreenProps) {
   const [dashboard, setDashboard] = useState<TeamDashboardResponse | null>(null);
   const [teammates, setTeammates] = useState<TeammateEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -218,6 +231,28 @@ export function TeamScreen({ teamId, viewerPlayerId, onManageGoal, onCaptainTran
           </>
         ) : null}
 
+        {/* Fas 2.10 — closes a pre-existing gap: this screen fetched
+            `dashboard.weeklyGoal` but never rendered it. Reuses the exact
+            same `GoalCard` as Screen G1 (no dashboard-specific variant),
+            per docs/design/phase2.10-per-player-goal-flows.md. Omitted
+            entirely when there's no active/draft goal — the proper empty
+            state lives on the "Mål" tab already. */}
+        {dashboard.weeklyGoal.current ? (
+          <GoalCard
+            title={dashboard.weeklyGoal.current.title}
+            description={dashboard.weeklyGoal.current.description}
+            targetMetric={dashboard.weeklyGoal.current.targetMetric}
+            targetUnit={dashboard.weeklyGoal.current.targetUnit}
+            targetValue={dashboard.weeklyGoal.current.targetValue}
+            eligiblePlayerCount={dashboard.weeklyGoal.current.eligiblePlayerCount}
+            completedPlayerCount={dashboard.weeklyGoal.current.completedPlayerCount}
+            percentComplete={dashboard.weeklyGoal.current.percentComplete}
+            goalMet={dashboard.weeklyGoal.current.goalMet}
+            endDate={dashboard.weeklyGoal.current.endDate}
+            onSeeDetail={onSeeGoalDetail}
+          />
+        ) : null}
+
         <Text style={styles.sectionLabel}>Spelare i laget</Text>
         <View style={styles.teammatesCard}>
           {teammates.map((teammate) => (
@@ -244,6 +279,7 @@ export function TeamScreen({ teamId, viewerPlayerId, onManageGoal, onCaptainTran
           pointsTotal={dashboard.teamPool.pointsTotal}
           rank={dashboard.teamPool.rank}
           teamCount={dashboard.teamPool.teamCount}
+          effortRank={dashboard.teamPool.effortRank}
           onPress={() => setView('leaderboard')}
         />
 

@@ -127,6 +127,13 @@ export interface PlayerMeResponse {
   // forward-compatible if that 500-on-missing-pot behavior is ever
   // softened, without a second breaking type change. See this task's final
   // report for the flagged discrepancy.
+  // ADR-0016 addendum (2026-07-31), additive: `effortRank`/
+  // `eligiblePlayerCount` alongside `rank`/`teamCount` above. `effortRank`
+  // is `null` (not omitted) when this team's own `eligiblePlayerCount` is
+  // `0` — same "between seasons" graceful-omission posture `TeamPoolCard`
+  // already applies to `rank`/`teamCount` being `undefined`. Kept optional
+  // here too (not required) for the same forward-compatibility reason as
+  // `rank`/`teamCount` above.
   teamPool: {
     seasonId: string;
     seasonLabel: string;
@@ -134,6 +141,8 @@ export interface PlayerMeResponse {
     status: string;
     rank?: number;
     teamCount?: number;
+    effortRank?: number | null;
+    eligiblePlayerCount?: number;
   };
 }
 
@@ -206,19 +215,60 @@ export interface ConfirmContactChangeRequest {
 
 export type WeeklyGoalStatus = 'draft' | 'active' | 'completed' | 'cancelled';
 
+// Widened 2026-07-31 (docs/adr/0015-weekly-goal-per-player-completion.md
+// Decision 1) — a `-pass` ("träningspass"/session) counterpart for each
+// existing `-minuter` value, not a separate `targetUnit` column. Old
+// clients sending one of the original 5 values are unaffected.
 export type WeeklyGoalTargetMetric =
   | 'fitness-minuter'
   | 'drill-minuter'
   | 'running-minuter'
   | 'other-minuter'
-  | 'total-minuter';
+  | 'total-minuter'
+  | 'fitness-pass'
+  | 'drill-pass'
+  | 'running-pass'
+  | 'other-pass'
+  | 'total-pass';
+
+// NEW 2026-07-31 (ADR-0015 Decision 3) — derived server-side from
+// `targetMetric`, so the client never needs its own copy of the
+// metric-to-unit lookup table.
+export type WeeklyGoalTargetUnit = 'minutes' | 'sessions';
+
+/** NEW 2026-07-31 (ADR-0015 Decision 3) — one roster member's progress
+ * toward the active/draft goal. `exclusionReason` is always `null` for a
+ * non-captain viewer, regardless of the real reason, including for
+ * excluded players (ADR-0015 Decision 4 — a captain-only privacy gate the
+ * client must not try to re-derive or guess around when it's null). */
+export interface PlayerGoalProgress {
+  playerId: string;
+  screenName: string;
+  avatarId: string;
+  eligible: boolean;
+  exclusionReason:
+    | 'joined_after_start'
+    | 'consent_pending'
+    | 'consent_revoked'
+    | 'team_join_pending'
+    | null;
+  progressValue: number;
+  goalMet: boolean;
+}
 
 // --- 5. GET /teams/:teamId/dashboard ----------------------------------------
 
 /** The dashboard's `weeklyGoal.current` block deliberately omits
  * `createdByPlayerId`/`teamId`/`bonusPointsAwarded` — matched exactly here
  * rather than as a superset of `GoalProgressSummary`, per the contract's own
- * note that this is intentional (endpoint 1's example), not an oversight. */
+ * note that this is intentional (endpoint 1's example), not an oversight.
+ *
+ * Breaking change 2026-07-31 (ADR-0015 Decision 3): `progressMinutes` is
+ * renamed `teamBonusBasisMinutes` (team-wide minutes, the bonus basis
+ * only — no longer what decides `goalMet`); `targetUnit`/`players`/
+ * `eligiblePlayerCount`/`completedPlayerCount` are new, and `goalMet`/
+ * `percentComplete` now describe per-player completion, not a pooled
+ * total. */
 export interface DashboardCurrentGoal {
   id: string;
   title: string;
@@ -228,7 +278,11 @@ export interface DashboardCurrentGoal {
   startDate: string;
   endDate: string;
   status: WeeklyGoalStatus;
-  progressMinutes: number;
+  targetUnit: WeeklyGoalTargetUnit;
+  players: PlayerGoalProgress[];
+  eligiblePlayerCount: number;
+  completedPlayerCount: number;
+  teamBonusBasisMinutes: number;
   percentComplete: number;
   goalMet: boolean;
   bonusAwardedAt: string | null;
@@ -250,6 +304,8 @@ export interface TeamDashboardResponse {
   // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed,
   // rank/teamCount added — see the equivalent note on PlayerMeResponse
   // above (same optional-defensively rationale).
+  // ADR-0016 addendum (2026-07-31), additive — see the equivalent note on
+  // PlayerMeResponse.teamPool above.
   teamPool: {
     seasonId: string;
     seasonLabel: string;
@@ -257,6 +313,8 @@ export interface TeamDashboardResponse {
     status: string;
     rank?: number;
     teamCount?: number;
+    effortRank?: number | null;
+    eligiblePlayerCount?: number;
     last7DaysLoggedCount: number;
   };
   weeklyGoal: {
@@ -332,6 +390,12 @@ export interface WeeklyGoalRow {
 
 // --- 11/12. GET .../weekly-goal, GET .../weekly-goal/history ----------------
 
+/** Breaking change 2026-07-31 (ADR-0015 Decision 3, docs/api/
+ * phase2-contract.md endpoint 7): `progressMinutes` is renamed
+ * `teamBonusBasisMinutes`; `targetUnit`/`players`/`eligiblePlayerCount`/
+ * `completedPlayerCount` are new; `goalMet`/`percentComplete` now describe
+ * per-player completion (every eligible roster member individually
+ * reaching `targetValue`), not a team-wide pooled total. */
 export interface GoalProgressSummary {
   id: string;
   title: string;
@@ -342,7 +406,11 @@ export interface GoalProgressSummary {
   endDate: string;
   status: WeeklyGoalStatus;
   createdByPlayerId: string;
-  progressMinutes: number;
+  targetUnit: WeeklyGoalTargetUnit;
+  players: PlayerGoalProgress[];
+  eligiblePlayerCount: number;
+  completedPlayerCount: number;
+  teamBonusBasisMinutes: number;
   percentComplete: number;
   goalMet: boolean;
   bonusAwardedAt: string | null;
@@ -507,6 +575,42 @@ export interface LeaderboardResponse {
     rank: number;
   } | null;
   leaderboard: LeaderboardEntry[];
+  // ADR-0016 addendum (2026-07-31), additive — the "Bästa laginsats" tab
+  // (Screen LB2). Same `GET .../leaderboard` call, no new request.
+  // `null` when the requesting team's own `eligiblePlayerCount` is `0`
+  // (every player still consent-pending, or a brand-new team with no
+  // approved joiner yet) — same posture as `requestingTeam`'s own `null`
+  // case above.
+  requestingTeamEffort: {
+    teamId: string;
+    teamName: string;
+    // Requester's own count — always exact, never bucketed (only
+    // `EffortLeaderboardEntry.eligiblePlayerCountRange` on *other* teams'
+    // rows is bucketed, per the security-reviewer finding behind this
+    // shape).
+    eligiblePlayerCount: number;
+    pointsPerPlayer: number;
+    adjustedScore: number;
+    rank: number;
+  } | null;
+  effortLeaderboard: EffortLeaderboardEntry[];
+}
+
+/** ADR-0016 addendum (2026-07-31) — a cross-team effort-leaderboard row.
+ * `eligiblePlayerCountRange` is a deliberately bucketed display STRING
+ * (`'1-2' | '3-5' | '6+'`), never an exact count, for every team but the
+ * viewer's own — an exact count on a 1-2 player team would double as that
+ * team's own child's consent/approval status leaking across a team
+ * boundary. Never parse this back into a number; it is not sortable or
+ * summable data, only a display string. */
+export interface EffortLeaderboardEntry {
+  rank: number;
+  teamId: string;
+  teamName: string;
+  eligiblePlayerCountRange: '1-2' | '3-5' | '6+';
+  pointsPerPlayer: number;
+  adjustedScore: number;
+  isRequestingTeam: boolean;
 }
 
 // --- Fas 3 shapes, mirroring docs/api/phase3-contract.md exactly -----------
