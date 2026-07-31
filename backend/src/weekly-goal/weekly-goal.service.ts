@@ -179,6 +179,8 @@ export interface DashboardResponse {
   // there's no fixed maximum to be a percentage of anymore. rank/teamCount
   // replace it, computed by the same shared TeamPoolService query the
   // leaderboard endpoint and GET /players/me both reuse.
+  // ADR-0016 Decision 5 (additive): effortRank/eligiblePlayerCount added
+  // alongside, computed by TeamPoolService.getEffortRankAndEligibleCountOrThrow.
   teamPool: {
     seasonId: string;
     seasonLabel: string;
@@ -186,6 +188,8 @@ export interface DashboardResponse {
     status: string;
     rank: number;
     teamCount: number;
+    effortRank: number | null;
+    eligiblePlayerCount: number;
     last7DaysLoggedCount: number;
   };
   weeklyGoal: {
@@ -215,6 +219,25 @@ export interface LeaderboardEntry {
   isRequestingTeam: boolean;
 }
 
+// ADR-0016 Decision 5 (additive) — the shrinkage-adjusted "effort" view
+// alongside LeaderboardEntry above.
+// eligiblePlayerCountRange is bucketed ('1-2' | '3-5' | '6+'), not an exact
+// integer — per the ADR's 2026-07-31 addendum, a cross-team-visible exact
+// count on a small team is a de-facto single-child consent/join-approval
+// leak. Renamed (not just retyped) from eligiblePlayerCount so a future
+// contributor can't accidentally treat it as a number (sort/sum it).
+// requestingTeamEffort below is unaffected — it never crosses a team
+// boundary, so it keeps the exact eligiblePlayerCount integer.
+export interface EffortLeaderboardEntry {
+  rank: number;
+  teamId: string;
+  teamName: string;
+  eligiblePlayerCountRange: '1-2' | '3-5' | '6+';
+  pointsPerPlayer: number;
+  adjustedScore: number;
+  isRequestingTeam: boolean;
+}
+
 export interface LeaderboardResponse {
   requestingTeam: {
     teamId: string;
@@ -223,6 +246,18 @@ export interface LeaderboardResponse {
     rank: number;
   } | null;
   leaderboard: LeaderboardEntry[];
+  // ADR-0016 Decision 5 (additive, existing fields above unchanged).
+  // Null when the requesting team's own eligiblePlayerCount is 0, same
+  // posture as requestingTeam's own null case.
+  requestingTeamEffort: {
+    teamId: string;
+    teamName: string;
+    eligiblePlayerCount: number;
+    pointsPerPlayer: number;
+    adjustedScore: number;
+    rank: number;
+  } | null;
+  effortLeaderboard: EffortLeaderboardEntry[];
 }
 
 function percentOf(numerator: number, denominator: number): number {
@@ -733,6 +768,8 @@ export class WeeklyGoalService {
     }
     const { rank, teamCount } =
       await this.teamPoolService.getRankAndTeamCountOrThrow(teamId);
+    const { effortRank, eligiblePlayerCount } =
+      await this.teamPoolService.getEffortRankAndEligibleCountOrThrow(teamId);
     const last7DaysLoggedCount = await this.countRecentLogs(teamId, 7);
 
     const team = await this.teamRepository.findOne({ where: { id: teamId } });
@@ -790,6 +827,8 @@ export class WeeklyGoalService {
         status: pot.status,
         rank,
         teamCount,
+        effortRank,
+        eligiblePlayerCount,
         last7DaysLoggedCount,
       },
       weeklyGoal: { current, pastCount },
@@ -819,6 +858,31 @@ export class WeeklyGoalService {
     }));
 
     const mine = leaderboard.find((row) => row.isRequestingTeam);
+
+    // ADR-0016 Decision 5 (additive) — the shrinkage-adjusted effort view,
+    // computed alongside the raw-total view above rather than a second
+    // endpoint/round-trip. `effortRows` keeps the exact eligiblePlayerCount
+    // per docs/adr/0016...md's 2026-07-31 addendum — requestingTeamEffort
+    // below reads it directly off this raw, unbucketed row (own-team data
+    // never crosses a team boundary, so it stays exact); the bucketed
+    // TeamPoolService.bucketEligiblePlayerCount() is applied only when
+    // building the cross-team effortLeaderboard array.
+    const effortRows = await this.teamPoolService.getEffortLeaderboard();
+    const effortLeaderboard: EffortLeaderboardEntry[] = effortRows.map(
+      (row) => ({
+        rank: row.rank,
+        teamId: row.teamId,
+        teamName: row.teamName,
+        eligiblePlayerCountRange: TeamPoolService.bucketEligiblePlayerCount(
+          row.eligiblePlayerCount,
+        ),
+        pointsPerPlayer: row.pointsPerPlayer,
+        adjustedScore: row.adjustedScore,
+        isRequestingTeam: row.teamId === teamId,
+      }),
+    );
+    const mineEffort = effortRows.find((row) => row.teamId === teamId);
+
     return {
       requestingTeam: mine
         ? {
@@ -829,6 +893,17 @@ export class WeeklyGoalService {
           }
         : null,
       leaderboard,
+      requestingTeamEffort: mineEffort
+        ? {
+            teamId: mineEffort.teamId,
+            teamName: mineEffort.teamName,
+            eligiblePlayerCount: mineEffort.eligiblePlayerCount,
+            pointsPerPlayer: mineEffort.pointsPerPlayer,
+            adjustedScore: mineEffort.adjustedScore,
+            rank: mineEffort.rank,
+          }
+        : null,
+      effortLeaderboard,
     };
   }
 

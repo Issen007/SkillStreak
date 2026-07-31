@@ -279,6 +279,7 @@ export function TeamScreen({
           pointsTotal={dashboard.teamPool.pointsTotal}
           rank={dashboard.teamPool.rank}
           teamCount={dashboard.teamPool.teamCount}
+          effortRank={dashboard.teamPool.effortRank}
           onPress={() => setView('leaderboard')}
         />
 

@@ -13,6 +13,12 @@ first — this doc assumes its schema/decisions.
 changes" below before touching any existing screen that renders the
 team-pool meter.
 
+**Updated 2026-07-31 — additive fairness fields (ADR-0016).** See
+["1a. The effort view (additive, ADR-0016)"](#1a-the-effort-view-additive-adr-0016)
+below. Unlike the rest of this doc, this addition is **not** a breaking
+change and needs no coordinated frontend/backend deploy — it only adds
+fields alongside the ones this doc already specifies.
+
 ## Conventions
 
 Unchanged from `phase2-contract.md`: base path `/api/v1`, one auth
@@ -66,6 +72,73 @@ Response `200`:
   any kind appears anywhere in this response**, for any team, which is this
   endpoint's one hard, non-negotiable requirement.
 
+### 1a. The effort view (additive, ADR-0016)
+
+Same endpoint, same response — `requestingTeam`/`leaderboard` above are
+**unchanged, byte-for-byte**. Two new top-level fields are added alongside
+them:
+
+```json
+{
+  "requestingTeam": { "...": "unchanged, see above" },
+  "leaderboard": [ "...": "unchanged, see above" ],
+
+  "requestingTeamEffort": {
+    "teamId": "uuid",
+    "teamName": "IBK Falken P13",
+    "eligiblePlayerCount": 6,
+    "pointsPerPlayer": 150.0,
+    "adjustedScore": 176.9,
+    "rank": 4
+  },
+  "effortLeaderboard": [
+    { "rank": 1, "teamId": "uuid", "teamName": "IBK Falken P13 B-lag", "eligiblePlayerCountRange": "3-5", "pointsPerPlayer": 300.0, "adjustedScore": 231.4, "isRequestingTeam": false },
+    { "rank": 2, "teamId": "uuid", "teamName": "IBK Härnösand P12", "eligiblePlayerCountRange": "6+", "pointsPerPlayer": 200.0, "adjustedScore": 199.0, "isRequestingTeam": false },
+    { "rank": 3, "teamId": "uuid", "teamName": "Sundsvall Innebandy P13", "eligiblePlayerCountRange": "6+", "pointsPerPlayer": 180.0, "adjustedScore": 187.6, "isRequestingTeam": false },
+    { "rank": 4, "teamId": "uuid", "teamName": "IBK Falken P13", "eligiblePlayerCountRange": "6+", "pointsPerPlayer": 176.9, "adjustedScore": 176.9, "isRequestingTeam": true }
+  ]
+}
+```
+
+- **`eligiblePlayerCount`** (on `requestingTeamEffort` and the dashboard/
+  `GET /players/me` fields below — never `effortLeaderboard`) reuses
+  ADR-0015 Decision 2's exact eligibility predicate
+  (`parentalConsentStatus = 'approved' AND teamJoinStatus = 'approved'`) —
+  the same "could this player plausibly have logged training" gate already
+  used for the weekly goal.
+- **`eligiblePlayerCountRange`** (on `effortLeaderboard` rows only) is that
+  same count **bucketed** into `'1-2' | '3-5' | '6+'`, not an exact
+  integer — per ADR-0016's 2026-07-31 addendum: an exact count on a
+  cross-team-visible row for a 1–2 player team is a de-facto single,
+  identifiable child's parental-consent/join-approval status, which is a
+  child-privacy leak this project treats as blocking. `requestingTeamEffort`
+  and the dashboard/`GET /players/me` `eligiblePlayerCount` fields never
+  cross a team boundary (always the requester's own team), so they are
+  unaffected and stay exact integers.
+- **`pointsPerPlayer`** is the honest, unadjusted `pointsTotal /
+  eligiblePlayerCount`, one decimal.
+- **`adjustedScore`** is the shrinkage-adjusted number `rank` is actually
+  computed from — see ADR-0016 Decision 2 for the formula (`(n / (n + k)) *
+  teamAverage + (k / (n + k)) * C`, `C`/`k` derived live from the current
+  league's own data) and its worked example (a 15-person team's raw total
+  no longer automatically wins the effort view; a 4-person team with a
+  higher genuine per-player rate can outrank it once shrinkage pulls both
+  toward the league mean in proportion to their sample size).
+- Same **standard competition ranking** tie-handling as `leaderboard`
+  above, computed once server-side against `adjustedScore` so
+  `effortLeaderboard` and `requestingTeamEffort.rank` agree by
+  construction.
+- A team with `eligiblePlayerCount === 0` (every player still
+  consent-pending, or a self-created team with no approved joiner yet) is
+  **absent from `effortLeaderboard` entirely** — same "absent, not shown at
+  zero" posture as a team with no active pot on the raw leaderboard above.
+- `requestingTeamEffort` is `null` if the requesting team's own
+  `eligiblePlayerCount` is `0` — same posture as `requestingTeam`'s own
+  `null` case for a missing pot.
+- **No player-level data of any kind appears here either** — the query
+  behind this view joins to `Player` for a `COUNT` only (see ADR-0016
+  Decision 4); no `screenName`/`playerId`/consent field is ever selected.
+
 ---
 
 ## Breaking changes to existing shapes
@@ -91,6 +164,19 @@ added:
 }
 ```
 
+**Updated 2026-07-31 (ADR-0016, additive)** — `effortRank`/
+`eligiblePlayerCount` added alongside `rank`/`teamCount`, same posture as
+endpoint 1a above (`effortRank: null` when this team's own
+`eligiblePlayerCount` is `0`):
+```json
+"teamPool": {
+  "seasonId": "uuid", "seasonLabel": "Vår 2026",
+  "pointsTotal": 1280, "status": "active",
+  "rank": 3, "teamCount": 4,
+  "effortRank": 4, "eligiblePlayerCount": 6
+}
+```
+
 ### `GET /api/v1/teams/:teamId/dashboard` (`phase2-contract.md`) — `teamPool` block
 
 Same change as above, applied to the dashboard's existing `teamPool` block
@@ -98,7 +184,10 @@ Same change as above, applied to the dashboard's existing `teamPool` block
 `rank` = 1 + count of active pots with a strictly greater `pointsTotal`
 (tie-consistent with the leaderboard endpoint's own ranking, computed the
 same way, not derived differently in two places); `teamCount` = count of
-teams currently on the leaderboard at all.
+teams currently on the leaderboard at all. `effortRank`/
+`eligiblePlayerCount` (ADR-0016, additive, 2026-07-31) are added the same
+way, computed by the same shared `TeamPoolService` method the leaderboard
+endpoint's `effortLeaderboard` reuses.
 
 ### `POST /api/v1/training-logs` (`phase1-contract.md` + `phase2-contract.md`)
 
@@ -117,6 +206,11 @@ added here** — computing a system-wide rank on this app's hottest write
 path is a real, avoidable cost (see the ADR's Decision 3). A client that
 wants an updated rank after logging re-fetches `GET /players/me` or the
 dashboard, same as it already does for other post-log state.
+
+**`effortRank`/`eligiblePlayerCount` (ADR-0016) are, for the identical
+reason, also deliberately not added here** — same hot-path posture, not an
+oversight. A client wants an updated `effortRank` the same way it already
+gets an updated `rank`: on its next `GET /players/me` or dashboard fetch.
 
 ### `TeamSeasonPot.goal_threshold` (schema)
 
@@ -165,3 +259,32 @@ three response builders above.
   one piece of genuinely new logic here — worth checking directly against
   a hand-worked example with ties, same scrutiny level as Phase 2's
   goal-bonus crossing logic got.
+
+### ADR-0016 addendum (2026-07-31) — the effort view, additive
+
+Implemented against `TeamPoolService`/`WeeklyGoalController`'s existing
+leaderboard endpoint (see endpoint 1a above), not a new endpoint or a new
+contract doc — this is purely additive to what's already specified above.
+
+- **backend-developer:** `TeamPoolService.getEffortLeaderboard()` (a new
+  count-only join to `Player` — see ADR-0016 Decision 4) and
+  `TeamPoolService.getEffortRankAndEligibleCountOrThrow()` are the shared
+  query/computation methods, mirroring `getLeaderboard()`/
+  `getRankAndTeamCountOrThrow()`'s existing pattern rather than
+  duplicating it. `computeEffortLeaderboard()` (the shrinkage
+  formula/ranking, a pure static function) is unit-tested directly against
+  ADR-0016's own worked example (`team-pool.service.spec.ts`), same
+  posture as `computeStandardCompetitionRanks`.
+- **security-reviewer:** ADR-0016 Decision 4 explicitly flags this as the
+  first cross-team query to ever join to `Player` at all (even count-only)
+  — sign-off required before ship, same posture ADR-0008's own first-time
+  `Team.name` exposure got. Confirm the query genuinely selects nothing
+  from `Player` except the `COUNT` (no `screenName`/`playerId`/consent
+  field anywhere in the `SELECT`).
+- **Not a coordinated-deploy item, unlike ADR-0005/ADR-0015** — this is
+  additive only (no existing field's meaning changes), so
+  frontend-developer can ship the effort-view tab on its own schedule once
+  these fields exist; no shared deploy window required.
+- **ux-designer/frontend-developer:** the tab/toggle between "Mest poäng"
+  (existing `leaderboard`) and "Bästa laginsats" (new `effortLeaderboard`)
+  is a separate, later pass — not built as part of this addendum.
