@@ -34,10 +34,20 @@ spec:
       labels:
         app: api
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000 # node:22-alpine's built-in `node` user
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: api
           image:  # PLACEHOLDER — see comment above
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 3000
           envFrom:
@@ -97,16 +107,24 @@ spec:
             # Fas 3 (docs/adr/0010-video-storage-and-serving.md) — MinIO
             # credentials. MINIO_ENDPOINT/BUCKET/CLIP_* come from the
             # ConfigMap via envFrom above.
+            #
+            # Deliberately a scoped, non-root user (security-reviewer
+            # finding, 2026-07-30) — read/write/delete/list on the `clips`
+            # bucket only, no admin/service-info access, no other-bucket
+            # visibility. A compromised api process can no longer reach
+            # every team's video via MinIO's root credentials. See
+            # k8s/README.md's MinIO section for how this user/policy was
+            # created and how to recreate it if ever rotated.
             - name: MINIO_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   name: skillstreak-secret
-                  key: MINIO_ROOT_USER
+                  key: MINIO_CLIPS_ACCESS_KEY
             - name: MINIO_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: skillstreak-secret
-                  key: MINIO_ROOT_PASSWORD
+                  key: MINIO_CLIPS_SECRET_KEY
           readinessProbe:
             httpGet:
               path: /health

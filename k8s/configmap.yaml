@@ -52,15 +52,22 @@ data:
   # Fas 3 (docs/adr/0010-video-storage-and-serving.md) — the in-cluster
   # MinIO Service (minio-service.yaml), used only for the API's own
   # internal admin calls (bucket creation/policy).
-  MINIO_ENDPOINT: "http://minio:9000"
-  # MINIO_PUBLIC_ENDPOINT intentionally left unset here — presigned
-  # upload/playback URLs need a real externally-reachable address (see
-  # ADR-0010's 2026-07-26 addendum + minio-service.yaml's own comment),
-  # which doesn't exist on this cluster yet (no working LoadBalancer, no
-  # Ingress to MinIO's data port — same k8s/README.md gap blocking every
-  # other external-access feature here). Video upload/playback are not
-  # functional for a real client on this cluster until that's resolved;
-  # set this once it is, alongside APP_PUBLIC_URL/CORS_ORIGIN above.
+  # Safespring's real S3-compatible storage (2026-07-31), not the
+  # self-hosted in-cluster MinIO — see docs/BACKLOG.md's "Object storage:
+  # generic naming + provider-per-environment" entry for the full plan
+  # (self-hosted MinIO stays in use on the internal test cluster only).
+  # This one address is both the app's internal admin endpoint and the
+  # one presigned URLs are signed against (ADR-0010's 2026-07-26 addendum)
+  # — unlike the old self-hosted MinIO Service, there's no separate
+  # cluster-internal-vs-public distinction here, Safespring's endpoint is
+  # reachable both ways, so MINIO_PUBLIC_ENDPOINT is deliberately left
+  # unset and falls back to this value (ObjectStorageService's
+  # constructor). skillstreak-secret's MINIO_CLIPS_ACCESS_KEY/
+  # MINIO_CLIPS_SECRET_KEY (still named after the old self-hosted
+  # credential this replaces — the generic rename is a separate,
+  # not-yet-designed task, see docs/BACKLOG.md) must now be real
+  # Safespring S3 credentials, not the old self-hosted MinIO ones.
+  MINIO_ENDPOINT: "https://s3a4.sto2.safedc.net"
   MINIO_BUCKET: "clips"
   # Tunable product config (ADR-0010 Decision 5), not architecturally
   # fixed — see that ADR's own "flagged, not silently decided as final"

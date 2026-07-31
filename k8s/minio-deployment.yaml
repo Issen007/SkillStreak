@@ -27,9 +27,37 @@ spec:
       labels:
         app: minio
     spec:
+      # Security hardening, 2026-07-30. Unlike postgres, minio/minio's
+      # image has no built-in non-root user and genuinely runs its PID 1
+      # as root today (confirmed live) — no internal privilege-drop to
+      # rely on, so this is a real behavior change, not just making an
+      # existing drop mandatory. uid/gid 1000 is an arbitrary but fixed
+      # choice (no clash with anything else in this namespace). The
+      # initContainer fixes this PVC's existing root-owned data before the
+      # main container, now permanently non-root, ever touches it.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: fix-data-dir-ownership
+          image: minio/minio:latest
+          command: ["sh", "-c", "chown -R 1000:1000 /data"]
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+          volumeMounts:
+            - name: minio-data
+              mountPath: /data
       containers:
         - name: minio
           image: minio/minio:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           args: ["server", "/data", "--console-address", ":9001"]
           ports:
             - name: api

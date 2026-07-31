@@ -1,19 +1,15 @@
-# ClusterIP only — for now, on this specific cluster, not as a permanent
-# rule. See ADR-0010's 2026-07-26 addendum: the original "never
-# LoadBalancer/NodePort/Ingress" reasoning was reversed after a confirmed
-# live bug (presigned URLs pointing at this Service's cluster-internal
-# address are unreachable by any real client — not a security feature,
-# just broken). This cluster's CCM has no working LoadBalancer at all
-# (Decision 1's infra-reality note), so the local-cluster fix (a second
-# `LoadBalancer` Service just for port 9000, see temp/minio-service.yaml)
-# doesn't apply here as-is — this cluster needs an Ingress path to MinIO's
-# data port instead, once `k8s/README.md`'s external-ingress gap is closed
-# (docs/PROJECT.md Fas 4 #1). Until then, video upload/playback are simply
-# not functional for a real client via this cluster, same as every other
-# feature blocked on that same ingress gap.
+# ClusterIP only — deliberately stays this way even now that MinIO has a
+# public endpoint (2026-07-30). ADR-0010's 2026-07-26 addendum's "never
+# LoadBalancer/NodePort/Ingress" reasoning was reversed for external
+# *reachability* (presigned URLs need a real address a client can hit),
+# but that's solved at the Gateway API layer instead — gateway.yaml's
+# https-cdn listener + httproute.yaml's cdn-route terminate TLS and
+# forward to this Service's `api` port (9000), same pattern as api/site.
+# This Service itself never needs to change type; only Kubernetes objects
+# in front of it changed.
 # Includes the console port (9001) for `kubectl port-forward` admin
-# debugging only — that port has no reason to ever be externally reachable
-# regardless of how the data port above gets exposed.
+# debugging only — not routed by cdn-route, no reason to ever be
+# externally reachable regardless of how the data port above is exposed.
 apiVersion: v1
 kind: Service
 metadata:

@@ -14,4 +14,8 @@ spec:
     app: site
   ports:
     - port: 80
-      targetPort: 80
+      # Container listens on 8080, not 80 -- it runs as a non-root user
+      # (security hardening, 2026-07-30) which can't bind a privileged
+      # port. External consumers of this Service are unaffected: the
+      # Service's own exposed port (above) is still 80.
+      targetPort: 8080

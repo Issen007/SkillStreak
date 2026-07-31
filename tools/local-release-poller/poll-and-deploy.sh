@@ -22,6 +22,15 @@
 # nothing to do with what the cluster runs. GHCR packages here are public,
 # so no registry credentials are needed either.
 #
+# Every kubectl call below is pinned to --context microk8s explicitly —
+# confirmed live 2026-07-30 that this machine's *ambient default* context
+# had drifted to "skillstreak" (the production cluster) for some stretch
+# of time, and every poll during that window silently redeployed
+# production with these prerelease-tagged images instead of touching this
+# script's actual target. Never rely on whatever `kubectl config
+# current-context` happens to be — always pin it here, since this script
+# runs unattended and nothing else double-checks its target cluster.
+#
 # Run manually to test, or via the systemd timer in this same directory
 # for the "always on, checks every few minutes" version (see this
 # directory's README for install steps).
@@ -30,6 +39,7 @@ set -euo pipefail
 REPO="Issen007/SkillStreak"
 BRANCH="prerelease"
 NAMESPACE="skillstreak"
+KUBE_CONTEXT="microk8s"
 STATE_DIR="${STATE_DIR:-$HOME/.local/state/skillstreak-poller}"
 STATE_FILE="$STATE_DIR/current-sha"
 ROLLOUT_TIMEOUT="180s"
@@ -81,13 +91,13 @@ if ! docker manifest inspect "$site_image" >/dev/null 2>&1; then
 fi
 
 echo "Updating deployment/api -> ${api_image}"
-kubectl set image "deployment/api" "api=${api_image}" -n "$NAMESPACE"
+kubectl --context "$KUBE_CONTEXT" set image "deployment/api" "api=${api_image}" -n "$NAMESPACE"
 echo "Updating deployment/site -> ${site_image}"
-kubectl set image "deployment/site" "site=${site_image}" -n "$NAMESPACE"
+kubectl --context "$KUBE_CONTEXT" set image "deployment/site" "site=${site_image}" -n "$NAMESPACE"
 
 echo "Waiting for rollout..."
-kubectl rollout status "deployment/api" -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT"
-kubectl rollout status "deployment/site" -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT"
+kubectl --context "$KUBE_CONTEXT" rollout status "deployment/api" -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT"
+kubectl --context "$KUBE_CONTEXT" rollout status "deployment/site" -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT"
 
 echo "$latest_sha" > "$STATE_FILE"
 echo "Deployed ${latest_sha} successfully."

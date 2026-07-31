@@ -36,8 +36,32 @@ rules:
     resources: ["deployments"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
-    resources: ["services", "configmaps", "secrets", "persistentvolumeclaims"]
+    resources: ["services", "configmaps", "persistentvolumeclaims"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # secrets get their own, narrower rules (security-reviewer finding,
+  # 2026-07-30) — split into two because a rule with `resourceNames` set
+  # doesn't just fail to *restrict* `create` (as Kubernetes' own docs
+  # phrase it), it makes `create` inapplicable via that rule entirely —
+  # confirmed live via `kubectl auth can-i create secrets`, which is why
+  # this isn't one combined rule the way the first attempt at this fix
+  # was. `get`/`update`/`patch` are scoped to the one named Secret this
+  # deploy job actually manages (`kubectl apply -f k8s/secret.yaml` needs
+  # `get` to read the live object before it can compute a patch — dropping
+  # it, per this finding's original wording, would break every deploy,
+  # not just tighten it); `create` is deliberately its own unscoped rule,
+  # needed for the real disaster-recovery case of bootstrapping this
+  # Secret on a fresh cluster (this session hit exactly that scenario
+  # once already) — it grants no read-back capability on its own, so it
+  # can't be used to discover or read any other secret in the namespace.
+  # Never `list`/`watch` (nothing here ever enumerates or watches
+  # secrets) or `delete` (no deploy step ever deletes one).
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["skillstreak-secret"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
