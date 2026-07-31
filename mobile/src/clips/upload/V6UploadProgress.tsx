@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { SecondaryButton } from '../../components/SecondaryButton';
@@ -19,6 +19,43 @@ const GIVE_UP_MESSAGE =
 // surfaces a manual retry instead of silently burning through the upload
 // rate limit.
 const MAX_AUTOMATIC_ATTEMPTS = 2;
+
+/** `expo-file-system`'s `createUploadTask`/`uploadAsync` (used below for
+ * native) has no web implementation at all — `ExponentFileSystemShim`
+ * (the package's own `.web.ts`) doesn't define `uploadTaskStartAsync`,
+ * so calling it on web throws immediately, every attempt, every retry.
+ * Confirmed live 2026-07-31 as the cause of every "try it" site upload
+ * failing with the generic give-up message. Web instead does the same
+ * presigned `PUT` via `XMLHttpRequest` directly (not `fetch`, which has no
+ * cross-browser upload-progress event) — `clip.uri` on web is a `blob:`
+ * URL from `expo-image-picker`'s own web implementation, fetched into a
+ * real `Blob` first since `XMLHttpRequest.send` needs the bytes, not a
+ * reference to them. Requires the S3-compatible bucket to actually allow
+ * this cross-origin request (see `ObjectStorageService
+ * .configureCorsPolicy` on the backend) — a browser enforces CORS on this
+ * `PUT`, unlike native's direct native-module HTTP call. */
+async function putViaXhrForWeb(
+  uploadUrl: string,
+  headers: Record<string, string>,
+  fileUri: string,
+  onXhrReady: (xhr: XMLHttpRequest) => void,
+  onProgress: (sentBytes: number, totalBytes: number) => void,
+): Promise<{ status: number }> {
+  const blob = await (await fetch(fileUri)).blob();
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    onXhrReady(xhr);
+    xhr.open('PUT', uploadUrl);
+    Object.entries(headers).forEach(([key, value]) => xhr.setRequestHeader(key, value));
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(event.loaded, event.total);
+    };
+    xhr.onload = () => resolve({ status: xhr.status });
+    xhr.onerror = () => reject(new Error('Network error during the upload PUT.'));
+    xhr.onabort = () => reject(new Error('Upload cancelled.'));
+    xhr.send(blob);
+  });
+}
 
 interface V6UploadProgressProps {
   teamId: string;
@@ -55,7 +92,11 @@ export function V6UploadProgress({
 
   const currentUploadRef = useRef(initialUpload);
   const attemptRef = useRef(1);
+  // Exactly one of these is live per attempt, per platform (see
+  // `putViaXhrForWeb`'s comment for why web can't use `FileSystem.UploadTask`
+  // at all) — `handleCancel` below checks both since it doesn't know which.
   const uploadTaskRef = useRef<FileSystem.UploadTask | null>(null);
+  const xhrRef = useRef<XMLHttpRequest | null>(null);
   const cancelledRef = useRef(false);
   const runIdRef = useRef(0);
 
@@ -63,28 +104,46 @@ export function V6UploadProgress({
     async (upload: CreateClipUploadUrlResponse) => {
       const runId = ++runIdRef.current;
       currentUploadRef.current = upload;
+      uploadTaskRef.current = null;
+      xhrRef.current = null;
       setPhase('uploading');
       setProgress(0);
       setManualError(null);
 
       try {
-        const task = FileSystem.createUploadTask(
-          upload.uploadUrl,
-          clip.uri,
-          {
-            httpMethod: 'PUT',
-            uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-            headers: upload.requiredHeaders,
-          },
-          (data) => {
-            if (runId !== runIdRef.current) return;
-            const total = data.totalBytesExpectedToSend;
-            setProgress(total > 0 ? data.totalBytesSent / total : 0);
-          },
-        );
-        uploadTaskRef.current = task;
-
-        const result = await task.uploadAsync();
+        let result: { status: number } | null;
+        if (Platform.OS === 'web') {
+          result = await putViaXhrForWeb(
+            upload.uploadUrl,
+            upload.requiredHeaders,
+            clip.uri,
+            (xhr) => {
+              xhrRef.current = xhr;
+            },
+            (sentBytes, totalBytes) => {
+              if (runId !== runIdRef.current) return;
+              setProgress(totalBytes > 0 ? sentBytes / totalBytes : 0);
+            },
+          );
+        } else {
+          const task = FileSystem.createUploadTask(
+            upload.uploadUrl,
+            clip.uri,
+            {
+              httpMethod: 'PUT',
+              uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+              headers: upload.requiredHeaders,
+            },
+            (data) => {
+              if (runId !== runIdRef.current) return;
+              const total = data.totalBytesExpectedToSend;
+              setProgress(total > 0 ? data.totalBytesSent / total : 0);
+            },
+          );
+          uploadTaskRef.current = task;
+          const nativeResult = await task.uploadAsync();
+          result = nativeResult ? { status: nativeResult.status } : null;
+        }
         if (cancelledRef.current || runId !== runIdRef.current) return;
 
         if (!result || result.status < 200 || result.status >= 300) {
@@ -149,6 +208,7 @@ export function V6UploadProgress({
     setCancelling(true);
     cancelledRef.current = true;
     try {
+      xhrRef.current?.abort();
       await uploadTaskRef.current?.cancelAsync();
     } catch {
       // Non-critical — the DELETE below (or, failing that, the pending_upload
