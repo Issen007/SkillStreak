@@ -7,6 +7,7 @@ import {
   HeadBucketCommand,
   HeadObjectCommand,
   NotFound,
+  PutBucketCorsCommand,
   PutBucketPolicyCommand,
   PutObjectCommand,
   S3Client,
@@ -133,6 +134,7 @@ export class ObjectStorageService implements OnModuleInit {
       }
     }
     await this.configureMaxObjectSizePolicy();
+    await this.configureCorsPolicy();
   }
 
   /**
@@ -213,6 +215,70 @@ export class ObjectStorageService implements OnModuleInit {
           `ever being served: ${
             error instanceof Error ? error.message : String(error)
           }`,
+      );
+    }
+  }
+
+  /**
+   * The clip picker/uploader (`mobile/src/clips/upload/`) runs unmodified
+   * on web (the "try it" site, `try.skillstreak.xyz`) via react-native-web,
+   * where the presigned `PUT` in Decision 3's two-phase upload is a real
+   * cross-origin browser request from the site's own origin straight to
+   * this bucket's endpoint — subject to the browser's CORS enforcement,
+   * unlike the native app's direct native-module HTTP call. Confirmed live
+   * 2026-07-31 as the root cause of every web upload failing with a
+   * generic "connection" error: no CORS configuration existed on the
+   * bucket at all, so the browser blocked the `PUT` (and its preflight
+   * `OPTIONS`) before it ever reached Safespring/MinIO — nothing to do
+   * with connectivity, credentials, or the S3 provider migration itself.
+   *
+   * Reuses `CORS_ORIGIN` — the exact same env var and origin list
+   * `main.ts`'s `app.enableCors` already trusts for the API itself, per
+   * environment (production's real domains vs. the internal cluster's LAN
+   * `try-it` URL, each cluster's own ConfigMap) — not a second, parallel
+   * origin list to keep in sync by hand. Skipped entirely when unset (mirrors
+   * `main.ts`'s own "off by default" posture), which is fine: local/CI
+   * MinIO is only ever driven by the SDK/curl directly, never a real
+   * browser, so no CORS policy is needed there either.
+   *
+   * Best-effort, matching `configureMaxObjectSizePolicy`'s own posture —
+   * logged loudly on failure rather than crashing boot, since a self-hosted
+   * MinIO too old to support `PutBucketCors` should degrade to "web upload
+   * doesn't work, native app still does," not "the API won't start."
+   *
+   * `PUT` only, deliberately not `GET`/`HEAD` (security-reviewer finding,
+   * 2026-07-31): clip *playback* on web is a plain `<video>`-element-style
+   * load of the presigned GET URL (`ClipCard`'s `useVideoPlayer`), which
+   * browsers don't subject to CORS at all — no code path here does a
+   * `fetch`/`XHR` read of clip bytes that would need it. Add `GET` back
+   * only if/when that becomes true, not preemptively.
+   */
+  private async configureCorsPolicy(): Promise<void> {
+    const corsOrigin = this.configService.get<string>('CORS_ORIGIN');
+    if (!corsOrigin) return;
+    const allowedOrigins = corsOrigin.split(',').map((o) => o.trim());
+    try {
+      await this.client.send(
+        new PutBucketCorsCommand({
+          Bucket: this.bucket,
+          CORSConfiguration: {
+            CORSRules: [
+              {
+                AllowedOrigins: allowedOrigins,
+                AllowedMethods: ['PUT'],
+                AllowedHeaders: ['*'],
+                MaxAgeSeconds: 3600,
+              },
+            ],
+          },
+        }),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Could not set a CORS policy on bucket "${this.bucket}" for origins ` +
+          `[${allowedOrigins.join(', ')}] — clip upload from a browser (the ` +
+          `"try it" site) will fail until this is resolved; the native app is ` +
+          `unaffected: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
