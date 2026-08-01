@@ -2491,10 +2491,46 @@ exists yet.
       into `backend/src/consent/consent-page.templates.ts` (all 8
       locales, both copy objects) and verified with a clean backend
       build.
-- [ ] **backend-developer**: additive Postgres schema (`VideoClipTag`,
-      `VideoClip.tagging_status`) may start now per the confirmed parts of
-      the ADR; the classification service itself waits on the two
-      still-open infra requirements above being satisfied at deploy time.
+- [x] **backend-developer**: additive Postgres schema, schema-only per
+      the ADR's scoping (no controller/DTO/service touched, no
+      classification service/job/queue built — those still wait on the
+      two open infra findings above). → new `VideoClipTag` entity/table
+      (`backend/src/video-clips/entities/video-clip-tag.entity.ts`),
+      `VideoClip.tagging_status` column, migration
+      `1785800000000-AddVideoClipTagging.ts`. Fixed-enum vocabulary
+      adopted as-is from the ADR's illustrative list
+      (shooting/stickhandling/passing/fitness_conditioning/goalkeeping/
+      team_drill/other_training/unclear_or_unrelated); `clip_id` is
+      `ON DELETE CASCADE` (deliberately unlike `ClipReport`'s `SET NULL`,
+      per Decision 4's reasoning — a tag has no value independent of its
+      video). Verified independently (not just the implementing agent's
+      report): migration applies cleanly on top of the full 15-migration
+      history, `down()`/`up()` round-trips cleanly, cascade confirmed
+      directly (delete a `VideoClip` with a tag row, tag row is gone).
+      296/296 unit tests, 141/141 e2e, unchanged.
+- [x] **code-critic**: one CONFIRMED finding — `confidence numeric` had
+      no bound or `CHECK` constraint; live-tested against the actual
+      migration and confirmed Postgres accepted `1.5`, `-3`, and even the
+      literal `NaN` with nothing to catch a bad value from a future buggy
+      classifier before it corrupts a downstream `WHERE confidence > 0.8`
+      filter. **Fixed**: `numeric(4,3)` + `CHECK (confidence >= 0 AND
+      confidence <= 1)`, at both the migration and the entity
+      (`@Check(...)`, first use of that decorator in this codebase — no
+      prior `CHECK`-constraint precedent existed to follow). Re-verified
+      directly: reverted and reran the migration, then confirmed live
+      that `1.5`/`-3`/`NaN` are now all rejected by Postgres while a
+      real `0.874` insert still succeeds; full suite re-run clean
+      (296/296 unit, 141/141 e2e) after the fix. One PLAUSIBLE
+      low-severity finding, deliberately left open (matches the entity's
+      own comment and the ADR's "schema-only, job comes later" scoping):
+      no index yet backs a future `tagging_status = 'not_processed'`
+      sweep query — the existing `status` index partially covers it for
+      now, revisit when the sweep job is actually built. Everything else
+      checked clean: enum values/naming match the codebase's existing
+      convention exactly, `down()` reverses in correct dependency order
+      with no orphaned types on a live revert/reapply test, no
+      environment-specific values, zero scope creep into any
+      controller/DTO/client-facing surface.
 
 ## Phase 6 — Public Shorts feed, reactions & personal archive
 
