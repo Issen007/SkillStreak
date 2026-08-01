@@ -13,6 +13,10 @@ import {
 } from '@expo-google-fonts/nunito';
 
 import { AppRoot } from './src/AppRoot';
+// Side-effect import — runs i18next's synchronous init (src/i18n/index.ts)
+// before anything below ever calls useTranslation()/t(). Must load before
+// AppRoot, not lazily from within it.
+import './src/i18n';
 
 // Keep the native splash screen up until fonts are ready, so the very first
 // frame the player sees is already on-brand rather than a flash of

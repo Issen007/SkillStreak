@@ -8,13 +8,20 @@
 // Copy is first-person ("verify your own account"), not third-person
 // ("does your child have permission") — the whole point of this template
 // existing separately is that nobody else is being asked anything here.
+//
+// docs/adr/0014-multi-language-support.md Decision 3 — same `COPY`/
+// `resolveCopy` fallback pattern as every other template in this
+// directory; see consent-request-email.template.ts's comment for the full
+// reasoning.
 
+import { PlayerLocale } from '../../common/locale/player-locale.enum';
 import { escapeHtml } from './html-escape.util';
 
 export interface SelfVerificationEmailInput {
   screenName: string;
   teamName: string;
   consentUrl: string;
+  locale: PlayerLocale;
 }
 
 export interface RenderedEmail {
@@ -23,30 +30,34 @@ export interface RenderedEmail {
   text: string;
 }
 
-export function buildSelfVerificationEmail(
-  input: SelfVerificationEmailInput,
-): RenderedEmail {
-  const { screenName, teamName, consentUrl } = input;
+interface LocaleCopy {
+  subject: (teamName: string) => string;
+  text: (screenName: string, teamName: string, consentUrl: string) => string;
+  html: (
+    safeScreenName: string,
+    safeTeamName: string,
+    safeUrl: string,
+    subject: string,
+  ) => string;
+}
 
-  const subject = `Verifiera ditt konto för ${teamName} på SkillStreak`;
-
-  const text = [
-    'Hej!',
-    '',
-    `Nästan klart! Du har gått med i ${teamName} på SkillStreak — en app för dagliga träningsstreak och ett gemensamt lagpoäng-mål.`,
-    '',
-    'Klicka på länken nedan för att verifiera din e-post och aktivera ditt konto.',
-    '',
-    `Verifiera här: ${consentUrl}`,
-    '',
-    'Länken är giltig i 7 dagar.',
-  ].join('\n');
-
-  const safeScreenName = escapeHtml(screenName);
-  const safeTeamName = escapeHtml(teamName);
-  const safeUrl = escapeHtml(consentUrl);
-
-  const html = `<!DOCTYPE html>
+const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
+  sv: {
+    subject: (teamName) =>
+      `Verifiera ditt konto för ${teamName} på SkillStreak`,
+    text: (screenName, teamName, consentUrl) =>
+      [
+        'Hej!',
+        '',
+        `Nästan klart! Du har gått med i ${teamName} på SkillStreak — en app för dagliga träningsstreak och ett gemensamt lagpoäng-mål.`,
+        '',
+        'Klicka på länken nedan för att verifiera din e-post och aktivera ditt konto.',
+        '',
+        `Verifiera här: ${consentUrl}`,
+        '',
+        'Länken är giltig i 7 dagar.',
+      ].join('\n'),
+    html: (safeScreenName, safeTeamName, safeUrl, subject) => `<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="utf-8" />
@@ -88,7 +99,29 @@ export function buildSelfVerificationEmail(
     </tr>
   </table>
 </body>
-</html>`;
+</html>`,
+  },
+  // en/fi/da/nb/de/cs/fr: added incrementally, per part (b).
+};
+
+function resolveCopy(locale: PlayerLocale): LocaleCopy {
+  return COPY[locale] ?? COPY.sv!; // never renders blank/broken
+}
+
+export function buildSelfVerificationEmail(
+  input: SelfVerificationEmailInput,
+): RenderedEmail {
+  const { screenName, teamName, consentUrl, locale } = input;
+  const copy = resolveCopy(locale);
+
+  const subject = copy.subject(teamName);
+  const text = copy.text(screenName, teamName, consentUrl);
+
+  const safeScreenName = escapeHtml(screenName);
+  const safeTeamName = escapeHtml(teamName);
+  const safeUrl = escapeHtml(consentUrl);
+
+  const html = copy.html(safeScreenName, safeTeamName, safeUrl, subject);
 
   return { subject, html, text };
 }

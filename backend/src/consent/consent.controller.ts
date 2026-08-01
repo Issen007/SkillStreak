@@ -43,8 +43,8 @@ export class ConsentController {
     const html = !preview
       ? renderConsentInvalidPage()
       : preview.isSelfVerification
-        ? renderSelfVerificationConfirmPage(preview.screenName)
-        : renderConsentConfirmPage(preview.screenName);
+        ? renderSelfVerificationConfirmPage(preview.screenName, preview.locale)
+        : renderConsentConfirmPage(preview.screenName, preview.locale);
     res.status(HttpStatus.OK).type('html').send(html);
   }
 
@@ -64,8 +64,8 @@ export class ConsentController {
     const html = !result
       ? renderConsentAlreadyUsedPage()
       : result.isSelfVerification
-        ? renderSelfVerificationApprovedPage(result.screenName)
-        : renderConsentApprovedPage(result.screenName);
+        ? renderSelfVerificationApprovedPage(result.screenName, result.locale)
+        : renderConsentApprovedPage(result.screenName, result.locale);
     res.status(HttpStatus.OK).type('html').send(html);
   }
 }

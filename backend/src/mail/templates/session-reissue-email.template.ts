@@ -10,7 +10,14 @@
 // 2026-07-27 addendum), so this copy needs to read sensibly either way,
 // hence "share this code with {screenName}" rather than assuming a
 // third-party parent audience like consent-request-email.template.ts does.
+//
+// docs/adr/0014-multi-language-support.md Decision 3 — same `COPY`/
+// `resolveCopy` fallback pattern as every other template in this
+// directory; see consent-request-email.template.ts's comment for the full
+// reasoning. Caller (SessionService) already has the target Player row in
+// hand, so `locale` comes from `player.locale` — no new query needed.
 
+import { PlayerLocale } from '../../common/locale/player-locale.enum';
 import { escapeHtml } from './html-escape.util';
 
 export interface SessionReissueEmailInput {
@@ -18,6 +25,7 @@ export interface SessionReissueEmailInput {
   teamName: string;
   code: string;
   expiresInMinutes: number;
+  locale: PlayerLocale;
 }
 
 export interface RenderedEmail {
@@ -26,30 +34,45 @@ export interface RenderedEmail {
   text: string;
 }
 
-export function buildSessionReissueEmail(
-  input: SessionReissueEmailInput,
-): RenderedEmail {
-  const { screenName, teamName, code, expiresInMinutes } = input;
+interface LocaleCopy {
+  subject: string;
+  text: (
+    screenName: string,
+    teamName: string,
+    code: string,
+    expiresInMinutes: number,
+  ) => string;
+  html: (
+    safeScreenName: string,
+    safeTeamName: string,
+    safeCode: string,
+    expiresInMinutes: number,
+    subject: string,
+  ) => string;
+}
 
-  const subject = `Kod för att logga in igen på SkillStreak`;
-
-  const text = [
-    'Hej!',
-    '',
-    `Någon har bett om en ny inloggning för ${screenName} i ${teamName} på SkillStreak, eftersom den gamla sessionen inte längre fungerar (t.ex. ny telefon eller ominstallerad app).`,
-    '',
-    `Kod: ${code}`,
-    '',
-    `Öppna appen (eller sajten), välj "Har du redan ett konto?" och ange koden ovan. Koden är giltig i ${expiresInMinutes} minuter och går bara att använda en gång.`,
-    '',
-    'Var det inte du eller ditt barn som bad om detta? Ignorera det här mejlet — koden slutar gälla automatiskt och inget händer med kontot.',
-  ].join('\n');
-
-  const safeScreenName = escapeHtml(screenName);
-  const safeTeamName = escapeHtml(teamName);
-  const safeCode = escapeHtml(code);
-
-  const html = `<!DOCTYPE html>
+const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
+  sv: {
+    subject: `Kod för att logga in igen på SkillStreak`,
+    text: (screenName, teamName, code, expiresInMinutes) =>
+      [
+        'Hej!',
+        '',
+        `Någon har bett om en ny inloggning för ${screenName} i ${teamName} på SkillStreak, eftersom den gamla sessionen inte längre fungerar (t.ex. ny telefon eller ominstallerad app).`,
+        '',
+        `Kod: ${code}`,
+        '',
+        `Öppna appen (eller sajten), välj "Har du redan ett konto?" och ange koden ovan. Koden är giltig i ${expiresInMinutes} minuter och går bara att använda en gång.`,
+        '',
+        'Var det inte du eller ditt barn som bad om detta? Ignorera det här mejlet — koden slutar gälla automatiskt och inget händer med kontot.',
+      ].join('\n'),
+    html: (
+      safeScreenName,
+      safeTeamName,
+      safeCode,
+      expiresInMinutes,
+      subject,
+    ) => `<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="utf-8" />
@@ -92,7 +115,35 @@ export function buildSessionReissueEmail(
     </tr>
   </table>
 </body>
-</html>`;
+</html>`,
+  },
+  // en/fi/da/nb/de/cs/fr: added incrementally, per part (b).
+};
+
+function resolveCopy(locale: PlayerLocale): LocaleCopy {
+  return COPY[locale] ?? COPY.sv!; // never renders blank/broken
+}
+
+export function buildSessionReissueEmail(
+  input: SessionReissueEmailInput,
+): RenderedEmail {
+  const { screenName, teamName, code, expiresInMinutes, locale } = input;
+  const copy = resolveCopy(locale);
+
+  const subject = copy.subject;
+  const text = copy.text(screenName, teamName, code, expiresInMinutes);
+
+  const safeScreenName = escapeHtml(screenName);
+  const safeTeamName = escapeHtml(teamName);
+  const safeCode = escapeHtml(code);
+
+  const html = copy.html(
+    safeScreenName,
+    safeTeamName,
+    safeCode,
+    expiresInMinutes,
+    subject,
+  );
 
   return { subject, html, text };
 }

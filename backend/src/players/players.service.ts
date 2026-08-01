@@ -13,6 +13,7 @@ import {
   TeamMismatchException,
 } from '../common/errors/exceptions';
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
+import { PlayerLocale } from '../common/locale/player-locale.enum';
 import {
   AccountErasureRequest,
   AccountErasureStatus,
@@ -38,6 +39,12 @@ export interface CreatePlayerShellInput {
   // when this exact request just created the team); every other existing
   // caller omits it, which defaults to false, unchanged.
   isCaptain?: boolean;
+  // docs/adr/0014-multi-language-support.md Decision 1/2 — the submitted
+  // (optional) CreatePlayerDto.locale. Omitted (not merely `undefined`
+  // spread into the insert) when the caller doesn't supply one, same
+  // "let the column's own DEFAULT apply" idiom this method already uses
+  // for tokenVersion/currentStreakCount/etc. below.
+  locale?: PlayerLocale;
 }
 
 export interface CaptainTransferResult {
@@ -97,6 +104,11 @@ export class PlayersService {
       teamJoinStatus: isCaptain
         ? TeamJoinStatus.APPROVED
         : TeamJoinStatus.PENDING,
+      // Key omitted entirely (not just `undefined`-valued) when
+      // input.locale wasn't supplied, so the insert leaves the column out
+      // and Postgres's own `DEFAULT 'sv'` applies — same idiom as every
+      // other defaulted column this method leaves unset.
+      ...(input.locale !== undefined ? { locale: input.locale } : {}),
     });
     return repository.save(player);
   }
@@ -150,6 +162,16 @@ export class PlayersService {
    * posture for this field (see UpdateProfileDto). */
   async updateAvatarId(playerId: string, avatarId: string): Promise<void> {
     await this.playerRepository.update({ id: playerId }, { avatarId });
+  }
+
+  // docs/adr/0014-multi-language-support.md Consequences — Player.locale
+  // becomes editable post-onboarding via ADR-0012's existing PATCH
+  // /players/me/profile endpoint (ProfileService.updateLocale), same
+  // direct-write posture as updateAvatarId above (a display/rendering
+  // choice, not an account-recovery-adjacent field — no confirmation flow
+  // needed).
+  async updateLocale(playerId: string, locale: PlayerLocale): Promise<void> {
+    await this.playerRepository.update({ id: playerId }, { locale });
   }
 
   async updateStreakFields(

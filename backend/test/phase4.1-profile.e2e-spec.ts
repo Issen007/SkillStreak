@@ -27,6 +27,7 @@ interface ProfileBody {
   birthYear: number;
   parentContact: string;
   avatarId: string;
+  locale: string;
 }
 
 // docs/adr/0012-profile-page-and-contact-email-change.md. Same real-
@@ -144,7 +145,7 @@ describe('Phase 4.1: profile page & contact-email change (e2e)', () => {
   }
 
   describe('GET /players/me/profile', () => {
-    it('returns realName (null by default), birthYear, parentContact, and avatarId', async () => {
+    it('returns realName (null by default), birthYear, parentContact, avatarId, and locale', async () => {
       const { sessionToken } = await createPlayer('profile-get@example.com');
 
       const response = await request(app.getHttpServer())
@@ -157,6 +158,9 @@ describe('Phase 4.1: profile page & contact-email change (e2e)', () => {
         birthYear: 2013,
         parentContact: 'profile-get@example.com',
         avatarId: 'fox',
+        // ADR-0014 — no locale was submitted at onboarding in this
+        // fixture, so it falls back to the column's own DEFAULT 'sv'.
+        locale: 'sv',
       });
     });
 
@@ -223,6 +227,44 @@ describe('Phase 4.1: profile page & contact-email change (e2e)', () => {
       expect((after.body as ProfileBody).parentContact).toBe(
         'profile-patch-avatar@example.com',
       );
+    });
+
+    it('changes locale — never touches realName/birthYear/parentContact/avatarId', async () => {
+      const { sessionToken } = await createPlayer(
+        'profile-patch-locale@example.com',
+      );
+
+      await request(app.getHttpServer())
+        .patch('/api/v1/players/me/profile')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({ locale: 'de' })
+        .expect(200);
+
+      const after = await request(app.getHttpServer())
+        .get('/api/v1/players/me/profile')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .expect(200);
+      expect((after.body as ProfileBody).locale).toBe('de');
+      expect((after.body as ProfileBody).realName).toBeNull();
+      expect((after.body as ProfileBody).birthYear).toBe(2013);
+      expect((after.body as ProfileBody).avatarId).toBe('fox');
+    });
+
+    // ADR-0014 — ProfileService/PlayersService.updateLocale round-trips a
+    // PlayerLocale enum, not a freeform string; @IsEnum on the DTO is what's
+    // actually supposed to stop a malformed value here, at the HTTP
+    // boundary — a design-review + security-review finding on this same
+    // ADR (both independently flagged the same gap) called for a real e2e
+    // proof of this, not just a code-reading confirmation.
+    it('rejects a locale value outside the fixed 8-language enum (whitelist validation)', async () => {
+      const { sessionToken } = await createPlayer(
+        'profile-patch-locale-invalid@example.com',
+      );
+      await request(app.getHttpServer())
+        .patch('/api/v1/players/me/profile')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({ locale: 'xx' })
+        .expect(400);
     });
 
     it('rejects an empty-string avatarId (whitelist validation)', async () => {

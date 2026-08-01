@@ -7,13 +7,21 @@
 // Copy is deliberately plain: what's happening, what approving means, one
 // clear link. No urgency/pressure language — this app's audience is
 // children's parents, per CLAUDE.md's non-negotiable constraints.
+//
+// docs/adr/0014-multi-language-support.md Decision 3 — `locale` is a
+// required input, resolved via the `COPY`/`resolveCopy` fallback pattern
+// below (only `sv` has real content in part (a); en/fi/da/nb fall through
+// to it, never a blank/broken email). Callers pass `Player.locale` — see
+// the ADR's per-call-site "where locale comes from" list.
 
+import { PlayerLocale } from '../../common/locale/player-locale.enum';
 import { escapeHtml } from './html-escape.util';
 
 export interface ConsentRequestEmailInput {
   screenName: string;
   teamName: string;
   consentUrl: string;
+  locale: PlayerLocale;
 }
 
 export interface RenderedEmail {
@@ -22,30 +30,34 @@ export interface RenderedEmail {
   text: string;
 }
 
-export function buildConsentRequestEmail(
-  input: ConsentRequestEmailInput,
-): RenderedEmail {
-  const { screenName, teamName, consentUrl } = input;
+interface LocaleCopy {
+  subject: (screenName: string, teamName: string) => string;
+  text: (screenName: string, teamName: string, consentUrl: string) => string;
+  html: (
+    safeScreenName: string,
+    safeTeamName: string,
+    safeUrl: string,
+    subject: string,
+  ) => string;
+}
 
-  const subject = `${screenName} vill gå med i ${teamName} på SkillStreak`;
-
-  const text = [
-    'Hej!',
-    '',
-    `${screenName} vill gå med i ${teamName} på SkillStreak — en app för dagliga träningsstreak och ett gemensamt lagpoäng-mål.`,
-    '',
-    `Om du godkänner kan ${screenName} börja logga träningspass och se lagets gemensamma poäng ("VM-Guld"-mätaren).`,
-    '',
-    `Godkänn här: ${consentUrl}`,
-    '',
-    'Länken är giltig i 7 dagar. Har du frågor, hör av dig till tränaren.',
-  ].join('\n');
-
-  const safeScreenName = escapeHtml(screenName);
-  const safeTeamName = escapeHtml(teamName);
-  const safeUrl = escapeHtml(consentUrl);
-
-  const html = `<!DOCTYPE html>
+const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
+  sv: {
+    subject: (screenName, teamName) =>
+      `${screenName} vill gå med i ${teamName} på SkillStreak`,
+    text: (screenName, teamName, consentUrl) =>
+      [
+        'Hej!',
+        '',
+        `${screenName} vill gå med i ${teamName} på SkillStreak — en app för dagliga träningsstreak och ett gemensamt lagpoäng-mål.`,
+        '',
+        `Om du godkänner kan ${screenName} börja logga träningspass och se lagets gemensamma poäng ("VM-Guld"-mätaren).`,
+        '',
+        `Godkänn här: ${consentUrl}`,
+        '',
+        'Länken är giltig i 7 dagar. Har du frågor, hör av dig till tränaren.',
+      ].join('\n'),
+    html: (safeScreenName, safeTeamName, safeUrl, subject) => `<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="utf-8" />
@@ -90,7 +102,29 @@ export function buildConsentRequestEmail(
     </tr>
   </table>
 </body>
-</html>`;
+</html>`,
+  },
+  // en/fi/da/nb/de/cs/fr: added incrementally, per part (b).
+};
+
+function resolveCopy(locale: PlayerLocale): LocaleCopy {
+  return COPY[locale] ?? COPY.sv!; // never renders blank/broken
+}
+
+export function buildConsentRequestEmail(
+  input: ConsentRequestEmailInput,
+): RenderedEmail {
+  const { screenName, teamName, consentUrl, locale } = input;
+  const copy = resolveCopy(locale);
+
+  const subject = copy.subject(screenName, teamName);
+  const text = copy.text(screenName, teamName, consentUrl);
+
+  const safeScreenName = escapeHtml(screenName);
+  const safeTeamName = escapeHtml(teamName);
+  const safeUrl = escapeHtml(consentUrl);
+
+  const html = copy.html(safeScreenName, safeTeamName, safeUrl, subject);
 
   return { subject, html, text };
 }

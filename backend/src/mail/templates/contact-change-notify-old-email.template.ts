@@ -5,11 +5,20 @@
 // change completes (not after) — gives the real account owner a window
 // to react (contact the coach) while the change is still pending, rather
 // than a too-late "this already happened" notice.
+//
+// docs/adr/0014-multi-language-support.md Decision 3 — same `COPY`/
+// `resolveCopy` fallback pattern as every other template in this
+// directory; see consent-request-email.template.ts's comment for the full
+// reasoning. Caller (ProfileService) already has the player's own Player
+// row in hand, so `locale` comes from `player.locale` — no new query
+// needed.
 
+import { PlayerLocale } from '../../common/locale/player-locale.enum';
 import { escapeHtml } from './html-escape.util';
 
 export interface ContactChangeNotifyOldEmailInput {
   screenName: string;
+  locale: PlayerLocale;
 }
 
 export interface RenderedEmail {
@@ -18,26 +27,27 @@ export interface RenderedEmail {
   text: string;
 }
 
-export function buildContactChangeNotifyOldEmail(
-  input: ContactChangeNotifyOldEmailInput,
-): RenderedEmail {
-  const { screenName } = input;
+interface LocaleCopy {
+  subject: (screenName: string) => string;
+  text: (screenName: string) => string;
+  html: (safeScreenName: string, subject: string) => string;
+}
 
-  const subject = `Kontaktadressen för ${screenName}s konto håller på att ändras`;
-
-  const text = [
-    'Hej!',
-    '',
-    `Någon har bett om att byta kontaktadress för ${screenName}s konto på SkillStreak till en ny adress.`,
-    '',
-    'Var det du (eller din förälder) som gjorde detta? Då behöver du inte göra något — ändringen slutförs bara om den nya adressen bekräftas.',
-    '',
-    'Var det inte du? Hör av dig till lagets tränare så snart som möjligt.',
-  ].join('\n');
-
-  const safeScreenName = escapeHtml(screenName);
-
-  const html = `<!DOCTYPE html>
+const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
+  sv: {
+    subject: (screenName) =>
+      `Kontaktadressen för ${screenName}s konto håller på att ändras`,
+    text: (screenName) =>
+      [
+        'Hej!',
+        '',
+        `Någon har bett om att byta kontaktadress för ${screenName}s konto på SkillStreak till en ny adress.`,
+        '',
+        'Var det du (eller din förälder) som gjorde detta? Då behöver du inte göra något — ändringen slutförs bara om den nya adressen bekräftas.',
+        '',
+        'Var det inte du? Hör av dig till lagets tränare så snart som möjligt.',
+      ].join('\n'),
+    html: (safeScreenName, subject) => `<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="utf-8" />
@@ -70,7 +80,27 @@ export function buildContactChangeNotifyOldEmail(
     </tr>
   </table>
 </body>
-</html>`;
+</html>`,
+  },
+  // en/fi/da/nb/de/cs/fr: added incrementally, per part (b).
+};
+
+function resolveCopy(locale: PlayerLocale): LocaleCopy {
+  return COPY[locale] ?? COPY.sv!; // never renders blank/broken
+}
+
+export function buildContactChangeNotifyOldEmail(
+  input: ContactChangeNotifyOldEmailInput,
+): RenderedEmail {
+  const { screenName, locale } = input;
+  const copy = resolveCopy(locale);
+
+  const subject = copy.subject(screenName);
+  const text = copy.text(screenName);
+
+  const safeScreenName = escapeHtml(screenName);
+
+  const html = copy.html(safeScreenName, subject);
 
   return { subject, html, text };
 }

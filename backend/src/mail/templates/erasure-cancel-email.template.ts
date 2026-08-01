@@ -4,13 +4,22 @@
 // contact-change-race fix). This is what actually implements "30 days to
 // regret it": a real, actionable link, valid the whole grace period, not
 // just an informational notice.
+//
+// docs/adr/0014-multi-language-support.md Decision 3 — same `COPY`/
+// `resolveCopy` fallback pattern as every other template in this
+// directory; see consent-request-email.template.ts's comment for the full
+// reasoning. Caller (AccountErasureService) already looks up the Player
+// row inline before sending, so `locale` comes from `player.locale` — no
+// extra query needed.
 
+import { PlayerLocale } from '../../common/locale/player-locale.enum';
 import { escapeHtml } from './html-escape.util';
 
 export interface ErasureCancelEmailInput {
   screenName: string;
   cancelUrl: string;
   scheduledForDateLabel: string;
+  locale: PlayerLocale;
 }
 
 export interface RenderedEmail {
@@ -19,32 +28,40 @@ export interface RenderedEmail {
   text: string;
 }
 
-export function buildErasureCancelEmail(
-  input: ErasureCancelEmailInput,
-): RenderedEmail {
-  const { screenName, cancelUrl, scheduledForDateLabel } = input;
+interface LocaleCopy {
+  subject: (screenName: string, scheduledForDateLabel: string) => string;
+  text: (
+    screenName: string,
+    cancelUrl: string,
+    scheduledForDateLabel: string,
+  ) => string;
+  html: (
+    safeScreenName: string,
+    safeUrl: string,
+    safeDateLabel: string,
+    subject: string,
+  ) => string;
+}
 
-  const subject = `Bekräftat: ${screenName}s konto raderas den ${scheduledForDateLabel}`;
-
-  const text = [
-    'Hej!',
-    '',
-    `Raderingen av ${screenName}s konto på SkillStreak har bekräftats. Kontot och allt innehåll det äger raderas den ${scheduledForDateLabel}, om inte begäran avbryts innan dess.`,
-    '',
-    'Ångrar du dig?',
-    '',
-    `Avbryt här: ${cancelUrl}`,
-    '',
-    'Du kan också avbryta direkt i appen, under Profil, när som helst innan raderingsdatumet.',
-    '',
-    'Var det du själv som bad om detta? Då behöver du inte göra något — raderingen sker automatiskt på det angivna datumet.',
-  ].join('\n');
-
-  const safeScreenName = escapeHtml(screenName);
-  const safeUrl = escapeHtml(cancelUrl);
-  const safeDateLabel = escapeHtml(scheduledForDateLabel);
-
-  const html = `<!DOCTYPE html>
+const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
+  sv: {
+    subject: (screenName, scheduledForDateLabel) =>
+      `Bekräftat: ${screenName}s konto raderas den ${scheduledForDateLabel}`,
+    text: (screenName, cancelUrl, scheduledForDateLabel) =>
+      [
+        'Hej!',
+        '',
+        `Raderingen av ${screenName}s konto på SkillStreak har bekräftats. Kontot och allt innehåll det äger raderas den ${scheduledForDateLabel}, om inte begäran avbryts innan dess.`,
+        '',
+        'Ångrar du dig?',
+        '',
+        `Avbryt här: ${cancelUrl}`,
+        '',
+        'Du kan också avbryta direkt i appen, under Profil, när som helst innan raderingsdatumet.',
+        '',
+        'Var det du själv som bad om detta? Då behöver du inte göra något — raderingen sker automatiskt på det angivna datumet.',
+      ].join('\n'),
+    html: (safeScreenName, safeUrl, safeDateLabel, subject) => `<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="utf-8" />
@@ -92,7 +109,29 @@ export function buildErasureCancelEmail(
     </tr>
   </table>
 </body>
-</html>`;
+</html>`,
+  },
+  // en/fi/da/nb/de/cs/fr: added incrementally, per part (b).
+};
+
+function resolveCopy(locale: PlayerLocale): LocaleCopy {
+  return COPY[locale] ?? COPY.sv!; // never renders blank/broken
+}
+
+export function buildErasureCancelEmail(
+  input: ErasureCancelEmailInput,
+): RenderedEmail {
+  const { screenName, cancelUrl, scheduledForDateLabel, locale } = input;
+  const copy = resolveCopy(locale);
+
+  const subject = copy.subject(screenName, scheduledForDateLabel);
+  const text = copy.text(screenName, cancelUrl, scheduledForDateLabel);
+
+  const safeScreenName = escapeHtml(screenName);
+  const safeUrl = escapeHtml(cancelUrl);
+  const safeDateLabel = escapeHtml(scheduledForDateLabel);
+
+  const html = copy.html(safeScreenName, safeUrl, safeDateLabel, subject);
 
   return { subject, html, text };
 }

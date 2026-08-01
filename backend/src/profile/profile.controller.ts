@@ -65,6 +65,9 @@ export class ProfileController {
     if (dto.avatarId !== undefined) {
       await this.profileService.updateAvatarId(playerId, dto.avatarId);
     }
+    if (dto.locale !== undefined) {
+      await this.profileService.updateLocale(playerId, dto.locale);
+    }
     return { updated: true };
   }
 

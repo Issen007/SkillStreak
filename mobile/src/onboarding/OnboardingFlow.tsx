@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { O0ChooseLanguage } from './screens/O0ChooseLanguage';
 import { O1EnterCode } from './screens/O1EnterCode';
 import { O1aTeamNotFound } from './screens/O1aTeamNotFound';
 import { O1bNameTeam } from './screens/O1bNameTeam';
@@ -31,7 +32,10 @@ interface OnboardingFlowProps {
  * rather than a stack navigator: there's no deep back-history to preserve
  * beyond "which step am I on" plus the accumulated form data. */
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
-  const [step, setStep] = useState<OnboardingStep>('O1');
+  // Starts at O0 (docs/adr/0014-multi-language-support.md Decision 2) —
+  // has to run before every other screen so their copy (once part (b)
+  // translates it) renders in whatever the player just picked.
+  const [step, setStep] = useState<OnboardingStep>('O0');
   const [data, setData] = useState<OnboardingData>(INITIAL_ONBOARDING_DATA);
 
   const [o1Error, setO1Error] = useState<string | null>(null);
@@ -61,6 +65,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         avatarId: current.avatarId,
         birthYear: current.birthYear,
         parentContact: current.parentContact,
+        // Screen O0's choice (docs/adr/0014-multi-language-support.md
+        // Decision 2) — always set (it starts as the device guess, see
+        // INITIAL_ONBOARDING_DATA), so this is sent on every submit, not
+        // conditionally like teamName below.
+        locale: current.locale,
         // Absent entirely for the join path — per the contract, that's
         // what keeps this byte-for-byte the pre-ADR-0009 behavior.
         ...(current.isCreatingTeam && current.teamName
@@ -158,6 +167,17 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   switch (step) {
+    case 'O0':
+      return (
+        <O0ChooseLanguage
+          initialLocale={data.locale}
+          onNext={(locale) => {
+            setData((prev) => ({ ...prev, locale }));
+            setStep('O1');
+          }}
+        />
+      );
+
     case 'O1':
       return (
         <O1EnterCode

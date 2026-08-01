@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Trans } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -39,7 +40,16 @@ export function AppHeader({ screenName, avatarId, onAvatarPress }: AppHeaderProp
         <Text style={styles.avatarEmoji}>{emoji}</Text>
       </Pressable>
       <Text style={styles.greeting}>
-        Hej, <Text style={styles.greetingName}>{screenName}</Text>!
+        {/* Pilot t()/Trans wiring (docs/adr/0014-multi-language-support.md
+         * Decision 2's part-(a) pilot) — the `bold` tag in sv.json's
+         * "home.greeting" maps to this Text component by name, no
+         * wrapping element injected (no `parent` prop passed), so this
+         * stays valid React Native output. */}
+        <Trans
+          i18nKey="home.greeting"
+          values={{ screenName }}
+          components={{ bold: <Text style={styles.greetingName} /> }}
+        />
       </Text>
     </View>
   );

@@ -13,6 +13,15 @@ export type TeamJoinStatus = 'pending' | 'approved' | 'rejected';
 
 export type ActivityType = 'fitness' | 'drill' | 'running' | 'other';
 
+// docs/adr/0014-multi-language-support.md Decision 1/2 (Fas 4.3, part a).
+// Mirrors the backend's `PlayerLocale` enum
+// (backend/src/common/locale/player-locale.enum.ts) exactly — a fixed
+// 8-value set (widened 2026-08-01 to add German/Czech/French), not a
+// freeform BCP-47 tag. Deliberately no region subtag (`nb`/`de`, never
+// `nb-NO`/`de-DE`) — the point is "which of 8 languages," never "where is
+// this device" (CLAUDE.md's no-location-tracking constraint).
+export type PlayerLocale = 'sv' | 'en' | 'fi' | 'da' | 'nb' | 'de' | 'cs' | 'fr';
+
 // --- 1. GET /teams/invite/:inviteCode --------------------------------------
 
 export interface InvitePreviewResponse {
@@ -34,6 +43,12 @@ export interface CreatePlayerRequest {
   // team instead of retrying. Absent -> byte-for-byte the previous
   // behavior (join-only, existing 404 if the code doesn't match).
   teamName?: string;
+  // NEW (docs/adr/0014-multi-language-support.md Decision 2, Fas 4.3) —
+  // the language chosen at Screen O0, submitted alongside everything else
+  // collected during onboarding. Optional so an old app build that hasn't
+  // shipped Screen O0 yet keeps working unchanged; the backend column
+  // defaults to `sv` when omitted.
+  locale?: PlayerLocale;
 }
 
 export interface CreatePlayerResponse {
@@ -102,6 +117,9 @@ export interface PlayerMeResponse {
     isSelfVerification: boolean;
     // Added 2026-07-27 for captain approval of new team joins.
     teamJoinStatus: TeamJoinStatus;
+    // ADR-0014 Decision 2 — restored into i18next by AppShell on every
+    // app boot (the post-auth "server value is source of truth" flip).
+    locale: PlayerLocale;
   };
   team: {
     teamId: string;
@@ -180,16 +198,29 @@ export interface RedeemSessionResponse {
 
 // docs/adr/0012-profile-page-and-contact-email-change.md (Fas 4.1).
 
+// docs/adr/0014-multi-language-support.md Decision 2 — the post-auth
+// "server value is source of truth" flip: AppShell calls
+// i18n.changeLanguage(locale) from this field once it's fetched, so a
+// returning player's saved choice wins over the device's own guess
+// (src/i18n/deviceLocale.ts), which only matters pre-auth.
 export interface PlayerProfileResponse {
   realName: string | null;
   birthYear: number;
   parentContact: string;
   avatarId: string;
+  locale: PlayerLocale;
 }
 
 export interface UpdateProfileRequest {
   realName?: string | null;
   avatarId?: string;
+  // NEW (docs/adr/0014-multi-language-support.md Consequences, Fas 4.3) —
+  // same optional-PATCH-field addition as `CreatePlayerRequest.locale`
+  // above; no in-app settings screen calls this yet (out of scope for
+  // part (a) — the picker only lives at onboarding so far), but the
+  // request shape is already fixed by the ADR regardless of backend
+  // landing order.
+  locale?: PlayerLocale;
 }
 
 export interface RequestContactChangeRequest {

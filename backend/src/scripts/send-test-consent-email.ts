@@ -87,6 +87,7 @@ async function run(): Promise<void> {
       screenName: player.screenName,
       teamName: team.name,
       consentUrl,
+      locale: player.locale,
     });
 
     await mailService.sendMail({

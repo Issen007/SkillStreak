@@ -3,13 +3,22 @@
 // this code is what actually applies the change; the old address's email
 // (contact-change-notify-old-email.template.ts) is purely informational
 // and has no code at all.
+//
+// docs/adr/0014-multi-language-support.md Decision 3 — same `COPY`/
+// `resolveCopy` fallback pattern as every other template in this
+// directory; see consent-request-email.template.ts's comment for the full
+// reasoning. Caller (ProfileService) already has the player's own Player
+// row in hand, so `locale` comes from `player.locale` — no new query
+// needed.
 
+import { PlayerLocale } from '../../common/locale/player-locale.enum';
 import { escapeHtml } from './html-escape.util';
 
 export interface ContactChangeConfirmEmailInput {
   screenName: string;
   code: string;
   expiresInMinutes: number;
+  locale: PlayerLocale;
 }
 
 export interface RenderedEmail {
@@ -18,29 +27,38 @@ export interface RenderedEmail {
   text: string;
 }
 
-export function buildContactChangeConfirmEmail(
-  input: ContactChangeConfirmEmailInput,
-): RenderedEmail {
-  const { screenName, code, expiresInMinutes } = input;
+interface LocaleCopy {
+  subject: string;
+  text: (screenName: string, code: string, expiresInMinutes: number) => string;
+  html: (
+    safeScreenName: string,
+    safeCode: string,
+    expiresInMinutes: number,
+    subject: string,
+  ) => string;
+}
 
-  const subject = 'Bekräfta ny kontaktadress på SkillStreak';
-
-  const text = [
-    'Hej!',
-    '',
-    `Den här adressen håller på att bli den nya kontaktadressen för ${screenName}s konto på SkillStreak.`,
-    '',
-    `Kod: ${code}`,
-    '',
-    `Ange koden i appen (eller sajten) för att bekräfta ändringen. Koden är giltig i ${expiresInMinutes} minuter och går bara att använda en gång.`,
-    '',
-    'Var det inte du som bad om detta? Ignorera det här mejlet — koden slutar gälla automatiskt och ingenting ändras.',
-  ].join('\n');
-
-  const safeScreenName = escapeHtml(screenName);
-  const safeCode = escapeHtml(code);
-
-  const html = `<!DOCTYPE html>
+const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
+  sv: {
+    subject: 'Bekräfta ny kontaktadress på SkillStreak',
+    text: (screenName, code, expiresInMinutes) =>
+      [
+        'Hej!',
+        '',
+        `Den här adressen håller på att bli den nya kontaktadressen för ${screenName}s konto på SkillStreak.`,
+        '',
+        `Kod: ${code}`,
+        '',
+        `Ange koden i appen (eller sajten) för att bekräfta ändringen. Koden är giltig i ${expiresInMinutes} minuter och går bara att använda en gång.`,
+        '',
+        'Var det inte du som bad om detta? Ignorera det här mejlet — koden slutar gälla automatiskt och ingenting ändras.',
+      ].join('\n'),
+    html: (
+      safeScreenName,
+      safeCode,
+      expiresInMinutes,
+      subject,
+    ) => `<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="utf-8" />
@@ -81,7 +99,28 @@ export function buildContactChangeConfirmEmail(
     </tr>
   </table>
 </body>
-</html>`;
+</html>`,
+  },
+  // en/fi/da/nb/de/cs/fr: added incrementally, per part (b).
+};
+
+function resolveCopy(locale: PlayerLocale): LocaleCopy {
+  return COPY[locale] ?? COPY.sv!; // never renders blank/broken
+}
+
+export function buildContactChangeConfirmEmail(
+  input: ContactChangeConfirmEmailInput,
+): RenderedEmail {
+  const { screenName, code, expiresInMinutes, locale } = input;
+  const copy = resolveCopy(locale);
+
+  const subject = copy.subject;
+  const text = copy.text(screenName, code, expiresInMinutes);
+
+  const safeScreenName = escapeHtml(screenName);
+  const safeCode = escapeHtml(code);
+
+  const html = copy.html(safeScreenName, safeCode, expiresInMinutes, subject);
 
   return { subject, html, text };
 }

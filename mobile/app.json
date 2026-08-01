@@ -32,7 +32,8 @@
           "microphonePermission": "Tillåt SkillStreak att använda mikrofonen när du spelar in ett klipp."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-localization"
     ]
   }
 }

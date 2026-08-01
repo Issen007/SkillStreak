@@ -9,13 +9,22 @@
 // back into (see GET/POST /players/erasure-confirm/:code, unauthenticated,
 // mirroring ConsentController's link-only shape, not
 // contact-change-confirm's in-app code entry).
+//
+// docs/adr/0014-multi-language-support.md Decision 3 — same `COPY`/
+// `resolveCopy` fallback pattern as every other template in this
+// directory; see consent-request-email.template.ts's comment for the full
+// reasoning. Caller (AccountErasureService) already has the player's own
+// Player row in hand, so `locale` comes from `player.locale` — no new
+// query needed.
 
+import { PlayerLocale } from '../../common/locale/player-locale.enum';
 import { escapeHtml } from './html-escape.util';
 
 export interface ErasureConfirmEmailInput {
   screenName: string;
   confirmUrl: string;
   expiresInHours: number;
+  locale: PlayerLocale;
 }
 
 export interface RenderedEmail {
@@ -24,29 +33,38 @@ export interface RenderedEmail {
   text: string;
 }
 
-export function buildErasureConfirmEmail(
-  input: ErasureConfirmEmailInput,
-): RenderedEmail {
-  const { screenName, confirmUrl, expiresInHours } = input;
+interface LocaleCopy {
+  subject: (screenName: string) => string;
+  text: (
+    screenName: string,
+    confirmUrl: string,
+    expiresInHours: number,
+  ) => string;
+  html: (
+    safeScreenName: string,
+    safeUrl: string,
+    expiresInHours: number,
+    subject: string,
+  ) => string;
+}
 
-  const subject = `Bekräfta radering av ${screenName}s konto på SkillStreak`;
-
-  const text = [
-    'Hej!',
-    '',
-    `Någon har bett om att radera ${screenName}s konto på SkillStreak, inklusive allt innehåll kontot äger.`,
-    '',
-    `Bekräfta här: ${confirmUrl}`,
-    '',
-    `Länken är giltig i ${expiresInHours} timmar och går bara att använda en gång. Att bekräfta startar en 30 dagars ångerperiod — kontot raderas inte förrän den perioden gått ut.`,
-    '',
-    'Var det inte du (eller ditt barn) som bad om detta? Ignorera det här mejlet — länken slutar gälla automatiskt och ingenting raderas.',
-  ].join('\n');
-
-  const safeScreenName = escapeHtml(screenName);
-  const safeUrl = escapeHtml(confirmUrl);
-
-  const html = `<!DOCTYPE html>
+const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
+  sv: {
+    subject: (screenName) =>
+      `Bekräfta radering av ${screenName}s konto på SkillStreak`,
+    text: (screenName, confirmUrl, expiresInHours) =>
+      [
+        'Hej!',
+        '',
+        `Någon har bett om att radera ${screenName}s konto på SkillStreak, inklusive allt innehåll kontot äger.`,
+        '',
+        `Bekräfta här: ${confirmUrl}`,
+        '',
+        `Länken är giltig i ${expiresInHours} timmar och går bara att använda en gång. Att bekräfta startar en 30 dagars ångerperiod — kontot raderas inte förrän den perioden gått ut.`,
+        '',
+        'Var det inte du (eller ditt barn) som bad om detta? Ignorera det här mejlet — länken slutar gälla automatiskt och ingenting raderas.',
+      ].join('\n'),
+    html: (safeScreenName, safeUrl, expiresInHours, subject) => `<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="utf-8" />
@@ -94,7 +112,28 @@ export function buildErasureConfirmEmail(
     </tr>
   </table>
 </body>
-</html>`;
+</html>`,
+  },
+  // en/fi/da/nb/de/cs/fr: added incrementally, per part (b).
+};
+
+function resolveCopy(locale: PlayerLocale): LocaleCopy {
+  return COPY[locale] ?? COPY.sv!; // never renders blank/broken
+}
+
+export function buildErasureConfirmEmail(
+  input: ErasureConfirmEmailInput,
+): RenderedEmail {
+  const { screenName, confirmUrl, expiresInHours, locale } = input;
+  const copy = resolveCopy(locale);
+
+  const subject = copy.subject(screenName);
+  const text = copy.text(screenName, confirmUrl, expiresInHours);
+
+  const safeScreenName = escapeHtml(screenName);
+  const safeUrl = escapeHtml(confirmUrl);
+
+  const html = copy.html(safeScreenName, safeUrl, expiresInHours, subject);
 
   return { subject, html, text };
 }

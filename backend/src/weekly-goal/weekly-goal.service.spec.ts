@@ -8,6 +8,7 @@ import {
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
 import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { Player } from '../players/entities/player.entity';
+import { PlayerLocale } from '../common/locale/player-locale.enum';
 import { WeeklyGoalTargetMetric } from './weekly-goal-target-metric.enum';
 import { WeeklyGoalService } from './weekly-goal.service';
 import { EffortLeaderboardRow } from '../team-pool/team-pool.service';
@@ -63,6 +64,7 @@ function makePlayer(id: string, overrides: Partial<Player> = {}): Player {
     sessionReissueCode: null,
     sessionReissueCodeExpiresAt: null,
     createdAt: new Date('2026-07-01T00:00:00Z'),
+    locale: PlayerLocale.SV,
     ...overrides,
   };
 }

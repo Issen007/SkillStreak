@@ -13,13 +13,22 @@
 // checking email on a laptop, say). Same reasoning as the parental-
 // consent link's own GET-preview/POST-confirm web page, not an app
 // screen — see ProfileController/contact-change-cancel-page.templates.ts.
+//
+// docs/adr/0014-multi-language-support.md Decision 3 — same `COPY`/
+// `resolveCopy` fallback pattern as every other template in this
+// directory; see consent-request-email.template.ts's comment for the full
+// reasoning. Caller (ProfileService) already has the player's own Player
+// row in hand, so `locale` comes from `player.locale` — no new query
+// needed.
 
+import { PlayerLocale } from '../../common/locale/player-locale.enum';
 import { escapeHtml } from './html-escape.util';
 
 export interface ContactChangeCancelEmailInput {
   screenName: string;
   cancelUrl: string;
   graceHours: number;
+  locale: PlayerLocale;
 }
 
 export interface RenderedEmail {
@@ -28,31 +37,36 @@ export interface RenderedEmail {
   text: string;
 }
 
-export function buildContactChangeCancelEmail(
-  input: ContactChangeCancelEmailInput,
-): RenderedEmail {
-  const { screenName, cancelUrl, graceHours } = input;
+interface LocaleCopy {
+  subject: (screenName: string) => string;
+  text: (screenName: string, cancelUrl: string, graceHours: number) => string;
+  html: (
+    safeScreenName: string,
+    safeUrl: string,
+    graceHours: number,
+    subject: string,
+  ) => string;
+}
 
-  const subject = `Bekräftat: kontaktadressen för ${screenName}s konto byts snart`;
-
-  const text = [
-    'Hej!',
-    '',
-    `Bytet av kontaktadress för ${screenName}s konto på SkillStreak har bekräftats och träder i kraft om ${graceHours} timmar.`,
-    '',
-    'Var det inte du (eller din förälder) som gjorde detta?',
-    '',
-    `Avbryt här: ${cancelUrl}`,
-    '',
-    'Det loggar också ut alla aktiva sessioner på kontot, så den som gjorde ändringen loggas ut.',
-    '',
-    'Var det du själv? Då behöver du inte göra något — bytet slutförs automatiskt.',
-  ].join('\n');
-
-  const safeScreenName = escapeHtml(screenName);
-  const safeUrl = escapeHtml(cancelUrl);
-
-  const html = `<!DOCTYPE html>
+const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
+  sv: {
+    subject: (screenName) =>
+      `Bekräftat: kontaktadressen för ${screenName}s konto byts snart`,
+    text: (screenName, cancelUrl, graceHours) =>
+      [
+        'Hej!',
+        '',
+        `Bytet av kontaktadress för ${screenName}s konto på SkillStreak har bekräftats och träder i kraft om ${graceHours} timmar.`,
+        '',
+        'Var det inte du (eller din förälder) som gjorde detta?',
+        '',
+        `Avbryt här: ${cancelUrl}`,
+        '',
+        'Det loggar också ut alla aktiva sessioner på kontot, så den som gjorde ändringen loggas ut.',
+        '',
+        'Var det du själv? Då behöver du inte göra något — bytet slutförs automatiskt.',
+      ].join('\n'),
+    html: (safeScreenName, safeUrl, graceHours, subject) => `<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="utf-8" />
@@ -98,7 +112,28 @@ export function buildContactChangeCancelEmail(
     </tr>
   </table>
 </body>
-</html>`;
+</html>`,
+  },
+  // en/fi/da/nb/de/cs/fr: added incrementally, per part (b).
+};
+
+function resolveCopy(locale: PlayerLocale): LocaleCopy {
+  return COPY[locale] ?? COPY.sv!; // never renders blank/broken
+}
+
+export function buildContactChangeCancelEmail(
+  input: ContactChangeCancelEmailInput,
+): RenderedEmail {
+  const { screenName, cancelUrl, graceHours, locale } = input;
+  const copy = resolveCopy(locale);
+
+  const subject = copy.subject(screenName);
+  const text = copy.text(screenName, cancelUrl, graceHours);
+
+  const safeScreenName = escapeHtml(screenName);
+  const safeUrl = escapeHtml(cancelUrl);
+
+  const html = copy.html(safeScreenName, safeUrl, graceHours, subject);
 
   return { subject, html, text };
 }

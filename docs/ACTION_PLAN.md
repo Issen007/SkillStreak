@@ -2025,7 +2025,7 @@ player, all behind a 30-day grace period. See
       real code and a live Postgres/Redis/MinIO stack at each step, not
       taken on any agent's self-report alone.
 
-## Phase 4.3 — Multi-language support (part a: locale architecture) — design done 2026-07-30
+## Phase 4.3 — Multi-language support (part a: locale architecture) — done 2026-08-01
 
 **Fas 4 item 5 in `docs/PROJECT.md`, moved up the roadmap 2026-07-27 at the
 project owner's explicit request**: a player should be able to choose a
@@ -2063,9 +2063,73 @@ here for the checklist.
       templates first once translation starts, since a consent decision
       made in a language the recipient can't confidently read is a real
       comprehension risk to that consent's validity, not just cosmetic.
-- [ ] **security-reviewer**, **backend-developer**, **frontend-developer**:
-      not started — this phase is design-only so far, per the project
-      owner's own "architecture now, content gradually" sequencing.
+- [x] **security-reviewer** (design-review pass, 2026-07-31, before any
+      code): safe to proceed, with two corrections applied to the ADR
+      before implementation started — (1) onboarding's consent/self-
+      verification emails should use the already-persisted
+      `result.player.locale`, not the unvalidated, optional `dto.locale`
+      from the request body (the original draft's stated reason — "no
+      `Player` row exists yet at send time" — was factually wrong for this
+      codebase; the transaction commits and returns first); (2)
+      `CreatePlayerDto.locale`/`UpdateProfileDto.locale` both need
+      `@IsEnum(PlayerLocale)`, missing from the original draft.
+- [x] **Scope widened, 2026-08-01 (project owner directly)**: the enum grew
+      from 5 languages to 8 mid-implementation — `de` (one locale for
+      Switzerland/Austria/Germany, not three — same no-region-subtag rule
+      already applied to `nb`), `cs` (Czech), `fr` (French) added to the
+      original `sv`/`en`/`fi`/`da`/`nb`. Caught before the backend agent's
+      migration finalized; both backend and mobile implementers were
+      redirected mid-task rather than needing a second migration later.
+- [x] **backend-developer**: `PlayerLocale` enum (8 values), the additive
+      migration, `Player.locale` (required column), both DTOs, all 8 mail
+      templates + the 4 consent-page renderers on the `COPY[locale] ??
+      COPY.sv` fallback pattern, `PATCH /players/me/profile` gaining
+      `locale`, and the ADR-required sv-fallback regression test. Both
+      security-review corrections followed. 296/296 unit tests.
+- [x] **frontend-developer**: `i18next`/`react-i18next`/`expo-localization`
+      wired up (`fallbackLng: 'sv'`), new Screen O0 (device-locale
+      pre-selection, local-only, no network call), pilot `t()` wiring
+      through exactly O0/O6/the home greeting per the ADR's explicit
+      scoping (everything else stays hardcoded Swedish — that's part (b)).
+      Widened to 8 languages in lockstep with backend. Clean
+      `tsc`/`expo-doctor` both times.
+- [x] **code-critic** + **security-reviewer** (implementation review,
+      2026-08-01): both independently caught the same real gap — the
+      ADR's own Decision 2 named `GET /players/me/profile` as the
+      post-auth "server value is source of truth" restore point, but that
+      endpoint is only ever fetched when a player opens the Profile
+      screen, not on every app open, so a returning player would keep
+      seeing the device's guess indefinitely. **Fixed**: the actual
+      restore point is `GET /players/me` (`AppShell`'s `ensureIdentity`,
+      the one call every app mount already makes) — `locale` added to
+      that response too, `AppShell` now calls `i18n.changeLanguage()`
+      there. ADR corrected to match. Also fixed: a stale "en/fi/da/nb"
+      comment left over from the 8-language widening in 12 places across
+      the mail/consent-page templates, and a missing e2e boundary-
+      validation test (`PATCH .../profile` with an out-of-enum `locale`
+      now asserted `400`, not just reasoned about from reading
+      `@IsEnum`'s code). Everything else both reviewers checked — the two
+      prior corrections actually landing in code, the fallback pattern
+      applied identically across all 8 templates, the consent web page
+      resolving locale server-side from the verified `Player` row behind
+      the token (never client-supplied), no location signal anywhere in
+      the 8-value no-region-subtag enum, `PATCH /players/me/profile`
+      staying scoped to the caller's own JWT — came back clean.
+      **security-reviewer's explicit verdict: PASS, no blocking
+      findings.** 296/296 unit + 141/141 e2e (up from 139, the two new
+      boundary tests), mobile `tsc`/`expo-doctor` clean.
+
+**Fas 4.3 part (a) is done.** No translation content beyond Swedish exists
+yet outside the 3 pilot strings (O0, O6, home greeting) — every other
+screen and mail template renders Swedish regardless of locale, correctly,
+via the fallback. Part (b) — real translation content for all 8 languages
+— starts next, at the project owner's explicit request, with one caveat
+stated plainly: the translations will be AI-generated (by this same
+session), not sourced from a professional/native-speaker translator.
+Recommended before relying on this for real families: a native-speaker
+review pass, at minimum on the consent-request and self-verification
+email templates specifically, since that's a real GDPR consent moment,
+not just cosmetic copy — flagged, not silently assumed fine.
 
 ## Phase 4.4 — Public launch: DNS, TLS, and a full production security pass — done 2026-07-31
 

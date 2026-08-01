@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -8,6 +9,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { PlayerLocale } from '../../common/locale/player-locale.enum';
 import { IsEmailOrPhone } from './is-email-or-phone.validator';
 
 // class-validator's IsNotEmpty only rejects the exact empty string, not a
@@ -100,4 +102,15 @@ export class CreatePlayerDto {
   @IsNotEmpty()
   @MaxLength(MAX_TEAM_NAME_LENGTH)
   teamName?: string;
+
+  // docs/adr/0014-multi-language-support.md Decision 2/Consequences —
+  // optional so an old app build that hasn't shipped the O0 language
+  // picker yet keeps working; the column's own `DEFAULT 'sv'` covers that
+  // case. `@IsEnum` per the ADR's 2026-07-31 security-review correction —
+  // without it a malformed value would only be caught downstream by the
+  // Postgres enum check, matching every other enum-typed DTO field in this
+  // backend (ActivityType, WeeklyGoalTargetMetric, etc.).
+  @IsOptional()
+  @IsEnum(PlayerLocale)
+  locale?: PlayerLocale;
 }

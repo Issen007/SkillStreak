@@ -129,6 +129,10 @@ export class OnboardingService {
           // time — true if and only if this exact request just created the
           // team (ADR-0009 Decision 2/7).
           isCaptain: teamCreated,
+          // docs/adr/0014-multi-language-support.md Decision 1/2 — optional
+          // on the DTO; omitted here too when absent, letting the column's
+          // own `DEFAULT 'sv'` apply (see PlayersService.createShell).
+          locale: dto.locale,
         });
 
         await this.playerPrivateInfoService.createForNewPlayer(
@@ -165,16 +169,24 @@ export class OnboardingService {
         this.configService.get<string>('APP_PUBLIC_URL') ??
         DEFAULT_APP_PUBLIC_URL;
       const consentUrl = `${appPublicUrl}/api/v1/consent/${result.consentToken}`;
+      // docs/adr/0014-multi-language-support.md Decision 3's 2026-07-31
+      // correction: the transaction above already committed and returned
+      // the created Player row, so `result.player.locale` exists by now
+      // (the submitted value or the column's own `DEFAULT 'sv'`) — use
+      // that, not `dto.locale`, same source the consent web page resolves
+      // its own locale from (consentToken -> Player lookup).
       const email = selfVerification
         ? buildSelfVerificationEmail({
             screenName: result.player.screenName,
             teamName: result.team.name,
             consentUrl,
+            locale: result.player.locale,
           })
         : buildConsentRequestEmail({
             screenName: result.player.screenName,
             teamName: result.team.name,
             consentUrl,
+            locale: result.player.locale,
           });
       try {
         await this.mailService.sendMail({

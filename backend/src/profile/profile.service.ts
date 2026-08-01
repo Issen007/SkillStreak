@@ -6,6 +6,7 @@ import {
   InvalidOrExpiredContactChangeCodeException,
 } from '../common/errors/exceptions';
 import { generateHumanCode } from '../common/crypto/human-code.util';
+import { PlayerLocale } from '../common/locale/player-locale.enum';
 import { MailService } from '../mail/mail.service';
 import { buildContactChangeCancelEmail } from '../mail/templates/contact-change-cancel-email.template';
 import { buildContactChangeConfirmEmail } from '../mail/templates/contact-change-confirm-email.template';
@@ -38,6 +39,7 @@ export interface PlayerProfile {
   birthYear: number;
   parentContact: string;
   avatarId: string;
+  locale: PlayerLocale;
 }
 
 export interface RequestContactChangeResponse {
@@ -86,6 +88,11 @@ export class ProfileService {
       // state through the response type for an unreachable case.
       parentContact: parentContact as string,
       avatarId: player.avatarId,
+      // ADR-0014 Decision 2 — the post-auth "server value is source of
+      // truth" flip: mobile calls i18n.changeLanguage(locale) once this
+      // response lands, so a returning player's saved choice (not the
+      // device's own guess) wins after the first app open.
+      locale: player.locale,
     };
   }
 
@@ -98,6 +105,13 @@ export class ProfileService {
 
   async updateAvatarId(playerId: string, avatarId: string): Promise<void> {
     await this.playersService.updateAvatarId(playerId, avatarId);
+  }
+
+  // docs/adr/0014-multi-language-support.md Consequences — reuses this
+  // ADR-0012 endpoint's existing "small addition, no new module" pattern,
+  // same as realName/avatarId above.
+  async updateLocale(playerId: string, locale: PlayerLocale): Promise<void> {
+    await this.playersService.updateLocale(playerId, locale);
   }
 
   /**
@@ -138,6 +152,7 @@ export class ProfileService {
 
     await this.sendRequestEmailsBestEffort(
       player.screenName,
+      player.locale,
       newContact,
       oldContact,
       code,
@@ -190,6 +205,7 @@ export class ProfileService {
 
     await this.sendCancelEmailBestEffort(
       player.screenName,
+      player.locale,
       oldContact,
       cancelCode,
     );
@@ -253,6 +269,7 @@ export class ProfileService {
 
   private async sendRequestEmailsBestEffort(
     screenName: string,
+    locale: PlayerLocale,
     newContact: string,
     oldContact: string | null,
     code: string,
@@ -265,6 +282,7 @@ export class ProfileService {
       screenName,
       code,
       expiresInMinutes: Math.round(CONTACT_CHANGE_CODE_TTL_MS / 60_000),
+      locale,
     });
     try {
       await this.mailService.sendMail({
@@ -281,7 +299,10 @@ export class ProfileService {
     }
 
     if (!oldContact) return;
-    const notifyEmail = buildContactChangeNotifyOldEmail({ screenName });
+    const notifyEmail = buildContactChangeNotifyOldEmail({
+      screenName,
+      locale,
+    });
     try {
       await this.mailService.sendMail({
         to: oldContact,
@@ -299,6 +320,7 @@ export class ProfileService {
 
   private async sendCancelEmailBestEffort(
     screenName: string,
+    locale: PlayerLocale,
     oldContact: string | null,
     cancelCode: string,
   ): Promise<void> {
@@ -316,6 +338,7 @@ export class ProfileService {
       screenName,
       cancelUrl,
       graceHours: Math.round(CONTACT_CHANGE_GRACE_PERIOD_MS / 3_600_000),
+      locale,
     });
     try {
       await this.mailService.sendMail({
