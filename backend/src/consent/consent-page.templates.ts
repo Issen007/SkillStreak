@@ -70,8 +70,8 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       heading: (safeName) => `Godkänn ${safeName} på SkillStreak`,
       body1: (safeName) =>
         `<strong>${safeName}</strong> vill logga träningspass i SkillStreak — en app för dagliga
-      träningsstreak och ett gemensamt lagpoäng-mål. Inga bilder eller platsdata samlas in,
-      och ${safeName} syns bara för sitt eget lag.`,
+      träningsstreak och ett gemensamt lagpoäng-mål. Inga platsdata samlas in någonsin, och
+      allt ${safeName} delar — inklusive eventuella videoklipp — syns bara för sitt eget lag.`,
       body2: (safeName) =>
         `Om du godkänner kan ${safeName} börja logga träningspass från och med nu. Du kan alltid
       höra av dig till tränaren om du ändrar dig senare.`,
@@ -82,8 +82,8 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       heading: (safeName) => `Approve ${safeName} on SkillStreak`,
       body1: (safeName) =>
         `<strong>${safeName}</strong> wants to log training sessions in SkillStreak — an app for daily
-      training streaks and a shared team point goal. No photos or location data are collected,
-      and ${safeName} is only visible to their own team.`,
+      training streaks and a shared team point goal. No location data is ever collected, and
+      anything ${safeName} shares — including any video clips — is only visible to their own team.`,
       body2: (safeName) =>
         `If you approve, ${safeName} can start logging training sessions right away. You can always
       get in touch with the coach if you change your mind later.`,
@@ -94,8 +94,9 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       heading: (safeName) => `Hyväksy ${safeName} SkillStreakiin`,
       body1: (safeName) =>
         `<strong>${safeName}</strong> haluaa kirjata harjoituksia SkillStreakissa — sovelluksessa, jossa
-      harjoitellaan päivittäin putkeen ja kerätään yhteistä joukkuepistemäärää. Kuvia tai
-      sijaintitietoja ei kerätä, ja ${safeName} näkyy vain omalle joukkueelleen.`,
+      harjoitellaan päivittäin putkeen ja kerätään yhteistä joukkuepistemäärää. Sijaintitietoja
+      ei kerätä koskaan, ja kaikki mitä ${safeName} jakaa — myös mahdolliset videoklipit —
+      näkyy vain omalle joukkueelleen.`,
       body2: (safeName) =>
         `Jos hyväksyt, ${safeName} voi alkaa kirjata harjoituksia heti. Voit aina ottaa yhteyttä
       valmentajaan, jos muutat mielesi myöhemmin.`,
@@ -106,8 +107,8 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       heading: (safeName) => `Godkend ${safeName} på SkillStreak`,
       body1: (safeName) =>
         `<strong>${safeName}</strong> vil gerne logge træningspas i SkillStreak — en app til daglige
-      træningsstreaks og et fælles holdpoint-mål. Der indsamles ingen billeder eller
-      placeringsdata, og ${safeName} er kun synlig for sit eget hold.`,
+      træningsstreaks og et fælles holdpoint-mål. Der indsamles aldrig placeringsdata, og alt
+      hvad ${safeName} deler — inklusive eventuelle videoklip — er kun synligt for sit eget hold.`,
       body2: (safeName) =>
         `Hvis du godkender det, kan ${safeName} begynde at logge træningspas med det samme. Du kan
       altid kontakte træneren, hvis du skifter mening senere.`,
@@ -118,8 +119,8 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       heading: (safeName) => `Godkjenn ${safeName} på SkillStreak`,
       body1: (safeName) =>
         `<strong>${safeName}</strong> vil logge treningsøkter i SkillStreak — en app for daglige
-      treningsstreaker og et felles lagpoengmål. Ingen bilder eller stedsdata samles inn, og
-      ${safeName} er bare synlig for sitt eget lag.`,
+      treningsstreaker og et felles lagpoengmål. Det samles aldri inn stedsdata, og alt
+      ${safeName} deler — inkludert eventuelle videoklipp — er bare synlig for sitt eget lag.`,
       body2: (safeName) =>
         `Hvis du godkjenner, kan ${safeName} begynne å logge treningsøkter med en gang. Du kan alltid
       ta kontakt med treneren hvis du ombestemmer deg senere.`,
@@ -130,8 +131,9 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       heading: (safeName) => `Zustimmung für ${safeName} auf SkillStreak`,
       body1: (safeName) =>
         `<strong>${safeName}</strong> möchte Trainingseinheiten in SkillStreak eintragen — einer App für
-      tägliche Trainings-Streaks und ein gemeinsames Team-Punkteziel. Es werden keine Fotos
-      oder Standortdaten erhoben, und ${safeName} ist nur für das eigene Team sichtbar.`,
+      tägliche Trainings-Streaks und ein gemeinsames Team-Punkteziel. Es werden niemals
+      Standortdaten erhoben, und alles, was ${safeName} teilt — einschließlich etwaiger
+      Videoclips — ist nur für das eigene Team sichtbar.`,
       body2: (safeName) =>
         `Wenn du zustimmst, kann ${safeName} ab sofort Trainingseinheiten eintragen. Du kannst dich
       jederzeit an den Trainer bzw. die Trainerin wenden, falls du es dir später anders überlegst.`,
@@ -142,8 +144,9 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       heading: (safeName) => `Souhlas pro ${safeName} na SkillStreak`,
       body1: (safeName) =>
         `<strong>${safeName}</strong> chce zaznamenávat tréninky v SkillStreak — aplikaci pro denní
-      tréninkové série a společný týmový bodový cíl. Nesbírají se žádné fotografie ani údaje
-      o poloze a ${safeName} je viditelný pouze pro svůj vlastní tým.`,
+      tréninkové série a společný týmový bodový cíl. Údaje o poloze se nikdy nesbírají a vše,
+      co ${safeName} sdílí — včetně případných video klipů — je viditelné pouze pro jeho
+      vlastní tým.`,
       body2: (safeName) =>
         `Pokud souhlasíte, ${safeName} může začít zaznamenávat tréninky ihned. Kdykoli se můžete
       obrátit na trenéra, pokud si to později rozmyslíte.`,
@@ -155,8 +158,9 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       body1: (safeName) =>
         `<strong>${safeName}</strong> souhaite enregistrer des séances d'entraînement sur SkillStreak —
       une application pour des séries d'entraînement quotidiennes et un objectif de points
-      d'équipe commun. Aucune photo ni donnée de localisation n'est collectée, et ${safeName}
-      n'est visible que par sa propre équipe.`,
+      d'équipe commun. Aucune donnée de localisation n'est jamais collectée, et tout ce que
+      ${safeName} partage — y compris d'éventuels clips vidéo — n'est visible que par sa propre
+      équipe.`,
       body2: (safeName) =>
         `Si vous approuvez, ${safeName} pourra commencer à enregistrer ses séances d'entraînement dès
       maintenant. Vous pouvez toujours contacter l'entraîneur si vous changez d'avis plus tard.`,
@@ -204,7 +208,8 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
     heading: () => `Verifiera ditt konto på SkillStreak`,
     body1: (safeName) =>
       `Nästan klart, <strong>${safeName}</strong>! Bekräfta att det här är din e-post för att
-      aktivera ditt konto. Inga bilder eller platsdata samlas in, och du syns bara för ditt eget lag.`,
+      aktivera ditt konto. Inga platsdata samlas in någonsin, och allt du delar — inklusive
+      eventuella videoklipp — syns bara för ditt eget lag.`,
     body2: () =>
       `När du bekräftar kan du börja logga träningspass från och med nu.`,
     button: 'Verifiera mitt konto',
@@ -214,7 +219,8 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
     heading: () => `Verify your account on SkillStreak`,
     body1: (safeName) =>
       `Almost done, <strong>${safeName}</strong>! Confirm that this is your email to activate your
-      account. No photos or location data are collected, and you're only visible to your own team.`,
+      account. No location data is ever collected, and anything you share — including any video
+      clips — is only visible to your own team.`,
     body2: () =>
       `Once you confirm, you can start logging training sessions right away.`,
     button: 'Verify my account',
@@ -224,7 +230,8 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
     heading: () => `Vahvista tilisi SkillStreakissa`,
     body1: (safeName) =>
       `Melkein valmista, <strong>${safeName}</strong>! Vahvista, että tämä on sähköpostiosoitteesi,
-      jotta voit aktivoida tilisi. Kuvia tai sijaintitietoja ei kerätä, ja näyt vain omalle joukkueellesi.`,
+      jotta voit aktivoida tilisi. Sijaintitietoja ei kerätä koskaan, ja kaikki mitä jaat —
+      myös mahdolliset videoklipit — näkyy vain omalle joukkueellesi.`,
     body2: () => `Kun vahvistat, voit alkaa kirjata harjoituksia heti.`,
     button: 'Vahvista tilini',
   },
@@ -233,7 +240,8 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
     heading: () => `Bekræft din konto på SkillStreak`,
     body1: (safeName) =>
       `Næsten færdig, <strong>${safeName}</strong>! Bekræft, at dette er din e-mail for at aktivere
-      din konto. Der indsamles ingen billeder eller placeringsdata, og du er kun synlig for dit eget hold.`,
+      din konto. Der indsamles aldrig placeringsdata, og alt hvad du deler — inklusive
+      eventuelle videoklip — er kun synligt for dit eget hold.`,
     body2: () =>
       `Når du har bekræftet, kan du begynde at logge træningspas med det samme.`,
     button: 'Bekræft min konto',
@@ -243,7 +251,8 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
     heading: () => `Bekreft kontoen din på SkillStreak`,
     body1: (safeName) =>
       `Nesten ferdig, <strong>${safeName}</strong>! Bekreft at dette er e-posten din for å aktivere
-      kontoen din. Ingen bilder eller stedsdata samles inn, og du er bare synlig for ditt eget lag.`,
+      kontoen din. Det samles aldri inn stedsdata, og alt du deler — inkludert eventuelle
+      videoklipp — er bare synlig for ditt eget lag.`,
     body2: () =>
       `Når du bekrefter, kan du begynne å logge treningsøkter med en gang.`,
     button: 'Bekreft kontoen min',
@@ -253,8 +262,8 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
     heading: () => `Bestätige dein Konto auf SkillStreak`,
     body1: (safeName) =>
       `Fast geschafft, <strong>${safeName}</strong>! Bestätige, dass dies deine E-Mail-Adresse ist, um
-      dein Konto zu aktivieren. Es werden keine Fotos oder Standortdaten erhoben, und du bist
-      nur für dein eigenes Team sichtbar.`,
+      dein Konto zu aktivieren. Es werden niemals Standortdaten erhoben, und alles, was du
+      teilst — einschließlich etwaiger Videoclips — ist nur für dein eigenes Team sichtbar.`,
     body2: () =>
       `Sobald du bestätigst, kannst du sofort mit dem Eintragen von Trainingseinheiten beginnen.`,
     button: 'Mein Konto bestätigen',
@@ -264,8 +273,8 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
     heading: () => `Ověřte svůj účet na SkillStreak`,
     body1: (safeName) =>
       `Už téměř hotovo, <strong>${safeName}</strong>! Potvrďte, že toto je váš e-mail, abyste
-      aktivovali svůj účet. Nesbírají se žádné fotografie ani údaje o poloze a jste viditelní
-      pouze pro svůj vlastní tým.`,
+      aktivovali svůj účet. Údaje o poloze se nikdy nesbírají a vše, co sdílíte — včetně
+      případných video klipů — je viditelné pouze pro váš vlastní tým.`,
     body2: () => `Jakmile potvrdíte, můžete ihned začít zaznamenávat tréninky.`,
     button: 'Ověřit můj účet',
   },
@@ -274,8 +283,9 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
     heading: () => `Vérifiez votre compte sur SkillStreak`,
     body1: (safeName) =>
       `Presque terminé, <strong>${safeName}</strong> ! Confirmez qu'il s'agit bien de votre adresse
-      e-mail pour activer votre compte. Aucune photo ni donnée de localisation n'est collectée,
-      et vous n'êtes visible que par votre propre équipe.`,
+      e-mail pour activer votre compte. Aucune donnée de localisation n'est jamais collectée,
+      et tout ce que vous partagez — y compris d'éventuels clips vidéo — n'est visible que par
+      votre propre équipe.`,
     body2: () =>
       `Une fois confirmé, vous pourrez commencer à enregistrer vos séances d'entraînement dès maintenant.`,
     button: 'Vérifier mon compte',

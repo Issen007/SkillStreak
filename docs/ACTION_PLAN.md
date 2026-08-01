@@ -2414,6 +2414,76 @@ Full technical detail and exact commands for every item above are in
 in-place) and `k8s/README.md` (the MinIO scoped-credential recreate/
 rotate runbook, the internal-cluster section).
 
+## Phase 4.5 — AI video content tagging (design pass, in progress)
+
+From `docs/BACKLOG.md`'s "AI video tagging/understanding" entries
+(2026-07-26, 2026-07-31) — the project owner asking for AI to auto-tag
+each uploaded clip's content. Design-only so far; no schema or service
+exists yet.
+
+- [x] **architect**: `docs/adr/0018-ai-video-content-tagging.md`. Scope:
+      activity/drill-type classification only (a fixed-vocabulary tag per
+      clip), with a coarse "no confident match" signal as an advisory
+      moderation byproduct — not a replacement for ADR-0010's
+      report-driven auto-hide. Recommends a self-hosted, server-side
+      classifier reading from the existing MinIO bucket over a
+      third-party AI vision API (would mean sending real, identifiable
+      video of children to an external company — the same category of
+      call ADR-0010 Decision 1 already made for storage) or on-device
+      (poor fit for the presigned-upload path). New `VideoClipTag` table,
+      `ON DELETE CASCADE` against `VideoClip` (deliberately unlike
+      `ClipReport`'s survives-the-clip pattern — a tag has no value
+      independent of its video), internal-only/never player-facing this
+      phase. Tagging is strictly async/non-blocking, never a new
+      upload/publish gate. "RAG database"/freeform-tag idea from the
+      informal backlog note explicitly rejected in favor of a fixed,
+      allow-listed vocabulary, consistent with this schema's standing
+      pattern (`BadgeAward.context`, `PlayerLocale`).
+- [x] **security-reviewer**: blocking pass, 2026-08-01 — **not a clean
+      sign-off.** Confirmed correct as written: the self-hosted-over-
+      third-party call (Decision 2) and the cascade-deleted, internal-only
+      tag table (Decision 4), which closes the same class of gap
+      ADR-0010's own review caught twice (GPS-metadata leak,
+      `pending_upload`-TTL). Three findings:
+      - [x] **CONFIRMED, and a live bug independent of this ADR's
+            fate**: Decision 3's premise — existing upload-consent already
+            covers tagging "in substance" — didn't hold, because the real
+            parent/self-verification consent-page copy
+            (`backend/src/consent/consent-page.templates.ts`) said, in all
+            8 languages, "no photos or location data are collected," a
+            claim that had been false since video upload shipped
+            (2026-07-22) and was still being copied into a brand-new
+            consent surface five days later. **Fixed same day**: false
+            claim removed from both `CONSENT_CONFIRM_COPY` and
+            `SELF_VERIFICATION_CONFIRM_COPY` (all 8 locales); the true
+            "no location data" claim kept, honest closed-team-bubble
+            language added for shared content including video clips. See
+            `docs/BACKLOG.md`'s standalone entry for the full writeup —
+            this was surfaced as its own urgent item, not folded silently
+            into the AI-tagging entry, since it's a real gap regardless of
+            whether tagging ever ships.
+      - [ ] **PLAUSIBLE, required before the classification service is
+            deployed**: the ADR didn't originally state the new service
+            must follow ADR-0010 Decision 2's `ClusterIP`-only/no-Ingress
+            posture, or that a queue (if used) must carry reference-only
+            payloads (`clipId`, never raw bytes/frames). **Folded into
+            ADR-0018 Decision 5 as an explicit requirement** the same day;
+            not yet implemented (no service exists yet).
+      - [ ] **PLAUSIBLE, required before the classification service is
+            deployed**: no least-privilege MinIO credential concept exists
+            in this codebase yet (the API's own credential has full
+            put/delete/head) — the tagging service must get its own
+            read-only-scoped credential, or no direct MinIO access at all.
+            **Folded into ADR-0018 Decision 5** the same day; not yet
+            implemented.
+- [ ] **ux-designer**: Decision 3's tagging-disclosure copy addition (now
+      sitting on top of corrected, honest copy rather than a false claim)
+      — not yet written.
+- [ ] **backend-developer**: additive Postgres schema (`VideoClipTag`,
+      `VideoClip.tagging_status`) may start now per the confirmed parts of
+      the ADR; the classification service itself waits on the two
+      still-open infra requirements above being satisfied at deploy time.
+
 ## Phase 6 — Public Shorts feed, reactions & personal archive
 
 **Added 2026-07-27, from the project owner directly** (not yet designed —

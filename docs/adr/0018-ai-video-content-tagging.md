@@ -11,6 +11,52 @@ changes, not a rubber stamp, on both of those. This ADR should get no
 lighter a review than ADR-0010 did — it's an addition *on top of*
 ADR-0010's already-highest-risk feature, not a separate, smaller one.
 
+**Security-reviewer pass, 2026-08-01 — not a clean sign-off.** Decisions
+2 and 4 (self-hosted-over-third-party; the cascade-deleted, internal-only
+`VideoClipTag` table) confirmed correct as written, closing the same
+class of gap ADR-0010's own review caught twice (the GPS-metadata and
+`pending_upload`-TTL findings) — backend-developer may build the schema
+and non-blocking job skeleton against those two decisions as-is. Three
+findings, not yet all resolved:
+
+- **CONFIRMED, and independent of this ADR's fate**: Decision 3's premise
+  — "the existing upload-consent approval already covers [tagging] in
+  substance" — didn't hold, because the actual parent/self-verification
+  consent-page copy (`backend/src/consent/consent-page.templates.ts`)
+  said, in all 8 languages, "no photos or location data are collected,"
+  a false claim that had been live since before video upload shipped
+  (2026-07-22) and was even copied into a *new* consent surface five days
+  after video went live. **Fixed 2026-08-01**: the false "no photos"
+  claim removed from both `CONSENT_CONFIRM_COPY` and
+  `SELF_VERIFICATION_CONFIRM_COPY` (all 8 locales), replaced with
+  accurate copy — location data is still truthfully "never collected,"
+  and anything a player shares (including video clips) is scoped to
+  their own team. This fix landed as a standalone correction, not scoped
+  to Decision 3's "also mention tagging" ask — that disclosure line is
+  still a separate, open follow-up (see below), now at least sitting on
+  top of honest copy instead of a false one.
+- **PLAUSIBLE, required before Decision 5's infra is deployed**: the ADR
+  never states the new classification service must follow the same
+  ClusterIP-only/no-Ingress posture ADR-0010 Decision 2 established for
+  MinIO/Postgres/Redis, and never constrains a queue (if one is used
+  per Decision 5) to reference-only payloads (`clipId`/storage key, never
+  raw bytes/frames). **Still open** — to be folded into Decision 5 as an
+  explicit requirement, not left implicit by analogy, before
+  backend-developer deploys the service.
+- **PLAUSIBLE, required before Decision 5's infra is deployed**: no
+  least-privilege MinIO credential concept exists in this codebase today
+  (the API's own `MINIO_CLIPS_ACCESS_KEY` has full put/get/delete/head).
+  The tagging service must not reuse that credential as-is — it needs
+  either its own read-only-scoped credential, or no direct MinIO access
+  at all (proxied through the API). **Still open.**
+
+Decision 3's actual tagging-disclosure copy addition (once the false
+claim above is fixed) remains unimplemented and unscoped — a small
+follow-up once this ADR proceeds. **Net: backend-developer may start on
+the additive Postgres schema (Decision 4) now; the classification
+service itself (Decision 2/5) needs the two infra requirements above
+written into this ADR and satisfied before it's deployed.**
+
 ## Context
 
 Raised by the project owner directly, verbatim (`docs/BACKLOG.md`, two
@@ -310,6 +356,20 @@ deterministic validity checks. Concretely:
   clip (Decision 4's cascade), and no failed/incomplete tagging attempt
   blocks or delays anything a player or parent can already do with a clip
   today.
+- **Network posture and credentials (added per security-reviewer's
+  2026-08-01 pass, no longer left to backend-developer's judgment call)**:
+  whatever form the classification service takes, it follows the exact
+  same posture ADR-0010 Decision 2 already set for MinIO/Postgres/Redis —
+  `ClusterIP`-only, no `Ingress`/`NodePort`/`LoadBalancer`, reachable only
+  from inside the cluster. If a queue sits between the API and the
+  classifier, its payload is reference-only (`clipId`/storage key) —
+  never raw video bytes or extracted frames, so no second, unscoped home
+  for child video data is created outside MinIO's existing
+  presigned-URL/team-scoping model. The classifier's own MinIO access
+  uses either a dedicated, read-only-scoped credential (not the API's
+  existing `MINIO_CLIPS_ACCESS_KEY`, which carries put/delete/head it
+  doesn't need) or no direct MinIO access at all, proxied through the
+  API instead.
 
 ## Consequences
 
