@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -33,40 +34,33 @@ export function ClipsWaitingCard({
   onRefresh,
   refreshing,
 }: ClipsWaitingCardProps) {
+  const { t } = useTranslation('clips');
   const isPaused = consentStatus === 'revoked';
   const consentPending = consentStatus !== 'approved' && !isPaused;
   const joinPending = teamJoinStatus === 'pending';
 
   function pendingTitle(): string {
-    if (joinPending) return 'Väntar på lagets kapten';
-    return isSelfVerification ? 'Väntar på att du verifierar' : 'Väntar på godkännande';
+    if (joinPending) return t('v1.joinPendingTitle');
+    return isSelfVerification ? t('v1.consentPendingTitleSelfVerify') : t('v1.consentPendingTitle');
   }
 
   function pendingBody(): string {
-    const consentPart = isSelfVerification
-      ? 'Du behöver verifiera din e-post eller ditt mobilnummer.'
-      : 'En förälder eller vårdnadshavare behöver säga ja.';
-    const joinPart = 'Lagets kapten behöver godkänna att du gick med i laget.';
+    const consentPart = isSelfVerification ? t('v1.consentPartSelfVerify') : t('v1.consentPart');
+    const joinPart = t('v1.joinPart');
     if (consentPending && joinPending) {
-      return `${consentPart} ${joinPart} Så fort båda är klara låser vi upp Shorts-fliken.`;
+      return `${consentPart} ${joinPart} ${t('v1.bothPendingSuffix')}`;
     }
     if (joinPending) {
-      return `${joinPart} Så fort kaptenen godkänner låser vi upp Shorts-fliken.`;
+      return `${joinPart} ${t('v1.joinPendingSuffix')}`;
     }
-    return `${consentPart} Så fort det är klart låser vi upp Shorts-fliken.`;
+    return `${consentPart} ${t('v1.consentPendingSuffix')}`;
   }
 
   return (
     <View style={[styles.card, isPaused ? styles.cardPaused : styles.cardPending]}>
       <Text style={styles.icon}>{isPaused ? '⏸️' : '⏳'}</Text>
-      <Text style={styles.title}>
-        {isPaused ? 'Shorts är pausat just nu' : pendingTitle()}
-      </Text>
-      <Text style={styles.body}>
-        {isPaused
-          ? 'En förälder eller vårdnadshavare har dragit tillbaka godkännandet. Prata med din tränare om du har frågor.'
-          : pendingBody()}
-      </Text>
+      <Text style={styles.title}>{isPaused ? t('v1.pausedTitle') : pendingTitle()}</Text>
+      <Text style={styles.body}>{isPaused ? t('v1.pausedBody') : pendingBody()}</Text>
       {!isPaused ? (
         <Pressable
           accessibilityRole="button"
@@ -74,7 +68,7 @@ export function ClipsWaitingCard({
           disabled={refreshing}
           style={({ pressed }) => [styles.refreshButton, pressed && styles.refreshPressed]}
         >
-          <Text style={styles.refreshText}>{refreshing ? 'Kollar...' : 'Kolla igen'}</Text>
+          <Text style={styles.refreshText}>{refreshing ? t('v1.refreshing') : t('v1.refresh')}</Text>
         </Pressable>
       ) : null}
     </View>

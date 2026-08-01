@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -13,17 +14,18 @@ interface O2ConfirmTeamProps {
 }
 
 export function O2ConfirmTeam({ teamName, onConfirm, onReject }: O2ConfirmTeamProps) {
+  const { t } = useTranslation('onboarding');
   return (
     <ScreenContainer>
       <View style={styles.spacerTop} />
       <Text style={styles.icon}>🏒</Text>
-      <Text style={styles.heading}>Ansluter du till {teamName}?</Text>
-      <Text style={styles.sub}>Stämmer det, så kör vi!</Text>
+      <Text style={styles.heading}>{t('o2.heading', { teamName })}</Text>
+      <Text style={styles.sub}>{t('o2.sub')}</Text>
 
       <View style={styles.spacer} />
 
-      <PrimaryButton label="Ja, det är mitt lag!" onPress={onConfirm} />
-      <SecondaryLink label="Nej, testa en annan kod" onPress={onReject} />
+      <PrimaryButton label={t('o2.confirm')} onPress={onConfirm} />
+      <SecondaryLink label={t('o2.reject')} onPress={onReject} />
     </ScreenContainer>
   );
 }

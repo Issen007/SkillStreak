@@ -1,1 +1,18 @@
-{}
+{
+  "captainBanner": {
+    "promotedTitle": "👑 Gratulujeme! Teď jsi kapitán týmu.",
+    "promotedSub": "Nové nástroje najdeš v záložce Tým.",
+    "demoted": "Kapitánství přešlo na spoluhráče."
+  },
+  "catchUpBanner": {
+    "message": "🎉 Celý tým splnil týdenní cíl! Tým získal +{{points}} bonusových bodů."
+  },
+  "tabs": {
+    "home": "Domů",
+    "chat": "Chat",
+    "clips": "Shorts",
+    "goal": "Cíl",
+    "team": "Tým"
+  },
+  "testModeBanner": "🧪 Tohle je jen TEST — nevytvářej skutečný účet se skutečnými údaji."
+}

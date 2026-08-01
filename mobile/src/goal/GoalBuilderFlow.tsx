@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { KB1TitleDescription } from './screens/KB1TitleDescription';
 import { KB2TargetMetric } from './screens/KB2TargetMetric';
@@ -31,6 +32,7 @@ export function GoalBuilderFlow({
   onDone,
   onCancel,
 }: GoalBuilderFlowProps) {
+  const { t } = useTranslation('goal');
   const [step, setStep] = useState<GoalBuilderStep>('KB1');
   const [data, setData] = useState<GoalBuilderData>(() => ({
     title: existingGoal?.title ?? '',
@@ -76,7 +78,7 @@ export function GoalBuilderFlow({
           status,
         });
       }
-      onDone(status === 'active' ? 'Målet är aktiverat — laget ser det nu.' : 'Målet är sparat!');
+      onDone(status === 'active' ? t('builder.activatedToast') : t('builder.draftSavedToast'));
     } catch (err) {
       if (err instanceof ApiError && err.code === 'active_goal_already_exists') {
         // Fallback error state per the flow doc: re-fetching happens in
@@ -84,7 +86,7 @@ export function GoalBuilderFlow({
         // the same inline explanation KB4's preemptive guard already uses.
         setServerBlockedActivate(true);
       } else {
-        setSubmitError('Något gick fel. Testa igen.');
+        setSubmitError(t('builder.genericError'));
       }
     } finally {
       setSubmitting(false);

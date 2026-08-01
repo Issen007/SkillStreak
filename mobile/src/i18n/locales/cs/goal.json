@@ -1,1 +1,123 @@
-{}
+{
+  "metricLabel": {
+    "fitness": "Kondice",
+    "drill": "Technika/cvičení",
+    "running": "Běh",
+    "other": "Jiné",
+    "total": "Celkem (všechny typy)"
+  },
+  "metricLabelInline": {
+    "fitness": "kondice",
+    "drill": "techniky/cvičení",
+    "running": "běhu",
+    "other": "jiného",
+    "total": "celkem (všech typů)"
+  },
+  "unitLabel": {
+    "minutes": "minut",
+    "sessions": "tréninků"
+  },
+  "g1": {
+    "loadError": "Cíl týmu se nepodařilo načíst. Zkontroluj připojení.",
+    "genericError": "Něco se pokazilo.",
+    "retry": "Zkusit znovu",
+    "pageHeading": "Cíl týdne 🎯",
+    "emptyHeading": "🎯 Momentálně žádný cíl",
+    "emptySub": "Váš kapitán brzy nastaví nový cíl pro tým!",
+    "seeHistory": "Zobrazit minulé cíle",
+    "cancelGoal": "Zrušit cíl",
+    "editDraft": "Upravit",
+    "activateNow": "Aktivovat teď",
+    "activateBlockedExplain": "Už máte aktivní cíl. Tenhle se uloží jako koncept, dokud nebude hotový nebo dokud nezrušíš ten druhý.",
+    "setNewGoal": "+ Nastavit cíl týdne",
+    "activatedToast": "Cíl je teď aktivní — tým ho vidí.",
+    "genericErrorToast": "Něco se pokazilo. Zkus to znovu.",
+    "cancelConfirmTitle": "Zrušit „{{title}}“?",
+    "cancelConfirmBody": "Zaznamenaný trénink se nezmění, ale už se nebude počítat do cíle.",
+    "cancelConfirmCancel": "Zrušit",
+    "cancelConfirmConfirm": "Ano, zrušit",
+    "historyHeading": "Minulé cíle",
+    "historyCompleted": "Dokončeno",
+    "historyCancelled": "Zrušeno",
+    "historyTally": "{{completed}} z {{eligible}} spoluhráčů hotovo · +{{bonus}}b bonus",
+    "historyEmpty": "Zatím žádné minulé cíle.",
+    "back": "Zpět"
+  },
+  "builder": {
+    "draftSavedToast": "Cíl byl uložen!",
+    "activatedToast": "Cíl je teď aktivní — tým ho vidí.",
+    "genericError": "Něco se pokazilo. Zkus to znovu."
+  },
+  "g1d": {
+    "heading": "Stav spoluhráčů",
+    "subHeading": "pro „{{goalTitle}}“",
+    "doneSectionLabel": "✅ Hotovo ({{count}})",
+    "inProgressSectionLabel": "⏳ Ještě nehotovo ({{count}})",
+    "excludedSectionLabel": "➖ Tento týden nezapočítáni ({{count}})",
+    "back": "Zpět",
+    "exclusion": {
+      "joinedAfterStart": "Přidal/a se poté, co cíl už začal",
+      "consentPending": "Čeká na schválení od rodiče ⏳",
+      "consentRevoked": "Pozastaveno ⏸️",
+      "teamJoinPending": "Čeká na schválení do týmu ⏳"
+    }
+  },
+  "kb1": {
+    "heading": "Nastav cíl týmu na tento týden",
+    "sub": "Dej mu vtipný název — uvidí ho celý tým.",
+    "titleLabel": "Název",
+    "titlePlaceholder": "Např. Výzva v zorro kličkách",
+    "descriptionLabel": "Popis",
+    "descriptionPlaceholder": "Např. Zvládněte společně co nejvíc zorro kliček do pátku!",
+    "next": "Další",
+    "cancel": "Zrušit"
+  },
+  "kb2": {
+    "heading": "Co má každý hráč zvládnout tento týden?",
+    "sub": "Každý hráč v týmu musí splnit cíl sám za sebe — vyber, jestli se počítá v minutách nebo trénincích, a jaký typ tréninku se počítá.",
+    "unitMinutes": "⏱️ Minuty",
+    "unitSessions": "🔁 Počet tréninků",
+    "unitHelper": "Jeden trénink = jeden zaznamenaný trénink, bez ohledu na to, jak dlouho trval.",
+    "targetLabel": "Cíl na hráče ({{unit}})",
+    "placeholderMinutes": "Např. 20",
+    "placeholderSessions": "Např. 3",
+    "helper": "Tohle je cíl, který musí každý hráč splnit sám za sebe — ne celkový součet týmu.",
+    "previewText": "Každý hráč v týmu musí nasbírat {{value}} {{unit}} {{metric}}, než cíl skončí.",
+    "next": "Další",
+    "back": "Zpět"
+  },
+  "kb3": {
+    "heading": "Kdy cíl týdne začíná a končí?",
+    "startDateLabel": "Datum začátku",
+    "endDateLabel": "Datum konce",
+    "dateOrderError": "Datum konce musí být po datu začátku.",
+    "next": "Další",
+    "back": "Zpět",
+    "doneButton": "Hotovo"
+  },
+  "kb4": {
+    "heading": "Takhle to bude vypadat pro tým",
+    "saveDraft": "Uložit jako koncept",
+    "activateBlockedExplain": "Už máte aktivní cíl. Tenhle se uloží jako koncept, dokud nebude hotový nebo dokud nezrušíš ten druhý.",
+    "activateNow": "Aktivovat teď",
+    "back": "Zpět"
+  },
+  "goalCard": {
+    "eyebrow": "Cíl týdne 🎯",
+    "metChip": "Splněno! 🎉",
+    "sub": "Nastavil kapitán týmu",
+    "previewCallout": "Takhle bude karta vypadat, až bude cíl aktivní — pak se zobrazí skuteční spoluhráči a kdo je hotový.",
+    "headlineMuted": "Nikdo v týmu teď nemůže na tomhle cíli pracovat.",
+    "headline": "{{completed}} z {{eligible}} spoluhráčů hotovo",
+    "metricChip": "{{icon}} {{label}} · {{value}} {{unit}} na hráče",
+    "endDate": "Končí {{date}}",
+    "detailLink": "Zobrazit, kdo je hotový →"
+  },
+  "teammateStatusRow": {
+    "inProgress": "Probíhá",
+    "notStarted": "Ještě nezačato",
+    "progressCaption": "{{progress}} z {{target}} {{unit}}",
+    "done": "Hotovo ✓",
+    "excludedChip": "Tento týden nezapočítán/a"
+  }
+}

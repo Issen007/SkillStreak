@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { SecondaryLink } from '../components/SecondaryLink';
 import { EffortInfoSheet } from './components/EffortInfoSheet';
 import { getLeaderboard } from '../api/endpoints';
+import i18n from '../i18n';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import { swedishOrdinal } from '../utils/ordinal';
@@ -16,11 +18,15 @@ interface LeaderboardScreenProps {
 
 type LeaderboardTab = 'points' | 'effort';
 
-const numberFormatter = new Intl.NumberFormat('sv-SE');
-const oneDecimalFormatter = new Intl.NumberFormat('sv-SE', {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
+function numberFormatter() {
+  return new Intl.NumberFormat(i18n.language);
+}
+function oneDecimalFormatter() {
+  return new Intl.NumberFormat(i18n.language, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+}
 
 /** Does the current list actually contain a tie? Drives the conditional
  * "Delad poäng ger samma placering." caption (Screen LB2) — shown only
@@ -43,6 +49,7 @@ function hasTie(rows: { rank: number }[]): boolean {
  * addendum's LB3 info sheet) — a check-in view, same "not a flow" pattern
  * as G1/CH1. */
 export function LeaderboardScreen({ teamId, onBack }: LeaderboardScreenProps) {
+  const { t } = useTranslation('home');
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -58,11 +65,11 @@ export function LeaderboardScreen({ teamId, onBack }: LeaderboardScreenProps) {
       setData(response);
       setLoadError(null);
     } catch {
-      setLoadError('Kunde inte hämta VM-Guld-tabellen. Kolla din uppkoppling.');
+      setLoadError(t('leaderboard.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [teamId]);
+  }, [teamId, t]);
 
   useEffect(() => {
     void fetchLeaderboard();
@@ -79,9 +86,9 @@ export function LeaderboardScreen({ teamId, onBack }: LeaderboardScreenProps) {
   if (loadError || !data) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>{loadError ?? 'Något gick fel.'}</Text>
+        <Text style={styles.errorText}>{loadError ?? t('leaderboard.genericError')}</Text>
         <Text style={styles.retryText} onPress={() => void fetchLeaderboard()}>
-          Försök igen
+          {t('leaderboard.retry')}
         </Text>
       </View>
     );
@@ -100,7 +107,7 @@ export function LeaderboardScreen({ teamId, onBack }: LeaderboardScreenProps) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.pageHeading}>VM-Guld-tabellen 🥇</Text>
+      <Text style={styles.pageHeading}>{t('leaderboard.pageHeading')}</Text>
 
       <View style={styles.tabRow}>
         <Pressable
@@ -110,7 +117,7 @@ export function LeaderboardScreen({ teamId, onBack }: LeaderboardScreenProps) {
           style={[styles.tabSegment, activeTab === 'points' && styles.tabSegmentActive]}
         >
           <Text style={[styles.tabLabel, activeTab === 'points' && styles.tabLabelActive]}>
-            🥇 Mest poäng
+            {t('leaderboard.tabPoints')}
           </Text>
         </Pressable>
         <Pressable
@@ -120,7 +127,7 @@ export function LeaderboardScreen({ teamId, onBack }: LeaderboardScreenProps) {
           style={[styles.tabSegment, activeTab === 'effort' && styles.tabSegmentActive]}
         >
           <Text style={[styles.tabLabel, activeTab === 'effort' && styles.tabLabelActive]}>
-            💪 Bästa laginsats
+            {t('leaderboard.tabEffort')}
           </Text>
         </Pressable>
       </View>
@@ -129,22 +136,20 @@ export function LeaderboardScreen({ teamId, onBack }: LeaderboardScreenProps) {
         <>
           {showEffortNudge ? (
             <Text style={styles.nudgeLine} onPress={() => setActiveTab('effort')}>
-              🌟 Era spelare kämpar bra! Kolla Bästa laginsats →
+              {t('leaderboard.effortNudge')}
             </Text>
           ) : null}
 
           {requestingTeam === null ? (
             <View style={styles.seasonBanner}>
-              <Text style={styles.seasonBannerText}>
-                Ert lag har ingen aktiv säsong just nu — men kolla in de andra lagens poäng!
-              </Text>
+              <Text style={styles.seasonBannerText}>{t('leaderboard.noActiveSeasonBanner')}</Text>
             </View>
           ) : null}
 
           {leaderboard.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyHeading}>Ingen tabell att visa än.</Text>
-              <Text style={styles.emptySub}>Kom tillbaka när fler lag har en aktiv säsong.</Text>
+              <Text style={styles.emptyHeading}>{t('leaderboard.emptyPointsHeading')}</Text>
+              <Text style={styles.emptySub}>{t('leaderboard.emptyPointsSub')}</Text>
             </View>
           ) : (
             <PointsList leaderboard={leaderboard} />
@@ -158,7 +163,7 @@ export function LeaderboardScreen({ teamId, onBack }: LeaderboardScreenProps) {
         />
       )}
 
-      <SecondaryLink label="Tillbaka" onPress={onBack} />
+      <SecondaryLink label={t('leaderboard.back')} onPress={onBack} />
 
       <EffortInfoSheet
         visible={infoSheetOpen}
@@ -173,13 +178,12 @@ export function LeaderboardScreen({ teamId, onBack }: LeaderboardScreenProps) {
  * ADR-0016 addendum, just pulled out into its own function so the tab
  * switch above stays readable. */
 function PointsList({ leaderboard }: { leaderboard: LeaderboardEntry[] }) {
+  const { t } = useTranslation('home');
   const showTieCaption = hasTie(leaderboard);
 
   return (
     <>
-      {showTieCaption ? (
-        <Text style={styles.tieCaption}>Delad poäng ger samma placering.</Text>
-      ) : null}
+      {showTieCaption ? <Text style={styles.tieCaption}>{t('leaderboard.tieCaption')}</Text> : null}
 
       <View style={styles.list}>
         {leaderboard.map((row) => (
@@ -187,9 +191,13 @@ function PointsList({ leaderboard }: { leaderboard: LeaderboardEntry[] }) {
             <Text style={styles.rank}>{swedishOrdinal(row.rank)}</Text>
             <Text style={styles.teamName} numberOfLines={1}>
               {row.teamName}
-              {row.isRequestingTeam ? <Text style={styles.meTag}> Ditt lag</Text> : null}
+              {row.isRequestingTeam ? (
+                <Text style={styles.meTag}> {t('leaderboard.meTag')}</Text>
+              ) : null}
             </Text>
-            <Text style={styles.points}>{numberFormatter.format(row.pointsTotal)} p</Text>
+            <Text style={styles.points}>
+              {numberFormatter().format(row.pointsTotal)} {t('leaderboard.pointsSuffix')}
+            </Text>
           </View>
         ))}
       </View>
@@ -205,32 +213,31 @@ interface EffortTabProps {
 
 /** "Bästa laginsats" tab (ADR-0016 addendum, 2026-07-31, Screen LB2). */
 function EffortTab({ requestingTeamEffort, effortLeaderboard, onOpenInfoSheet }: EffortTabProps) {
+  const { t } = useTranslation('home');
   const showTieCaption = hasTie(effortLeaderboard);
 
   return (
     <>
-      <Text style={styles.effortCaption}>Ett rättvist snitt — så kan även mindre lag vinna.</Text>
+      <Text style={styles.effortCaption}>{t('leaderboard.effortCaption')}</Text>
       <Text style={styles.infoLink} onPress={onOpenInfoSheet}>
-        ⓘ Så räknar vi ut det
+        {t('leaderboard.infoLink')}
       </Text>
 
       {requestingTeamEffort === null ? (
         <View style={styles.seasonBanner}>
-          <Text style={styles.seasonBannerText}>
-            Ert lag är inte med i den här listan än — det behövs minst en godkänd spelare.
-          </Text>
+          <Text style={styles.seasonBannerText}>{t('leaderboard.noEffortBanner')}</Text>
         </View>
       ) : null}
 
       {effortLeaderboard.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyHeading}>Ingen laginsats att visa än.</Text>
-          <Text style={styles.emptySub}>Kom tillbaka när fler lag har godkända spelare.</Text>
+          <Text style={styles.emptyHeading}>{t('leaderboard.emptyEffortHeading')}</Text>
+          <Text style={styles.emptySub}>{t('leaderboard.emptyEffortSub')}</Text>
         </View>
       ) : (
         <>
           {showTieCaption ? (
-            <Text style={styles.tieCaption}>Delad poäng ger samma placering.</Text>
+            <Text style={styles.tieCaption}>{t('leaderboard.tieCaption')}</Text>
           ) : null}
 
           <View style={styles.list}>
@@ -242,11 +249,17 @@ function EffortTab({ requestingTeamEffort, effortLeaderboard, onOpenInfoSheet }:
                 </Text>
                 <Text style={styles.teamName} numberOfLines={1}>
                   {row.teamName}
-                  <Text style={styles.playerCountTag}> · {row.eligiblePlayerCountRange} spelare</Text>
-                  {row.isRequestingTeam ? <Text style={styles.meTag}> Ditt lag</Text> : null}
+                  <Text style={styles.playerCountTag}>
+                    {' '}
+                    · {row.eligiblePlayerCountRange} {t('leaderboard.playerCountSuffix')}
+                  </Text>
+                  {row.isRequestingTeam ? (
+                    <Text style={styles.meTag}> {t('leaderboard.meTag')}</Text>
+                  ) : null}
                 </Text>
                 <Text style={styles.points}>
-                  {oneDecimalFormatter.format(row.pointsPerPlayer)} p/spelare
+                  {oneDecimalFormatter().format(row.pointsPerPlayer)}{' '}
+                  {t('leaderboard.pointsPerPlayerSuffix')}
                 </Text>
               </View>
             ))}

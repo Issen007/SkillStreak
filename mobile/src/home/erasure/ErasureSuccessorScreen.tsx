@@ -1,4 +1,5 @@
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
@@ -38,6 +39,8 @@ export function ErasureSuccessorScreen({
   onDone,
   onCancel,
 }: ErasureSuccessorScreenProps) {
+  const { t } = useTranslation('home');
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -51,7 +54,7 @@ export function ErasureSuccessorScreen({
       <View style={styles.centered}>
         <Text style={styles.errorText}>{errorText}</Text>
         <Text style={styles.retryText} onPress={onRetry}>
-          Försök igen
+          {t('shared.retry')}
         </Text>
       </View>
     );
@@ -60,11 +63,8 @@ export function ErasureSuccessorScreen({
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Vem tar över som kapten?</Text>
-        <Text style={styles.sub}>
-          Den du väljer blir lagets kapten den dag ditt konto raderas — inte förrän dess. Du är
-          kapten som vanligt tills dess.
-        </Text>
+        <Text style={styles.heading}>{t('erasureSuccessor.heading')}</Text>
+        <Text style={styles.sub}>{t('erasureSuccessor.sub')}</Text>
 
         <View style={styles.list}>
           {teammates.map((teammate) => (
@@ -79,8 +79,8 @@ export function ErasureSuccessorScreen({
         </View>
 
         <View style={styles.spacer} />
-        <PrimaryButton label="Klar" onPress={onDone} disabled={!selectedPlayerId} />
-        <SecondaryLink label="Avbryt" onPress={onCancel} />
+        <PrimaryButton label={t('erasureSuccessor.done')} onPress={onDone} disabled={!selectedPlayerId} />
+        <SecondaryLink label={t('shared.cancel')} onPress={onCancel} />
       </ScrollView>
     </View>
   );

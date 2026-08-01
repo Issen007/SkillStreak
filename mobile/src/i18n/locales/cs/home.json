@@ -1,1 +1,204 @@
-{}
+{
+  "greeting": "Ahoj, <bold>{{screenName}}</bold>!",
+  "shared": {
+    "retry": "Zkusit znovu",
+    "cancel": "Zrušit",
+    "genericError": "Něco se pokazilo.",
+    "genericErrorTryAgain": "Něco se pokazilo. Zkus to znovu.",
+    "save": "Uložit",
+    "edit": "Upravit"
+  },
+  "appHeader": {
+    "profileAccessibilityLabel": "Tvůj profil",
+    "workingTitle": "pracovní název"
+  },
+  "homeScreen": {
+    "loadError": "Nepodařilo se načíst tvoje data. Zkontroluj připojení.",
+    "extraLogToast": "Skvělá práce! +{{minutes}} min do týmové kasy 🥇",
+    "consentRequiredToast": "Ještě potřebujeme souhlas, než budeš moct zapisovat trénink. Stránku ti teď obnovíme.",
+    "successBanner": "🔥 Skvělá práce! {{count}} dní v řadě.",
+    "successFloatingText": "+{{minutes}} min pro tým"
+  },
+  "activitySheet": {
+    "heading": "Co jsi trénoval/a?",
+    "durationHeading": "Jak dlouho?",
+    "submit": "Hotovo!",
+    "activities": {
+      "fitness": "Kondice",
+      "drill": "Technika/cvičení",
+      "running": "Běh",
+      "other": "Jiné"
+    },
+    "durations": {
+      "d10": "10 min",
+      "d15": "15 min",
+      "d20": "20 min",
+      "d30plus": "30+ min"
+    }
+  },
+  "goalBonusTakeover": {
+    "headline": "Tým splnil týdenní cíl!",
+    "sub": "Tvůj trénink byl poslední kousek skládačky — teď má celý tým splněný svůj cíl!",
+    "points": "+{{points}} bonusových bodů do týmové kasy! 🥇"
+  },
+  "streakCard": {
+    "loggedTodayChip": "Dnes zapsáno ✓",
+    "count": "{{count}} dní",
+    "label": "Tvoje osobní série — jen tak dál!"
+  },
+  "teamPoolCard": {
+    "title": "🥇 Zlatá tabulka MS",
+    "points": "{{points}} bodů",
+    "rankLine": "{{rank}}. místo z {{teamCount}} týmů",
+    "noActiveSeason": "Právě teď neprobíhá žádná sezóna",
+    "noActiveSeasonSub": "Zase se zapojíte, jakmile začne nová sezóna.",
+    "effortLine": "🌟 {{effortRank}}. nejlepší v týmovém nasazení",
+    "tapHint": "Zobrazit tabulku →"
+  },
+  "trainedButton": {
+    "disabled": "Trénoval/a jsem 🔒",
+    "secondary": "Zapsat další trénink",
+    "primary": "Trénoval/a jsem"
+  },
+  "waitingCard": {
+    "titleBothPending": "Čeká se na schválení",
+    "titleJoinPending": "Čeká se na kapitána týmu",
+    "titleConsentPending": "Čeká se na schválení",
+    "titleSelfVerificationPending": "Čeká se, až se ověříš",
+    "titlePaused": "Trénink je právě pozastavený",
+    "consentPartSelfVerification": "Poslali jsme ověřovací odkaz na tvůj e-mail nebo telefonní číslo.",
+    "consentPartParent": "Požádali jsme o svolení rodiče nebo zákonného zástupce.",
+    "joinPart": "Kapitán týmu musí ještě schválit tvůj vstup do týmu.",
+    "suffixBoth": "Jakmile bude hotovo obojí, odemkneme tlačítko níže!",
+    "suffixJoinOnly": "Jakmile kapitán schválí, odemkneme tlačítko níže!",
+    "suffixConsentOnly": "Jakmile to bude hotové, odemkneme tlačítko níže!",
+    "pausedBody": "Rodič nebo zákonný zástupce svolení odvolal/a. Pokud máš otázky, promluv si s trenérem.",
+    "refresh": "Zkontrolovat znovu",
+    "refreshing": "Kontroluje se..."
+  },
+  "profileScreen": {
+    "loadError": "Nepodařilo se načíst tvůj profil. Zkontroluj připojení.",
+    "savedToast": "Uloženo!",
+    "contactChangeRateLimited": "O změnu jsi nedávno už žádal/a — chvíli počkej, než to zkusíš znovu.",
+    "contactChangeGenericError": "Něco se pokazilo. Zkontroluj údaj a zkus to znovu.",
+    "contactChangeConfirmedToast": "Potvrzeno! Změna se projeví přibližně za {{hours}} h. Stará adresa může změnu zrušit přes e-mail, který jsme tam poslali.",
+    "codeInvalid": "Tenhle kód už nefunguje. Zkontroluj, jestli jsi ho napsal/a správně, nebo si vyžádej nový.",
+    "codeGenericError": "Něco se pokazilo. Zkontroluj připojení a zkus to znovu.",
+    "erasureTeamInfoError": "Nepodařilo se načíst informace o týmu. Zkus to znovu.",
+    "erasureTeammatesError": "Nepodařilo se načíst seznam týmu. Zkontroluj připojení.",
+    "erasureBlockedPendingContactChange": "Právě probíhá změna tvého kontaktního údaje. Musí být dokončená (nebo zrušená), než budeš moct účet smazat — zkus to za chvíli znovu.",
+    "erasureRateLimited": "O tohle jsi právě žádal/a. Chvíli počkej a zkus to znovu.",
+    "erasureSuccessorInvalid": "Ten hráč už v týmu není. Vyber někoho jiného.",
+    "erasureStaleState": "Od doby, kdy jsi otevřel/a tuhle obrazovku, se v týmu něco změnilo. Zkontroluj profil a zkus to znovu.",
+    "erasureCancelledToast": "Hotovo! Tvůj účet se nesmaže. 🎉",
+    "erasureCancelError": "Něco se pokazilo. Načti stránku znovu a zkus to ještě jednou.",
+    "editName": {
+      "heading": "Tvoje jméno",
+      "sub": "Nepovinné — ostatním v týmu se nikdy nezobrazí, vidíš ho jen ty.",
+      "placeholder": "Jméno a příjmení"
+    },
+    "editAvatar": {
+      "heading": "Vyber si avatara",
+      "sub": "Fotku nepotřebuješ — jen si vyber postavičku, která se ti líbí."
+    },
+    "requestChange": {
+      "heading": "Změnit kontaktní adresu",
+      "sub": "Zadej novou adresu. Pošleme na ni kód pro potvrzení a na starou adresu upozornění, že se chystá změna.",
+      "placeholder": "Nová e-mailová adresa nebo telefonní číslo",
+      "submit": "Poslat kód"
+    },
+    "confirmChange": {
+      "heading": "Zkontroluj si e-mail",
+      "sub": "Na novou adresu jsme poslali kód. Zadej ho níže a potvrď tak změnu.",
+      "placeholder": "např. H4K7QWXP",
+      "submit": "Potvrdit",
+      "resend": "Nedostal/a jsi kód? Zkusit znovu"
+    },
+    "view": {
+      "heading": "Tvůj profil",
+      "avatarLabel": "Avatar",
+      "nameLabel": "Jméno",
+      "nameNotSet": "Nevyplněno",
+      "addName": "Přidat",
+      "birthYearLabel": "Rok narození",
+      "birthYearHelper": "Sám/sama to změnit nemůžeš — pokud je potřeba to opravit, ozvi se trenérovi svého týmu.",
+      "contactLabel": "Kontaktní adresa",
+      "changeContact": "Změnit",
+      "back": "Zpět",
+      "logout": "Odhlásit se",
+      "deleteAccount": "Smazat můj účet"
+    }
+  },
+  "erasureCheckEmail": {
+    "heading": "Zkontroluj si e-mail",
+    "body": "Poslali jsme ti e-mail s odkazem. Otevři ho a klepni na odkaz, čímž spustíš těch 30 dní — klidně můžeš počkat a udělat to i zítra.",
+    "mutedBody": "Pokud na odkaz neklepneš, nic se nestane — účet zůstane přesně jako teď.",
+    "cta": "Zpět na profil"
+  },
+  "erasureConfirmSheet": {
+    "heading": "Jsi si jistý/jistá?",
+    "body": "Pošleme ti e-mail, který je potřeba potvrdit, aby se spustilo těch 30 dní. Když si to rozmyslíš, můžeš to kdykoli předtím zrušit.",
+    "successorBody": "{{successorScreenName}} převezme roli kapitána v den, kdy se účet smaže.",
+    "confirm": "Ano, smazat můj účet"
+  },
+  "erasureRequest": {
+    "heading": "Smazat tvůj účet?",
+    "bulletHistory": "Veškerá tvoje historie tréninků, odznaky i klipy se navždy smažou.",
+    "bulletTeam": "Zmizíš z týmu. Tvoje zprávy v týmovém chatu se stanou anonymními — tým ani spoluhráči tím jinak ovlivněni nebudou.",
+    "bulletFinal": "Jakmile uplyne 30 dní, nejde to vzít zpátky.",
+    "tip": "Pošleme e-mail, který musíš potvrdit ty (nebo rodič či zákonný zástupce) — samotné klepnutí na tlačítko níže zatím nic neudělá. Jakmile e-mail potvrdíš, máš 30 dní na to si to rozmyslet, a účet mezitím funguje úplně normálně.",
+    "captainTitle": "Jsi kapitán týmu",
+    "captainBody": "Než budeš moct pokračovat, musíš vybrat, kdo převezme roli kapitána.",
+    "successorNotChosen": "Zatím nikdo vybraný",
+    "chooseSuccessor": "Vybrat",
+    "changeSuccessor": "Změnit",
+    "lastPlayerWarning": "Právě teď jsi v týmu jediný/jediná. Pokud to bude platit i za 30 dní, celý tým zmizí spolu s tvým účtem — body, klipy i všechno ostatní.",
+    "submit": "Smazat můj účet"
+  },
+  "erasureStatusCard": {
+    "titleGracePeriod": "Tvůj účet se smaže {{date}}.",
+    "unknownDate": "(neznámé datum)",
+    "titleRequested": "Čeká se, až smazání potvrdíš",
+    "gracePeriodBody": "Do té doby účet funguje úplně normálně. Když si to rozmyslíš, můžeš to kdykoli předtím zrušit.",
+    "gracePeriodSuccessor": "{{successorScreenName}} ten den převezme roli kapitána.",
+    "requestedBody": "Poslali jsme ti odkaz e-mailem. Otevři e-mail a potvrď ho, čímž spustíš těch 30 dní. Pokud nic neuděláš, účet zůstane přesně takový, jaký je.",
+    "cancelGracePeriod": "Zrušit smazání",
+    "cancelRequested": "Zrušit žádost",
+    "cancelling": "Ruší se..."
+  },
+  "erasureSuccessor": {
+    "heading": "Kdo převezme roli kapitána?",
+    "sub": "Ten, koho vybereš, se stane kapitánem týmu v den, kdy se tvůj účet smaže — ne dřív. Do té doby jsi kapitánem jako obvykle.",
+    "done": "Hotovo"
+  },
+  "leaderboard": {
+    "pageHeading": "Tabulka MS ve zlatě 🥇",
+    "tabPoints": "🥇 Nejvíce bodů",
+    "tabEffort": "💪 Nejlepší týmové nasazení",
+    "loadError": "Tabulku se nepodařilo načíst. Zkontroluj připojení.",
+    "genericError": "Něco se pokazilo.",
+    "retry": "Zkusit znovu",
+    "back": "Zpět",
+    "effortNudge": "🌟 Vaši hráči makají skvěle! Podívejte se na Nejlepší týmové nasazení →",
+    "noActiveSeasonBanner": "Váš tým teď nemá aktivní sezónu — podívejte se ale na body ostatních týmů!",
+    "emptyPointsHeading": "Zatím není co zobrazit.",
+    "emptyPointsSub": "Vraťte se, až bude mít aktivní sezónu více týmů.",
+    "tieCaption": "Shodný počet bodů znamená stejné pořadí.",
+    "meTag": "Váš tým",
+    "pointsSuffix": "b",
+    "effortCaption": "Férový průměr — díky tomu může vyhrát i menší tým.",
+    "infoLink": "ⓘ Jak to počítáme",
+    "noEffortBanner": "Váš tým zatím není na tomto seznamu — je potřeba alespoň jeden schválený hráč.",
+    "emptyEffortHeading": "Zatím není žádné týmové nasazení k zobrazení.",
+    "emptyEffortSub": "Vraťte se, až bude mít schválené hráče více týmů.",
+    "playerCountSuffix": "hráčů",
+    "pointsPerPlayerSuffix": "b/hráče",
+    "infoSheet": {
+      "heading": "Jak počítáme Nejlepší týmové nasazení",
+      "body1": "Porovnáváme, kolik bodů získá každý tým na hráče — ne jen celkový součet týmu. Díky tomu může vyhrát i malý tým, když všichni makají naplno.",
+      "body2": "Pokud je tým malý, počítáme trochu opatrněji, aby pár opravdu dobrých dní náhodou nepřineslo první místo. Čím více hráčů tým má, tím víc věříme jejich vlastnímu průměru.",
+      "ownTeamLine": "Váš tým: {{pointsPerPlayer}} b/hráče s {{playerCount}} hráči → {{adjustedScore}} b při férovém výpočtu.",
+      "gotIt": "Dobře, rozumím!"
+    }
+  }
+}

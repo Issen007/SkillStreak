@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ClipPickerCard } from './ClipPickerCard';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -29,6 +30,7 @@ interface ClipAttachSheetProps {
  * reset on `visible`) rather than persisting across opens, since a fresh
  * `playbackUrl` should back every card shown, same as V2's own posture. */
 export function ClipAttachSheet({ visible, teamId, onSelect, onClose, onGoToClipsTab }: ClipAttachSheetProps) {
+  const { t } = useTranslation('chat');
   const [clips, setClips] = useState<ClipFeedItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -41,9 +43,9 @@ export function ClipAttachSheet({ visible, teamId, onSelect, onClose, onGoToClip
       setHasMore(response.clips.length === PICKER_PAGE_SIZE);
       setLoadError(null);
     } catch {
-      setLoadError('Kunde inte hämta klipp. Kolla din uppkoppling.');
+      setLoadError(t('ch6.loadError'));
     }
-  }, [teamId]);
+  }, [teamId, t]);
 
   useEffect(() => {
     if (!visible) return;
@@ -71,7 +73,7 @@ export function ClipAttachSheet({ visible, teamId, onSelect, onClose, onGoToClip
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.heading}>Bifoga ett klipp</Text>
+          <Text style={styles.heading}>{t('ch6.heading')}</Text>
           <Pressable accessibilityRole="button" onPress={onClose} hitSlop={10}>
             <Text style={styles.closeIcon}>✕</Text>
           </Pressable>
@@ -85,17 +87,14 @@ export function ClipAttachSheet({ visible, teamId, onSelect, onClose, onGoToClip
           <View style={styles.centered}>
             <Text style={styles.errorText}>{loadError}</Text>
             <Text style={styles.retryText} onPress={() => void fetchInitial()}>
-              Försök igen
+              {t('ch6.retry')}
             </Text>
           </View>
         ) : clips.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyHeading}>Inga klipp att bifoga än</Text>
-            <Text style={styles.emptySub}>
-              Ingen i laget har laddat upp ett klipp än. Gå till Klipp-fliken för att ladda upp det
-              första!
-            </Text>
-            <PrimaryButton label="Gå till Klipp" onPress={onGoToClipsTab} />
+            <Text style={styles.emptyHeading}>{t('ch6.emptyHeading')}</Text>
+            <Text style={styles.emptySub}>{t('ch6.emptySub')}</Text>
+            <PrimaryButton label={t('ch6.goToClips')} onPress={onGoToClipsTab} />
           </View>
         ) : (
           <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -116,7 +115,7 @@ export function ClipAttachSheet({ visible, teamId, onSelect, onClose, onGoToClip
                 {loadingMore ? (
                   <ActivityIndicator color={colors.ink} />
                 ) : (
-                  <Text style={styles.showMoreText}>Visa fler klipp</Text>
+                  <Text style={styles.showMoreText}>{t('ch6.showMore')}</Text>
                 )}
               </Pressable>
             ) : null}

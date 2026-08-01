@@ -1,6 +1,8 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
+import i18n from '../../i18n';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 import type { LeaderboardResponse } from '../../api/types';
@@ -17,10 +19,12 @@ interface EffortInfoSheetProps {
   onClose: () => void;
 }
 
-const oneDecimalFormatter = new Intl.NumberFormat('sv-SE', {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
+function oneDecimalFormatter() {
+  return new Intl.NumberFormat(i18n.language, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+}
 
 /** Screen LB3 — "Så räknar vi ut Bästa laginsats" info sheet, reached from
  * the "Bästa laginsats" tab's "ⓘ Så räknar vi ut det" link. Same bottom-
@@ -30,31 +34,27 @@ const oneDecimalFormatter = new Intl.NumberFormat('sv-SE', {
  * curiosity strikes, so it stays reachable forever (docs/design/
  * phase2.6-2.7-flows.md's Addendum). */
 export function EffortInfoSheet({ visible, requestingTeamEffort, onClose }: EffortInfoSheetProps) {
+  const { t } = useTranslation('home');
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} />
       <View style={styles.sheet}>
-        <Text style={styles.heading}>Så räknar vi ut Bästa laginsats</Text>
-        <Text style={styles.body}>
-          Vi jämför hur många poäng varje lag får per spelare — inte bara lagets totalsumma. Så
-          kan även ett litet lag vinna genom att alla kämpar på.
-        </Text>
-        <Text style={styles.body}>
-          Om ett lag är litet räknar vi lite försiktigt, så att några enstaka riktigt bra dagar
-          inte råkar ge förstaplatsen av en slump. Ju fler spelare ett lag har, desto mer litar vi
-          på deras eget snitt.
-        </Text>
+        <Text style={styles.heading}>{t('leaderboard.infoSheet.heading')}</Text>
+        <Text style={styles.body}>{t('leaderboard.infoSheet.body1')}</Text>
+        <Text style={styles.body}>{t('leaderboard.infoSheet.body2')}</Text>
 
         {requestingTeamEffort !== null ? (
           <Text style={styles.ownTeamLine}>
-            Ditt lag: {oneDecimalFormatter.format(requestingTeamEffort.pointsPerPlayer)} p/spelare
-            med {requestingTeamEffort.eligiblePlayerCount} spelare →{' '}
-            {oneDecimalFormatter.format(requestingTeamEffort.adjustedScore)} p när vi räknar
-            rättvist.
+            {t('leaderboard.infoSheet.ownTeamLine', {
+              pointsPerPlayer: oneDecimalFormatter().format(requestingTeamEffort.pointsPerPlayer),
+              playerCount: requestingTeamEffort.eligiblePlayerCount,
+              adjustedScore: oneDecimalFormatter().format(requestingTeamEffort.adjustedScore),
+            })}
           </Text>
         ) : null}
 
-        <PrimaryButton label="Okej, jag fattar!" onPress={onClose} />
+        <PrimaryButton label={t('leaderboard.infoSheet.gotIt')} onPress={onClose} />
       </View>
     </Modal>
   );

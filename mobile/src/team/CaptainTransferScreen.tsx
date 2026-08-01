@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { TeammateRow } from './components/TeammateRow';
 import { CaptainTransferConfirmSheet } from './components/CaptainTransferConfirmSheet';
@@ -38,6 +39,7 @@ export function CaptainTransferScreen({
   onNotCaptain,
   onTransferred,
 }: CaptainTransferScreenProps) {
+  const { t } = useTranslation('team');
   const [teammates, setTeammates] = useState<TeammateEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -56,11 +58,11 @@ export function CaptainTransferScreen({
         onNotCaptain();
         return;
       }
-      setLoadError('Kunde inte hämta laglistan. Kolla din uppkoppling.');
+      setLoadError(t('k4.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [teamId, onNotCaptain]);
+  }, [teamId, onNotCaptain, t]);
 
   useEffect(() => {
     void fetchTeammates();
@@ -79,7 +81,7 @@ export function CaptainTransferScreen({
       if (err instanceof ApiError) {
         if (err.code === 'player_not_found' || err.code === 'captain_transfer_target_not_on_team') {
           setTarget(null);
-          setToastMessage('Kunde inte hitta den spelaren längre. Listan uppdateras.');
+          setToastMessage(t('k4.targetNotFoundToast'));
           void fetchTeammates();
           return;
         }
@@ -87,12 +89,12 @@ export function CaptainTransferScreen({
         // disabled) and `captain_transfer_conflict` (defensive backstop)
         // share the same generic fallback, per the flow doc.
         setTarget(null);
-        setToastMessage('Något gick fel. Testa igen.');
+        setToastMessage(t('k4.genericErrorToast'));
         void fetchTeammates();
         return;
       }
       setTarget(null);
-      setToastMessage('Något gick fel. Testa igen.');
+      setToastMessage(t('k4.genericErrorToast'));
     }
   };
 
@@ -107,9 +109,9 @@ export function CaptainTransferScreen({
   if (loadError || !teammates) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>{loadError ?? 'Något gick fel.'}</Text>
+        <Text style={styles.errorText}>{loadError ?? t('k4.genericError')}</Text>
         <Text style={styles.retryText} onPress={() => void fetchTeammates()}>
-          Försök igen
+          {t('k4.retry')}
         </Text>
       </View>
     );
@@ -118,8 +120,8 @@ export function CaptainTransferScreen({
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Välj ny kapten</Text>
-        <Text style={styles.sub}>Den du väljer blir lagets nya kapten direkt.</Text>
+        <Text style={styles.heading}>{t('k4.heading')}</Text>
+        <Text style={styles.sub}>{t('k4.sub')}</Text>
 
         <View style={styles.list}>
           {teammates.map((teammate) => {
@@ -137,7 +139,7 @@ export function CaptainTransferScreen({
           })}
         </View>
 
-        <SecondaryLink label="Tillbaka" onPress={onBack} />
+        <SecondaryLink label={t('k4.back')} onPress={onBack} />
       </ScrollView>
 
       <CaptainTransferConfirmSheet

@@ -1,1 +1,86 @@
-{}
+{
+  "k1": {
+    "heading": "Holdet 👥",
+    "loadError": "Kunne ikke hente holdet. Tjek din forbindelse.",
+    "genericError": "Noget gik galt.",
+    "retry": "Prøv igen",
+    "pendingSectionLabel": "Venter på godkendelse",
+    "teammatesSectionLabel": "Spillere på holdet",
+    "inviteCodeLabel": "Holdkode",
+    "inviteButton": "📨 Inviter en ven",
+    "captainBadge": "👑 Du er anfører",
+    "captainSeeDetail": "Se holdet i detaljer",
+    "captainManageGoal": "Administrer ugens mål",
+    "captainSwapCaptain": "Skift anfører",
+    "notCaptainToast": "Denne side er kun for holdets anfører.",
+    "approveSuccessToast": "{{screenName}} er nu godkendt på holdet! 🎉",
+    "approveErrorToast": "Kunne ikke godkende lige nu. Prøv igen.",
+    "rejectSuccessToast": "{{screenName}} blev afvist.",
+    "rejectErrorToast": "Kunne ikke afvise lige nu. Prøv igen.",
+    "captainTransferredToast": "Anførerskabet er overdraget til {{newCaptainScreenName}}. 👑",
+    "linkCopiedToast": "Link kopieret!"
+  },
+  "k2": {
+    "heading": "Holdet i detaljer",
+    "loadError": "Kunne ikke hente holdlisten. Tjek din forbindelse.",
+    "genericError": "Noget gik galt.",
+    "retry": "Prøv igen",
+    "back": "Tilbage",
+    "reminderSentToast": "Påmindelse sendt.",
+    "consentNoLongerPendingToast": "Denne spiller venter ikke længere på godkendelse.",
+    "reminderErrorToast": "Noget gik galt. Prøv igen.",
+    "reissueSentToast": "Login-kode sendt til forælder/værge.",
+    "reissueRateLimitedToast": "Der blev lige sendt en kode — vent et minut, før du sender en ny."
+  },
+  "k4": {
+    "heading": "Vælg ny anfører",
+    "sub": "Den du vælger, bliver holdets nye anfører med det samme.",
+    "loadError": "Kunne ikke hente holdlisten. Tjek din forbindelse.",
+    "genericError": "Noget gik galt.",
+    "retry": "Prøv igen",
+    "back": "Tilbage",
+    "targetNotFoundToast": "Kunne ikke finde den spiller længere. Listen opdateres.",
+    "genericErrorToast": "Noget gik galt. Prøv igen."
+  },
+  "consentChips": {
+    "approved": "{{count}} godkendt ✓",
+    "pending": "{{count}} venter ⏳",
+    "revoked": "{{count}} sat på pause ⏸️"
+  },
+  "inviteFriendSheet": {
+    "heading": "Inviter en ven",
+    "subExpoGo": "Lad dem scanne koden for at åbne appen i Expo Go, så skriver de holdkoden nedenfor.",
+    "subDefault": "Lad dem scanne koden, eller del linket — de udfylder bare deres eget kaldenavn, holdet er allerede udfyldt.",
+    "codeLabel": "Holdkode",
+    "shareButton": "Del invitation",
+    "close": "Luk",
+    "shareMessageExpoGo": "Bliv med i {{teamName}} på SkillStreak! Åbn linket i Expo Go, og skriv så holdkoden {{inviteCode}}, når appen starter: {{joinUrl}}",
+    "shareMessageDefault": "Bliv med i {{teamName}} på SkillStreak! Brug holdkoden {{inviteCode}} eller klik på linket: {{joinUrl}}"
+  },
+  "pendingJoinRow": {
+    "reject": "Afvis",
+    "approve": "Godkend"
+  },
+  "reminderActionSheet": {
+    "sendReminder": "Send påmindelse til forælder",
+    "sendReissue": "Send nyt login-link",
+    "cancel": "Annuller"
+  },
+  "rosterRow": {
+    "statusApproved": "Godkendt ✓",
+    "statusPending": "Venter ⏳",
+    "statusRevoked": "Sat på pause ⏸️",
+    "statusNotRequested": "Ikke sendt endnu",
+    "lastTrained": "Sidst logget: {{date}}",
+    "notTrainedYet": "Har ikke logget endnu"
+  },
+  "teammateRow": {
+    "selfTag": "(Dig)"
+  },
+  "captainTransferConfirmSheet": {
+    "heading": "Gør {{screenName}} til anfører?",
+    "body": "{{screenName}} får anførerknapperne med det samme. Du er stadig med på holdet som normalt — og hvis {{screenName}} vil, kan de altid give det tilbage til dig senere, ligesom du gør nu.",
+    "confirmButton": "Ja, gør {{screenName}} til anfører",
+    "cancel": "Annuller"
+  }
+}

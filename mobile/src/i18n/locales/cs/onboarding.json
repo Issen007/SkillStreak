@@ -1,1 +1,118 @@
-{}
+{
+  "o0": {
+    "heading": "Který jazyk chceš používat?",
+    "sub": "Jazyk můžeš později kdykoli změnit.",
+    "next": "Další"
+  },
+  "o1": {
+    "heading": "Za jaký tým hraješ?",
+    "sub": "Zeptej se trenéra na kód týmu.",
+    "codePlaceholder": "Např. FALKEN24",
+    "findTeamButton": "Najít můj tým",
+    "returningUserLink": "Máš už účet?"
+  },
+  "o1a": {
+    "heading": "Tým s kódem <code>{{inviteCode}}</code> jsme nenašli",
+    "sub": "Žádný problém — vyber, co se hodí na tebe:",
+    "wrongCodeTitle": "Asi jsem se překlepl(a)",
+    "wrongCodeSub": "Zkusit kód znovu",
+    "createTeamTitle": "Náš tým ještě nemá kód",
+    "createTeamSub": "Vytvořit nový tým s tímto kódem",
+    "helper": "Nejsi si jistý/á? Zeptej se trenéra, než založíš nový tým."
+  },
+  "o1b": {
+    "codeChip": "Kód týmu: {{inviteCode}}",
+    "changeCode": "Změnit kód",
+    "heading": "Jak se bude jmenovat váš tým?",
+    "sub": "Staneš se prvním hráčem týmu — a kapitánem! Vyber jméno, na které může být hrdý celý tým.",
+    "nameLabel": "Název týmu",
+    "namePlaceholder": "Např. IBK Falken P13",
+    "helper": "Ostatní týmy uvidí tento název na žebříčku.",
+    "next": "Další"
+  },
+  "o1c": {
+    "heading": "Vytvořit {{teamName}}?",
+    "sub": "Kód týmu: {{inviteCode}} — sdílej ho se spoluhráči, aby se mohli později připojit.",
+    "tip": "Název ani kód později nepůjde změnit, tak si vše dvakrát zkontroluj!",
+    "confirm": "Ano, vytvořit tým!",
+    "editName": "Ne, upravit název"
+  },
+  "o2": {
+    "heading": "Připojuješ se k {{teamName}}?",
+    "sub": "Pokud to sedí, jdeme na to!",
+    "confirm": "Ano, to je můj tým!",
+    "reject": "Ne, zkusit jiný kód"
+  },
+  "o3": {
+    "heading": "Vyber si své jméno hráče",
+    "sub": "Tohle jméno vidí tvůj tým — nemusí to být tvé skutečné jméno, pokud nechceš.",
+    "nameLabel": "Jméno hráče",
+    "namePlaceholder": "Např. FloorballStar15",
+    "avatarLabel": "Vyber si avatara",
+    "helper": "Fotku nepotřebuješ — vyber si postavičku, která se ti líbí.",
+    "next": "Další"
+  },
+  "o4": {
+    "heading": "V jakém roce ses narodil(a)?",
+    "sub": "Podle toho přizpůsobíme výzvy tvému věku.",
+    "yearRangeError": "Zadej rok mezi {{minYear}} a {{maxYear}}.",
+    "yearLabel": "Rok narození",
+    "yearPlaceholder": "Např. {{maxYear}}",
+    "next": "Další"
+  },
+  "o5": {
+    "verifyHeading": "Ověř svůj účet",
+    "consentHeading": "Ptáme se dospělého o svolení",
+    "verifyBody1": "Než budeš moct začít zapisovat tréninky, musíš ověřit svůj e-mail nebo telefonní číslo.",
+    "consentBody1": "Než budeš moct začít zapisovat tréninky, musí rodič nebo zákonný zástupce souhlasit.",
+    "verifyBody2": "Pošleme ti ověřovací odkaz — potvrdíš ho jedním klepnutím.",
+    "consentBody2": "Pošleme jim rychlou otázku — schválí ji jedním klepnutím.",
+    "verifyContactLabel": "Tvůj e-mail nebo telefonní číslo",
+    "consentContactLabel": "E-mail nebo telefonní číslo rodiče či zákonného zástupce",
+    "contactPlaceholder": "např. jmeno@priklad.cz",
+    "verifyHelper": "Používáme ho jen k ověření tvého účtu — na nic jiného.",
+    "consentHelper": "Používáme ho jen k tomu, abychom se zeptali o svolení — na nic jiného.",
+    "submit": "Odeslat žádost",
+    "coachNote": "Trenéři: pomozte hráči s vyplněním, pokud si nejsou jistí údaji."
+  },
+  "o6": {
+    "foundingIcon": "👑🎉",
+    "foundingHeading": "Gratulujeme, {{screenName}}! Vytvořil(a) jsi tým {{teamName}}!",
+    "foundingBody": "Jsi první hráč týmu — a kapitán! Jakmile rodič nebo zákonný zástupce řekne ano, můžeš začít zapisovat tréninky a zvát spoluhráče.",
+    "codeChip": "Kód týmu: {{inviteCode}}",
+    "codeHelper": "Sdílej ho se svými spoluhráči!",
+    "joinedIcon": "✅👋",
+    "joinedHeading": "Hotovo, {{screenName}}!",
+    "joinedBody": "Jsi teď v týmu {{teamName}}! Poslali jsme žádost rodiči nebo zákonnému zástupci. Jakmile řekne ano, můžeš začít zapisovat tréninky a získávat body pro tým.",
+    "doneButton": "Jdeme na to"
+  },
+  "ra1": {
+    "heading": "Máš už účet?",
+    "sub": "Zadej kód týmu a své uživatelské jméno, pošleme přihlašovací kód na tvůj (nebo rodičův) e-mail.",
+    "codePlaceholder": "Kód týmu, např. FALKEN24",
+    "namePlaceholder": "Tvé uživatelské jméno",
+    "submit": "Odeslat kód",
+    "back": "Zpět"
+  },
+  "ra2": {
+    "heading": "Zkontroluj si e-mail",
+    "sub": "Pokud údaje seděly, poslali jsme kód na tvůj (nebo rodičův) e-mail. Zadej kód níže a přihlas se znovu.",
+    "codePlaceholder": "Např. H4K7QWXP",
+    "invalidCodeError": "Tenhle kód už nefunguje. Zkontroluj, jestli jsi ho napsal(a) správně, nebo požádej o nový.",
+    "submit": "Přihlásit se",
+    "retryLink": "Nedostal(a) jsi kód? Zkusit znovu"
+  },
+  "flow": {
+    "screenNameTaken": "Tohle jméno je v týmu už obsazené — zkus jiné!",
+    "teamNameRejected": "Název nebo kód týmu obsahoval slova, která tady nejdou použít. Přepiš název, nebo klepni nahoře na „Změnit kód“, pokud je problém v kódu.",
+    "codeTakenConcurrently": "Jejda — někdo stihl vytvořit tým s tímto kódem těsně před tebou! Zkus jiný kód, zbytek hned zařídíme.",
+    "inviteCodeNotFound": "Tenhle kód týmu už nefunguje. Zeptej se trenéra na nový kód.",
+    "invalidParentContact": "Tenhle kontakt nevypadá správně — zkontroluj, že je to platná e-mailová adresa nebo telefonní číslo.",
+    "invalidScreenName": "Tohle jméno úplně nefunguje — zkus jiné!",
+    "invalidBirthYear": "Hmm, tenhle rok nevypadá správně. Zkus to znovu.",
+    "genericValidationError": "Něco se nepovedlo. Zkontroluj údaje a zkus to znovu."
+  },
+  "shared": {
+    "genericError": "Něco se nepovedlo. Zkontroluj připojení a zkus to znovu."
+  }
+}

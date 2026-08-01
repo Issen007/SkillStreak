@@ -1,1 +1,86 @@
-{}
+{
+  "ch0": {
+    "heading": "Comment fonctionne le chat d'équipe",
+    "bullet1": "Seule ton équipe voit ce que tu écris ici.",
+    "bullet2": "Quelque chose te semble bizarre ? Tu peux signaler un message, ou bloquer une personne pour ne plus voir ses messages.",
+    "bullet3": "Certains mots ne fonctionnent pas ici. Si un message ne veut pas s'envoyer, essaie de le réécrire.",
+    "dismiss": "D'accord, j'ai compris !"
+  },
+  "ch1": {
+    "heading": "Chat d'équipe 💬",
+    "blockedLink": "🚫 Bloqués",
+    "loadError": "Impossible de charger le chat d'équipe. Vérifie ta connexion.",
+    "retry": "Réessayer",
+    "emptyHeading": "Aucun message pour l'instant",
+    "emptySub": "Écris le premier message à ton équipe !",
+    "filterRejected": "Le message n'a pas été envoyé — il contenait des mots qui ne fonctionnent pas ici. Essaie de le réécrire ! ✍️",
+    "sendRateLimited": "Tu envoies des messages un peu vite en ce moment. Attends un petit moment, puis réessaie.",
+    "genericError": "Un problème est survenu. Réessaie.",
+    "clipGoneOnSend": "Le clip n'a pas pu être envoyé — il n'existe plus. Tu peux maintenant envoyer le reste toi-même.",
+    "messageNotFoundToast": "Ce message n'existe plus.",
+    "alreadyReportedToast": "Tu as déjà signalé ce message.",
+    "reportRateLimitedToast": "Tu as signalé pas mal de choses ces derniers temps. Attends un petit moment avant de signaler à nouveau.",
+    "clipNotFoundToast": "Cette vidéo n'existe plus.",
+    "clipAlreadyReportedToast": "Tu as déjà signalé cette vidéo.",
+    "clipReportRateLimitedToast": "Tu as signalé pas mal de choses ces derniers temps. Attends un petit moment avant de signaler à nouveau.",
+    "blockedToast": "Tu ne verras plus les messages ni les clips de {{screenName}}."
+  },
+  "ch2": {
+    "excerpt": "Tu signales : « {{excerpt}}… »",
+    "heading": "Pourquoi signales-tu ce message ?",
+    "reasonBullying": "Harcèlement",
+    "reasonInappropriateLanguage": "Langage inapproprié",
+    "reasonSpam": "Spam",
+    "reasonOther": "Autre",
+    "noteLabel": "Tu veux en dire plus ? (facultatif)",
+    "notePlaceholder": "Facultatif…",
+    "submit": "Envoyer le signalement",
+    "cancel": "Annuler"
+  },
+  "ch3": {
+    "heading": "Merci de nous avoir prévenus.",
+    "body": "Nous avons bien reçu ton signalement. Tu n'as rien d'autre à faire — et personne ne saura que c'est toi qui as signalé.",
+    "followUp": "Veux-tu aussi ne plus voir les messages de cette personne ?",
+    "block": "Bloquer {{screenName}}",
+    "noThanks": "Non merci",
+    "done": "Terminé"
+  },
+  "ch4": {
+    "body": "Si tu bloques {{screenName}}, tu ne verras plus ses messages dans le chat d'équipe ni ses Shorts dans le fil Shorts. {{screenName}} ne saura pas que tu l'as bloqué(e).",
+    "confirm": "Bloquer {{screenName}}",
+    "cancel": "Annuler"
+  },
+  "ch5": {
+    "heading": "Coéquipiers bloqués",
+    "headingSub": "Un blocage s'applique à la fois au chat d'équipe et aux Shorts.",
+    "empty": "Tu n'as bloqué personne.",
+    "unblock": "Débloquer",
+    "back": "Retour",
+    "unblockedToast": "Tu revois les messages de {{screenName}}.",
+    "genericError": "Un problème est survenu. Réessaie."
+  },
+  "ch6": {
+    "heading": "Joindre un clip",
+    "loadError": "Impossible de charger les clips. Vérifie ta connexion.",
+    "retry": "Réessayer",
+    "emptyHeading": "Aucun clip à joindre pour l'instant",
+    "emptySub": "Personne dans l'équipe n'a encore mis en ligne de clip. Va dans l'onglet Clips pour mettre le premier en ligne !",
+    "goToClips": "Aller aux Clips",
+    "showMore": "Voir plus de clips"
+  },
+  "composeBar": {
+    "lockedNote": "En attente d'une autorisation avant de pouvoir envoyer des messages. Tu peux quand même lire ce que l'équipe écrit.",
+    "placeholder": "Écris quelque chose à ton équipe…",
+    "clipChipLabel": "De {{screenName}}"
+  },
+  "messageBubble": {
+    "reportMessage": "🚩 Signaler le message",
+    "reportClip": "🚩 Signaler le clip"
+  },
+  "clipEmbed": {
+    "attribution": "Clip de {{screenName}}"
+  },
+  "clipUnavailable": {
+    "text": "🎬 Cette vidéo n'est plus disponible."
+  }
+}

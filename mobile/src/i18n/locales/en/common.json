@@ -1,1 +1,18 @@
-{}
+{
+  "captainBanner": {
+    "promotedTitle": "👑 Congrats! You're now the team's captain.",
+    "promotedSub": "You'll find your new tools in the Team tab.",
+    "demoted": "The captaincy was passed to a teammate."
+  },
+  "catchUpBanner": {
+    "message": "🎉 Everyone on the team hit this week's goal! The team got +{{points}} bonus points."
+  },
+  "tabs": {
+    "home": "Home",
+    "chat": "Chat",
+    "clips": "Shorts",
+    "goal": "Goal",
+    "team": "Team"
+  },
+  "testModeBanner": "🧪 This is just a TEST — don't create a real account with real information."
+}

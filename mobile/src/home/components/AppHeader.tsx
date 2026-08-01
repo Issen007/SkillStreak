@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Trans } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -22,17 +22,18 @@ interface AppHeaderProps {
  * greeting (never the real name, per the "screen names in any player-facing
  * UI" rule). Otherwise purely presentational — no fetch, no state. */
 export function AppHeader({ screenName, avatarId, onAvatarPress }: AppHeaderProps) {
+  const { t } = useTranslation('home');
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
 
   return (
     <View style={styles.container}>
       <View>
         <Text style={styles.wordmark}>SkillStreak</Text>
-        <Text style={styles.workingTitle}>arbetstitel</Text>
+        <Text style={styles.workingTitle}>{t('appHeader.workingTitle')}</Text>
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Din profil"
+        accessibilityLabel={t('appHeader.profileAccessibilityLabel')}
         onPress={onAvatarPress}
         disabled={!onAvatarPress}
         style={({ pressed }) => [styles.avatarCircle, pressed && styles.avatarPressed]}

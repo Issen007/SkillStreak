@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -43,6 +44,7 @@ export function ClipEmbed({
   onActivate,
   onTapAttribution,
 }: ClipEmbedProps) {
+  const { t } = useTranslation('chat');
   const [muted, setMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -104,10 +106,14 @@ export function ClipEmbed({
       {showAttribution ? (
         attributionTappable ? (
           <Pressable onPress={onTapAttribution} accessibilityRole="button">
-            <Text style={styles.attribution}>Klipp av {clip.uploaderScreenName}</Text>
+            <Text style={styles.attribution}>
+              {t('clipEmbed.attribution', { screenName: clip.uploaderScreenName })}
+            </Text>
           </Pressable>
         ) : (
-          <Text style={styles.attributionStatic}>Klipp av {clip.uploaderScreenName}</Text>
+          <Text style={styles.attributionStatic}>
+            {t('clipEmbed.attribution', { screenName: clip.uploaderScreenName })}
+          </Text>
         )
       ) : null}
     </View>

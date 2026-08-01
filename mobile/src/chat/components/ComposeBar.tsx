@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PausedClipThumbnail } from './PausedClipThumbnail';
 import { colors } from '../../theme/colors';
@@ -6,9 +7,6 @@ import { fonts } from '../../theme/fonts';
 
 const MAX_LENGTH = 500;
 const COUNTER_THRESHOLD = 400;
-
-const LOCKED_TOAST_TEXT =
-  'Väntar på godkännande innan du kan skicka meddelanden. Du kan fortfarande läsa vad laget skriver.';
 
 /** The composer's attached-clip preview — just enough to render the chip
  * and send the request, not the full `ClipFeedItem` shape (`ChatScreen`
@@ -58,15 +56,17 @@ export function ComposeBar({
   onRemoveClip,
   onLockedAttachTap,
 }: ComposeBarProps) {
+  const { t } = useTranslation('chat');
   const trimmed = value.trim();
   const overLimit = value.length > MAX_LENGTH;
   // ADR-0017 Decision 4 — enabled when EITHER non-empty text OR an
   // attached clip (or both), not text-only as Part B originally specified.
   const canSend = !locked && !sending && !overLimit && (trimmed.length > 0 || attachedClip !== null);
+  const lockedNoteText = t('composeBar.lockedNote');
 
   const handleTapAttach = () => {
     if (locked) {
-      onLockedAttachTap(LOCKED_TOAST_TEXT);
+      onLockedAttachTap(lockedNoteText);
       return;
     }
     onOpenClipPicker();
@@ -80,7 +80,7 @@ export function ComposeBar({
             <PausedClipThumbnail playbackUrl={attachedClip.playbackUrl} style={styles.clipThumb} />
           </View>
           <Text style={styles.clipChipLabel} numberOfLines={1}>
-            Från {attachedClip.uploaderScreenName}
+            {t('composeBar.clipChipLabel', { screenName: attachedClip.uploaderScreenName })}
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -106,7 +106,7 @@ export function ComposeBar({
         <TextInput
           value={value}
           onChangeText={onChangeText}
-          placeholder="Skriv något till laget…"
+          placeholder={t('composeBar.placeholder')}
           placeholderTextColor={colors.textMuted}
           editable={!locked && !sending}
           multiline
@@ -129,9 +129,7 @@ export function ComposeBar({
         </Text>
       ) : null}
 
-      {locked ? (
-        <Text style={styles.lockedNote}>{LOCKED_TOAST_TEXT}</Text>
-      ) : null}
+      {locked ? <Text style={styles.lockedNote}>{lockedNoteText}</Text> : null}
 
       {filterErrorText ? <Text style={styles.filterError}>{filterErrorText}</Text> : null}
     </View>

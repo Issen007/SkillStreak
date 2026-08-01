@@ -1,1 +1,18 @@
-{}
+{
+  "captainBanner": {
+    "promotedTitle": "👑 Onneksi olkoon! Olet nyt joukkueen kapteeni.",
+    "promotedSub": "Löydät uudet työkalusi Joukkue-välilehdeltä.",
+    "demoted": "Kapteeniuus siirtyi joukkuekaverille."
+  },
+  "catchUpBanner": {
+    "message": "🎉 Koko joukkue saavutti viikon tavoitteen! Joukkue sai +{{points}} bonuspistettä."
+  },
+  "tabs": {
+    "home": "Koti",
+    "chat": "Chat",
+    "clips": "Shorts",
+    "goal": "Tavoite",
+    "team": "Joukkue"
+  },
+  "testModeBanner": "🧪 Tämä on vain TESTI — älä luo oikeaa tiliä oikeilla tiedoilla."
+}

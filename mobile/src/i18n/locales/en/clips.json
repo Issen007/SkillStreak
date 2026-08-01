@@ -1,1 +1,115 @@
-{}
+{
+  "v0": {
+    "heading": "How Shorts works",
+    "bullet1": "Only your own team can see the Shorts videos uploaded here.",
+    "bullet2": "A parent or guardian has to say yes before you can upload a Shorts yourself.",
+    "bullet3": "Something feel off about a Shorts? Report it and it disappears immediately for the whole team, while an adult takes a look.",
+    "bullet4": "You can always delete your own Shorts, whenever you want.",
+    "dismiss": "Okay, got it!"
+  },
+  "v1": {
+    "joinPendingTitle": "Waiting for your team's captain",
+    "consentPendingTitleSelfVerify": "Waiting for you to verify",
+    "consentPendingTitle": "Waiting for approval",
+    "consentPartSelfVerify": "You need to verify your email or phone number.",
+    "consentPart": "A parent or guardian needs to say yes.",
+    "joinPart": "Your team's captain needs to approve that you joined the team.",
+    "bothPendingSuffix": "As soon as both are done, we'll unlock the Shorts tab.",
+    "joinPendingSuffix": "As soon as the captain approves, we'll unlock the Shorts tab.",
+    "consentPendingSuffix": "As soon as that's done, we'll unlock the Shorts tab.",
+    "pausedTitle": "Shorts is paused right now",
+    "pausedBody": "A parent or guardian has withdrawn approval. Talk to your coach if you have questions.",
+    "refresh": "Check again",
+    "refreshing": "Checking..."
+  },
+  "v2": {
+    "heading": "Shorts 🎬",
+    "loadError": "Couldn't load Shorts. Check your connection.",
+    "retry": "Try again",
+    "emptyHeading": "No Shorts yet",
+    "emptySub": "Be the first to share a Shorts with your team!",
+    "uploadButton": "Upload Shorts",
+    "showMore": "Show more Shorts",
+    "showMoreError": "Couldn't load more Shorts. Try again.",
+    "uploadLockedToast": "Still waiting for approval before you can upload.",
+    "challengeBanner": "🎯 {{screenName}} challenged you! Check out the Shorts video.",
+    "consentRevokedToast": "We still need approval before you can upload. We'll refresh the page for you.",
+    "reportNotFoundToast": "That video doesn't exist anymore.",
+    "reportAlreadyToast": "You've already reported this video.",
+    "reportRateLimitedToast": "You've reported quite a few things lately. Wait a little while before reporting again.",
+    "genericError": "Something went wrong. Try again.",
+    "deletedToast": "The video has been deleted.",
+    "deleteNotFoundToast": "The video doesn't exist anymore.",
+    "blockedToast": "You'll no longer see Shorts or messages from {{screenName}}."
+  },
+  "clipCard": {
+    "challengeChip": "🎯 Challenging {{screenName}}",
+    "report": "🚩 Report",
+    "delete": "🗑️ Delete video"
+  },
+  "v9": {
+    "heading": "Why are you reporting this video?",
+    "reasonAppearsWithoutConsent": "I'm in this video and didn't want to be",
+    "reasonBullying": "Bullying",
+    "reasonInappropriateContent": "Inappropriate content",
+    "reasonNotTrainingRelated": "Not related to training",
+    "reasonOther": "Other",
+    "noteLabel": "Want to say more? (optional)",
+    "notePlaceholder": "Optional…",
+    "submit": "Send report",
+    "cancel": "Cancel"
+  },
+  "v10": {
+    "heading": "Thanks for telling us.",
+    "body": "The video is now hidden for the whole team, including you. No one will know it was you who reported it.",
+    "bodySecondary": "An adult will find out about this, but we can't promise exactly when the video will be reviewed.",
+    "followUp": "Do you also want to stop seeing Shorts and messages from this person?",
+    "block": "Block {{screenName}}",
+    "noThanks": "No thanks",
+    "done": "Done"
+  },
+  "v11": {
+    "heading": "Delete this Shorts video?",
+    "body": "The video disappears permanently for the whole team — this can't be undone.",
+    "confirm": "Yes, delete the video",
+    "cancel": "Cancel"
+  },
+  "v4": {
+    "heading": "Pick or record a Shorts",
+    "sub": "The video can be up to {{maxSeconds}} seconds long.",
+    "record": "🎥 Record",
+    "pickFromLibrary": "🖼️ Choose from gallery",
+    "cancel": "Cancel",
+    "tooLong": "The video is too long — max {{maxSeconds}} seconds. Try another one!",
+    "wrongFormat": "That file type doesn't work here. Try a video from the camera or gallery.",
+    "unreadable": "Couldn't read the video. Try another one.",
+    "permission": "We need your permission for this. Try again, or choose the other option."
+  },
+  "v5": {
+    "heading": "Caption & challenge",
+    "captionPlaceholder": "Add a caption (optional)…",
+    "challengeLabel": "Challenge a teammate? (optional)",
+    "noTeammates": "No teammates to challenge yet.",
+    "taggedHelper": "{{screenName}} will see you challenged them next time they open Shorts.",
+    "upload": "Upload",
+    "cancel": "Cancel",
+    "captionRejected": "The caption couldn't be saved — it contained words that don't work here. Try rewriting it! ✍️",
+    "rateLimited": "You're uploading Shorts a bit fast right now. Wait a little while and it'll work again.",
+    "taggedPlayerGone": "That player is no longer on the team. Choose someone else, or no one.",
+    "genericError": "Something went wrong. Try again."
+  },
+  "v6": {
+    "heading": "Uploading your Shorts…",
+    "sub": "Don't leave the app — it'll only take a moment.",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "backToFeed": "Back to the feed",
+    "retryFailure": "Something went wrong with the upload. We'll try again from the start.",
+    "giveUp": "The upload didn't succeed this time. Check your connection and try again."
+  },
+  "v7": {
+    "heading": "Your Shorts is up! 🎉",
+    "sub": "Your team can see it now.",
+    "done": "To the feed"
+  }
+}

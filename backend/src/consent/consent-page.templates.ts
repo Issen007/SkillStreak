@@ -14,9 +14,10 @@
 // take a `locale` param — the invalid/already-used pages have no token to
 // resolve a Player from, so they stay the existing hardcoded Swedish copy,
 // same as before this ADR. `COPY`/`resolveCopy` per-page, same pattern as
-// every mail template in `mail/templates/*.template.ts` — only `sv` has
-// real content; en/fi/da/nb fall through to it (no translation content in
-// part (a), per the ADR).
+// every mail template in `mail/templates/*.template.ts` — part (b) (this
+// session) added real en/fi/da/nb/de/cs/fr content to all four `COPY`
+// objects; any locale outside the 8-value enum (there isn't one today)
+// would still fall through to `sv`, never a blank/broken page.
 
 import { PlayerLocale } from '../common/locale/player-locale.enum';
 
@@ -29,9 +30,13 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function page(title: string, bodyHtml: string): string {
+function page(
+  title: string,
+  bodyHtml: string,
+  locale: PlayerLocale = PlayerLocale.SV,
+): string {
   return `<!DOCTYPE html>
-<html lang="sv">
+<html lang="${locale}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -53,6 +58,11 @@ interface ConsentConfirmCopy {
   button: string;
 }
 
+// en/fi/da/nb/de/cs/fr translations in all four COPY objects below (this
+// one and the three further down the file) are AI-generated (this
+// session), not sourced from a professional/native-speaker translator —
+// recommend a native-speaker review pass before relying on this for real
+// families, especially given this page's GDPR consent context.
 const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
   {
     sv: {
@@ -67,7 +77,91 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       höra av dig till tränaren om du ändrar dig senare.`,
       button: 'Jag godkänner',
     },
-    // en/fi/da/nb/de/cs/fr: added incrementally, per part (b).
+    en: {
+      title: (safeName) => `Approve ${safeName} — SkillStreak`,
+      heading: (safeName) => `Approve ${safeName} on SkillStreak`,
+      body1: (safeName) =>
+        `<strong>${safeName}</strong> wants to log training sessions in SkillStreak — an app for daily
+      training streaks and a shared team point goal. No photos or location data are collected,
+      and ${safeName} is only visible to their own team.`,
+      body2: (safeName) =>
+        `If you approve, ${safeName} can start logging training sessions right away. You can always
+      get in touch with the coach if you change your mind later.`,
+      button: 'I approve',
+    },
+    fi: {
+      title: (safeName) => `Hyväksy ${safeName} — SkillStreak`,
+      heading: (safeName) => `Hyväksy ${safeName} SkillStreakiin`,
+      body1: (safeName) =>
+        `<strong>${safeName}</strong> haluaa kirjata harjoituksia SkillStreakissa — sovelluksessa, jossa
+      harjoitellaan päivittäin putkeen ja kerätään yhteistä joukkuepistemäärää. Kuvia tai
+      sijaintitietoja ei kerätä, ja ${safeName} näkyy vain omalle joukkueelleen.`,
+      body2: (safeName) =>
+        `Jos hyväksyt, ${safeName} voi alkaa kirjata harjoituksia heti. Voit aina ottaa yhteyttä
+      valmentajaan, jos muutat mielesi myöhemmin.`,
+      button: 'Hyväksyn',
+    },
+    da: {
+      title: (safeName) => `Godkend ${safeName} — SkillStreak`,
+      heading: (safeName) => `Godkend ${safeName} på SkillStreak`,
+      body1: (safeName) =>
+        `<strong>${safeName}</strong> vil gerne logge træningspas i SkillStreak — en app til daglige
+      træningsstreaks og et fælles holdpoint-mål. Der indsamles ingen billeder eller
+      placeringsdata, og ${safeName} er kun synlig for sit eget hold.`,
+      body2: (safeName) =>
+        `Hvis du godkender det, kan ${safeName} begynde at logge træningspas med det samme. Du kan
+      altid kontakte træneren, hvis du skifter mening senere.`,
+      button: 'Jeg godkender',
+    },
+    nb: {
+      title: (safeName) => `Godkjenn ${safeName} — SkillStreak`,
+      heading: (safeName) => `Godkjenn ${safeName} på SkillStreak`,
+      body1: (safeName) =>
+        `<strong>${safeName}</strong> vil logge treningsøkter i SkillStreak — en app for daglige
+      treningsstreaker og et felles lagpoengmål. Ingen bilder eller stedsdata samles inn, og
+      ${safeName} er bare synlig for sitt eget lag.`,
+      body2: (safeName) =>
+        `Hvis du godkjenner, kan ${safeName} begynne å logge treningsøkter med en gang. Du kan alltid
+      ta kontakt med treneren hvis du ombestemmer deg senere.`,
+      button: 'Jeg godkjenner',
+    },
+    de: {
+      title: (safeName) => `${safeName} zustimmen — SkillStreak`,
+      heading: (safeName) => `Zustimmung für ${safeName} auf SkillStreak`,
+      body1: (safeName) =>
+        `<strong>${safeName}</strong> möchte Trainingseinheiten in SkillStreak eintragen — einer App für
+      tägliche Trainings-Streaks und ein gemeinsames Team-Punkteziel. Es werden keine Fotos
+      oder Standortdaten erhoben, und ${safeName} ist nur für das eigene Team sichtbar.`,
+      body2: (safeName) =>
+        `Wenn du zustimmst, kann ${safeName} ab sofort Trainingseinheiten eintragen. Du kannst dich
+      jederzeit an den Trainer bzw. die Trainerin wenden, falls du es dir später anders überlegst.`,
+      button: 'Ich stimme zu',
+    },
+    cs: {
+      title: (safeName) => `Souhlas pro ${safeName} — SkillStreak`,
+      heading: (safeName) => `Souhlas pro ${safeName} na SkillStreak`,
+      body1: (safeName) =>
+        `<strong>${safeName}</strong> chce zaznamenávat tréninky v SkillStreak — aplikaci pro denní
+      tréninkové série a společný týmový bodový cíl. Nesbírají se žádné fotografie ani údaje
+      o poloze a ${safeName} je viditelný pouze pro svůj vlastní tým.`,
+      body2: (safeName) =>
+        `Pokud souhlasíte, ${safeName} může začít zaznamenávat tréninky ihned. Kdykoli se můžete
+      obrátit na trenéra, pokud si to později rozmyslíte.`,
+      button: 'Souhlasím',
+    },
+    fr: {
+      title: (safeName) => `Approuver ${safeName} — SkillStreak`,
+      heading: (safeName) => `Approuver ${safeName} sur SkillStreak`,
+      body1: (safeName) =>
+        `<strong>${safeName}</strong> souhaite enregistrer des séances d'entraînement sur SkillStreak —
+      une application pour des séries d'entraînement quotidiennes et un objectif de points
+      d'équipe commun. Aucune photo ni donnée de localisation n'est collectée, et ${safeName}
+      n'est visible que par sa propre équipe.`,
+      body2: (safeName) =>
+        `Si vous approuvez, ${safeName} pourra commencer à enregistrer ses séances d'entraînement dès
+      maintenant. Vous pouvez toujours contacter l'entraîneur si vous changez d'avis plus tard.`,
+      button: "J'approuve",
+    },
   };
 
 function resolveConsentConfirmCopy(locale: PlayerLocale): ConsentConfirmCopy {
@@ -98,6 +192,7 @@ export function renderConsentConfirmPage(
       </button>
     </form>
     `,
+    locale,
   );
 }
 
@@ -114,7 +209,77 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
       `När du bekräftar kan du börja logga träningspass från och med nu.`,
     button: 'Verifiera mitt konto',
   },
-  // en/fi/da/nb/de/cs/fr: added incrementally, per part (b).
+  en: {
+    title: () => `Verify your account — SkillStreak`,
+    heading: () => `Verify your account on SkillStreak`,
+    body1: (safeName) =>
+      `Almost done, <strong>${safeName}</strong>! Confirm that this is your email to activate your
+      account. No photos or location data are collected, and you're only visible to your own team.`,
+    body2: () =>
+      `Once you confirm, you can start logging training sessions right away.`,
+    button: 'Verify my account',
+  },
+  fi: {
+    title: () => `Vahvista tilisi — SkillStreak`,
+    heading: () => `Vahvista tilisi SkillStreakissa`,
+    body1: (safeName) =>
+      `Melkein valmista, <strong>${safeName}</strong>! Vahvista, että tämä on sähköpostiosoitteesi,
+      jotta voit aktivoida tilisi. Kuvia tai sijaintitietoja ei kerätä, ja näyt vain omalle joukkueellesi.`,
+    body2: () => `Kun vahvistat, voit alkaa kirjata harjoituksia heti.`,
+    button: 'Vahvista tilini',
+  },
+  da: {
+    title: () => `Bekræft din konto — SkillStreak`,
+    heading: () => `Bekræft din konto på SkillStreak`,
+    body1: (safeName) =>
+      `Næsten færdig, <strong>${safeName}</strong>! Bekræft, at dette er din e-mail for at aktivere
+      din konto. Der indsamles ingen billeder eller placeringsdata, og du er kun synlig for dit eget hold.`,
+    body2: () =>
+      `Når du har bekræftet, kan du begynde at logge træningspas med det samme.`,
+    button: 'Bekræft min konto',
+  },
+  nb: {
+    title: () => `Bekreft kontoen din — SkillStreak`,
+    heading: () => `Bekreft kontoen din på SkillStreak`,
+    body1: (safeName) =>
+      `Nesten ferdig, <strong>${safeName}</strong>! Bekreft at dette er e-posten din for å aktivere
+      kontoen din. Ingen bilder eller stedsdata samles inn, og du er bare synlig for ditt eget lag.`,
+    body2: () =>
+      `Når du bekrefter, kan du begynne å logge treningsøkter med en gang.`,
+    button: 'Bekreft kontoen min',
+  },
+  de: {
+    title: () => `Bestätige dein Konto — SkillStreak`,
+    heading: () => `Bestätige dein Konto auf SkillStreak`,
+    body1: (safeName) =>
+      `Fast geschafft, <strong>${safeName}</strong>! Bestätige, dass dies deine E-Mail-Adresse ist, um
+      dein Konto zu aktivieren. Es werden keine Fotos oder Standortdaten erhoben, und du bist
+      nur für dein eigenes Team sichtbar.`,
+    body2: () =>
+      `Sobald du bestätigst, kannst du sofort mit dem Eintragen von Trainingseinheiten beginnen.`,
+    button: 'Mein Konto bestätigen',
+  },
+  cs: {
+    title: () => `Ověřte svůj účet — SkillStreak`,
+    heading: () => `Ověřte svůj účet na SkillStreak`,
+    body1: (safeName) =>
+      `Už téměř hotovo, <strong>${safeName}</strong>! Potvrďte, že toto je váš e-mail, abyste
+      aktivovali svůj účet. Nesbírají se žádné fotografie ani údaje o poloze a jste viditelní
+      pouze pro svůj vlastní tým.`,
+    body2: () => `Jakmile potvrdíte, můžete ihned začít zaznamenávat tréninky.`,
+    button: 'Ověřit můj účet',
+  },
+  fr: {
+    title: () => `Vérifiez votre compte — SkillStreak`,
+    heading: () => `Vérifiez votre compte sur SkillStreak`,
+    body1: (safeName) =>
+      `Presque terminé, <strong>${safeName}</strong> ! Confirmez qu'il s'agit bien de votre adresse
+      e-mail pour activer votre compte. Aucune photo ni donnée de localisation n'est collectée,
+      et vous n'êtes visible que par votre propre équipe.`,
+    body2: () =>
+      `Une fois confirmé, vous pourrez commencer à enregistrer vos séances d'entraînement dès maintenant.`,
+    button: 'Vérifier mon compte',
+  },
 };
 
 function resolveSelfVerificationConfirmCopy(
@@ -151,6 +316,7 @@ export function renderSelfVerificationConfirmPage(
       </button>
     </form>
     `,
+    locale,
   );
 }
 
@@ -184,7 +350,43 @@ const CONSENT_APPROVED_COPY: Partial<
     heading: 'Tack!',
     body: (safeName) => `${safeName} kan nu börja logga träningar.`,
   },
-  // en/fi/da/nb/de/cs/fr: added incrementally, per part (b).
+  en: {
+    title: 'Thank you! — SkillStreak',
+    heading: 'Thank you!',
+    body: (safeName) => `${safeName} can now start logging training sessions.`,
+  },
+  fi: {
+    title: 'Kiitos! — SkillStreak',
+    heading: 'Kiitos!',
+    body: (safeName) => `${safeName} voi nyt alkaa kirjata harjoituksia.`,
+  },
+  da: {
+    title: 'Tak! — SkillStreak',
+    heading: 'Tak!',
+    body: (safeName) => `${safeName} kan nu begynde at logge træningspas.`,
+  },
+  nb: {
+    title: 'Takk! — SkillStreak',
+    heading: 'Takk!',
+    body: (safeName) => `${safeName} kan nå begynne å logge treningsøkter.`,
+  },
+  de: {
+    title: 'Danke! — SkillStreak',
+    heading: 'Danke!',
+    body: (safeName) =>
+      `${safeName} kann jetzt mit dem Eintragen von Trainingseinheiten beginnen.`,
+  },
+  cs: {
+    title: 'Děkujeme! — SkillStreak',
+    heading: 'Děkujeme!',
+    body: (safeName) => `${safeName} nyní může začít zaznamenávat tréninky.`,
+  },
+  fr: {
+    title: 'Merci ! — SkillStreak',
+    heading: 'Merci !',
+    body: (safeName) =>
+      `${safeName} peut maintenant commencer à enregistrer ses séances d'entraînement.`,
+  },
 };
 
 function resolveConsentApprovedCopy(locale: PlayerLocale): ConsentApprovedCopy {
@@ -206,6 +408,7 @@ export function renderConsentApprovedPage(
       ${copy.body(safeName)}
     </p>
     `,
+    locale,
   );
 }
 
@@ -218,7 +421,48 @@ const SELF_VERIFICATION_APPROVED_COPY: Partial<
     body: (safeName) =>
       `Ditt konto är verifierat, ${safeName}. Du kan nu börja logga träningar.`,
   },
-  // en/fi/da/nb/de/cs/fr: added incrementally, per part (b).
+  en: {
+    title: 'Done! — SkillStreak',
+    heading: 'Done!',
+    body: (safeName) =>
+      `Your account is verified, ${safeName}. You can now start logging training sessions.`,
+  },
+  fi: {
+    title: 'Valmista! — SkillStreak',
+    heading: 'Valmista!',
+    body: (safeName) =>
+      `Tilisi on vahvistettu, ${safeName}. Voit nyt alkaa kirjata harjoituksia.`,
+  },
+  da: {
+    title: 'Klart! — SkillStreak',
+    heading: 'Klart!',
+    body: (safeName) =>
+      `Din konto er bekræftet, ${safeName}. Du kan nu begynde at logge træningspas.`,
+  },
+  nb: {
+    title: 'Ferdig! — SkillStreak',
+    heading: 'Ferdig!',
+    body: (safeName) =>
+      `Kontoen din er bekreftet, ${safeName}. Du kan nå begynne å logge treningsøkter.`,
+  },
+  de: {
+    title: 'Fertig! — SkillStreak',
+    heading: 'Fertig!',
+    body: (safeName) =>
+      `Dein Konto ist bestätigt, ${safeName}. Du kannst jetzt mit dem Eintragen von Trainingseinheiten beginnen.`,
+  },
+  cs: {
+    title: 'Hotovo! — SkillStreak',
+    heading: 'Hotovo!',
+    body: (safeName) =>
+      `Váš účet je ověřen, ${safeName}. Nyní můžete začít zaznamenávat tréninky.`,
+  },
+  fr: {
+    title: 'Terminé ! — SkillStreak',
+    heading: 'Terminé !',
+    body: (safeName) =>
+      `Votre compte est vérifié, ${safeName}. Vous pouvez maintenant commencer à enregistrer vos séances d'entraînement.`,
+  },
 };
 
 function resolveSelfVerificationApprovedCopy(
@@ -245,6 +489,7 @@ export function renderSelfVerificationApprovedPage(
       ${copy.body(safeName)}
     </p>
     `,
+    locale,
   );
 }
 

@@ -1,1 +1,86 @@
-{}
+{
+  "k1": {
+    "heading": "Team 👥",
+    "loadError": "Couldn't load the team. Check your connection.",
+    "genericError": "Something went wrong.",
+    "retry": "Try again",
+    "pendingSectionLabel": "Waiting for approval",
+    "teammatesSectionLabel": "Players on the team",
+    "inviteCodeLabel": "Team code",
+    "inviteButton": "📨 Invite a friend",
+    "captainBadge": "👑 You're the captain",
+    "captainSeeDetail": "See the full team",
+    "captainManageGoal": "Manage this week's goal",
+    "captainSwapCaptain": "Change captain",
+    "notCaptainToast": "This page is only for the team captain.",
+    "approveSuccessToast": "{{screenName}} is now approved on the team! 🎉",
+    "approveErrorToast": "Couldn't approve right now. Try again.",
+    "rejectSuccessToast": "{{screenName}} was declined.",
+    "rejectErrorToast": "Couldn't decline right now. Try again.",
+    "captainTransferredToast": "The captaincy has been handed over to {{newCaptainScreenName}}. 👑",
+    "linkCopiedToast": "Link copied!"
+  },
+  "k2": {
+    "heading": "Full team list",
+    "loadError": "Couldn't load the team list. Check your connection.",
+    "genericError": "Something went wrong.",
+    "retry": "Try again",
+    "back": "Back",
+    "reminderSentToast": "Reminder sent.",
+    "consentNoLongerPendingToast": "This player is no longer waiting for approval.",
+    "reminderErrorToast": "Something went wrong. Try again.",
+    "reissueSentToast": "A login code was sent to the parent/guardian.",
+    "reissueRateLimitedToast": "A code was just sent — wait a minute before sending another."
+  },
+  "k4": {
+    "heading": "Choose a new captain",
+    "sub": "Whoever you pick becomes the team's new captain right away.",
+    "loadError": "Couldn't load the team list. Check your connection.",
+    "genericError": "Something went wrong.",
+    "retry": "Try again",
+    "back": "Back",
+    "targetNotFoundToast": "Couldn't find that player anymore. The list is updating.",
+    "genericErrorToast": "Something went wrong. Try again."
+  },
+  "consentChips": {
+    "approved": "{{count}} approved ✓",
+    "pending": "{{count}} waiting ⏳",
+    "revoked": "{{count}} paused ⏸️"
+  },
+  "inviteFriendSheet": {
+    "heading": "Invite a friend",
+    "subExpoGo": "Let them scan the code to open the app in Expo Go, then they type in the team code below.",
+    "subDefault": "Let them scan the code, or share the link — they just fill in their own nickname, the team's already set.",
+    "codeLabel": "Team code",
+    "shareButton": "Share invite",
+    "close": "Close",
+    "shareMessageExpoGo": "Join {{teamName}} on SkillStreak! Open the link in Expo Go, then enter the team code {{inviteCode}} once the app starts: {{joinUrl}}",
+    "shareMessageDefault": "Join {{teamName}} on SkillStreak! Use the team code {{inviteCode}} or click the link: {{joinUrl}}"
+  },
+  "pendingJoinRow": {
+    "reject": "Decline",
+    "approve": "Approve"
+  },
+  "reminderActionSheet": {
+    "sendReminder": "Send reminder to parent",
+    "sendReissue": "Send new login link",
+    "cancel": "Cancel"
+  },
+  "rosterRow": {
+    "statusApproved": "Approved ✓",
+    "statusPending": "Waiting ⏳",
+    "statusRevoked": "Paused ⏸️",
+    "statusNotRequested": "Not sent yet",
+    "lastTrained": "Last logged: {{date}}",
+    "notTrainedYet": "Hasn't logged yet"
+  },
+  "teammateRow": {
+    "selfTag": "(You)"
+  },
+  "captainTransferConfirmSheet": {
+    "heading": "Make {{screenName}} captain?",
+    "body": "{{screenName}} gets the captain buttons right away. You're still on the team as usual — and if {{screenName}} wants, they can always hand it back to you later, just like you're doing now.",
+    "confirmButton": "Yes, make {{screenName}} captain",
+    "cancel": "Cancel"
+  }
+}

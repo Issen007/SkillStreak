@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -14,6 +15,7 @@ interface StreakCardProps {
 /** Flame-colored streak card — shared between H1 and H3, per style-guide's
  * rule that flame is always the "mine"/individual-streak motif. */
 export function StreakCard({ currentStreakCount, alreadyLoggedToday }: StreakCardProps) {
+  const { t } = useTranslation('home');
   const displayedCount = useCountUp(currentStreakCount);
   const scale = useRef(new Animated.Value(1)).current;
   const previousCount = useRef(currentStreakCount);
@@ -33,13 +35,13 @@ export function StreakCard({ currentStreakCount, alreadyLoggedToday }: StreakCar
     <View style={styles.card}>
       {alreadyLoggedToday ? (
         <View style={styles.checkChip}>
-          <Text style={styles.checkChipText}>Loggat idag ✓</Text>
+          <Text style={styles.checkChipText}>{t('streakCard.loggedTodayChip')}</Text>
         </View>
       ) : null}
       <Animated.Text style={[styles.flame, { transform: [{ scale }] }]}>🔥</Animated.Text>
       <View style={styles.textBlock}>
-        <Text style={styles.count}>{displayedCount} dagar</Text>
-        <Text style={styles.label}>Din personliga streak — fortsätt så!</Text>
+        <Text style={styles.count}>{t('streakCard.count', { count: displayedCount })}</Text>
+        <Text style={styles.label}>{t('streakCard.label')}</Text>
       </View>
     </View>
   );

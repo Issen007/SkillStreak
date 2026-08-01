@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -19,8 +20,6 @@ interface TeammateStatusRowProps {
   exclusionCaption?: string | null;
 }
 
-const numberFormatter = new Intl.NumberFormat('sv-SE');
-
 /** Screen G1D's row, one of three visual variants per
  * docs/design/phase2.10-per-player-goal-flows.md. Roster order is
  * preserved by the caller — this component never sorts or ranks. */
@@ -33,6 +32,8 @@ export function TeammateStatusRow({
   unitLabel = '',
   exclusionCaption = null,
 }: TeammateStatusRowProps) {
+  const { t, i18n } = useTranslation('goal');
+  const numberFormatter = new Intl.NumberFormat(i18n.language);
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
   const excluded = variant === 'excluded';
   const fillPercent = targetValue > 0 ? Math.min(100, (progressValue / targetValue) * 100) : 0;
@@ -48,14 +49,17 @@ export function TeammateStatusRow({
         {variant === 'in-progress' ? (
           <>
             <Text style={styles.statusWord}>
-              {progressValue > 0 ? 'På gång' : 'Inte startat än'}
+              {progressValue > 0 ? t('teammateStatusRow.inProgress') : t('teammateStatusRow.notStarted')}
             </Text>
             <View style={styles.miniTrack}>
               <View style={[styles.miniFill, { width: `${fillPercent}%` }]} />
             </View>
             <Text style={styles.progressCaption}>
-              {numberFormatter.format(progressValue)} av {numberFormatter.format(targetValue)}{' '}
-              {unitLabel}
+              {t('teammateStatusRow.progressCaption', {
+                progress: numberFormatter.format(progressValue),
+                target: numberFormatter.format(targetValue),
+                unit: unitLabel,
+              })}
             </Text>
           </>
         ) : null}
@@ -67,12 +71,12 @@ export function TeammateStatusRow({
 
       {variant === 'done' ? (
         <View style={styles.doneChip}>
-          <Text style={styles.doneChipText}>Klar ✓</Text>
+          <Text style={styles.doneChipText}>{t('teammateStatusRow.done')}</Text>
         </View>
       ) : null}
       {excluded ? (
         <View style={styles.excludedChip}>
-          <Text style={styles.excludedChipText}>Inte med denna vecka</Text>
+          <Text style={styles.excludedChipText}>{t('teammateStatusRow.excludedChip')}</Text>
         </View>
       ) : null}
     </View>

@@ -1,1 +1,86 @@
-{}
+{
+  "ch0": {
+    "heading": "Jak funguje týmový chat",
+    "bullet1": "To, co sem napíšeš, vidí jen tvůj vlastní tým.",
+    "bullet2": "Něco ti přijde divné? Můžeš nahlásit zprávu, nebo zablokovat osobu, aby ses už nemusel/a dívat na její další zprávy.",
+    "bullet3": "Některá slova tady nefungují. Pokud se zpráva nedá odeslat, zkus ji přepsat.",
+    "dismiss": "Dobře, chápu!"
+  },
+  "ch1": {
+    "heading": "Týmový chat 💬",
+    "blockedLink": "🚫 Zablokovaní",
+    "loadError": "Týmový chat se nepodařilo načíst. Zkontroluj své připojení.",
+    "retry": "Zkusit znovu",
+    "emptyHeading": "Zatím žádné zprávy",
+    "emptySub": "Napiš týmu první zprávu!",
+    "filterRejected": "Zpráva nebyla odeslána — obsahovala slova, která tady nefungují. Zkus ji přepsat! ✍️",
+    "sendRateLimited": "Posíláš zprávy zrovna trochu rychle. Chvíli počkej a bude to zase fungovat.",
+    "genericError": "Něco se pokazilo. Zkus to znovu.",
+    "clipGoneOnSend": "Klip se nepodařilo odeslat — už neexistuje. Teď můžeš odeslat zbytek sám/sama.",
+    "messageNotFoundToast": "Tahle zpráva už neexistuje.",
+    "alreadyReportedToast": "Tuhle zprávu jsi už nahlásil/a.",
+    "reportRateLimitedToast": "V poslední době jsi toho dost nahlásil/a. Chvíli počkej, než budeš nahlašovat znovu.",
+    "clipNotFoundToast": "Tohle video už neexistuje.",
+    "clipAlreadyReportedToast": "Tohle video jsi už nahlásil/a.",
+    "clipReportRateLimitedToast": "V poslední době jsi toho dost nahlásil/a. Chvíli počkej, než budeš nahlašovat znovu.",
+    "blockedToast": "Už neuvidíš zprávy ani klipy od uživatele {{screenName}}."
+  },
+  "ch2": {
+    "excerpt": "Nahlašuješ: „{{excerpt}}…“",
+    "heading": "Proč nahlašuješ tuhle zprávu?",
+    "reasonBullying": "Šikana",
+    "reasonInappropriateLanguage": "Nevhodný jazyk",
+    "reasonSpam": "Spam",
+    "reasonOther": "Jiné",
+    "noteLabel": "Chceš napsat víc? (nepovinné)",
+    "notePlaceholder": "Nepovinné…",
+    "submit": "Odeslat nahlášení",
+    "cancel": "Zrušit"
+  },
+  "ch3": {
+    "heading": "Díky, že jsi to nahlásil/a.",
+    "body": "Tvé nahlášení jsme přijali. Nic dalšího dělat nemusíš — a nikdo se nedozví, že jsi to nahlásil/a ty.",
+    "followUp": "Chceš také přestat vidět další zprávy od téhle osoby?",
+    "block": "Zablokovat uživatele {{screenName}}",
+    "noThanks": "Ne, díky",
+    "done": "Hotovo"
+  },
+  "ch4": {
+    "body": "Když zablokuješ uživatele {{screenName}}, přestaneš vidět jeho zprávy v týmovém chatu i jeho Shorts videa ve feedu Shorts. {{screenName}} se nedozví, že jsi ho/ji zablokoval/a.",
+    "confirm": "Zablokovat uživatele {{screenName}}",
+    "cancel": "Zrušit"
+  },
+  "ch5": {
+    "heading": "Zablokovaní spoluhráči",
+    "headingSub": "Zablokování platí jak pro týmový chat, tak pro Shorts.",
+    "empty": "Nikoho jsi ještě nezablokoval/a.",
+    "unblock": "Zrušit blokování",
+    "back": "Zpět",
+    "unblockedToast": "Zprávy od uživatele {{screenName}} zase vidíš.",
+    "genericError": "Něco se pokazilo. Zkus to znovu."
+  },
+  "ch6": {
+    "heading": "Přiložit klip",
+    "loadError": "Klipy se nepodařilo načíst. Zkontroluj své připojení.",
+    "retry": "Zkusit znovu",
+    "emptyHeading": "Zatím žádné klipy k přiložení",
+    "emptySub": "Nikdo v týmu ještě nenahrál klip. Přejdi na záložku Klipy a nahraj první!",
+    "goToClips": "Přejít na Klipy",
+    "showMore": "Zobrazit další klipy"
+  },
+  "composeBar": {
+    "lockedNote": "Čeká se na schválení, než budeš moct posílat zprávy. Pořád si ale můžeš číst, co píše tým.",
+    "placeholder": "Napiš týmu něco…",
+    "clipChipLabel": "Od uživatele {{screenName}}"
+  },
+  "messageBubble": {
+    "reportMessage": "🚩 Nahlásit zprávu",
+    "reportClip": "🚩 Nahlásit klip"
+  },
+  "clipEmbed": {
+    "attribution": "Klip od uživatele {{screenName}}"
+  },
+  "clipUnavailable": {
+    "text": "🎬 Tohle video už není k dispozici."
+  }
+}

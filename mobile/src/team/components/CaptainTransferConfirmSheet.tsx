@@ -1,4 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
@@ -26,22 +27,19 @@ export function CaptainTransferConfirmSheet({
   onConfirm,
   onClose,
 }: CaptainTransferConfirmSheetProps) {
+  const { t } = useTranslation('team');
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={loading ? undefined : onClose} />
       <View style={styles.sheet}>
-        <Text style={styles.heading}>Gör {screenName} till kapten?</Text>
-        <Text style={styles.body}>
-          {screenName} får kaptensknapparna direkt. Du är fortfarande med i laget som vanligt —
-          och om {screenName} vill kan de alltid lämna tillbaka det till dig sen, precis som du
-          gör nu.
-        </Text>
+        <Text style={styles.heading}>{t('captainTransferConfirmSheet.heading', { screenName })}</Text>
+        <Text style={styles.body}>{t('captainTransferConfirmSheet.body', { screenName })}</Text>
         <PrimaryButton
-          label={`Ja, gör ${screenName} till kapten`}
+          label={t('captainTransferConfirmSheet.confirmButton', { screenName })}
           loading={loading}
           onPress={onConfirm}
         />
-        <SecondaryLink label="Avbryt" onPress={onClose} />
+        <SecondaryLink label={t('captainTransferConfirmSheet.cancel')} onPress={onClose} />
       </View>
     </Modal>
   );

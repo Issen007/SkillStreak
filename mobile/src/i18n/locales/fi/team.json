@@ -1,1 +1,86 @@
-{}
+{
+  "k1": {
+    "heading": "Joukkue 👥",
+    "loadError": "Joukkuetta ei voitu hakea. Tarkista verkkoyhteytesi.",
+    "genericError": "Jokin meni pieleen.",
+    "retry": "Yritä uudelleen",
+    "pendingSectionLabel": "Odottaa hyväksyntää",
+    "teammatesSectionLabel": "Joukkueen pelaajat",
+    "inviteCodeLabel": "Joukkuekoodi",
+    "inviteButton": "📨 Kutsu kaveri",
+    "captainBadge": "👑 Olet kapteeni",
+    "captainSeeDetail": "Näytä joukkue tarkemmin",
+    "captainManageGoal": "Hallinnoi viikon tavoitetta",
+    "captainSwapCaptain": "Vaihda kapteeni",
+    "notCaptainToast": "Tämä sivu on vain joukkueen kapteenille.",
+    "approveSuccessToast": "{{screenName}} on nyt hyväksytty joukkueeseen! 🎉",
+    "approveErrorToast": "Hyväksyntä ei onnistunut juuri nyt. Yritä uudelleen.",
+    "rejectSuccessToast": "{{screenName}} hylättiin.",
+    "rejectErrorToast": "Hylkääminen ei onnistunut juuri nyt. Yritä uudelleen.",
+    "captainTransferredToast": "Kapteeniuus on siirretty pelaajalle {{newCaptainScreenName}}. 👑",
+    "linkCopiedToast": "Linkki kopioitu!"
+  },
+  "k2": {
+    "heading": "Joukkue tarkemmin",
+    "loadError": "Joukkuelistaa ei voitu hakea. Tarkista verkkoyhteytesi.",
+    "genericError": "Jokin meni pieleen.",
+    "retry": "Yritä uudelleen",
+    "back": "Takaisin",
+    "reminderSentToast": "Muistutus lähetetty.",
+    "consentNoLongerPendingToast": "Tämä pelaaja ei enää odota hyväksyntää.",
+    "reminderErrorToast": "Jokin meni pieleen. Yritä uudelleen.",
+    "reissueSentToast": "Kirjautumiskoodi lähetetty vanhemmalle/huoltajalle.",
+    "reissueRateLimitedToast": "Koodi lähetettiin juuri — odota hetki ennen kuin lähetät uuden."
+  },
+  "k4": {
+    "heading": "Valitse uusi kapteeni",
+    "sub": "Valitsemastasi pelaajasta tulee heti joukkueen uusi kapteeni.",
+    "loadError": "Joukkuelistaa ei voitu hakea. Tarkista verkkoyhteytesi.",
+    "genericError": "Jokin meni pieleen.",
+    "retry": "Yritä uudelleen",
+    "back": "Takaisin",
+    "targetNotFoundToast": "Pelaajaa ei enää löytynyt. Lista päivittyy.",
+    "genericErrorToast": "Jokin meni pieleen. Yritä uudelleen."
+  },
+  "consentChips": {
+    "approved": "{{count}} hyväksytty ✓",
+    "pending": "{{count}} odottaa ⏳",
+    "revoked": "{{count}} keskeytetty ⏸️"
+  },
+  "inviteFriendSheet": {
+    "heading": "Kutsu kaveri",
+    "subExpoGo": "Anna heidän skannata koodi avatakseen sovelluksen Expo Go:ssa, sitten he kirjoittavat joukkuekoodin alle.",
+    "subDefault": "Anna heidän skannata koodi tai jaa linkki — he täyttävät vain oman nimimerkkinsä, joukkue on jo valmiina.",
+    "codeLabel": "Joukkuekoodi",
+    "shareButton": "Jaa kutsu",
+    "close": "Sulje",
+    "shareMessageExpoGo": "Liity joukkueeseen {{teamName}} SkillStreakissa! Avaa linkki Expo Go:ssa ja kirjoita sitten joukkuekoodi {{inviteCode}}, kun sovellus käynnistyy: {{joinUrl}}",
+    "shareMessageDefault": "Liity joukkueeseen {{teamName}} SkillStreakissa! Käytä joukkuekoodia {{inviteCode}} tai klikkaa linkkiä: {{joinUrl}}"
+  },
+  "pendingJoinRow": {
+    "reject": "Hylkää",
+    "approve": "Hyväksy"
+  },
+  "reminderActionSheet": {
+    "sendReminder": "Lähetä muistutus vanhemmalle",
+    "sendReissue": "Lähetä uusi kirjautumislinkki",
+    "cancel": "Peruuta"
+  },
+  "rosterRow": {
+    "statusApproved": "Hyväksytty ✓",
+    "statusPending": "Odottaa ⏳",
+    "statusRevoked": "Keskeytetty ⏸️",
+    "statusNotRequested": "Ei vielä lähetetty",
+    "lastTrained": "Viimeksi kirjattu: {{date}}",
+    "notTrainedYet": "Ei ole vielä kirjannut"
+  },
+  "teammateRow": {
+    "selfTag": "(Sinä)"
+  },
+  "captainTransferConfirmSheet": {
+    "heading": "Tehdäänkö {{screenName}} kapteeniksi?",
+    "body": "{{screenName}} saa kapteenin painikkeet heti. Sinä pysyt joukkueessa ihan normaalisti — ja jos {{screenName}} haluaa, hän voi aina antaa kapteeniuden takaisin sinulle myöhemmin, ihan niin kuin sinä teet nyt.",
+    "confirmButton": "Kyllä, tee {{screenName}} kapteeniksi",
+    "cancel": "Peruuta"
+  }
+}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
@@ -39,6 +40,7 @@ export function V5CaptionChallenge({
   onConsentRevoked,
   onCancel,
 }: V5CaptionChallengeProps) {
+  const { t } = useTranslation('clips');
   const [caption, setCaption] = useState('');
   const [teammates, setTeammates] = useState<TeammateEntry[] | null>(null);
   const [taggedPlayerId, setTaggedPlayerId] = useState<string | null>(null);
@@ -89,22 +91,18 @@ export function V5CaptionChallenge({
         return;
       }
       if (err instanceof ApiError && err.code === 'caption_rejected_by_filter') {
-        setCaptionError(
-          'Bildtexten gick inte att spara — den innehöll ord som inte funkar här. Skriv om den så går det bra! ✍️',
-        );
+        setCaptionError(t('v5.captionRejected'));
       } else if (err instanceof ApiError && err.code === 'clip_upload_rate_limited') {
-        setFormError(
-          'Du laddar upp Shorts lite snabbt just nu. Vänta en liten stund så går det bra igen.',
-        );
+        setFormError(t('v5.rateLimited'));
       } else if (
         err instanceof ApiError &&
         err.code === 'validation_error' &&
         err.message.toLowerCase().includes('taggedplayerid')
       ) {
-        setTagError('Den spelaren är inte kvar i laget längre. Välj någon annan, eller ingen.');
+        setTagError(t('v5.taggedPlayerGone'));
         setTaggedPlayerId(null);
       } else {
-        setFormError('Något gick fel. Testa igen.');
+        setFormError(t('v5.genericError'));
       }
     } finally {
       setSubmitting(false);
@@ -113,7 +111,7 @@ export function V5CaptionChallenge({
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>Bildtext & utmaning</Text>
+      <Text style={styles.heading}>{t('v5.heading')}</Text>
 
       <View style={styles.previewWrap}>
         <VideoView player={player} style={styles.preview} nativeControls={false} contentFit="cover" />
@@ -125,7 +123,7 @@ export function V5CaptionChallenge({
           setCaption(text.slice(0, CAPTION_MAX_LENGTH));
           if (captionError) setCaptionError(null);
         }}
-        placeholder="Lägg till en bildtext (frivilligt)…"
+        placeholder={t('v5.captionPlaceholder')}
         placeholderTextColor={colors.textMuted}
         multiline
         style={[styles.captionInput, captionError && styles.inputError]}
@@ -137,11 +135,11 @@ export function V5CaptionChallenge({
       ) : null}
       {captionError ? <Text style={styles.errorText}>{captionError}</Text> : null}
 
-      <Text style={styles.sectionLabel}>Utmana en lagkompis? (frivilligt)</Text>
+      <Text style={styles.sectionLabel}>{t('v5.challengeLabel')}</Text>
       {teammates === null ? (
         <ActivityIndicator color={colors.flame} />
       ) : teammates.length === 0 ? (
-        <Text style={styles.helperText}>Inga lagkompisar att utmana ännu.</Text>
+        <Text style={styles.helperText}>{t('v5.noTeammates')}</Text>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {teammates.map((teammate) => {
@@ -171,14 +169,14 @@ export function V5CaptionChallenge({
       {tagError ? <Text style={styles.errorText}>{tagError}</Text> : null}
       {taggedTeammate ? (
         <Text style={styles.helperText}>
-          {taggedTeammate.screenName} ser att du utmanat dem nästa gång de öppnar Shorts.
+          {t('v5.taggedHelper', { screenName: taggedTeammate.screenName })}
         </Text>
       ) : null}
 
       {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
 
-      <PrimaryButton label="Ladda upp" loading={submitting} onPress={() => void handleSubmit()} />
-      <SecondaryLink label="Avbryt" onPress={onCancel} />
+      <PrimaryButton label={t('v5.upload')} loading={submitting} onPress={() => void handleSubmit()} />
+      <SecondaryLink label={t('v5.cancel')} onPress={onCancel} />
     </ScrollView>
   );
 }

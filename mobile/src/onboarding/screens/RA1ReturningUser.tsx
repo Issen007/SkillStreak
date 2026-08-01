@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -20,6 +21,7 @@ interface RA1ReturningUserProps {
  * backend's response is identical either way (anti-enumeration), so this
  * screen always moves on to RA2 regardless of what the API said. */
 export function RA1ReturningUser({ onSubmitted, onBack }: RA1ReturningUserProps) {
+  const { t } = useTranslation('onboarding');
   const [inviteCode, setInviteCode] = useState('');
   const [screenName, setScreenName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,16 +53,13 @@ export function RA1ReturningUser({ onSubmitted, onBack }: RA1ReturningUserProps)
   return (
     <ScreenContainer scroll>
       <View style={styles.spacerTop} />
-      <Text style={styles.heading}>Har du redan ett konto?</Text>
-      <Text style={styles.sub}>
-        Ange lagets kod och ditt användarnamn, så skickar vi en inloggningskod
-        till din (eller din förälders) e-post.
-      </Text>
+      <Text style={styles.heading}>{t('ra1.heading')}</Text>
+      <Text style={styles.sub}>{t('ra1.sub')}</Text>
 
       <TextField
         value={inviteCode}
         onChangeText={setInviteCode}
-        placeholder="Lagkod, t.ex. FALKEN24"
+        placeholder={t('ra1.codePlaceholder')}
         autoCapitalize="characters"
         autoCorrect={false}
         autoComplete="off"
@@ -69,7 +68,7 @@ export function RA1ReturningUser({ onSubmitted, onBack }: RA1ReturningUserProps)
       <TextField
         value={screenName}
         onChangeText={setScreenName}
-        placeholder="Ditt användarnamn"
+        placeholder={t('ra1.namePlaceholder')}
         autoCapitalize="none"
         autoCorrect={false}
         autoComplete="off"
@@ -80,13 +79,13 @@ export function RA1ReturningUser({ onSubmitted, onBack }: RA1ReturningUserProps)
       <View style={styles.spacer} />
 
       <PrimaryButton
-        label="Skicka kod"
+        label={t('ra1.submit')}
         onPress={handleSubmit}
         disabled={!canSubmit}
         loading={loading}
       />
       <Text style={styles.backLink} onPress={onBack}>
-        Tillbaka
+        {t('ra1.back')}
       </Text>
     </ScreenContainer>
   );

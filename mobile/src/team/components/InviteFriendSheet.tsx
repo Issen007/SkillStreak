@@ -1,5 +1,6 @@
 import { Modal, Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
@@ -40,13 +41,14 @@ export function InviteFriendSheet({
   onClose,
   onCopied,
 }: InviteFriendSheetProps) {
+  const { t } = useTranslation('team');
   const usingExpoGo = Boolean(EXPO_GO_URL);
   const joinUrl = usingExpoGo
     ? (EXPO_GO_URL as string)
     : `${JOIN_URL_BASE}/?code=${encodeURIComponent(inviteCode)}#demo`;
   const message = usingExpoGo
-    ? `Gå med i ${teamName} på SkillStreak! Öppna länken i Expo Go, skriv sen in lagkoden ${inviteCode} när appen startar: ${joinUrl}`
-    : `Gå med i ${teamName} på SkillStreak! Använd lagkoden ${inviteCode} eller klicka på länken: ${joinUrl}`;
+    ? t('inviteFriendSheet.shareMessageExpoGo', { teamName, inviteCode, joinUrl })
+    : t('inviteFriendSheet.shareMessageDefault', { teamName, inviteCode, joinUrl });
 
   const handleShare = async () => {
     if (Platform.OS === 'web') {
@@ -81,23 +83,23 @@ export function InviteFriendSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} />
       <View style={styles.sheet}>
-        <Text style={styles.heading}>Bjud in en kompis</Text>
+        <Text style={styles.heading}>{t('inviteFriendSheet.heading')}</Text>
         <Text style={styles.sub}>
           {usingExpoGo
-            ? 'Låt dem skanna koden för att öppna appen i Expo Go, sedan skriver de in lagkoden nedan.'
-            : 'Låt dem skanna koden, eller dela länken — de fyller bara i sitt eget smeknamn, laget är redan ifyllt.'}
+            ? t('inviteFriendSheet.subExpoGo')
+            : t('inviteFriendSheet.subDefault')}
         </Text>
 
         <View style={styles.qrFrame}>
           <QRCode value={joinUrl} size={180} color={colors.ink} backgroundColor={colors.white} />
         </View>
 
-        <Text style={styles.codeLabel}>Lagkod</Text>
+        <Text style={styles.codeLabel}>{t('inviteFriendSheet.codeLabel')}</Text>
         <Text style={styles.code}>{inviteCode}</Text>
 
-        <PrimaryButton label="Dela inbjudan" onPress={() => void handleShare()} />
+        <PrimaryButton label={t('inviteFriendSheet.shareButton')} onPress={() => void handleShare()} />
         <Pressable onPress={onClose} style={styles.closeLink}>
-          <Text style={styles.closeLinkText}>Stäng</Text>
+          <Text style={styles.closeLinkText}>{t('inviteFriendSheet.close')}</Text>
         </Pressable>
       </View>
     </Modal>

@@ -1,1 +1,118 @@
-{}
+{
+  "o0": {
+    "heading": "Welche Sprache möchtest du verwenden?",
+    "sub": "Du kannst die Sprache später wieder ändern.",
+    "next": "Weiter"
+  },
+  "o1": {
+    "heading": "Für welches Team spielst du?",
+    "sub": "Frag deinen Trainer nach dem Team-Code.",
+    "codePlaceholder": "Z. B. FALKEN24",
+    "findTeamButton": "Mein Team finden",
+    "returningUserLink": "Hast du schon ein Konto?"
+  },
+  "o1a": {
+    "heading": "Wir haben kein Team mit dem Code <code>{{inviteCode}}</code> gefunden",
+    "sub": "Kein Problem — wähl aus, was auf dich zutrifft:",
+    "wrongCodeTitle": "Ich habe mich wohl vertippt",
+    "wrongCodeSub": "Code noch einmal versuchen",
+    "createTeamTitle": "Unser Team hat noch keinen Code",
+    "createTeamSub": "Neues Team mit diesem Code erstellen",
+    "helper": "Unsicher? Frag deinen Trainer, bevor du ein neues Team erstellst."
+  },
+  "o1b": {
+    "codeChip": "Team-Code: {{inviteCode}}",
+    "changeCode": "Code ändern",
+    "heading": "Wie soll euer Team heißen?",
+    "sub": "Du wirst der erste Spieler im Team — und Kapitän! Wähl einen Namen, auf den der Rest des Teams stolz sein kann.",
+    "nameLabel": "Teamname",
+    "namePlaceholder": "Z. B. IBK Falken P13",
+    "helper": "Andere Teams können den Namen in der Bestenliste sehen.",
+    "next": "Weiter"
+  },
+  "o1c": {
+    "heading": "{{teamName}} erstellen?",
+    "sub": "Team-Code: {{inviteCode}} — teile ihn mit deinen Teamkolleg:innen, damit sie später beitreten können.",
+    "tip": "Name und Code lassen sich später nicht mehr ändern — also lieber noch mal alles überprüfen!",
+    "confirm": "Ja, Team erstellen!",
+    "editName": "Nein, Namen ändern"
+  },
+  "o2": {
+    "heading": "Trittst du {{teamName}} bei?",
+    "sub": "Wenn das stimmt, dann los!",
+    "confirm": "Ja, das ist mein Team!",
+    "reject": "Nein, anderen Code ausprobieren"
+  },
+  "o3": {
+    "heading": "Wähl deinen Spielernamen",
+    "sub": "Das ist der Name, den dein Team sieht — nicht dein echter Name, es sei denn, du möchtest das.",
+    "nameLabel": "Spielername",
+    "namePlaceholder": "Z. B. FloorballStar15",
+    "avatarLabel": "Wähl einen Avatar",
+    "helper": "Kein Foto nötig — wähl eine Figur, die dir gefällt.",
+    "next": "Weiter"
+  },
+  "o4": {
+    "heading": "In welchem Jahr bist du geboren?",
+    "sub": "Damit passen wir die Herausforderungen an dein Alter an.",
+    "yearRangeError": "Gib ein Jahr zwischen {{minYear}} und {{maxYear}} ein.",
+    "yearLabel": "Geburtsjahr",
+    "yearPlaceholder": "Z. B. {{maxYear}}",
+    "next": "Weiter"
+  },
+  "o5": {
+    "verifyHeading": "Bestätige dein Konto",
+    "consentHeading": "Wir fragen einen Erwachsenen um Erlaubnis",
+    "verifyBody1": "Bevor du Trainingseinheiten eintragen kannst, musst du deine E-Mail-Adresse oder Handynummer bestätigen.",
+    "consentBody1": "Bevor du Trainingseinheiten eintragen kannst, muss ein Elternteil oder Erziehungsberechtigter zustimmen.",
+    "verifyBody2": "Wir schicken dir einen Bestätigungslink — du bestätigst mit einem Klick.",
+    "consentBody2": "Wir schicken ihnen eine kurze Frage — sie stimmen mit einem Klick zu.",
+    "verifyContactLabel": "Deine E-Mail-Adresse oder Handynummer",
+    "consentContactLabel": "E-Mail-Adresse oder Handynummer der Eltern bzw. Erziehungsberechtigten",
+    "contactPlaceholder": "z. B. name@beispiel.de",
+    "verifyHelper": "Wir nutzen sie nur, um dein Konto zu bestätigen — sonst nichts.",
+    "consentHelper": "Wir nutzen sie nur, um um Erlaubnis zu fragen — sonst nichts.",
+    "submit": "Anfrage senden",
+    "coachNote": "Trainer:innen: Helft dem Spieler beim Ausfüllen, falls er sich bei den Angaben unsicher ist."
+  },
+  "o6": {
+    "foundingIcon": "👑🎉",
+    "foundingHeading": "Glückwunsch, {{screenName}}! Du hast {{teamName}} erstellt!",
+    "foundingBody": "Du bist der erste Spieler im Team — und Kapitän! Sobald ein Elternteil oder Erziehungsberechtigter zustimmt, kannst du Trainingseinheiten eintragen und Teamkolleg:innen einladen.",
+    "codeChip": "Team-Code: {{inviteCode}}",
+    "codeHelper": "Teile ihn mit deinen Teamkolleg:innen!",
+    "joinedIcon": "✅👋",
+    "joinedHeading": "Fertig, {{screenName}}!",
+    "joinedBody": "Du bist jetzt bei {{teamName}} dabei! Wir haben eine Anfrage an ein Elternteil oder einen Erziehungsberechtigten geschickt. Sobald sie zustimmen, kannst du Trainingseinheiten eintragen und Punkte fürs Team sammeln.",
+    "doneButton": "Los geht's"
+  },
+  "ra1": {
+    "heading": "Hast du schon ein Konto?",
+    "sub": "Gib den Team-Code und deinen Benutzernamen ein, dann schicken wir einen Login-Code an deine (oder die E-Mail deiner Eltern).",
+    "codePlaceholder": "Team-Code, z. B. FALKEN24",
+    "namePlaceholder": "Dein Benutzername",
+    "submit": "Code senden",
+    "back": "Zurück"
+  },
+  "ra2": {
+    "heading": "Schau in dein Postfach",
+    "sub": "Falls die Angaben gestimmt haben, haben wir einen Code an deine (oder die E-Mail deiner Eltern) geschickt. Gib den Code unten ein, um dich wieder anzumelden.",
+    "codePlaceholder": "Z. B. H4K7QWXP",
+    "invalidCodeError": "Dieser Code funktioniert nicht mehr. Prüf, ob du ihn richtig eingegeben hast, oder fordere einen neuen an.",
+    "submit": "Anmelden",
+    "retryLink": "Keinen Code bekommen? Noch mal versuchen"
+  },
+  "flow": {
+    "screenNameTaken": "Dieser Name ist im Team schon vergeben — probier einen anderen!",
+    "teamNameRejected": "Der Name oder der Team-Code enthielt Wörter, die hier nicht erlaubt sind. Schreib den Namen neu, oder tippe oben auf „Code ändern“, falls es am Code liegt.",
+    "codeTakenConcurrently": "Oh nein — jemand hat kurz vor dir schon ein Team mit diesem Code erstellt! Probier einen anderen Code, den Rest erledigen wir sofort.",
+    "inviteCodeNotFound": "Dieser Team-Code funktioniert nicht mehr. Frag deinen Trainer nach einem neuen Code.",
+    "invalidParentContact": "Diese Kontaktangabe sieht nicht richtig aus — prüf, ob es eine echte E-Mail-Adresse oder Telefonnummer ist.",
+    "invalidScreenName": "Dieser Name funktioniert nicht ganz — probier einen anderen!",
+    "invalidBirthYear": "Hmm, dieses Jahr sieht nicht richtig aus. Versuch es noch einmal.",
+    "genericValidationError": "Etwas ist schiefgelaufen. Prüf deine Angaben und versuch es noch einmal."
+  },
+  "shared": {
+    "genericError": "Etwas ist schiefgelaufen. Prüf deine Verbindung und versuch es noch einmal."
+  }
+}

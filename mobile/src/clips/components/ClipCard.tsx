@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -45,6 +46,7 @@ export function ClipCard({
   onTapReport,
   onTapDelete,
 }: ClipCardProps) {
+  const { t } = useTranslation('clips');
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === clip.uploaderAvatarId)?.emoji ?? '🙂';
 
   // Muted by default (per the flow doc's playback-mechanics judgment call —
@@ -123,7 +125,9 @@ export function ClipCard({
 
       {clip.taggedPlayerId && clip.taggedScreenName ? (
         <View style={styles.chip}>
-          <Text style={styles.chipText}>🎯 Utmanar {clip.taggedScreenName}</Text>
+          <Text style={styles.chipText}>
+            {t('clipCard.challengeChip', { screenName: clip.taggedScreenName })}
+          </Text>
         </View>
       ) : null}
 
@@ -137,12 +141,12 @@ export function ClipCard({
 
       {revealed && !isOwn ? (
         <Pressable onPress={onTapReport} accessibilityRole="button" style={styles.actionRow}>
-          <Text style={styles.reportLink}>🚩 Rapportera</Text>
+          <Text style={styles.reportLink}>{t('clipCard.report')}</Text>
         </Pressable>
       ) : null}
       {revealed && isOwn ? (
         <Pressable onPress={onTapDelete} accessibilityRole="button" style={styles.actionRow}>
-          <Text style={styles.deleteLink}>🗑️ Ta bort videon</Text>
+          <Text style={styles.deleteLink}>{t('clipCard.delete')}</Text>
         </Pressable>
       ) : null}
     </View>

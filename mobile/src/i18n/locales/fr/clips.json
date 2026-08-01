@@ -1,1 +1,115 @@
-{}
+{
+  "v0": {
+    "heading": "Comment fonctionne Shorts",
+    "bullet1": "Seule ton équipe voit les vidéos Shorts mises en ligne ici.",
+    "bullet2": "Un parent ou tuteur doit donner son accord avant que tu puisses mettre en ligne un Shorts toi-même.",
+    "bullet3": "Un Shorts te semble bizarre ? Signale-le et il disparaît aussitôt pour toute l'équipe, le temps qu'un adulte y jette un œil.",
+    "bullet4": "Tu peux toujours supprimer tes propres Shorts, quand tu veux.",
+    "dismiss": "D'accord, j'ai compris !"
+  },
+  "v1": {
+    "joinPendingTitle": "En attente du capitaine de l'équipe",
+    "consentPendingTitleSelfVerify": "En attente de ta vérification",
+    "consentPendingTitle": "En attente d'une autorisation",
+    "consentPartSelfVerify": "Tu dois vérifier ton e-mail ou ton numéro de téléphone.",
+    "consentPart": "Un parent ou tuteur doit donner son accord.",
+    "joinPart": "Le capitaine de l'équipe doit valider ton arrivée dans l'équipe.",
+    "bothPendingSuffix": "Dès que ces deux étapes seront terminées, on débloquera l'onglet Shorts.",
+    "joinPendingSuffix": "Dès que le capitaine valide, on débloquera l'onglet Shorts.",
+    "consentPendingSuffix": "Dès que ce sera fait, on débloquera l'onglet Shorts.",
+    "pausedTitle": "Shorts est en pause pour le moment",
+    "pausedBody": "Un parent ou tuteur a retiré son autorisation. Parle à ton entraîneur si tu as des questions.",
+    "refresh": "Vérifier à nouveau",
+    "refreshing": "Vérification..."
+  },
+  "v2": {
+    "heading": "Shorts 🎬",
+    "loadError": "Impossible de charger les Shorts. Vérifie ta connexion.",
+    "retry": "Réessayer",
+    "emptyHeading": "Pas encore de Shorts",
+    "emptySub": "Sois le/la premier(-ère) à partager un Shorts avec ton équipe !",
+    "uploadButton": "Mettre en ligne un Shorts",
+    "showMore": "Voir plus de Shorts",
+    "showMoreError": "Impossible de charger plus de Shorts. Réessaie.",
+    "uploadLockedToast": "Toujours en attente d'une autorisation avant de pouvoir mettre en ligne.",
+    "challengeBanner": "🎯 {{screenName}} t'a lancé un défi ! Regarde la vidéo Shorts.",
+    "consentRevokedToast": "Il nous faut encore une autorisation avant que tu puisses mettre en ligne. On actualise la page pour toi.",
+    "reportNotFoundToast": "Cette vidéo n'existe plus.",
+    "reportAlreadyToast": "Tu as déjà signalé cette vidéo.",
+    "reportRateLimitedToast": "Tu as signalé pas mal de choses ces derniers temps. Attends un petit moment avant de signaler à nouveau.",
+    "genericError": "Un problème est survenu. Réessaie.",
+    "deletedToast": "La vidéo a été supprimée.",
+    "deleteNotFoundToast": "Cette vidéo n'existe plus.",
+    "blockedToast": "Tu ne verras plus les Shorts ni les messages de {{screenName}}."
+  },
+  "clipCard": {
+    "challengeChip": "🎯 Défie {{screenName}}",
+    "report": "🚩 Signaler",
+    "delete": "🗑️ Supprimer la vidéo"
+  },
+  "v9": {
+    "heading": "Pourquoi signales-tu cette vidéo ?",
+    "reasonAppearsWithoutConsent": "J'apparais dans cette vidéo et je ne voulais pas y être",
+    "reasonBullying": "Harcèlement",
+    "reasonInappropriateContent": "Contenu inapproprié",
+    "reasonNotTrainingRelated": "Sans rapport avec l'entraînement",
+    "reasonOther": "Autre",
+    "noteLabel": "Tu veux en dire plus ? (facultatif)",
+    "notePlaceholder": "Facultatif…",
+    "submit": "Envoyer le signalement",
+    "cancel": "Annuler"
+  },
+  "v10": {
+    "heading": "Merci de nous avoir prévenus.",
+    "body": "La vidéo est maintenant masquée pour toute l'équipe, y compris toi. Personne ne saura que c'est toi qui as signalé.",
+    "bodySecondary": "Un adulte en sera informé, mais nous ne pouvons pas promettre exactement quand la vidéo sera réexaminée.",
+    "followUp": "Veux-tu aussi ne plus voir les Shorts et les messages de cette personne ?",
+    "block": "Bloquer {{screenName}}",
+    "noThanks": "Non merci",
+    "done": "Terminé"
+  },
+  "v11": {
+    "heading": "Supprimer ce Shorts ?",
+    "body": "La vidéo disparaît définitivement pour toute l'équipe — impossible d'annuler.",
+    "confirm": "Oui, supprimer la vidéo",
+    "cancel": "Annuler"
+  },
+  "v4": {
+    "heading": "Choisis ou filme un Shorts",
+    "sub": "La vidéo peut durer jusqu'à {{maxSeconds}} secondes.",
+    "record": "🎥 Filmer",
+    "pickFromLibrary": "🖼️ Choisir dans la galerie",
+    "cancel": "Annuler",
+    "tooLong": "La vidéo est trop longue — {{maxSeconds}} secondes maximum. Essaie-en une autre !",
+    "wrongFormat": "Ce type de fichier ne fonctionne pas ici. Essaie une vidéo depuis l'appareil photo ou la galerie.",
+    "unreadable": "Impossible de lire la vidéo. Essaie-en une autre.",
+    "permission": "Nous avons besoin de ton autorisation pour ça. Réessaie, ou choisis l'autre option."
+  },
+  "v5": {
+    "heading": "Légende & défi",
+    "captionPlaceholder": "Ajoute une légende (facultatif)…",
+    "challengeLabel": "Défier un coéquipier ? (facultatif)",
+    "noTeammates": "Pas encore de coéquipiers à défier.",
+    "taggedHelper": "{{screenName}} verra que tu l'as défié(e) la prochaine fois qu'il/elle ouvrira Shorts.",
+    "upload": "Mettre en ligne",
+    "cancel": "Annuler",
+    "captionRejected": "La légende n'a pas pu être enregistrée — elle contenait des mots qui ne fonctionnent pas ici. Essaie de la réécrire ! ✍️",
+    "rateLimited": "Tu mets des Shorts en ligne un peu vite en ce moment. Attends un petit moment, puis réessaie.",
+    "taggedPlayerGone": "Ce joueur/cette joueuse n'est plus dans l'équipe. Choisis quelqu'un d'autre, ou personne.",
+    "genericError": "Un problème est survenu. Réessaie."
+  },
+  "v6": {
+    "heading": "Mise en ligne de ton Shorts…",
+    "sub": "Ne quitte pas l'application — ça ne prendra qu'un instant.",
+    "retry": "Réessayer",
+    "cancel": "Annuler",
+    "backToFeed": "Retour au fil",
+    "retryFailure": "Un problème est survenu pendant la mise en ligne. On réessaie depuis le début.",
+    "giveUp": "La mise en ligne n'a pas fonctionné cette fois. Vérifie ta connexion et réessaie."
+  },
+  "v7": {
+    "heading": "Ton Shorts est en ligne ! 🎉",
+    "sub": "L'équipe peut le voir maintenant.",
+    "done": "Vers le fil"
+  }
+}

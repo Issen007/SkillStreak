@@ -1,1 +1,86 @@
-{}
+{
+  "ch0": {
+    "heading": "Så funkar lagchatten",
+    "bullet1": "Bara ditt eget lag ser det du skriver här.",
+    "bullet2": "Känns något fel? Du kan rapportera ett meddelande, eller blockera en person så du slipper se fler av deras meddelanden.",
+    "bullet3": "Vissa ord funkar inte här. Om ett meddelande inte går att skicka, testa att skriva om det.",
+    "dismiss": "Okej, jag fattar!"
+  },
+  "ch1": {
+    "heading": "Lagchatt 💬",
+    "blockedLink": "🚫 Blockerade",
+    "loadError": "Kunde inte hämta lagchatten. Kolla din uppkoppling.",
+    "retry": "Försök igen",
+    "emptyHeading": "Inga meddelanden än",
+    "emptySub": "Skriv det första meddelandet till laget!",
+    "filterRejected": "Meddelandet skickades inte — det innehöll ord som inte funkar här. Skriv om det så går det bra! ✍️",
+    "sendRateLimited": "Du skickar meddelanden lite snabbt just nu. Vänta en liten stund så går det bra igen.",
+    "genericError": "Något gick fel. Testa igen.",
+    "clipGoneOnSend": "Klippet gick inte att skicka — det finns inte längre. Nu kan du skicka resten själv.",
+    "messageNotFoundToast": "Det där meddelandet finns inte längre.",
+    "alreadyReportedToast": "Du har redan rapporterat det här meddelandet.",
+    "reportRateLimitedToast": "Du har rapporterat en del på sistone. Vänta en liten stund innan du rapporterar igen.",
+    "clipNotFoundToast": "Den där videon finns inte längre.",
+    "clipAlreadyReportedToast": "Du har redan rapporterat den här videon.",
+    "clipReportRateLimitedToast": "Du har rapporterat en del på sistone. Vänta en liten stund innan du rapporterar igen.",
+    "blockedToast": "Du ser inte längre meddelanden eller klipp från {{screenName}}."
+  },
+  "ch2": {
+    "excerpt": "Du rapporterar: \"{{excerpt}}…\"",
+    "heading": "Varför rapporterar du det här meddelandet?",
+    "reasonBullying": "Mobbning",
+    "reasonInappropriateLanguage": "Olämpligt språk",
+    "reasonSpam": "Skräppost",
+    "reasonOther": "Annat",
+    "noteLabel": "Vill du berätta mer? (frivilligt)",
+    "notePlaceholder": "Valfritt…",
+    "submit": "Skicka rapport",
+    "cancel": "Avbryt"
+  },
+  "ch3": {
+    "heading": "Tack för att du sa till.",
+    "body": "Vi har tagit emot din rapport. Du behöver inte göra något mer – och ingen får veta att det var du som rapporterade.",
+    "followUp": "Vill du också slippa se fler meddelanden från den personen?",
+    "block": "Blockera {{screenName}}",
+    "noThanks": "Nej tack",
+    "done": "Klar"
+  },
+  "ch4": {
+    "body": "Om du blockerar {{screenName}} slutar du se deras meddelanden i lagchatten och deras Shorts i Shorts-flödet. {{screenName}} får inte veta att du har blockerat dem.",
+    "confirm": "Blockera {{screenName}}",
+    "cancel": "Avbryt"
+  },
+  "ch5": {
+    "heading": "Blockerade lagkompisar",
+    "headingSub": "En blockering gäller både lagchatten och Shorts.",
+    "empty": "Du har inte blockerat någon.",
+    "unblock": "Sluta blockera",
+    "back": "Tillbaka",
+    "unblockedToast": "Du ser meddelanden från {{screenName}} igen.",
+    "genericError": "Något gick fel. Testa igen."
+  },
+  "ch6": {
+    "heading": "Bifoga ett klipp",
+    "loadError": "Kunde inte hämta klipp. Kolla din uppkoppling.",
+    "retry": "Försök igen",
+    "emptyHeading": "Inga klipp att bifoga än",
+    "emptySub": "Ingen i laget har laddat upp ett klipp än. Gå till Klipp-fliken för att ladda upp det första!",
+    "goToClips": "Gå till Klipp",
+    "showMore": "Visa fler klipp"
+  },
+  "composeBar": {
+    "lockedNote": "Väntar på godkännande innan du kan skicka meddelanden. Du kan fortfarande läsa vad laget skriver.",
+    "placeholder": "Skriv något till laget…",
+    "clipChipLabel": "Från {{screenName}}"
+  },
+  "messageBubble": {
+    "reportMessage": "🚩 Rapportera meddelandet",
+    "reportClip": "🚩 Rapportera klippet"
+  },
+  "clipEmbed": {
+    "attribution": "Klipp av {{screenName}}"
+  },
+  "clipUnavailable": {
+    "text": "🎬 Videon är inte längre tillgänglig."
+  }
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { O0ChooseLanguage } from './screens/O0ChooseLanguage';
 import { O1EnterCode } from './screens/O1EnterCode';
@@ -32,6 +33,7 @@ interface OnboardingFlowProps {
  * rather than a stack navigator: there's no deep back-history to preserve
  * beyond "which step am I on" plus the accumulated form data. */
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
+  const { t } = useTranslation('onboarding');
   // Starts at O0 (docs/adr/0014-multi-language-support.md Decision 2) —
   // has to run before every other screen so their copy (once part (b)
   // translates it) renders in whatever the player just picked.
@@ -87,7 +89,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       setStep('O6');
     } catch (err) {
       if (err instanceof ApiError && err.code === 'screen_name_taken_in_team') {
-        setO3Error('Det namnet är upptaget i laget — testa ett annat!');
+        setO3Error(t('flow.screenNameTaken'));
         setFocusNameOnO3(true);
         setStep('O3');
       } else if (err instanceof ApiError && err.code === 'team_name_rejected_by_filter') {
@@ -100,9 +102,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         // names both possibilities and points at "Byt kod" rather than
         // blaming the name alone, which would leave a kid whose *code* was
         // the real problem stuck retyping an already-fine name.
-        setO1bError(
-          'Namnet eller lagkoden innehöll ord som inte funkar här. Skriv om namnet, eller tryck "Byt kod" ovan om det är koden.',
-        );
+        setO1bError(t('flow.teamNameRejected'));
         setFocusNameOnO1b(true);
         setStep('O1b');
       } else if (err instanceof ApiError && err.code === 'invite_code_taken_concurrently') {
@@ -116,16 +116,14 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           teamId: null,
           isCreatingTeam: false,
         }));
-        setO1Error(
-          'Åh nej — någon hann skapa ett lag med den koden precis före dig! Testa en annan kod, så ordnar vi resten direkt.',
-        );
+        setO1Error(t('flow.codeTakenConcurrently'));
         setSelectCodeOnO1(false);
         setStep('O1');
       } else if (err instanceof ApiError && err.code === 'invite_code_not_found') {
         // Edge case: the code became invalid between O1 and now (e.g. a
         // coach retired it) — join path only, `teamName` absent.
         setData((prev) => ({ ...prev, teamId: null, teamName: null }));
-        setO1Error('Lagkoden fungerar inte längre. Fråga din tränare om en ny kod.');
+        setO1Error(t('flow.inviteCodeNotFound'));
         setSelectCodeOnO1(false);
         setStep('O1');
       } else if (err instanceof ApiError && err.status === 400) {
@@ -142,24 +140,22 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         if (message.includes('parentContact')) {
           // Already on O5 — no step change, just surface the real error
           // on the field the user actually just typed into.
-          setO5Error(
-            'Den kontaktuppgiften ser inte rätt ut — kolla att det är en riktig e-postadress eller ett telefonnummer.',
-          );
+          setO5Error(t('flow.invalidParentContact'));
         } else if (message.includes('screenName')) {
-          setO3Error('Det namnet fungerar inte riktigt — testa ett annat!');
+          setO3Error(t('flow.invalidScreenName'));
           setFocusNameOnO3(true);
           setStep('O3');
         } else if (message.includes('birthYear')) {
           // The picker already hard-limits its range client-side to match
           // the backend, so this should be unreachable in practice —
           // kept as a genuine defense-in-depth fallback, not the default.
-          setO4Error('Hmm, det året ser inte rätt ut. Testa igen.');
+          setO4Error(t('flow.invalidBirthYear'));
           setStep('O4');
         } else {
-          setO5Error('Något gick fel. Kolla uppgifterna och testa igen.');
+          setO5Error(t('flow.genericValidationError'));
         }
       } else {
-        setO5Error('Något gick fel. Kolla din uppkoppling och testa igen.');
+        setO5Error(t('shared.genericError'));
       }
     } finally {
       setO5Loading(false);

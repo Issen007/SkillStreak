@@ -1,5 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
+import i18n from '../../i18n';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 import { swedishOrdinal } from '../../utils/ordinal';
@@ -22,7 +24,9 @@ interface TeamPoolCardProps {
   onPress: () => void;
 }
 
-const numberFormatter = new Intl.NumberFormat('sv-SE');
+function numberFormatter() {
+  return new Intl.NumberFormat(i18n.language);
+}
 
 /** Screen LB1 (Fas 2.7) — rewrite of the old goal-threshold progress card.
  * Renamed "VM-Guld-tabellen" (from "Lagets VM-Guld-pott") and the percent-
@@ -37,6 +41,7 @@ export function TeamPoolCard({
   effortRank,
   onPress,
 }: TeamPoolCardProps) {
+  const { t } = useTranslation('home');
   const hasActiveSeason = rank !== undefined && teamCount !== undefined;
 
   return (
@@ -45,25 +50,29 @@ export function TeamPoolCard({
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
-      <Text style={styles.title}>🥇 VM-Guld-tabellen</Text>
-      <Text style={styles.points}>{numberFormatter.format(pointsTotal)} poäng</Text>
+      <Text style={styles.title}>{t('teamPoolCard.title')}</Text>
+      <Text style={styles.points}>
+        {t('teamPoolCard.points', { points: numberFormatter().format(pointsTotal) })}
+      </Text>
 
       {hasActiveSeason ? (
         <Text style={styles.rankLine}>
-          {swedishOrdinal(rank)} plats av {teamCount} lag
+          {t('teamPoolCard.rankLine', { rank: swedishOrdinal(rank), teamCount })}
         </Text>
       ) : (
         <>
-          <Text style={styles.rankLine}>Ingen aktiv säsong just nu</Text>
-          <Text style={styles.sub}>Ni är med igen så fort en ny säsong startar.</Text>
+          <Text style={styles.rankLine}>{t('teamPoolCard.noActiveSeason')}</Text>
+          <Text style={styles.sub}>{t('teamPoolCard.noActiveSeasonSub')}</Text>
         </>
       )}
 
       {effortRank != null ? (
-        <Text style={styles.effortLine}>🌟 {swedishOrdinal(effortRank)} bäst i laginsats</Text>
+        <Text style={styles.effortLine}>
+          {t('teamPoolCard.effortLine', { effortRank: swedishOrdinal(effortRank) })}
+        </Text>
       ) : null}
 
-      <Text style={styles.tapHint}>Se tabellen →</Text>
+      <Text style={styles.tapHint}>{t('teamPoolCard.tapHint')}</Text>
     </Pressable>
   );
 }

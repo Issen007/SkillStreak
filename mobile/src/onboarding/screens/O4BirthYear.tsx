@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -38,6 +39,7 @@ interface O4BirthYearProps {
 }
 
 export function O4BirthYear({ initialBirthYear, externalError, onNext }: O4BirthYearProps) {
+  const { t } = useTranslation('onboarding');
   const [birthYear, setBirthYear] = useState<number | null>(initialBirthYear);
   const [error, setError] = useState<string | null>(externalError ?? null);
   const [yearText, setYearText] = useState<string>(
@@ -61,7 +63,7 @@ export function O4BirthYear({ initialBirthYear, externalError, onNext }: O4Birth
     setBirthYear(valid ? year : null);
     setError(
       text && !valid
-        ? `Ange ett år mellan ${MIN_BIRTH_YEAR} och ${MAX_BIRTH_YEAR}.`
+        ? t('o4.yearRangeError', { minYear: MIN_BIRTH_YEAR, maxYear: MAX_BIRTH_YEAR })
         : null,
     );
   };
@@ -69,19 +71,17 @@ export function O4BirthYear({ initialBirthYear, externalError, onNext }: O4Birth
   return (
     <ScreenContainer scroll>
       <View style={styles.spacerTop} />
-      <Text style={styles.heading}>Vilket år är du född?</Text>
-      <Text style={styles.sub}>
-        Vi använder det för att anpassa utmaningar till din ålder.
-      </Text>
+      <Text style={styles.heading}>{t('o4.heading')}</Text>
+      <Text style={styles.sub}>{t('o4.sub')}</Text>
 
       {!isWeb && error ? <Text style={styles.error}>{error}</Text> : null}
 
       {isWeb ? (
         <TextField
-          label="Födelseår"
+          label={t('o4.yearLabel')}
           value={yearText}
           onChangeText={handleWebChange}
-          placeholder={`T.ex. ${MAX_BIRTH_YEAR}`}
+          placeholder={t('o4.yearPlaceholder', { maxYear: MAX_BIRTH_YEAR })}
           keyboardType="number-pad"
           maxLength={4}
           errorText={error ?? undefined}
@@ -108,7 +108,7 @@ export function O4BirthYear({ initialBirthYear, externalError, onNext }: O4Birth
       <View style={styles.spacer} />
 
       <PrimaryButton
-        label="Nästa"
+        label={t('o4.next')}
         disabled={birthYear === null}
         onPress={() => {
           if (birthYear !== null) onNext(birthYear);

@@ -1,1 +1,18 @@
-{}
+{
+  "captainBanner": {
+    "promotedTitle": "👑 Gratulerer! Du er nå lagets kaptein.",
+    "promotedSub": "Du finner de nye verktøyene dine under Lag-fanen.",
+    "demoted": "Kapteinrollen gikk videre til en lagkamerat."
+  },
+  "catchUpBanner": {
+    "message": "🎉 Alle på laget nådde ukens mål! Laget fikk +{{points}} bonuspoeng."
+  },
+  "tabs": {
+    "home": "Hjem",
+    "chat": "Chat",
+    "clips": "Shorts",
+    "goal": "Mål",
+    "team": "Lag"
+  },
+  "testModeBanner": "🧪 Dette er bare en TEST — ikke opprett en ekte konto med ekte opplysninger."
+}

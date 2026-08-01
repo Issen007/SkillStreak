@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ClipEmbed } from './ClipEmbed';
 import { ClipUnavailablePlaceholder } from './ClipUnavailablePlaceholder';
@@ -68,6 +69,7 @@ export function MessageBubble({
   onTapSender,
   onTapClipUploader,
 }: MessageBubbleProps) {
+  const { t } = useTranslation('chat');
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === message.senderAvatarId)?.emoji ?? '🙂';
   const timestamp = formatChatTimestamp(message.createdAt);
 
@@ -114,12 +116,12 @@ export function MessageBubble({
         <View style={styles.reportRow}>
           {canReportMessage ? (
             <Pressable onPress={onTapReportMessage} accessibilityRole="button">
-              <Text style={styles.reportLink}>🚩 Rapportera meddelandet</Text>
+              <Text style={styles.reportLink}>{t('messageBubble.reportMessage')}</Text>
             </Pressable>
           ) : null}
           {canReportClip ? (
             <Pressable onPress={onTapReportClip} accessibilityRole="button">
-              <Text style={styles.reportLink}>🚩 Rapportera klippet</Text>
+              <Text style={styles.reportLink}>{t('messageBubble.reportClip')}</Text>
             </Pressable>
           ) : null}
         </View>

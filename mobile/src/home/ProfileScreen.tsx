@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryLink } from '../components/SecondaryLink';
@@ -65,6 +66,7 @@ type ProfileView =
  * shown, never editable (decision 2 — a self-verification-age bypass
  * risk) — there is no input for it anywhere in this file. */
 export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }: ProfileScreenProps) {
+  const { t } = useTranslation('home');
   const [profile, setProfile] = useState<PlayerProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -135,11 +137,11 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
       setErasureStatus(statusResponse);
       setLoadError(null);
     } catch {
-      setLoadError('Kunde inte hämta din profil. Kolla din uppkoppling.');
+      setLoadError(t('profileScreen.loadError'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void fetchProfile();
@@ -153,10 +155,10 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
       setProfile((prev) => (prev ? { ...prev, realName: trimmed.length > 0 ? trimmed : null } : prev));
       setView('view');
       setToastDurationMs(2000);
-      setToastMessage('Sparat!');
+      setToastMessage(t('profileScreen.savedToast'));
     } catch {
       setToastDurationMs(2000);
-      setToastMessage('Något gick fel. Testa igen.');
+      setToastMessage(t('shared.genericErrorTryAgain'));
     } finally {
       setNameSaving(false);
     }
@@ -170,10 +172,10 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
       setProfile((prev) => (prev ? { ...prev, avatarId: avatarSelection } : prev));
       setView('view');
       setToastDurationMs(2000);
-      setToastMessage('Sparat!');
+      setToastMessage(t('profileScreen.savedToast'));
     } catch {
       setToastDurationMs(2000);
-      setToastMessage('Något gick fel. Testa igen.');
+      setToastMessage(t('shared.genericErrorTryAgain'));
     } finally {
       setAvatarSaving(false);
     }
@@ -189,9 +191,9 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
       setView('confirmChange');
     } catch (err) {
       if (err instanceof ApiError && err.code === 'contact_change_rate_limited') {
-        setContactError('Du har redan bett om en ändring nyligen — vänta lite innan du försöker igen.');
+        setContactError(t('profileScreen.contactChangeRateLimited'));
       } else {
-        setContactError('Något gick fel. Kolla uppgiften och testa igen.');
+        setContactError(t('profileScreen.contactChangeGenericError'));
       }
     } finally {
       setContactSubmitting(false);
@@ -219,14 +221,14 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
       );
       setToastDurationMs(5000);
       setToastMessage(
-        `Bekräftat! Träder i kraft om ca ${appliesAtHours} tim. Den gamla adressen kan avbryta via mejlet vi skickat dit.`,
+        t('profileScreen.contactChangeConfirmedToast', { hours: appliesAtHours }),
       );
       void fetchProfile();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'invalid_or_expired_contact_change_code') {
-        setCodeError('Den koden fungerar inte längre. Kolla att du skrev rätt, eller be om en ny.');
+        setCodeError(t('profileScreen.codeInvalid'));
       } else {
-        setCodeError('Något gick fel. Kolla din uppkoppling och testa igen.');
+        setCodeError(t('profileScreen.codeGenericError'));
       }
     } finally {
       setCodeSubmitting(false);
@@ -248,11 +250,11 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
         teammatesResponse.teammates.filter((teammate) => teammate.playerId !== playerId).length,
       );
     } catch {
-      setErasureTeamInfoError('Kunde inte hämta laginformation. Försök igen.');
+      setErasureTeamInfoError(t('profileScreen.erasureTeamInfoError'));
     } finally {
       setErasureTeamInfoLoading(false);
     }
-  }, [teamId, playerId]);
+  }, [teamId, playerId, t]);
 
   const handleOpenErasureRequest = () => {
     setErasureSuccessorId(null);
@@ -273,12 +275,12 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
         setE3Teammates(others);
         setE3Selection(others.find((teammate) => teammate.playerId === preferredSuccessorId) ?? null);
       } catch {
-        setE3Error('Kunde inte hämta laglistan. Kolla din uppkoppling.');
+        setE3Error(t('profileScreen.erasureTeammatesError'));
       } finally {
         setE3Loading(false);
       }
     },
-    [teamId, playerId],
+    [teamId, playerId, t],
   );
 
   const handleOpenSuccessorPicker = () => {
@@ -314,21 +316,19 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
           setErasureSheetVisible(false);
           setView('view');
           setToastDurationMs(5000);
-          setToastMessage(
-            'Du har en pågående ändring av din kontaktuppgift. Den måste bli klar (eller avbrytas) innan du kan radera kontot — kolla igen om en liten stund.',
-          );
+          setToastMessage(t('profileScreen.erasureBlockedPendingContactChange'));
           return;
         }
         if (err.code === 'erasure_rate_limited') {
           setErasureSheetVisible(false);
           setToastDurationMs(3000);
-          setToastMessage('Du har nyss bett om det här. Vänta en liten stund och försök igen.');
+          setToastMessage(t('profileScreen.erasureRateLimited'));
           return;
         }
         if (err.code === 'erasure_successor_invalid') {
           setErasureSheetVisible(false);
           setToastDurationMs(3000);
-          setToastMessage('Den spelaren finns inte kvar i laget längre. Välj någon annan.');
+          setToastMessage(t('profileScreen.erasureSuccessorInvalid'));
           setErasureSuccessorId(null);
           setErasureSuccessorName(null);
           setErasureSuccessorAvatarId(null);
@@ -355,16 +355,14 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
           setErasureSheetVisible(false);
           setView('view');
           setToastDurationMs(4000);
-          setToastMessage(
-            'Något har ändrats i laget sedan du öppnade den här vyn. Kolla din profil och försök igen.',
-          );
+          setToastMessage(t('profileScreen.erasureStaleState'));
           void refreshErasureStatus();
           return;
         }
       }
       // Generic/5xx — sheet stays open, inline error, same fallback idiom
       // as everywhere else in this app.
-      setErasureSheetError('Något gick fel. Testa igen.');
+      setErasureSheetError(t('shared.genericErrorTryAgain'));
     }
   };
 
@@ -388,10 +386,10 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
       setErasureSuccessorName(null);
       setErasureSuccessorAvatarId(null);
       setToastDurationMs(3000);
-      setToastMessage('Klart! Ditt konto raderas inte. 🎉');
+      setToastMessage(t('profileScreen.erasureCancelledToast'));
     } catch {
       setToastDurationMs(3000);
-      setToastMessage('Något gick fel. Ladda om sidan och testa igen.');
+      setToastMessage(t('profileScreen.erasureCancelError'));
       await refreshErasureStatus();
     } finally {
       setErasureCancelling(false);
@@ -414,9 +412,9 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
   if (loadError || !profile) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>{loadError ?? 'Något gick fel.'}</Text>
+        <Text style={styles.errorText}>{loadError ?? t('shared.genericError')}</Text>
         <Text style={styles.retryText} onPress={() => void fetchProfile()}>
-          Försök igen
+          {t('shared.retry')}
         </Text>
       </View>
     );
@@ -425,19 +423,21 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
   if (view === 'editName') {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Ditt namn</Text>
-        <Text style={styles.sub}>
-          Frivilligt — visas aldrig för andra i laget, bara du ser det här.
-        </Text>
+        <Text style={styles.heading}>{t('profileScreen.editName.heading')}</Text>
+        <Text style={styles.sub}>{t('profileScreen.editName.sub')}</Text>
         <TextField
           value={nameInput}
           onChangeText={setNameInput}
-          placeholder="För- och efternamn"
+          placeholder={t('profileScreen.editName.placeholder')}
           autoCapitalize="words"
         />
         <View style={styles.spacer} />
-        <PrimaryButton label="Spara" onPress={() => void handleSaveName()} loading={nameSaving} />
-        <SecondaryLink label="Avbryt" onPress={() => setView('view')} />
+        <PrimaryButton
+          label={t('shared.save')}
+          onPress={() => void handleSaveName()}
+          loading={nameSaving}
+        />
+        <SecondaryLink label={t('shared.cancel')} onPress={() => setView('view')} />
       </ScrollView>
     );
   }
@@ -445,8 +445,8 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
   if (view === 'editAvatar') {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Välj avatar</Text>
-        <Text style={styles.sub}>Ingen bild behövs — välj en figur du gillar.</Text>
+        <Text style={styles.heading}>{t('profileScreen.editAvatar.heading')}</Text>
+        <Text style={styles.sub}>{t('profileScreen.editAvatar.sub')}</Text>
         <View style={styles.avatarGrid}>
           {AVATAR_CATALOG.map((option) => {
             const selected = option.avatarId === avatarSelection;
@@ -465,12 +465,12 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
         </View>
         <View style={styles.spacer} />
         <PrimaryButton
-          label="Spara"
+          label={t('shared.save')}
           onPress={() => void handleSaveAvatar()}
           disabled={!avatarSelection || avatarSelection === profile.avatarId}
           loading={avatarSaving}
         />
-        <SecondaryLink label="Avbryt" onPress={() => setView('view')} />
+        <SecondaryLink label={t('shared.cancel')} onPress={() => setView('view')} />
       </ScrollView>
     );
   }
@@ -478,30 +478,27 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
   if (view === 'requestChange') {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Byt kontaktadress</Text>
-        <Text style={styles.sub}>
-          Ange den nya adressen. Vi skickar en kod dit för att bekräfta, och en
-          notis till den gamla adressen om att en ändring är på gång.
-        </Text>
+        <Text style={styles.heading}>{t('profileScreen.requestChange.heading')}</Text>
+        <Text style={styles.sub}>{t('profileScreen.requestChange.sub')}</Text>
         <TextField
           value={contactInput}
           onChangeText={(text) => {
             setContactInput(text);
             if (contactError) setContactError(null);
           }}
-          placeholder="Ny e-postadress eller telefonnummer"
+          placeholder={t('profileScreen.requestChange.placeholder')}
           autoCapitalize="none"
           autoCorrect={false}
           errorText={contactError ?? undefined}
         />
         <View style={styles.spacer} />
         <PrimaryButton
-          label="Skicka kod"
+          label={t('profileScreen.requestChange.submit')}
           onPress={() => void handleRequestChange()}
           disabled={contactInput.trim().length === 0}
           loading={contactSubmitting}
         />
-        <SecondaryLink label="Avbryt" onPress={() => setView('view')} />
+        <SecondaryLink label={t('shared.cancel')} onPress={() => setView('view')} />
       </ScrollView>
     );
   }
@@ -510,30 +507,30 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Text style={styles.icon}>📩</Text>
-        <Text style={styles.heading}>Kolla inkorgen</Text>
-        <Text style={styles.sub}>
-          Vi har skickat en kod till den nya adressen. Ange den nedan för att
-          bekräfta bytet.
-        </Text>
+        <Text style={styles.heading}>{t('profileScreen.confirmChange.heading')}</Text>
+        <Text style={styles.sub}>{t('profileScreen.confirmChange.sub')}</Text>
         <TextField
           value={codeInput}
           onChangeText={(text) => {
             setCodeInput(text);
             if (codeError) setCodeError(null);
           }}
-          placeholder="T.ex. H4K7QWXP"
+          placeholder={t('profileScreen.confirmChange.placeholder')}
           autoCapitalize="characters"
           autoCorrect={false}
           errorText={codeError ?? undefined}
         />
         <View style={styles.spacer} />
         <PrimaryButton
-          label="Bekräfta"
+          label={t('profileScreen.confirmChange.submit')}
           onPress={() => void handleConfirmChange()}
           disabled={codeInput.trim().length === 0}
           loading={codeSubmitting}
         />
-        <SecondaryLink label="Fick du ingen kod? Försök igen" onPress={() => setView('requestChange')} />
+        <SecondaryLink
+          label={t('profileScreen.confirmChange.resend')}
+          onPress={() => setView('requestChange')}
+        />
       </ScrollView>
     );
   }
@@ -612,7 +609,7 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Din profil</Text>
+        <Text style={styles.heading}>{t('profileScreen.view.heading')}</Text>
         <Text style={styles.greeting}>{screenName}</Text>
 
         {erasureStatus.status !== 'none' ? (
@@ -626,12 +623,12 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
         ) : null}
 
         <View style={styles.card}>
-          <Text style={styles.fieldLabel}>Avatar</Text>
+          <Text style={styles.fieldLabel}>{t('profileScreen.view.avatarLabel')}</Text>
           <Text style={styles.avatarPreviewEmoji}>
             {AVATAR_CATALOG.find((a) => a.avatarId === profile.avatarId)?.emoji ?? '🙂'}
           </Text>
           <SecondaryLink
-            label="Ändra"
+            label={t('shared.edit')}
             onPress={() => {
               setAvatarSelection(profile.avatarId);
               setView('editAvatar');
@@ -640,10 +637,10 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.fieldLabel}>Namn</Text>
-          <Text style={styles.fieldValue}>{profile.realName ?? 'Inte angivet'}</Text>
+          <Text style={styles.fieldLabel}>{t('profileScreen.view.nameLabel')}</Text>
+          <Text style={styles.fieldValue}>{profile.realName ?? t('profileScreen.view.nameNotSet')}</Text>
           <SecondaryLink
-            label={profile.realName ? 'Ändra' : 'Lägg till'}
+            label={profile.realName ? t('shared.edit') : t('profileScreen.view.addName')}
             onPress={() => {
               setNameInput(profile.realName ?? '');
               setView('editName');
@@ -652,29 +649,29 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.fieldLabel}>Födelseår</Text>
+          <Text style={styles.fieldLabel}>{t('profileScreen.view.birthYearLabel')}</Text>
           <Text style={styles.fieldValue}>{profile.birthYear}</Text>
-          <Text style={styles.fieldHelper}>
-            Går inte att ändra själv — hör av dig till lagets tränare om det
-            behöver rättas.
-          </Text>
+          <Text style={styles.fieldHelper}>{t('profileScreen.view.birthYearHelper')}</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.fieldLabel}>Kontaktadress</Text>
+          <Text style={styles.fieldLabel}>{t('profileScreen.view.contactLabel')}</Text>
           <Text style={styles.fieldValue}>{profile.parentContact}</Text>
-          <SecondaryLink label="Byt" onPress={() => setView('requestChange')} />
+          <SecondaryLink
+            label={t('profileScreen.view.changeContact')}
+            onPress={() => setView('requestChange')}
+          />
         </View>
 
-        <SecondaryLink label="Tillbaka" onPress={onBack} />
-        <SecondaryLink label="Logga ut" onPress={() => void handleLogout()} />
+        <SecondaryLink label={t('profileScreen.view.back')} onPress={onBack} />
+        <SecondaryLink label={t('profileScreen.view.logout')} onPress={() => void handleLogout()} />
 
         {/* Screen E1 — only shown when no erasure request is active
             (Judgment call 8: never alongside E6's status card above). */}
         {erasureStatus.status === 'none' ? (
           <View style={styles.erasureEntrySpacer}>
             <SecondaryLink
-              label="Radera mitt konto"
+              label={t('profileScreen.view.deleteAccount')}
               variant="error"
               onPress={handleOpenErasureRequest}
             />

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
@@ -11,13 +12,35 @@ import type { ClipReportReason } from '../../api/types';
 // judgment call 7) — `appears_without_consent` is this feature's single
 // most serious category and shouldn't be buried at the bottom of an
 // otherwise-generic list the way chat puts bullying first.
-const REASONS: { value: ClipReportReason; label: string }[] = [
-  { value: 'appears_without_consent', label: 'Jag är med i videon och ville inte vara det' },
-  { value: 'bullying', label: 'Mobbning' },
-  { value: 'inappropriate_content', label: 'Olämpligt innehåll' },
-  { value: 'not_training_related', label: 'Har inget med träning att göra' },
-  { value: 'other', label: 'Annat' },
+const REASON_VALUES: ClipReportReason[] = [
+  'appears_without_consent',
+  'bullying',
+  'inappropriate_content',
+  'not_training_related',
+  'other',
 ];
+
+function reasonLabelKey(
+  value: ClipReportReason,
+):
+  | 'v9.reasonAppearsWithoutConsent'
+  | 'v9.reasonBullying'
+  | 'v9.reasonInappropriateContent'
+  | 'v9.reasonNotTrainingRelated'
+  | 'v9.reasonOther' {
+  switch (value) {
+    case 'appears_without_consent':
+      return 'v9.reasonAppearsWithoutConsent';
+    case 'bullying':
+      return 'v9.reasonBullying';
+    case 'inappropriate_content':
+      return 'v9.reasonInappropriateContent';
+    case 'not_training_related':
+      return 'v9.reasonNotTrainingRelated';
+    default:
+      return 'v9.reasonOther';
+  }
+}
 
 const NOTE_MAX_LENGTH = 140;
 
@@ -31,6 +54,7 @@ interface ClipReportSheetProps {
 /** Screen V9 — the report-reason bottom sheet, same visual pattern as CH2.
  * Five large, tappable, single-select rows (not a dropdown). */
 export function ClipReportSheet({ visible, loading, onSubmit, onClose }: ClipReportSheetProps) {
+  const { t } = useTranslation('clips');
   const [reason, setReason] = useState<ClipReportReason | null>(null);
   const [note, setNote] = useState('');
 
@@ -49,28 +73,28 @@ export function ClipReportSheet({ visible, loading, onSubmit, onClose }: ClipRep
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable style={styles.backdrop} onPress={loading ? undefined : handleClose} />
       <View style={styles.sheet}>
-        <Text style={styles.heading}>Varför rapporterar du den här videon?</Text>
+        <Text style={styles.heading}>{t('v9.heading')}</Text>
 
-        {REASONS.map((option) => {
-          const selected = option.value === reason;
+        {REASON_VALUES.map((value) => {
+          const selected = value === reason;
           return (
             <Pressable
-              key={option.value}
+              key={value}
               accessibilityRole="button"
               accessibilityState={{ selected }}
-              onPress={() => setReason(option.value)}
+              onPress={() => setReason(value)}
               style={[styles.reasonRow, selected && styles.reasonRowSelected]}
             >
-              <Text style={styles.reasonLabel}>{option.label}</Text>
+              <Text style={styles.reasonLabel}>{t(reasonLabelKey(value))}</Text>
             </Pressable>
           );
         })}
 
-        <Text style={styles.noteLabel}>Vill du berätta mer? (frivilligt)</Text>
+        <Text style={styles.noteLabel}>{t('v9.noteLabel')}</Text>
         <TextInput
           value={note}
           onChangeText={(text) => setNote(text.slice(0, NOTE_MAX_LENGTH))}
-          placeholder="Valfritt…"
+          placeholder={t('v9.notePlaceholder')}
           placeholderTextColor={colors.textMuted}
           multiline
           style={styles.noteInput}
@@ -80,12 +104,12 @@ export function ClipReportSheet({ visible, loading, onSubmit, onClose }: ClipRep
         </Text>
 
         <PrimaryButton
-          label="Skicka rapport"
+          label={t('v9.submit')}
           disabled={!reason}
           loading={loading}
           onPress={handleSubmit}
         />
-        <SecondaryLink label="Avbryt" onPress={handleClose} />
+        <SecondaryLink label={t('v9.cancel')} onPress={handleClose} />
       </View>
     </Modal>
   );

@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -28,28 +29,23 @@ export function O1cConfirmNewTeam({
   onConfirm,
   onEditName,
 }: O1cConfirmNewTeamProps) {
+  const { t } = useTranslation('onboarding');
   return (
     <ScreenContainer>
       <View style={styles.spacerTop} />
       <Text style={styles.icon}>🏒</Text>
-      <Text style={styles.heading}>Skapa {teamName}?</Text>
-      <Text style={styles.sub}>
-        Lagkod: {inviteCode} — dela den med lagkompisar så de kan gå med
-        sen.
-      </Text>
+      <Text style={styles.heading}>{t('o1c.heading', { teamName })}</Text>
+      <Text style={styles.sub}>{t('o1c.sub', { inviteCode })}</Text>
 
       <View style={styles.tipRow}>
         <Text style={styles.tipIcon}>💡</Text>
-        <Text style={styles.tipText}>
-          Namnet och koden går inte att ändra sen, så dubbelkolla att allt
-          stämmer!
-        </Text>
+        <Text style={styles.tipText}>{t('o1c.tip')}</Text>
       </View>
 
       <View style={styles.spacer} />
 
-      <PrimaryButton label="Ja, skapa laget!" onPress={onConfirm} />
-      <SecondaryLink label="Nej, ändra namnet" onPress={onEditName} />
+      <PrimaryButton label={t('o1c.confirm')} onPress={onConfirm} />
+      <SecondaryLink label={t('o1c.editName')} onPress={onEditName} />
     </ScreenContainer>
   );
 }

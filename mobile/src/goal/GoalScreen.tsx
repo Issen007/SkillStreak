@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { GoalCard } from './components/GoalCard';
 import { GoalBuilderFlow } from './GoalBuilderFlow';
@@ -32,6 +33,7 @@ type GoalViewState = 'card' | 'builder' | 'history' | 'detail';
  * and docs/design/phase2.10-per-player-goal-flows.md. Self-contained fetch
  * on mount, same pattern as HomeScreen/TeamScreen. */
 export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
+  const { t } = useTranslation('goal');
   const [data, setData] = useState<CurrentGoalResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -52,11 +54,11 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
       setLoadError(null);
       setActivateBlocked(false);
     } catch {
-      setLoadError('Kunde inte hämta lagets mål. Kolla din uppkoppling.');
+      setLoadError(t('g1.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [teamId]);
+  }, [teamId, t]);
 
   useEffect(() => {
     void fetchGoal();
@@ -81,7 +83,7 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
       await patchWeeklyGoal(teamId, goalId, { status: 'cancelled' });
       await fetchGoal();
     } catch {
-      setToastMessage('Något gick fel. Testa igen.');
+      setToastMessage(t('g1.genericErrorToast'));
     } finally {
       setCancelling(false);
     }
@@ -89,11 +91,11 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
 
   const handleCancelGoal = (goal: GoalProgressSummary) => {
     Alert.alert(
-      `Avbryta "${goal.title}"?`,
-      'Loggad träning påverkas inte, men den räknas inte längre mot ett mål.',
+      t('g1.cancelConfirmTitle', { title: goal.title }),
+      t('g1.cancelConfirmBody'),
       [
-        { text: 'Avbryt', style: 'cancel' },
-        { text: 'Ja, avbryt', style: 'destructive', onPress: () => void doCancelGoal(goal.id) },
+        { text: t('g1.cancelConfirmCancel'), style: 'cancel' },
+        { text: t('g1.cancelConfirmConfirm'), style: 'destructive', onPress: () => void doCancelGoal(goal.id) },
       ],
     );
   };
@@ -102,14 +104,14 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
     setActivating(true);
     try {
       await patchWeeklyGoal(teamId, goalId, { status: 'active' });
-      setToastMessage('Målet är aktiverat — laget ser det nu.');
+      setToastMessage(t('g1.activatedToast'));
       await fetchGoal();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'active_goal_already_exists') {
         setActivateBlocked(true);
         await fetchGoal();
       } else {
-        setToastMessage('Något gick fel. Testa igen.');
+        setToastMessage(t('g1.genericErrorToast'));
       }
     } finally {
       setActivating(false);
@@ -127,9 +129,9 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
   if (loadError || !data) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>{loadError ?? 'Något gick fel.'}</Text>
+        <Text style={styles.errorText}>{loadError ?? t('g1.genericError')}</Text>
         <Text style={styles.retryText} onPress={() => void fetchGoal()}>
-          Försök igen
+          {t('g1.retry')}
         </Text>
       </View>
     );
@@ -167,7 +169,7 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
   if (view === 'history') {
     return (
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.pageHeading}>Tidigare mål</Text>
+        <Text style={styles.pageHeading}>{t('g1.historyHeading')}</Text>
         {historyLoading ? (
           <ActivityIndicator color={colors.gold} />
         ) : history && history.length > 0 ? (
@@ -182,7 +184,7 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
                   ]}
                 >
                   <Text style={styles.pillText}>
-                    {item.status === 'completed' ? 'Avslutad' : 'Avbruten'}
+                    {item.status === 'completed' ? t('g1.historyCompleted') : t('g1.historyCancelled')}
                   </Text>
                 </View>
               </View>
@@ -191,16 +193,19 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
               </Text>
               {item.status === 'completed' ? (
                 <Text style={styles.historyTally}>
-                  {item.completedPlayerCount} av {item.eligiblePlayerCount} lagkamrater klara · +
-                  {item.bonusPointsAwarded ?? 0}p bonus
+                  {t('g1.historyTally', {
+                    completed: item.completedPlayerCount,
+                    eligible: item.eligiblePlayerCount,
+                    bonus: item.bonusPointsAwarded ?? 0,
+                  })}
                 </Text>
               ) : null}
             </View>
           ))
         ) : (
-          <Text style={styles.emptyText}>Inga tidigare mål än.</Text>
+          <Text style={styles.emptyText}>{t('g1.historyEmpty')}</Text>
         )}
-        <SecondaryLink label="Tillbaka" onPress={() => setView('card')} />
+        <SecondaryLink label={t('g1.back')} onPress={() => setView('card')} />
       </ScrollView>
     );
   }
@@ -221,7 +226,7 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.pageHeading}>Veckans mål 🎯</Text>
+      <Text style={styles.pageHeading}>{t('g1.pageHeading')}</Text>
 
       {goal ? (
         <GoalCard
@@ -239,8 +244,8 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
         />
       ) : !data.viewerIsCaptain ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyHeading}>🎯 Inget mål just nu</Text>
-          <Text style={styles.emptySub}>Er kapten sätter snart ett nytt mål för laget!</Text>
+          <Text style={styles.emptyHeading}>{t('g1.emptyHeading')}</Text>
+          <Text style={styles.emptySub}>{t('g1.emptySub')}</Text>
         </View>
       ) : null}
 
@@ -249,13 +254,13 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
           "see the goals that are created" is Fas 2.6c's own first-class
           ask, not a footnote; same destination, just consistently
           prominent regardless of who's looking. */}
-      <SecondaryButton label="Se tidigare mål" onPress={() => void handleOpenHistory()} />
+      <SecondaryButton label={t('g1.seeHistory')} onPress={() => void handleOpenHistory()} />
 
       {data.viewerIsCaptain ? (
         <View style={styles.captainActions}>
           {goal && goal.status === 'active' ? (
             <SecondaryButton
-              label="Avbryt målet"
+              label={t('g1.cancelGoal')}
               loading={cancelling}
               onPress={() => handleCancelGoal(goal)}
             />
@@ -263,15 +268,12 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
 
           {goal && goal.status === 'draft' ? (
             <>
-              <PrimaryButton label="Redigera" onPress={() => setView('builder')} />
+              <PrimaryButton label={t('g1.editDraft')} onPress={() => setView('builder')} />
               {activateBlocked ? (
-                <Text style={styles.inlineExplain}>
-                  Ni har redan ett aktivt mål. Det här sparas som utkast tills det är klart,
-                  eller tills du avbryter det andra.
-                </Text>
+                <Text style={styles.inlineExplain}>{t('g1.activateBlockedExplain')}</Text>
               ) : (
                 <PrimaryButton
-                  label="Aktivera nu"
+                  label={t('g1.activateNow')}
                   loading={activating}
                   onPress={() => void handleActivateDraft(goal.id)}
                 />
@@ -280,7 +282,7 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
           ) : null}
 
           {!goal ? (
-            <PrimaryButton label="+ Sätt veckans mål" onPress={() => setView('builder')} />
+            <PrimaryButton label={t('g1.setNewGoal')} onPress={() => setView('builder')} />
           ) : null}
         </View>
       ) : null}

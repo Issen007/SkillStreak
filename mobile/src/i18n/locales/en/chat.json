@@ -1,1 +1,86 @@
-{}
+{
+  "ch0": {
+    "heading": "How team chat works",
+    "bullet1": "Only your own team can see what you write here.",
+    "bullet2": "Something feel off? You can report a message, or block someone so you don't see any more of their messages.",
+    "bullet3": "Some words don't work here. If a message won't send, try rewriting it.",
+    "dismiss": "Okay, got it!"
+  },
+  "ch1": {
+    "heading": "Team chat 💬",
+    "blockedLink": "🚫 Blocked",
+    "loadError": "Couldn't load the team chat. Check your connection.",
+    "retry": "Try again",
+    "emptyHeading": "No messages yet",
+    "emptySub": "Write the first message to your team!",
+    "filterRejected": "Your message wasn't sent — it contained words that don't work here. Try rewriting it! ✍️",
+    "sendRateLimited": "You're sending messages a bit fast right now. Wait a little while and it'll work again.",
+    "genericError": "Something went wrong. Try again.",
+    "clipGoneOnSend": "The clip couldn't be sent — it doesn't exist anymore. You can send the rest yourself now.",
+    "messageNotFoundToast": "That message doesn't exist anymore.",
+    "alreadyReportedToast": "You've already reported this message.",
+    "reportRateLimitedToast": "You've reported quite a few things lately. Wait a little while before reporting again.",
+    "clipNotFoundToast": "That video doesn't exist anymore.",
+    "clipAlreadyReportedToast": "You've already reported this video.",
+    "clipReportRateLimitedToast": "You've reported quite a few things lately. Wait a little while before reporting again.",
+    "blockedToast": "You'll no longer see messages or clips from {{screenName}}."
+  },
+  "ch2": {
+    "excerpt": "You're reporting: \"{{excerpt}}…\"",
+    "heading": "Why are you reporting this message?",
+    "reasonBullying": "Bullying",
+    "reasonInappropriateLanguage": "Inappropriate language",
+    "reasonSpam": "Spam",
+    "reasonOther": "Other",
+    "noteLabel": "Want to say more? (optional)",
+    "notePlaceholder": "Optional…",
+    "submit": "Send report",
+    "cancel": "Cancel"
+  },
+  "ch3": {
+    "heading": "Thanks for telling us.",
+    "body": "We've received your report. You don't need to do anything else — and no one will know it was you who reported it.",
+    "followUp": "Do you also want to stop seeing messages from this person?",
+    "block": "Block {{screenName}}",
+    "noThanks": "No thanks",
+    "done": "Done"
+  },
+  "ch4": {
+    "body": "If you block {{screenName}}, you'll stop seeing their messages in the team chat and their Shorts in the Shorts feed. {{screenName}} won't know you've blocked them.",
+    "confirm": "Block {{screenName}}",
+    "cancel": "Cancel"
+  },
+  "ch5": {
+    "heading": "Blocked teammates",
+    "headingSub": "A block applies to both the team chat and Shorts.",
+    "empty": "You haven't blocked anyone.",
+    "unblock": "Stop blocking",
+    "back": "Back",
+    "unblockedToast": "You can see messages from {{screenName}} again.",
+    "genericError": "Something went wrong. Try again."
+  },
+  "ch6": {
+    "heading": "Attach a clip",
+    "loadError": "Couldn't load clips. Check your connection.",
+    "retry": "Try again",
+    "emptyHeading": "No clips to attach yet",
+    "emptySub": "No one on the team has uploaded a clip yet. Go to the Clips tab to upload the first one!",
+    "goToClips": "Go to Clips",
+    "showMore": "Show more clips"
+  },
+  "composeBar": {
+    "lockedNote": "Waiting for approval before you can send messages. You can still read what the team writes.",
+    "placeholder": "Write something to the team…",
+    "clipChipLabel": "From {{screenName}}"
+  },
+  "messageBubble": {
+    "reportMessage": "🚩 Report the message",
+    "reportClip": "🚩 Report the clip"
+  },
+  "clipEmbed": {
+    "attribution": "Clip by {{screenName}}"
+  },
+  "clipUnavailable": {
+    "text": "🎬 This video is no longer available."
+  }
+}

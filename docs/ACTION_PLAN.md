@@ -2131,6 +2131,88 @@ review pass, at minimum on the consent-request and self-verification
 email templates specifically, since that's a real GDPR consent moment,
 not just cosmetic copy — flagged, not silently assumed fine.
 
+## Phase 4.3 part (b) — real translation content, all 8 languages — done 2026-08-01
+
+Retrofitted every remaining hardcoded-Swedish screen/component to real
+`t()`/`Trans` calls (part (a) had only wired 3 pilot strings — O0, O6, the
+home greeting) and wrote real translation content into `en`/`fi`/`da`/
+`nb`/`de`/`cs`/`fr` for all of it, plus all 8 backend mail templates and
+the 4 consent-page renderers. **563 translation keys across 7 namespaces
+× 8 languages, verified byte-for-byte identical key structure in every
+language, zero drift.**
+
+- [x] **Restructured `mobile/src/i18n/` into per-namespace files first**
+      (`locales/<lang>/<namespace>.json` — `common`/`onboarding`/`home`/
+      `team`/`goal`/`chat`/`clips` — instead of part (a)'s one-flat-file-
+      per-language layout), specifically so several translation passes
+      could run in parallel without write-conflicting on a shared
+      resource file. Purely mechanical, no behavior change — the 3 pilot
+      call sites migrated to scoped `useTranslation('<namespace>')`.
+- [x] **backend-developer**: all 8 mail templates + the 4 consent-page
+      renderers, prioritized per the ADR's own instruction (consent-
+      request/self-verification first — the real GDPR consent moment).
+      Each template's `<html lang="...">` also fixed to match its actual
+      content language (previously hardcoded `"sv"` in every locale's
+      markup — a real, if minor, pre-existing bug this pass incidentally
+      caught). AI-translation-disclosure comment added to every file.
+      296/296 backend unit tests.
+- [x] **frontend-developer × 4** (parallel, one per feature area —
+      onboarding+shared, home, team+goal, chat+clips — each owning a
+      fully disjoint set of namespace files, no coordination needed
+      between them): full retrofit + translation across all ~90 mobile
+      screens/components. Particular care taken on chat/clips' moderation
+      copy (report/block/filter-rejection strings) to preserve the
+      deliberate "never overpromise a review outcome, never alarming"
+      tone in every language, not just literally translate it.
+- [x] **Follow-up gaps closed** (found by the agents themselves flagging
+      out-of-scope issues, then fixed directly): the orphaned
+      `mobile/src/leaderboard/` screen (nobody's assigned directory —
+      missed in the original area split), and three shared formatting
+      utilities (`utils/formatDate.ts`, `utils/ordinal.ts`) that were
+      hardcoded to Swedish grammar/month-names/ordinal-suffix rules
+      regardless of active language — now genuinely locale-aware (8
+      real ordinal-suffix rules, not just Swedish's; 8 sets of month
+      names; per-language relative-time pluralization).
+- [x] **code-critic**: 3 CONFIRMED findings, all fixed — (1) three files
+      (`TeamPoolCard.tsx`, `GoalBonusTakeover.tsx`, `CatchUpBanner.tsx`)
+      still hardcoded `Intl.NumberFormat('sv-SE')` despite being touched
+      in this same pass, inconsistent with the correct pattern used
+      elsewhere in the identical diff; (2) Czech relative-time phrasing
+      used the plural instrumental for n=1 ("před 1 minutami"), which is
+      grammatically wrong — n=1 needs the singular instrumental ("před
+      minutou") — and is the *common* case (every clip/message passes
+      through "1 minute ago"), not the rare exception the original
+      comment thought it was excusing; (3) `AppRoot.tsx`'s
+      `TestModeBanner` (shown on the public `try.skillstreak.xyz` web
+      demo) was the one file left with zero `t()` wrapping at all —
+      outside every area agent's assigned directory and the
+      leaderboard/utils follow-up pass, only caught by a dedicated
+      grep-for-å/ä/ö sweep. Everything else checked (shared-utils
+      correctness, JSON/interpolation parity, no logic regression during
+      retrofit, the leaderboard formatter conversion's behavioral
+      equivalence for `sv`) came back clean.
+- [x] **security-reviewer**: **clean sign-off**, no findings. Verified by
+      diffing pre-and-post for every flagged risk area, not assuming
+      "mostly string changes" meant no logic changed: consent-flow gating
+      logic (`O5ConsentAsk.tsx` and the full O0-O6 chain) confirmed
+      byte-for-byte unchanged outside string literals; every chat/clip
+      report-block-delete submission handler confirmed unchanged (only
+      copy moved into `t()`); every new `{{interpolation}}` variable
+      audited — no real name or other sensitive field newly interpolated
+      anywhere, screen-names-only rule intact; the mail-template locale-
+      resolution mechanism from part (a) (`result.player.locale`, not
+      `dto.locale`; `COPY[locale] ?? COPY.sv!`) confirmed untouched,
+      changes purely additive; no location/EXIF signal introduced anywhere
+      in the diff.
+
+**Fas 4.3 is fully done, parts (a) and (b) both merged to `prerelease`.**
+296/296 backend unit tests, mobile `tsc`/`expo-doctor` clean, 563/563
+translation keys with verified parity across all 8 languages. The
+AI-translation-quality caveat from part (a) stands unchanged: a native-
+speaker review pass is still recommended before relying on any of this
+for real families, especially the consent/self-verification templates —
+tracked, not silently assumed fine.
+
 ## Phase 4.4 — Public launch: DNS, TLS, and a full production security pass — done 2026-07-31
 
 Closes the actual headline blocker for a public launch (real DNS, a

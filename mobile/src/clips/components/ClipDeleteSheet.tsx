@@ -1,4 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { DangerButton } from '../../components/DangerButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
@@ -20,16 +21,16 @@ interface ClipDeleteSheetProps {
  * object is hard-deleted from storage even if the clip has open reports),
  * unlike either of those other two "are you sure" moments. */
 export function ClipDeleteSheet({ visible, loading, onConfirm, onClose }: ClipDeleteSheetProps) {
+  const { t } = useTranslation('clips');
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={loading ? undefined : onClose} />
       <View style={styles.sheet}>
-        <Text style={styles.heading}>Ta bort den här Shorts-videon?</Text>
-        <Text style={styles.body}>
-          Videon försvinner permanent för hela laget — det går inte att ångra.
-        </Text>
-        <DangerButton label="Ja, ta bort videon" loading={loading} onPress={onConfirm} />
-        <SecondaryLink label="Avbryt" onPress={onClose} />
+        <Text style={styles.heading}>{t('v11.heading')}</Text>
+        <Text style={styles.body}>{t('v11.body')}</Text>
+        <DangerButton label={t('v11.confirm')} loading={loading} onPress={onConfirm} />
+        <SecondaryLink label={t('v11.cancel')} onPress={onClose} />
       </View>
     </Modal>
   );

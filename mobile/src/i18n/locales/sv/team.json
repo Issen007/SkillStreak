@@ -1,1 +1,86 @@
-{}
+{
+  "k1": {
+    "heading": "Laget 👥",
+    "loadError": "Kunde inte hämta laget. Kolla din uppkoppling.",
+    "genericError": "Något gick fel.",
+    "retry": "Försök igen",
+    "pendingSectionLabel": "Väntar på godkännande",
+    "teammatesSectionLabel": "Spelare i laget",
+    "inviteCodeLabel": "Lagkod",
+    "inviteButton": "📨 Bjud in en kompis",
+    "captainBadge": "👑 Du är kapten",
+    "captainSeeDetail": "Se laget i detalj",
+    "captainManageGoal": "Hantera veckans mål",
+    "captainSwapCaptain": "Byt kapten",
+    "notCaptainToast": "Den här sidan är bara för lagets kapten.",
+    "approveSuccessToast": "{{screenName}} är nu godkänd i laget! 🎉",
+    "approveErrorToast": "Kunde inte godkänna just nu. Testa igen.",
+    "rejectSuccessToast": "{{screenName}} nekades.",
+    "rejectErrorToast": "Kunde inte neka just nu. Testa igen.",
+    "captainTransferredToast": "Kaptensskapet är överlämnat till {{newCaptainScreenName}}. 👑",
+    "linkCopiedToast": "Länk kopierad!"
+  },
+  "k2": {
+    "heading": "Laget i detalj",
+    "loadError": "Kunde inte hämta laglistan. Kolla din uppkoppling.",
+    "genericError": "Något gick fel.",
+    "retry": "Försök igen",
+    "back": "Tillbaka",
+    "reminderSentToast": "Påminnelse skickad.",
+    "consentNoLongerPendingToast": "Den här spelaren väntar inte längre på godkännande.",
+    "reminderErrorToast": "Något gick fel. Testa igen.",
+    "reissueSentToast": "Inloggningskod skickad till förälder/vårdnadshavare.",
+    "reissueRateLimitedToast": "En kod skickades nyss — vänta någon minut innan du skickar en till."
+  },
+  "k4": {
+    "heading": "Välj ny kapten",
+    "sub": "Den du väljer blir lagets nya kapten direkt.",
+    "loadError": "Kunde inte hämta laglistan. Kolla din uppkoppling.",
+    "genericError": "Något gick fel.",
+    "retry": "Försök igen",
+    "back": "Tillbaka",
+    "targetNotFoundToast": "Kunde inte hitta den spelaren längre. Listan uppdateras.",
+    "genericErrorToast": "Något gick fel. Testa igen."
+  },
+  "consentChips": {
+    "approved": "{{count}} godkända ✓",
+    "pending": "{{count}} väntar ⏳",
+    "revoked": "{{count}} pausade ⏸️"
+  },
+  "inviteFriendSheet": {
+    "heading": "Bjud in en kompis",
+    "subExpoGo": "Låt dem skanna koden för att öppna appen i Expo Go, sedan skriver de in lagkoden nedan.",
+    "subDefault": "Låt dem skanna koden, eller dela länken — de fyller bara i sitt eget smeknamn, laget är redan ifyllt.",
+    "codeLabel": "Lagkod",
+    "shareButton": "Dela inbjudan",
+    "close": "Stäng",
+    "shareMessageExpoGo": "Gå med i {{teamName}} på SkillStreak! Öppna länken i Expo Go, skriv sen in lagkoden {{inviteCode}} när appen startar: {{joinUrl}}",
+    "shareMessageDefault": "Gå med i {{teamName}} på SkillStreak! Använd lagkoden {{inviteCode}} eller klicka på länken: {{joinUrl}}"
+  },
+  "pendingJoinRow": {
+    "reject": "Neka",
+    "approve": "Godkänn"
+  },
+  "reminderActionSheet": {
+    "sendReminder": "Skicka påminnelse till förälder",
+    "sendReissue": "Skicka ny inloggningslänk",
+    "cancel": "Avbryt"
+  },
+  "rosterRow": {
+    "statusApproved": "Godkänd ✓",
+    "statusPending": "Väntar ⏳",
+    "statusRevoked": "Pausad ⏸️",
+    "statusNotRequested": "Inte skickad än",
+    "lastTrained": "Senast loggade: {{date}}",
+    "notTrainedYet": "Har inte loggat än"
+  },
+  "teammateRow": {
+    "selfTag": "(Du)"
+  },
+  "captainTransferConfirmSheet": {
+    "heading": "Gör {{screenName}} till kapten?",
+    "body": "{{screenName}} får kaptensknapparna direkt. Du är fortfarande med i laget som vanligt — och om {{screenName}} vill kan de alltid lämna tillbaka det till dig sen, precis som du gör nu.",
+    "confirmButton": "Ja, gör {{screenName}} till kapten",
+    "cancel": "Avbryt"
+  }
+}

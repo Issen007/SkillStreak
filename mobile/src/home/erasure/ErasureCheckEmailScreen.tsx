@@ -1,4 +1,5 @@
 import { ScrollView, StyleSheet, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
@@ -17,18 +18,14 @@ interface ErasureCheckEmailScreenProps {
  * the request while one is already active resends the email isn't settled
  * by the ADR, so this screen doesn't guess at that behavior. */
 export function ErasureCheckEmailScreen({ onDone }: ErasureCheckEmailScreenProps) {
+  const { t } = useTranslation('home');
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.icon}>📩</Text>
-      <Text style={styles.heading}>Kolla inkorgen</Text>
-      <Text style={styles.body}>
-        Vi har skickat ett mejl med en länk. Öppna mejlet och tryck på länken för att sätta igång
-        de 30 dagarna — det går bra att vänta och göra det imorgon också.
-      </Text>
-      <Text style={styles.mutedBody}>
-        Trycker du inte på länken händer ingenting — kontot är kvar precis som vanligt.
-      </Text>
-      <PrimaryButton label="Till profilen" onPress={onDone} />
+      <Text style={styles.heading}>{t('erasureCheckEmail.heading')}</Text>
+      <Text style={styles.body}>{t('erasureCheckEmail.body')}</Text>
+      <Text style={styles.mutedBody}>{t('erasureCheckEmail.mutedBody')}</Text>
+      <PrimaryButton label={t('erasureCheckEmail.cta')} onPress={onDone} />
     </ScrollView>
   );
 }

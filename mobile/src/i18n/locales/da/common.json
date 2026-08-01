@@ -1,1 +1,18 @@
-{}
+{
+  "captainBanner": {
+    "promotedTitle": "👑 Tillykke! Du er nu holdets kaptajn.",
+    "promotedSub": "Du finder dine nye værktøjer under Hold-fanen.",
+    "demoted": "Kaptajnrollen gik videre til en holdkammerat."
+  },
+  "catchUpBanner": {
+    "message": "🎉 Alle på holdet nåede ugens mål! Holdet fik +{{points}} bonuspoint."
+  },
+  "tabs": {
+    "home": "Hjem",
+    "chat": "Chat",
+    "clips": "Shorts",
+    "goal": "Mål",
+    "team": "Hold"
+  },
+  "testModeBanner": "🧪 Det her er kun en TEST — opret ikke en rigtig konto med rigtige oplysninger."
+}

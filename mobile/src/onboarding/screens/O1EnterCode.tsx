@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -38,6 +39,7 @@ export function O1EnterCode({
   onNotFound,
   onReturningUser,
 }: O1EnterCodeProps) {
+  const { t } = useTranslation('onboarding');
   const [code, setCode] = useState(initialCode);
   const [error, setError] = useState<string | null>(externalError ?? null);
   const [loading, setLoading] = useState(false);
@@ -57,7 +59,7 @@ export function O1EnterCode({
         // hinting on top of the generic 404.
         onNotFound(trimmed);
       } else {
-        setError('Något gick fel. Kolla din uppkoppling och testa igen.');
+        setError(t('shared.genericError'));
       }
     } finally {
       setLoading(false);
@@ -67,8 +69,8 @@ export function O1EnterCode({
   return (
     <ScreenContainer scroll>
       <View style={styles.spacerTop} />
-      <Text style={styles.heading}>Vilket lag kör du för?</Text>
-      <Text style={styles.sub}>Fråga din tränare om lagets kod.</Text>
+      <Text style={styles.heading}>{t('o1.heading')}</Text>
+      <Text style={styles.sub}>{t('o1.sub')}</Text>
 
       <TextField
         value={code}
@@ -76,7 +78,7 @@ export function O1EnterCode({
           setCode(text);
           if (error) setError(null);
         }}
-        placeholder="T.ex. FALKEN24"
+        placeholder={t('o1.codePlaceholder')}
         autoCapitalize="characters"
         autoCorrect={false}
         autoComplete="off"
@@ -90,13 +92,13 @@ export function O1EnterCode({
       <View style={styles.spacer} />
 
       <PrimaryButton
-        label="Hitta mitt lag"
+        label={t('o1.findTeamButton')}
         onPress={handleSubmit}
         disabled={code.trim().length === 0}
         loading={loading}
       />
       <Text style={styles.returningUserLink} onPress={onReturningUser}>
-        Har du redan ett konto?
+        {t('o1.returningUserLink')}
       </Text>
     </ScreenContainer>
   );

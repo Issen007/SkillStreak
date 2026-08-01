@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -25,6 +26,7 @@ export function PendingJoinRow({
   onApprove,
   onReject,
 }: PendingJoinRowProps) {
+  const { t } = useTranslation('team');
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
   const busy = approving || rejecting;
 
@@ -44,7 +46,7 @@ export function PendingJoinRow({
           (pressed || busy) && styles.actionPressed,
         ]}
       >
-        <Text style={styles.rejectText}>{rejecting ? '…' : 'Neka'}</Text>
+        <Text style={styles.rejectText}>{rejecting ? '…' : t('pendingJoinRow.reject')}</Text>
       </Pressable>
       <Pressable
         accessibilityRole="button"
@@ -56,7 +58,7 @@ export function PendingJoinRow({
           (pressed || busy) && styles.actionPressed,
         ]}
       >
-        <Text style={styles.approveText}>{approving ? '…' : 'Godkänn'}</Text>
+        <Text style={styles.approveText}>{approving ? '…' : t('pendingJoinRow.approve')}</Text>
       </Pressable>
     </View>
   );

@@ -1,4 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { SecondaryButton } from '../../components/SecondaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
@@ -27,17 +28,20 @@ interface BlockSheetProps {
  * needs to say so, since it previously only mentioned messages and would
  * now understate what blocking actually does. */
 export function BlockSheet({ visible, screenName, loading, onConfirm, onClose }: BlockSheetProps) {
+  const { t } = useTranslation('chat');
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={loading ? undefined : onClose} />
       <View style={styles.sheet}>
         <Text style={styles.heading}>{screenName}</Text>
-        <Text style={styles.body}>
-          Om du blockerar {screenName} slutar du se deras meddelanden i lagchatten och deras Shorts
-          i Shorts-flödet. {screenName} får inte veta att du har blockerat dem.
-        </Text>
-        <SecondaryButton label={`Blockera ${screenName}`} loading={loading} onPress={onConfirm} />
-        <SecondaryLink label="Avbryt" onPress={onClose} />
+        <Text style={styles.body}>{t('ch4.body', { screenName })}</Text>
+        <SecondaryButton
+          label={t('ch4.confirm', { screenName })}
+          loading={loading}
+          onPress={onConfirm}
+        />
+        <SecondaryLink label={t('ch4.cancel')} onPress={onClose} />
       </View>
     </Modal>
   );

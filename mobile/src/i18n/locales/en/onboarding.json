@@ -1,1 +1,118 @@
-{}
+{
+  "o0": {
+    "heading": "Which language do you want to use?",
+    "sub": "You can change the language again later if you want.",
+    "next": "Next"
+  },
+  "o1": {
+    "heading": "Which team do you play for?",
+    "sub": "Ask your coach for the team code.",
+    "codePlaceholder": "E.g. FALKEN24",
+    "findTeamButton": "Find my team",
+    "returningUserLink": "Already have an account?"
+  },
+  "o1a": {
+    "heading": "We couldn't find a team with the code <code>{{inviteCode}}</code>",
+    "sub": "No worries — pick whichever fits:",
+    "wrongCodeTitle": "I probably typed it wrong",
+    "wrongCodeSub": "Try the code again",
+    "createTeamTitle": "Our team doesn't have a code yet",
+    "createTeamSub": "Create a new team with this code",
+    "helper": "Not sure? Ask your coach before creating a new team."
+  },
+  "o1b": {
+    "codeChip": "Team code: {{inviteCode}}",
+    "changeCode": "Change code",
+    "heading": "What should your team be called?",
+    "sub": "You'll be the team's first player — and captain! Pick a name the rest of the team can be proud of.",
+    "nameLabel": "Team name",
+    "namePlaceholder": "E.g. IBK Falken P13",
+    "helper": "Other teams can see the name on the leaderboard.",
+    "next": "Next"
+  },
+  "o1c": {
+    "heading": "Create {{teamName}}?",
+    "sub": "Team code: {{inviteCode}} — share it with teammates so they can join later.",
+    "tip": "The name and code can't be changed later, so double-check everything's right!",
+    "confirm": "Yes, create the team!",
+    "editName": "No, change the name"
+  },
+  "o2": {
+    "heading": "Joining {{teamName}}?",
+    "sub": "If that's right, let's go!",
+    "confirm": "Yes, that's my team!",
+    "reject": "No, try another code"
+  },
+  "o3": {
+    "heading": "Choose your player name",
+    "sub": "This is the name your team sees — not your real name unless you want it to be.",
+    "nameLabel": "Player name",
+    "namePlaceholder": "E.g. FloorballStar15",
+    "avatarLabel": "Choose an avatar",
+    "helper": "No photo needed — pick a character you like.",
+    "next": "Next"
+  },
+  "o4": {
+    "heading": "What year were you born?",
+    "sub": "We use it to tailor challenges to your age.",
+    "yearRangeError": "Enter a year between {{minYear}} and {{maxYear}}.",
+    "yearLabel": "Birth year",
+    "yearPlaceholder": "E.g. {{maxYear}}",
+    "next": "Next"
+  },
+  "o5": {
+    "verifyHeading": "Verify your account",
+    "consentHeading": "We're asking an adult for permission",
+    "verifyBody1": "Before you can start logging training, you need to verify your email or phone number.",
+    "consentBody1": "Before you can start logging training, a parent or guardian needs to say yes.",
+    "verifyBody2": "We'll send a verification link — you confirm with one tap.",
+    "consentBody2": "We'll send them a quick question — they approve with one tap.",
+    "verifyContactLabel": "Your email or phone number",
+    "consentContactLabel": "Parent's or guardian's email or phone number",
+    "contactPlaceholder": "e.g. name@example.com",
+    "verifyHelper": "We only use it to verify your account — nothing else.",
+    "consentHelper": "We only use it to ask permission — nothing else.",
+    "submit": "Send request",
+    "coachNote": "Coaches: help the player fill this in if they're unsure what to enter."
+  },
+  "o6": {
+    "foundingIcon": "👑🎉",
+    "foundingHeading": "Congrats, {{screenName}}! You created {{teamName}}!",
+    "foundingBody": "You're the team's first player — and captain! As soon as a parent or guardian says yes, you can start logging training and inviting teammates.",
+    "codeChip": "Team code: {{inviteCode}}",
+    "codeHelper": "Share it with your teammates!",
+    "joinedIcon": "✅👋",
+    "joinedHeading": "All done, {{screenName}}!",
+    "joinedBody": "You're in {{teamName}}! We've sent a request to a parent or guardian. As soon as they say yes, you can start logging training and earning points for the team.",
+    "doneButton": "Let's go"
+  },
+  "ra1": {
+    "heading": "Already have an account?",
+    "sub": "Enter the team code and your username, and we'll send a login code to your (or your parent's) email.",
+    "codePlaceholder": "Team code, e.g. FALKEN24",
+    "namePlaceholder": "Your username",
+    "submit": "Send code",
+    "back": "Back"
+  },
+  "ra2": {
+    "heading": "Check your inbox",
+    "sub": "If your details matched, we've sent a code to your (or your parent's) email. Enter it below to log in again.",
+    "codePlaceholder": "E.g. H4K7QWXP",
+    "invalidCodeError": "That code doesn't work anymore. Check you typed it right, or ask for a new one.",
+    "submit": "Log in",
+    "retryLink": "Didn't get a code? Try again"
+  },
+  "flow": {
+    "screenNameTaken": "That name is already taken on the team — try another one!",
+    "teamNameRejected": "The name or team code contained words that don't work here. Rewrite the name, or tap \"Change code\" above if that's the problem.",
+    "codeTakenConcurrently": "Oh no — someone else created a team with that code just before you! Try another code, and we'll sort out the rest right away.",
+    "inviteCodeNotFound": "That team code doesn't work anymore. Ask your coach for a new one.",
+    "invalidParentContact": "That contact info doesn't look right — check that it's a real email address or phone number.",
+    "invalidScreenName": "That name doesn't quite work — try another one!",
+    "invalidBirthYear": "Hmm, that year doesn't look right. Try again.",
+    "genericValidationError": "Something went wrong. Check your details and try again."
+  },
+  "shared": {
+    "genericError": "Something went wrong. Check your connection and try again."
+  }
+}

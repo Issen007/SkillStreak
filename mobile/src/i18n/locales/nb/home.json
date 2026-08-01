@@ -1,1 +1,204 @@
-{}
+{
+  "greeting": "Hei, <bold>{{screenName}}</bold>!",
+  "shared": {
+    "retry": "Prøv igjen",
+    "cancel": "Avbryt",
+    "genericError": "Noe gikk galt.",
+    "genericErrorTryAgain": "Noe gikk galt. Prøv igjen.",
+    "save": "Lagre",
+    "edit": "Endre"
+  },
+  "appHeader": {
+    "profileAccessibilityLabel": "Din profil",
+    "workingTitle": "arbeidstittel"
+  },
+  "homeScreen": {
+    "loadError": "Fikk ikke hentet dataene dine. Sjekk internettforbindelsen.",
+    "extraLogToast": "Kjempebra jobba! +{{minutes}} min til lagets potte 🥇",
+    "consentRequiredToast": "Vi trenger fortsatt godkjenning før du kan logge trening. Vi oppdaterer siden for deg.",
+    "successBanner": "🔥 Bra jobba! {{count}} dager på rad.",
+    "successFloatingText": "+{{minutes}} min til laget"
+  },
+  "activitySheet": {
+    "heading": "Hva trente du?",
+    "durationHeading": "Hvor lenge?",
+    "submit": "Ferdig!",
+    "activities": {
+      "fitness": "Kondisjon",
+      "drill": "Teknikk/øvelse",
+      "running": "Løping",
+      "other": "Annet"
+    },
+    "durations": {
+      "d10": "10 min",
+      "d15": "15 min",
+      "d20": "20 min",
+      "d30plus": "30+ min"
+    }
+  },
+  "goalBonusTakeover": {
+    "headline": "Laget nådde ukens mål!",
+    "sub": "Treningen din var den siste brikken — nå har hele laget nådd målet sitt!",
+    "points": "+{{points}} bonuspoeng til lagets potte! 🥇"
+  },
+  "streakCard": {
+    "loggedTodayChip": "Logget i dag ✓",
+    "count": "{{count}} dager",
+    "label": "Din personlige rekke — fortsett sånn!"
+  },
+  "teamPoolCard": {
+    "title": "🥇 VM-gull-tabellen",
+    "points": "{{points}} poeng",
+    "rankLine": "{{rank}} plass av {{teamCount}} lag",
+    "noActiveSeason": "Ingen aktiv sesong akkurat nå",
+    "noActiveSeasonSub": "Dere er med igjen så snart en ny sesong starter.",
+    "effortLine": "🌟 {{effortRank}} best på lagsinnsats",
+    "tapHint": "Se tabellen →"
+  },
+  "trainedButton": {
+    "disabled": "Jeg har trent 🔒",
+    "secondary": "Logg en økt til",
+    "primary": "Jeg har trent"
+  },
+  "waitingCard": {
+    "titleBothPending": "Venter på godkjenning",
+    "titleJoinPending": "Venter på lagets kaptein",
+    "titleConsentPending": "Venter på godkjenning",
+    "titleSelfVerificationPending": "Venter på at du bekrefter",
+    "titlePaused": "Trening er satt på pause akkurat nå",
+    "consentPartSelfVerification": "Vi har sendt en bekreftelseslenke til e-posten eller mobilnummeret ditt.",
+    "consentPartParent": "Vi har spurt en forelder eller foresatt om lov.",
+    "joinPart": "Lagets kaptein må godkjenne at du ble med i laget.",
+    "suffixBoth": "Så snart begge deler er klart, låser vi opp knappen under!",
+    "suffixJoinOnly": "Så snart kapteinen godkjenner, låser vi opp knappen under!",
+    "suffixConsentOnly": "Så snart det er klart, låser vi opp knappen under!",
+    "pausedBody": "En forelder eller foresatt har trukket tilbake godkjenningen. Snakk med treneren din hvis du har spørsmål.",
+    "refresh": "Sjekk igjen",
+    "refreshing": "Sjekker..."
+  },
+  "profileScreen": {
+    "loadError": "Fikk ikke hentet profilen din. Sjekk internettforbindelsen.",
+    "savedToast": "Lagret!",
+    "contactChangeRateLimited": "Du har allerede bedt om en endring nylig — vent litt før du prøver igjen.",
+    "contactChangeGenericError": "Noe gikk galt. Sjekk opplysningen, og prøv igjen.",
+    "contactChangeConfirmedToast": "Bekreftet! Trer i kraft om ca. {{hours}} t. Den gamle adressen kan avbryte via mailen vi har sendt dit.",
+    "codeInvalid": "Den koden virker ikke lenger. Sjekk at du skrev den riktig, eller be om en ny.",
+    "codeGenericError": "Noe gikk galt. Sjekk internettforbindelsen, og prøv igjen.",
+    "erasureTeamInfoError": "Fikk ikke hentet laginformasjon. Prøv igjen.",
+    "erasureTeammatesError": "Fikk ikke hentet lagoversikten. Sjekk internettforbindelsen.",
+    "erasureBlockedPendingContactChange": "Du har en pågående endring av kontaktopplysningen din. Den må fullføres (eller avbrytes) før du kan slette kontoen — sjekk igjen om en liten stund.",
+    "erasureRateLimited": "Du ba nettopp om dette. Vent litt, og prøv igjen.",
+    "erasureSuccessorInvalid": "Den spilleren er ikke lenger på laget. Velg noen andre.",
+    "erasureStaleState": "Noe har endret seg i laget siden du åpnet denne visningen. Sjekk profilen din, og prøv igjen.",
+    "erasureCancelledToast": "Ferdig! Kontoen din blir ikke slettet. 🎉",
+    "erasureCancelError": "Noe gikk galt. Last siden på nytt, og prøv igjen.",
+    "editName": {
+      "heading": "Navnet ditt",
+      "sub": "Valgfritt — vises aldri for andre på laget, bare du ser det her.",
+      "placeholder": "For- og etternavn"
+    },
+    "editAvatar": {
+      "heading": "Velg avatar",
+      "sub": "Ingen bilde trengs — velg en figur du liker."
+    },
+    "requestChange": {
+      "heading": "Bytt kontaktadresse",
+      "sub": "Skriv inn den nye adressen. Vi sender en kode dit for å bekrefte, og et varsel til den gamle adressen om at en endring er på gang.",
+      "placeholder": "Ny e-postadresse eller mobilnummer",
+      "submit": "Send kode"
+    },
+    "confirmChange": {
+      "heading": "Sjekk innboksen",
+      "sub": "Vi har sendt en kode til den nye adressen. Skriv den inn under for å bekrefte byttet.",
+      "placeholder": "F.eks. H4K7QWXP",
+      "submit": "Bekreft",
+      "resend": "Fikk du ingen kode? Prøv igjen"
+    },
+    "view": {
+      "heading": "Din profil",
+      "avatarLabel": "Avatar",
+      "nameLabel": "Navn",
+      "nameNotSet": "Ikke angitt",
+      "addName": "Legg til",
+      "birthYearLabel": "Fødselsår",
+      "birthYearHelper": "Kan ikke endres selv — ta kontakt med lagets trener hvis det må rettes.",
+      "contactLabel": "Kontaktadresse",
+      "changeContact": "Bytt",
+      "back": "Tilbake",
+      "logout": "Logg ut",
+      "deleteAccount": "Slett kontoen min"
+    }
+  },
+  "erasureCheckEmail": {
+    "heading": "Sjekk innboksen",
+    "body": "Vi har sendt en e-post med en lenke. Åpne e-posten, og trykk på lenken for å sette i gang de 30 dagene — det går fint å vente og gjøre det i morgen også.",
+    "mutedBody": "Trykker du ikke på lenken, skjer det ingenting — kontoen blir akkurat som vanlig.",
+    "cta": "Til profilen"
+  },
+  "erasureConfirmSheet": {
+    "heading": "Er du sikker?",
+    "body": "Vi sender en e-post som må bekreftes for å sette i gang de 30 dagene. Angrer du, kan du avbryte når som helst før de er gått ut.",
+    "successorBody": "{{successorScreenName}} tar over som kaptein den dagen kontoen slettes.",
+    "confirm": "Ja, slett kontoen min"
+  },
+  "erasureRequest": {
+    "heading": "Slette kontoen din?",
+    "bulletHistory": "All treningshistorikken din, merkene og klippene dine slettes for godt.",
+    "bulletTeam": "Du forsvinner fra laget. Meldingene dine i lagchatten blir anonyme — laget og lagkameratene dine påvirkes ikke ellers.",
+    "bulletFinal": "Det går ikke an å angre når de 30 dagene har gått.",
+    "tip": "Vi sender en e-post som du (eller en forelder eller foresatt) må bekrefte — bare det å trykke på knappen under gjør ingenting ennå. Så snart e-posten er bekreftet, har du 30 dager på deg til å angre, og kontoen fungerer helt normalt i mellomtiden.",
+    "captainTitle": "Du er lagets kaptein",
+    "captainBody": "Du må velge hvem som tar over som kaptein før du kan gå videre.",
+    "successorNotChosen": "Ingen valgt ennå",
+    "chooseSuccessor": "Velg",
+    "changeSuccessor": "Endre",
+    "lastPlayerWarning": "Akkurat nå er du den eneste igjen på laget. Hvis det fortsatt stemmer om 30 dager, forsvinner hele laget når kontoen din slettes — poeng, klipp og alt annet.",
+    "submit": "Slett kontoen min"
+  },
+  "erasureStatusCard": {
+    "titleGracePeriod": "Kontoen din slettes den {{date}}.",
+    "unknownDate": "(ukjent dato)",
+    "titleRequested": "Venter på at du bekrefter slettingen",
+    "gracePeriodBody": "Kontoen fungerer helt normalt frem til da. Angrer du, kan du avbryte når som helst før det.",
+    "gracePeriodSuccessor": "{{successorScreenName}} tar over som kaptein den dagen.",
+    "requestedBody": "Vi har sendt deg en lenke på e-post. Åpne e-posten, og bekreft for å sette i gang de 30 dagene. Gjør du ingenting, blir kontoen akkurat som den er.",
+    "cancelGracePeriod": "Angre slettingen",
+    "cancelRequested": "Angre forespørselen",
+    "cancelling": "Angrer..."
+  },
+  "erasureSuccessor": {
+    "heading": "Hvem tar over som kaptein?",
+    "sub": "Den du velger, blir lagets kaptein den dagen kontoen din slettes — ikke før. Du er kaptein som vanlig frem til da.",
+    "done": "Ferdig"
+  },
+  "leaderboard": {
+    "pageHeading": "VM-gull-tabellen 🥇",
+    "tabPoints": "🥇 Flest poeng",
+    "tabEffort": "💪 Beste laginnsats",
+    "loadError": "Kunne ikke hente tabellen. Sjekk internettforbindelsen.",
+    "genericError": "Noe gikk galt.",
+    "retry": "Prøv igjen",
+    "back": "Tilbake",
+    "effortNudge": "🌟 Spillerne deres kjemper bra! Se Beste laginnsats →",
+    "noActiveSeasonBanner": "Laget deres har ingen aktiv sesong akkurat nå — men se på poengene til de andre lagene!",
+    "emptyPointsHeading": "Ingen tabell å vise ennå.",
+    "emptyPointsSub": "Kom tilbake når flere lag har en aktiv sesong.",
+    "tieCaption": "Delt poengsum gir samme plassering.",
+    "meTag": "Laget ditt",
+    "pointsSuffix": "p",
+    "effortCaption": "Et rettferdig snitt — sånn kan selv mindre lag vinne.",
+    "infoLink": "ⓘ Sånn regner vi det ut",
+    "noEffortBanner": "Laget deres er ikke med på denne listen ennå — det trengs minst én godkjent spiller.",
+    "emptyEffortHeading": "Ingen laginnsats å vise ennå.",
+    "emptyEffortSub": "Kom tilbake når flere lag har godkjente spillere.",
+    "playerCountSuffix": "spillere",
+    "pointsPerPlayerSuffix": "p/spiller",
+    "infoSheet": {
+      "heading": "Sånn regner vi ut Beste laginnsats",
+      "body1": "Vi sammenligner hvor mange poeng hvert lag får per spiller — ikke bare lagets totalsum. Sånn kan selv et lite lag vinne ved at alle kjemper på.",
+      "body2": "Hvis et lag er lite, regner vi litt forsiktig, så noen få veldig gode dager ikke tilfeldigvis gir førsteplassen. Jo flere spillere et lag har, jo mer stoler vi på deres eget snitt.",
+      "ownTeamLine": "Laget deres: {{pointsPerPlayer}} p/spiller med {{playerCount}} spillere → {{adjustedScore}} p når vi regner rettferdig.",
+      "gotIt": "Ok, skjønner!"
+    }
+  }
+}

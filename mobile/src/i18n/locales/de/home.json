@@ -1,1 +1,204 @@
-{}
+{
+  "greeting": "Hallo, <bold>{{screenName}}</bold>!",
+  "shared": {
+    "retry": "Erneut versuchen",
+    "cancel": "Abbrechen",
+    "genericError": "Etwas ist schiefgelaufen.",
+    "genericErrorTryAgain": "Etwas ist schiefgelaufen. Versuch's noch mal.",
+    "save": "Speichern",
+    "edit": "Bearbeiten"
+  },
+  "appHeader": {
+    "profileAccessibilityLabel": "Dein Profil",
+    "workingTitle": "Arbeitstitel"
+  },
+  "homeScreen": {
+    "loadError": "Deine Daten konnten nicht geladen werden. Prüf deine Verbindung.",
+    "extraLogToast": "Stark gemacht! +{{minutes}} Min. in den Team-Topf 🥇",
+    "consentRequiredToast": "Wir brauchen noch eine Freigabe, bevor du Training eintragen kannst. Wir aktualisieren die Seite für dich.",
+    "successBanner": "🔥 Klasse gemacht! {{count}} Tage in Folge.",
+    "successFloatingText": "+{{minutes}} Min. fürs Team"
+  },
+  "activitySheet": {
+    "heading": "Was hast du trainiert?",
+    "durationHeading": "Wie lange?",
+    "submit": "Fertig!",
+    "activities": {
+      "fitness": "Kondition",
+      "drill": "Technik/Übung",
+      "running": "Laufen",
+      "other": "Anderes"
+    },
+    "durations": {
+      "d10": "10 Min.",
+      "d15": "15 Min.",
+      "d20": "20 Min.",
+      "d30plus": "30+ Min."
+    }
+  },
+  "goalBonusTakeover": {
+    "headline": "Das Team hat das Wochenziel erreicht!",
+    "sub": "Dein Training war das letzte Puzzleteil — jetzt hat das ganze Team sein Ziel geschafft!",
+    "points": "+{{points}} Bonuspunkte in den Team-Topf! 🥇"
+  },
+  "streakCard": {
+    "loggedTodayChip": "Heute eingetragen ✓",
+    "count": "{{count}} Tage",
+    "label": "Deine persönliche Serie — weiter so!"
+  },
+  "teamPoolCard": {
+    "title": "🥇 WM-Gold-Tabelle",
+    "points": "{{points}} Punkte",
+    "rankLine": "Platz {{rank}} von {{teamCount}} Teams",
+    "noActiveSeason": "Gerade keine aktive Saison",
+    "noActiveSeasonSub": "Ihr seid wieder dabei, sobald eine neue Saison startet.",
+    "effortLine": "🌟 {{effortRank}} bester Teameinsatz",
+    "tapHint": "Zur Tabelle →"
+  },
+  "trainedButton": {
+    "disabled": "Ich habe trainiert 🔒",
+    "secondary": "Noch ein Training eintragen",
+    "primary": "Ich habe trainiert"
+  },
+  "waitingCard": {
+    "titleBothPending": "Warten auf Freigabe",
+    "titleJoinPending": "Warten auf den Team-Captain",
+    "titleConsentPending": "Warten auf Freigabe",
+    "titleSelfVerificationPending": "Warten darauf, dass du bestätigst",
+    "titlePaused": "Training ist gerade pausiert",
+    "consentPartSelfVerification": "Wir haben einen Bestätigungslink an deine E-Mail-Adresse oder Handynummer geschickt.",
+    "consentPartParent": "Wir haben einen Elternteil oder Erziehungsberechtigten um Erlaubnis gebeten.",
+    "joinPart": "Der Team-Captain muss deinen Beitritt zum Team noch bestätigen.",
+    "suffixBoth": "Sobald beides erledigt ist, schalten wir den Button unten frei!",
+    "suffixJoinOnly": "Sobald der Captain zustimmt, schalten wir den Button unten frei!",
+    "suffixConsentOnly": "Sobald das erledigt ist, schalten wir den Button unten frei!",
+    "pausedBody": "Ein Elternteil oder Erziehungsberechtigter hat die Freigabe zurückgezogen. Sprich mit deinem Trainer, wenn du Fragen hast.",
+    "refresh": "Nochmal prüfen",
+    "refreshing": "Wird geprüft..."
+  },
+  "profileScreen": {
+    "loadError": "Dein Profil konnte nicht geladen werden. Prüf deine Verbindung.",
+    "savedToast": "Gespeichert!",
+    "contactChangeRateLimited": "Du hast erst kürzlich eine Änderung angefragt — warte kurz, bevor du es noch mal versuchst.",
+    "contactChangeGenericError": "Etwas ist schiefgelaufen. Prüf die Angabe, und versuch's noch mal.",
+    "contactChangeConfirmedToast": "Bestätigt! Tritt in etwa {{hours}} Std. in Kraft. Die alte Adresse kann über die dorthin geschickte E-Mail widersprechen.",
+    "codeInvalid": "Der Code funktioniert nicht mehr. Prüf, ob du ihn richtig eingegeben hast, oder fordere einen neuen an.",
+    "codeGenericError": "Etwas ist schiefgelaufen. Prüf deine Verbindung, und versuch's noch mal.",
+    "erasureTeamInfoError": "Team-Infos konnten nicht geladen werden. Versuch's noch mal.",
+    "erasureTeammatesError": "Die Team-Liste konnte nicht geladen werden. Prüf deine Verbindung.",
+    "erasureBlockedPendingContactChange": "Du hast gerade eine Änderung deiner Kontaktangabe laufen. Die muss abgeschlossen (oder abgebrochen) sein, bevor du dein Konto löschen kannst — schau gleich noch mal vorbei.",
+    "erasureRateLimited": "Das hast du gerade eben schon angefragt. Warte kurz, und versuch's noch mal.",
+    "erasureSuccessorInvalid": "Diese Person ist nicht mehr im Team. Wähl jemand anderen.",
+    "erasureStaleState": "Im Team hat sich etwas geändert, seit du diese Ansicht geöffnet hast. Prüf dein Profil, und versuch's noch mal.",
+    "erasureCancelledToast": "Erledigt! Dein Konto wird nicht gelöscht. 🎉",
+    "erasureCancelError": "Etwas ist schiefgelaufen. Lade die Seite neu, und versuch's noch mal.",
+    "editName": {
+      "heading": "Dein Name",
+      "sub": "Freiwillig — wird nie anderen im Team angezeigt, nur du siehst ihn hier.",
+      "placeholder": "Vor- und Nachname"
+    },
+    "editAvatar": {
+      "heading": "Avatar wählen",
+      "sub": "Kein Foto nötig — wähl einfach eine Figur, die dir gefällt."
+    },
+    "requestChange": {
+      "heading": "Kontaktadresse ändern",
+      "sub": "Gib die neue Adresse ein. Wir schicken dorthin einen Code zur Bestätigung sowie einen Hinweis an die alte Adresse, dass eine Änderung ansteht.",
+      "placeholder": "Neue E-Mail-Adresse oder Handynummer",
+      "submit": "Code senden"
+    },
+    "confirmChange": {
+      "heading": "Schau in dein Postfach",
+      "sub": "Wir haben einen Code an die neue Adresse geschickt. Gib ihn unten ein, um die Änderung zu bestätigen.",
+      "placeholder": "z. B. H4K7QWXP",
+      "submit": "Bestätigen",
+      "resend": "Keinen Code bekommen? Noch mal versuchen"
+    },
+    "view": {
+      "heading": "Dein Profil",
+      "avatarLabel": "Avatar",
+      "nameLabel": "Name",
+      "nameNotSet": "Nicht angegeben",
+      "addName": "Hinzufügen",
+      "birthYearLabel": "Geburtsjahr",
+      "birthYearHelper": "Kannst du nicht selbst ändern — wende dich an den Trainer deines Teams, wenn das korrigiert werden muss.",
+      "contactLabel": "Kontaktadresse",
+      "changeContact": "Ändern",
+      "back": "Zurück",
+      "logout": "Abmelden",
+      "deleteAccount": "Mein Konto löschen"
+    }
+  },
+  "erasureCheckEmail": {
+    "heading": "Schau in dein Postfach",
+    "body": "Wir haben dir eine E-Mail mit einem Link geschickt. Öffne die E-Mail, und tippe auf den Link, um die 30 Tage zu starten — du kannst auch bis morgen warten.",
+    "mutedBody": "Wenn du nicht auf den Link tippst, passiert nichts — dein Konto bleibt genau wie gewohnt.",
+    "cta": "Zurück zum Profil"
+  },
+  "erasureConfirmSheet": {
+    "heading": "Bist du sicher?",
+    "body": "Wir schicken eine E-Mail, die bestätigt werden muss, um die 30 Tage zu starten. Wenn du es dir anders überlegst, kannst du jederzeit vorher abbrechen.",
+    "successorBody": "{{successorScreenName}} übernimmt an dem Tag, an dem das Konto gelöscht wird, den Captain-Posten.",
+    "confirm": "Ja, mein Konto löschen"
+  },
+  "erasureRequest": {
+    "heading": "Dein Konto löschen?",
+    "bulletHistory": "Deine gesamte Trainingshistorie, deine Abzeichen und deine Clips werden für immer gelöscht.",
+    "bulletTeam": "Du verschwindest aus dem Team. Deine Nachrichten im Team-Chat werden anonym — das Team und deine Teamkolleg:innen sind sonst nicht betroffen.",
+    "bulletFinal": "Sobald die 30 Tage abgelaufen sind, lässt sich das nicht mehr rückgängig machen.",
+    "tip": "Wir schicken eine E-Mail, die du (oder ein Elternteil bzw. Erziehungsberechtigter) bestätigen musst — allein der Klick auf den Button unten bewirkt noch nichts. Sobald die E-Mail bestätigt ist, hast du 30 Tage Zeit, es dir anders zu überlegen, und dein Konto funktioniert in der Zwischenzeit ganz normal weiter.",
+    "captainTitle": "Du bist Team-Captain",
+    "captainBody": "Du musst wählen, wer den Captain-Posten übernimmt, bevor du fortfahren kannst.",
+    "successorNotChosen": "Noch niemand gewählt",
+    "chooseSuccessor": "Wählen",
+    "changeSuccessor": "Ändern",
+    "lastPlayerWarning": "Gerade bist du die einzige Person, die noch im Team ist. Wenn das in 30 Tagen immer noch stimmt, verschwindet das ganze Team, wenn dein Konto gelöscht wird — Punkte, Clips und alles andere.",
+    "submit": "Mein Konto löschen"
+  },
+  "erasureStatusCard": {
+    "titleGracePeriod": "Dein Konto wird am {{date}} gelöscht.",
+    "unknownDate": "(unbekanntes Datum)",
+    "titleRequested": "Warten darauf, dass du die Löschung bestätigst",
+    "gracePeriodBody": "Bis dahin funktioniert dein Konto ganz normal. Wenn du es dir anders überlegst, kannst du jederzeit vorher abbrechen.",
+    "gracePeriodSuccessor": "{{successorScreenName}} übernimmt an dem Tag den Captain-Posten.",
+    "requestedBody": "Wir haben dir einen Link per E-Mail geschickt. Öffne die E-Mail, und bestätige, um die 30 Tage zu starten. Wenn du nichts tust, bleibt dein Konto genau, wie es ist.",
+    "cancelGracePeriod": "Löschung rückgängig machen",
+    "cancelRequested": "Anfrage rückgängig machen",
+    "cancelling": "Wird rückgängig gemacht..."
+  },
+  "erasureSuccessor": {
+    "heading": "Wer übernimmt den Captain-Posten?",
+    "sub": "Wen du wählst, wird an dem Tag, an dem dein Konto gelöscht wird, Team-Captain — nicht vorher. Bis dahin bist du wie gewohnt Captain.",
+    "done": "Fertig"
+  },
+  "leaderboard": {
+    "pageHeading": "Die WM-Gold-Tabelle 🥇",
+    "tabPoints": "🥇 Meiste Punkte",
+    "tabEffort": "💪 Bester Teameinsatz",
+    "loadError": "Die Tabelle konnte nicht geladen werden. Prüfe deine Verbindung.",
+    "genericError": "Etwas ist schiefgelaufen.",
+    "retry": "Erneut versuchen",
+    "back": "Zurück",
+    "effortNudge": "🌟 Eure Spieler kämpfen gut! Schau dir Bester Teameinsatz an →",
+    "noActiveSeasonBanner": "Euer Team hat gerade keine aktive Saison — aber schau dir die Punkte der anderen Teams an!",
+    "emptyPointsHeading": "Noch keine Tabelle zum Anzeigen.",
+    "emptyPointsSub": "Komm zurück, wenn mehr Teams eine aktive Saison haben.",
+    "tieCaption": "Gleiche Punktzahl bedeutet gleiche Platzierung.",
+    "meTag": "Euer Team",
+    "pointsSuffix": "P",
+    "effortCaption": "Ein fairer Durchschnitt — so kann auch ein kleineres Team gewinnen.",
+    "infoLink": "ⓘ So rechnen wir das aus",
+    "noEffortBanner": "Euer Team ist noch nicht auf dieser Liste — dafür braucht es mindestens einen bestätigten Spieler.",
+    "emptyEffortHeading": "Noch kein Teameinsatz zum Anzeigen.",
+    "emptyEffortSub": "Komm zurück, wenn mehr Teams bestätigte Spieler haben.",
+    "playerCountSuffix": "Spieler",
+    "pointsPerPlayerSuffix": "P/Spieler",
+    "infoSheet": {
+      "heading": "So berechnen wir den Besten Teameinsatz",
+      "body1": "Wir vergleichen, wie viele Punkte jedes Team pro Spieler bekommt — nicht nur die Gesamtsumme des Teams. So kann auch ein kleines Team gewinnen, wenn alle ihr Bestes geben.",
+      "body2": "Wenn ein Team klein ist, rechnen wir etwas vorsichtiger, damit ein paar richtig gute Tage nicht zufällig den ersten Platz bringen. Je mehr Spieler ein Team hat, desto mehr vertrauen wir seinem eigenen Durchschnitt.",
+      "ownTeamLine": "Euer Team: {{pointsPerPlayer}} P/Spieler mit {{playerCount}} Spielern → {{adjustedScore}} P, fair berechnet.",
+      "gotIt": "Okay, verstanden!"
+    }
+  }
+}

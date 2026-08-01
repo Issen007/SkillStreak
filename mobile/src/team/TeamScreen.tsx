@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ConsentChips } from './components/ConsentChips';
 import { TeammateRow } from './components/TeammateRow';
@@ -62,6 +63,7 @@ export function TeamScreen({
   onSeeGoalDetail,
   onCaptainTransferred,
 }: TeamScreenProps) {
+  const { t } = useTranslation('team');
   const [dashboard, setDashboard] = useState<TeamDashboardResponse | null>(null);
   const [teammates, setTeammates] = useState<TeammateEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,11 +103,11 @@ export function TeamScreen({
         setPendingJoins([]);
       }
     } catch {
-      setLoadError('Kunde inte hämta laget. Kolla din uppkoppling.');
+      setLoadError(t('k1.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [teamId]);
+  }, [teamId, t]);
 
   useEffect(() => {
     void fetchAll();
@@ -117,9 +119,9 @@ export function TeamScreen({
     try {
       await approveTeamJoin(teamId, player.playerId);
       setPendingJoins((prev) => prev.filter((p) => p.playerId !== player.playerId));
-      setToastMessage(`${player.screenName} är nu godkänd i laget! 🎉`);
+      setToastMessage(t('k1.approveSuccessToast', { screenName: player.screenName }));
     } catch {
-      setToastMessage('Kunde inte godkänna just nu. Testa igen.');
+      setToastMessage(t('k1.approveErrorToast'));
     } finally {
       setDecidingPlayerId(null);
       setDecidingAction(null);
@@ -132,9 +134,9 @@ export function TeamScreen({
     try {
       await rejectTeamJoin(teamId, player.playerId);
       setPendingJoins((prev) => prev.filter((p) => p.playerId !== player.playerId));
-      setToastMessage(`${player.screenName} nekades.`);
+      setToastMessage(t('k1.rejectSuccessToast', { screenName: player.screenName }));
     } catch {
-      setToastMessage('Kunde inte neka just nu. Testa igen.');
+      setToastMessage(t('k1.rejectErrorToast'));
     } finally {
       setDecidingPlayerId(null);
       setDecidingAction(null);
@@ -148,7 +150,7 @@ export function TeamScreen({
         onBack={() => setView('summary')}
         onNotCaptain={() => {
           setView('summary');
-          setToastMessage('Den här sidan är bara för lagets kapten.');
+          setToastMessage(t('k1.notCaptainToast'));
         }}
       />
     );
@@ -162,12 +164,12 @@ export function TeamScreen({
         onBack={() => setView('summary')}
         onNotCaptain={() => {
           setView('summary');
-          setToastMessage('Den här sidan är bara för lagets kapten.');
+          setToastMessage(t('k1.notCaptainToast'));
         }}
         onTransferred={(newCaptainScreenName) => {
           onCaptainTransferred();
           setView('summary');
-          setToastMessage(`Kaptensskapet är överlämnat till ${newCaptainScreenName}. 👑`);
+          setToastMessage(t('k1.captainTransferredToast', { newCaptainScreenName }));
           void fetchAll();
         }}
       />
@@ -189,9 +191,9 @@ export function TeamScreen({
   if (loadError || !dashboard || !teammates) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>{loadError ?? 'Något gick fel.'}</Text>
+        <Text style={styles.errorText}>{loadError ?? t('k1.genericError')}</Text>
         <Text style={styles.retryText} onPress={() => void fetchAll()}>
-          Försök igen
+          {t('k1.retry')}
         </Text>
       </View>
     );
@@ -200,7 +202,7 @@ export function TeamScreen({
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Laget 👥</Text>
+        <Text style={styles.heading}>{t('k1.heading')}</Text>
 
         <ConsentChips
           approvedCount={dashboard.roster.approvedCount}
@@ -214,7 +216,7 @@ export function TeamScreen({
             an action item, not buried below passive info. */}
         {dashboard.viewerIsCaptain && pendingJoins.length > 0 ? (
           <>
-            <Text style={styles.sectionLabel}>Väntar på godkännande</Text>
+            <Text style={styles.sectionLabel}>{t('k1.pendingSectionLabel')}</Text>
             <View style={styles.teammatesCard}>
               {pendingJoins.map((player) => (
                 <PendingJoinRow
@@ -253,7 +255,7 @@ export function TeamScreen({
           />
         ) : null}
 
-        <Text style={styles.sectionLabel}>Spelare i laget</Text>
+        <Text style={styles.sectionLabel}>{t('k1.teammatesSectionLabel')}</Text>
         <View style={styles.teammatesCard}>
           {teammates.map((teammate) => (
             <TeammateRow
@@ -270,9 +272,9 @@ export function TeamScreen({
             friend without opening anything. Any team member, not
             captain-gated (see the dashboard's own inviteCode comment). */}
         <View style={styles.inviteCard}>
-          <Text style={styles.inviteCodeLabel}>Lagkod</Text>
+          <Text style={styles.inviteCodeLabel}>{t('k1.inviteCodeLabel')}</Text>
           <Text style={styles.inviteCode}>{dashboard.inviteCode}</Text>
-          <PrimaryButton label="📨 Bjud in en kompis" onPress={() => setInviteSheetOpen(true)} />
+          <PrimaryButton label={t('k1.inviteButton')} onPress={() => setInviteSheetOpen(true)} />
         </View>
 
         <TeamPoolCard
@@ -285,10 +287,10 @@ export function TeamScreen({
 
         {dashboard.viewerIsCaptain ? (
           <View style={styles.captainCard}>
-            <Text style={styles.captainBadge}>👑 Du är kapten</Text>
-            <PrimaryButton label="Se laget i detalj" onPress={() => setView('roster')} />
-            <PrimaryButton label="Hantera veckans mål" onPress={onManageGoal} />
-            <PrimaryButton label="Byt kapten" onPress={() => setView('captain-transfer')} />
+            <Text style={styles.captainBadge}>{t('k1.captainBadge')}</Text>
+            <PrimaryButton label={t('k1.captainSeeDetail')} onPress={() => setView('roster')} />
+            <PrimaryButton label={t('k1.captainManageGoal')} onPress={onManageGoal} />
+            <PrimaryButton label={t('k1.captainSwapCaptain')} onPress={() => setView('captain-transfer')} />
           </View>
         ) : null}
       </ScrollView>
@@ -302,7 +304,7 @@ export function TeamScreen({
         onClose={() => setInviteSheetOpen(false)}
         onCopied={() => {
           setInviteSheetOpen(false);
-          setToastMessage('Länk kopierad!');
+          setToastMessage(t('k1.linkCopiedToast'));
         }}
       />
     </View>

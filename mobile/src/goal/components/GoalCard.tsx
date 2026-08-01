@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -30,8 +31,6 @@ interface GoalCardProps {
   isPreview?: boolean;
 }
 
-const numberFormatter = new Intl.NumberFormat('sv-SE');
-
 /** Screen G1's card — also reused verbatim on Screen K1 (the "Laget" tab,
  * closing that screen's pre-existing "fetches weeklyGoal, never renders
  * it" gap) and as KB4's live preview. Redesigned 2026-07-31 per
@@ -57,6 +56,8 @@ export function GoalCard({
   onSeeDetail,
   isPreview = false,
 }: GoalCardProps) {
+  const { t, i18n } = useTranslation('goal');
+  const numberFormatter = new Intl.NumberFormat(i18n.language);
   const isVacuous = eligiblePlayerCount === 0;
   const widthAnim = useRef(new Animated.Value(percentComplete)).current;
   const metricIcon = targetMetricIcon(targetMetric);
@@ -78,34 +79,29 @@ export function GoalCard({
   return (
     <View style={styles.card}>
       <View style={styles.headRow}>
-        <Text style={styles.eyebrow}>Veckans mål 🎯</Text>
+        <Text style={styles.eyebrow}>{t('goalCard.eyebrow')}</Text>
         {goalMet ? (
           <View style={styles.metChip}>
-            <Text style={styles.metChipText}>Nått! 🎉</Text>
+            <Text style={styles.metChipText}>{t('goalCard.metChip')}</Text>
           </View>
         ) : null}
       </View>
-      <Text style={styles.sub}>Satt av lagets kapten</Text>
+      <Text style={styles.sub}>{t('goalCard.sub')}</Text>
 
       {title ? <Text style={styles.title}>{title}</Text> : null}
       {description ? <Text style={styles.description}>{description}</Text> : null}
 
       {isPreview ? (
         <View style={styles.previewCallout}>
-          <Text style={styles.previewText}>
-            Så här ser kortet ut när målet är aktivt — riktiga lagkamrater och vem som är klar
-            visas då.
-          </Text>
+          <Text style={styles.previewText}>{t('goalCard.previewCallout')}</Text>
         </View>
       ) : (
         <>
           {isVacuous ? (
-            <Text style={styles.headlineMuted}>
-              Ingen i laget kan tävla om det här målet just nu.
-            </Text>
+            <Text style={styles.headlineMuted}>{t('goalCard.headlineMuted')}</Text>
           ) : (
             <Text style={styles.headline}>
-              {completedPlayerCount} av {eligiblePlayerCount} lagkamrater klara
+              {t('goalCard.headline', { completed: completedPlayerCount, eligible: eligiblePlayerCount })}
             </Text>
           )}
           <View style={[styles.track, isVacuous && styles.trackEmpty]}>
@@ -121,16 +117,20 @@ export function GoalCard({
       <View style={styles.metaRow}>
         <View style={styles.metricChip}>
           <Text style={styles.metricChipText}>
-            {metricIcon} {targetMetricLabel(targetMetric)} · {numberFormatter.format(targetValue)}{' '}
-            {targetUnitLabel(targetUnit)} var
+            {t('goalCard.metricChip', {
+              icon: metricIcon,
+              label: targetMetricLabel(t, targetMetric),
+              value: numberFormatter.format(targetValue),
+              unit: targetUnitLabel(t, targetUnit),
+            })}
           </Text>
         </View>
       </View>
-      <Text style={styles.endDate}>Slutar {formatSwedishDate(endDate)}</Text>
+      <Text style={styles.endDate}>{t('goalCard.endDate', { date: formatSwedishDate(endDate) })}</Text>
 
       {!isPreview && onSeeDetail ? (
         <Text style={styles.detailLink} onPress={onSeeDetail}>
-          Se vem som är klar →
+          {t('goalCard.detailLink')}
         </Text>
       ) : null}
     </View>

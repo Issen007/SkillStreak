@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ClipIntroCard } from './components/ClipIntroCard';
 import { ClipsWaitingCard } from './components/ClipsWaitingCard';
@@ -73,6 +74,7 @@ interface ReportConfirmationState {
  * scroll (see the flow doc's playback-mechanics and pagination judgment
  * calls). */
 export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenProps) {
+  const { t } = useTranslation('clips');
   const [hasSeenIntro, setHasSeenIntroState] = useState<boolean | null>(null);
   const [consentStatus, setConsentStatus] = useState<ConsentStatus | null>(null);
   const [isSelfVerification, setIsSelfVerification] = useState(false);
@@ -134,9 +136,9 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       // Persisted immediately on first *display*, not dismissal — same
       // "a killed app doesn't re-show it" rule K5/G3 already established.
       await addSeenChallengeClipId(teamId, newlyChallenged.clipId);
-      setChallengeBanner(`🎯 ${newlyChallenged.uploaderScreenName} utmanade dig! Kolla in Shorts-videon.`);
+      setChallengeBanner(t('v2.challengeBanner', { screenName: newlyChallenged.uploaderScreenName }));
     },
-    [teamId, viewerPlayerId],
+    [teamId, viewerPlayerId, t],
   );
 
   const fetchInitial = useCallback(async () => {
@@ -152,12 +154,12 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
         setLoadError(null);
         return;
       }
-      setLoadError('Kunde inte hämta Shorts. Kolla din uppkoppling.');
+      setLoadError(t('v2.loadError'));
     } finally {
       setManualRefreshing(false);
       hasLoadedOnceRef.current = true;
     }
-  }, [teamId, checkForChallengeBanner]);
+  }, [teamId, checkForChallengeBanner, t]);
 
   useEffect(() => {
     if (hasSeenIntro === true) void fetchInitial();
@@ -197,7 +199,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       setClips((prev) => [...(prev ?? []), ...response.clips]);
       setHasMore(response.clips.length === FEED_PAGE_SIZE);
     } catch {
-      setToastMessage('Kunde inte hämta fler Shorts. Testa igen.');
+      setToastMessage(t('v2.showMoreError'));
     } finally {
       setLoadingMore(false);
     }
@@ -210,7 +212,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
 
   const handleTapFab = () => {
     if (consentStatus !== 'approved') {
-      setToastMessage('Väntar fortfarande på godkännande innan du kan ladda upp.');
+      setToastMessage(t('v2.uploadLockedToast'));
       return;
     }
     setView('upload');
@@ -257,19 +259,17 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       setReportTarget(null);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'clip_not_found') {
-        setToastMessage('Den där videon finns inte längre.');
+        setToastMessage(t('v2.reportNotFoundToast'));
         setReportTarget(null);
         void fetchInitial();
       } else if (err instanceof ApiError && err.code === 'clip_already_reported_by_you') {
-        setToastMessage('Du har redan rapporterat den här videon.');
+        setToastMessage(t('v2.reportAlreadyToast'));
         setReportTarget(null);
       } else if (err instanceof ApiError && err.code === 'clip_report_rate_limited') {
-        setToastMessage(
-          'Du har rapporterat en del på sistone. Vänta en liten stund innan du rapporterar igen.',
-        );
+        setToastMessage(t('v2.reportRateLimitedToast'));
         setReportTarget(null);
       } else {
-        setToastMessage('Något gick fel. Testa igen.');
+        setToastMessage(t('v2.genericError'));
       }
     } finally {
       setReportSubmitting(false);
@@ -282,15 +282,15 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
     try {
       await deleteClip(teamId, deleteTarget.clipId);
       setClips((prev) => prev?.filter((c) => c.clipId !== deleteTarget.clipId) ?? prev);
-      setToastMessage('Videon är borttagen.');
+      setToastMessage(t('v2.deletedToast'));
       setDeleteTarget(null);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'clip_not_found') {
-        setToastMessage('Videon finns inte längre.');
+        setToastMessage(t('v2.deleteNotFoundToast'));
         setDeleteTarget(null);
         void fetchInitial();
       } else {
-        setToastMessage('Något gick fel. Testa igen.');
+        setToastMessage(t('v2.genericError'));
       }
     } finally {
       setDeleteSubmitting(false);
@@ -310,9 +310,9 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       // TeamChatBlock decision) — filter this uploader's clips out of the
       // local list immediately, not just on the next fetch.
       setClips((prev) => prev?.filter((c) => c.uploaderPlayerId !== target.playerId) ?? prev);
-      setToastMessage(`Du ser inte längre Shorts eller meddelanden från ${target.screenName}.`);
+      setToastMessage(t('v2.blockedToast', { screenName: target.screenName }));
     } catch {
-      setToastMessage('Något gick fel. Testa igen.');
+      setToastMessage(t('v2.genericError'));
     } finally {
       setBlockSubmitting(false);
     }
@@ -336,9 +336,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
         onCancel={() => setView('feed')}
         onConsentRevoked={() => {
           setView('feed');
-          setToastMessage(
-            'Vi behöver fortfarande godkännande innan du kan ladda upp. Vi uppdaterar sidan åt dig.',
-          );
+          setToastMessage(t('v2.consentRevokedToast'));
           void fetchConsentStatus();
           void fetchInitial();
         }}
@@ -378,7 +376,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
           />
         }
       >
-        <Text style={styles.heading}>Shorts 🎬</Text>
+        <Text style={styles.heading}>{t('v2.heading')}</Text>
 
         {locked ? (
           <ClipsWaitingCard
@@ -396,14 +394,14 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
           <View style={styles.centered}>
             <Text style={styles.errorText}>{loadError}</Text>
             <Text style={styles.retryText} onPress={() => void fetchInitial()}>
-              Försök igen
+              {t('v2.retry')}
             </Text>
           </View>
         ) : clips.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyHeading}>Inga Shorts än</Text>
-            <Text style={styles.emptySub}>Bli den första att dela en Shorts med laget!</Text>
-            <PrimaryButton label="Ladda upp Shorts" onPress={handleTapFab} />
+            <Text style={styles.emptyHeading}>{t('v2.emptyHeading')}</Text>
+            <Text style={styles.emptySub}>{t('v2.emptySub')}</Text>
+            <PrimaryButton label={t('v2.uploadButton')} onPress={handleTapFab} />
           </View>
         ) : (
           <View style={styles.list}>
@@ -432,7 +430,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
                 {loadingMore ? (
                   <ActivityIndicator color={colors.ink} />
                 ) : (
-                  <Text style={styles.showMoreText}>Visa fler Shorts</Text>
+                  <Text style={styles.showMoreText}>{t('v2.showMore')}</Text>
                 )}
               </Pressable>
             ) : null}

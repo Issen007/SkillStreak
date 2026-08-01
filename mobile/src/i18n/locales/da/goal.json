@@ -1,1 +1,123 @@
-{}
+{
+  "metricLabel": {
+    "fitness": "Kondition",
+    "drill": "Teknik/øvelser",
+    "running": "Løb",
+    "other": "Andet",
+    "total": "I alt (alle typer)"
+  },
+  "metricLabelInline": {
+    "fitness": "kondition",
+    "drill": "teknik/øvelser",
+    "running": "løb",
+    "other": "andet",
+    "total": "i alt (alle typer)"
+  },
+  "unitLabel": {
+    "minutes": "minutter",
+    "sessions": "gange"
+  },
+  "g1": {
+    "loadError": "Kunne ikke hente holdets mål. Tjek din forbindelse.",
+    "genericError": "Noget gik galt.",
+    "retry": "Prøv igen",
+    "pageHeading": "Ugens mål 🎯",
+    "emptyHeading": "🎯 Intet mål lige nu",
+    "emptySub": "Jeres anfører sætter snart et nyt mål for holdet!",
+    "seeHistory": "Se tidligere mål",
+    "cancelGoal": "Annuller målet",
+    "editDraft": "Rediger",
+    "activateNow": "Aktiver nu",
+    "activateBlockedExplain": "I har allerede et aktivt mål. Dette gemmes som kladde, indtil det er klar, eller indtil du annullerer det andet.",
+    "setNewGoal": "+ Sæt ugens mål",
+    "activatedToast": "Målet er nu aktivt — holdet kan se det.",
+    "genericErrorToast": "Noget gik galt. Prøv igen.",
+    "cancelConfirmTitle": "Annuller \"{{title}}\"?",
+    "cancelConfirmBody": "Logget træning påvirkes ikke, men den tæller ikke længere med i et mål.",
+    "cancelConfirmCancel": "Annuller",
+    "cancelConfirmConfirm": "Ja, annuller",
+    "historyHeading": "Tidligere mål",
+    "historyCompleted": "Afsluttet",
+    "historyCancelled": "Annulleret",
+    "historyTally": "{{completed}} af {{eligible}} holdkammerater klar · +{{bonus}}p bonus",
+    "historyEmpty": "Ingen tidligere mål endnu.",
+    "back": "Tilbage"
+  },
+  "builder": {
+    "draftSavedToast": "Målet er gemt!",
+    "activatedToast": "Målet er nu aktivt — holdet kan se det.",
+    "genericError": "Noget gik galt. Prøv igen."
+  },
+  "g1d": {
+    "heading": "Holdkammeraternes status",
+    "subHeading": "for \"{{goalTitle}}\"",
+    "doneSectionLabel": "✅ Klar ({{count}})",
+    "inProgressSectionLabel": "⏳ Ikke klar endnu ({{count}})",
+    "excludedSectionLabel": "➖ Ikke med denne uge ({{count}})",
+    "back": "Tilbage",
+    "exclusion": {
+      "joinedAfterStart": "Blev med efter målet allerede var startet",
+      "consentPending": "Venter på godkendelse fra en forælder ⏳",
+      "consentRevoked": "Sat på pause ⏸️",
+      "teamJoinPending": "Venter på at blive godkendt på holdet ⏳"
+    }
+  },
+  "kb1": {
+    "heading": "Sæt holdets mål for ugen",
+    "sub": "Giv det et sjovt navn — det er det, hele holdet ser.",
+    "titleLabel": "Titel",
+    "titlePlaceholder": "F.eks. Zorro-finte-udfordringen",
+    "descriptionLabel": "Beskrivelse",
+    "descriptionPlaceholder": "F.eks. Lav så mange zorro-finter sammen, som I kan, inden fredag!",
+    "next": "Næste",
+    "cancel": "Annuller"
+  },
+  "kb2": {
+    "heading": "Hvad skal hver spiller klare denne uge?",
+    "sub": "Hver spiller på holdet skal nå målet på egen hånd — vælg om det tælles i minutter eller gange, og hvilken type træning der tæller.",
+    "unitMinutes": "⏱️ Minutter",
+    "unitSessions": "🔁 Antal gange",
+    "unitHelper": "En gang = én logget træning, uanset hvor lang den var.",
+    "targetLabel": "Mål pr. spiller ({{unit}})",
+    "placeholderMinutes": "F.eks. 20",
+    "placeholderSessions": "F.eks. 3",
+    "helper": "Det her er målet, hver spiller skal nå på egen hånd — ikke holdets samlede sum.",
+    "previewText": "Hver spiller på holdet skal samle {{value}} {{unit}} {{metric}} inden målet slutter.",
+    "next": "Næste",
+    "back": "Tilbage"
+  },
+  "kb3": {
+    "heading": "Hvornår starter og slutter ugens mål?",
+    "startDateLabel": "Startdato",
+    "endDateLabel": "Slutdato",
+    "dateOrderError": "Slutdatoen skal være efter startdatoen.",
+    "next": "Næste",
+    "back": "Tilbage",
+    "doneButton": "Færdig"
+  },
+  "kb4": {
+    "heading": "Sådan ser det ud for holdet",
+    "saveDraft": "Gem som kladde",
+    "activateBlockedExplain": "I har allerede et aktivt mål. Dette gemmes som kladde, indtil det er klar, eller indtil du annullerer det andet.",
+    "activateNow": "Aktiver nu",
+    "back": "Tilbage"
+  },
+  "goalCard": {
+    "eyebrow": "Ugens mål 🎯",
+    "metChip": "Nået! 🎉",
+    "sub": "Sat af holdets anfører",
+    "previewCallout": "Sådan kommer kortet til at se ud, når målet er aktivt — så vises de rigtige holdkammerater, og hvem der er klar.",
+    "headlineMuted": "Ingen på holdet kan konkurrere om dette mål lige nu.",
+    "headline": "{{completed}} af {{eligible}} holdkammerater klar",
+    "metricChip": "{{icon}} {{label}} · {{value}} {{unit}} hver",
+    "endDate": "Slutter {{date}}",
+    "detailLink": "Se hvem der er klar →"
+  },
+  "teammateStatusRow": {
+    "inProgress": "I gang",
+    "notStarted": "Ikke startet endnu",
+    "progressCaption": "{{progress}} af {{target}} {{unit}}",
+    "done": "Klar ✓",
+    "excludedChip": "Ikke med denne uge"
+  }
+}

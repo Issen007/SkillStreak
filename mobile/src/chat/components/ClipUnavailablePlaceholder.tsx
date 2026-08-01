@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -12,9 +13,11 @@ import { fonts } from '../../theme/fonts';
  * a routine content-lifecycle outcome, not evidence of anything the
  * *viewer* did wrong. */
 export function ClipUnavailablePlaceholder() {
+  const { t } = useTranslation('chat');
+
   return (
     <View style={styles.box}>
-      <Text style={styles.text}>🎬 Videon är inte längre tillgänglig.</Text>
+      <Text style={styles.text}>{t('clipUnavailable.text')}</Text>
     </View>
   );
 }

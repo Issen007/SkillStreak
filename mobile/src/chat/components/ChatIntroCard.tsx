@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
@@ -13,20 +14,16 @@ interface ChatIntroCardProps {
  * known before the first message is typed, not discovered by accident
  * after something goes wrong (docs/design/phase2.6-2.7-flows.md). */
 export function ChatIntroCard({ onDismiss }: ChatIntroCardProps) {
+  const { t } = useTranslation('chat');
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.heading}>Så funkar lagchatten</Text>
-        <Text style={styles.bullet}>• Bara ditt eget lag ser det du skriver här.</Text>
-        <Text style={styles.bullet}>
-          • Känns något fel? Du kan rapportera ett meddelande, eller blockera en person så du
-          slipper se fler av deras meddelanden.
-        </Text>
-        <Text style={styles.bullet}>
-          • Vissa ord funkar inte här. Om ett meddelande inte går att skicka, testa att skriva om
-          det.
-        </Text>
-        <PrimaryButton label="Okej, jag fattar!" onPress={onDismiss} />
+        <Text style={styles.heading}>{t('ch0.heading')}</Text>
+        <Text style={styles.bullet}>• {t('ch0.bullet1')}</Text>
+        <Text style={styles.bullet}>• {t('ch0.bullet2')}</Text>
+        <Text style={styles.bullet}>• {t('ch0.bullet3')}</Text>
+        <PrimaryButton label={t('ch0.dismiss')} onPress={onDismiss} />
       </View>
     </View>
   );

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -22,24 +23,25 @@ export function KB1TitleDescription({
   onNext,
   onCancel,
 }: KB1Props) {
+  const { t } = useTranslation('goal');
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
 
   return (
     <ScreenContainer scroll>
-      <Text style={styles.heading}>Sätt lagets mål för veckan</Text>
-      <Text style={styles.sub}>Ge det ett kul namn — det här är vad hela laget ser.</Text>
+      <Text style={styles.heading}>{t('kb1.heading')}</Text>
+      <Text style={styles.sub}>{t('kb1.sub')}</Text>
 
       <TextField
-        label="Titel"
-        placeholder="T.ex. Zorro-finter-utmaningen"
+        label={t('kb1.titleLabel')}
+        placeholder={t('kb1.titlePlaceholder')}
         value={title}
         onChangeText={setTitle}
         maxLength={140}
       />
       <TextField
-        label="Beskrivning"
-        placeholder="T.ex. Gör så många zorro-finter ni kan tillsammans innan fredag!"
+        label={t('kb1.descriptionLabel')}
+        placeholder={t('kb1.descriptionPlaceholder')}
         value={description}
         onChangeText={setDescription}
         multiline
@@ -49,11 +51,11 @@ export function KB1TitleDescription({
       />
 
       <PrimaryButton
-        label="Nästa"
+        label={t('kb1.next')}
         disabled={title.trim().length === 0}
         onPress={() => onNext(title.trim(), description.trim())}
       />
-      <SecondaryLink label="Avbryt" onPress={onCancel} />
+      <SecondaryLink label={t('kb1.cancel')} onPress={onCancel} />
     </ScreenContainer>
   );
 }

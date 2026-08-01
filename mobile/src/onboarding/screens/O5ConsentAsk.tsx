@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -28,6 +29,7 @@ export function O5ConsentAsk({
   errorText,
   onSubmit,
 }: O5ConsentAskProps) {
+  const { t } = useTranslation('onboarding');
   const [parentContact, setParentContact] = useState(initialParentContact);
 
   return (
@@ -35,51 +37,39 @@ export function O5ConsentAsk({
       <View style={styles.spacerTop} />
       <Text style={styles.icon}>🔒</Text>
       <Text style={styles.heading}>
-        {isSelfVerification ? 'Verifiera ditt konto' : 'Vi frågar en vuxen om lov'}
+        {isSelfVerification ? t('o5.verifyHeading') : t('o5.consentHeading')}
       </Text>
       <Text style={styles.body}>
-        {isSelfVerification
-          ? 'Innan du kan börja logga träningar behöver du verifiera din e-post eller ditt mobilnummer.'
-          : 'Innan du kan börja logga träningar behöver en förälder eller vårdnadshavare säga ja.'}
+        {isSelfVerification ? t('o5.verifyBody1') : t('o5.consentBody1')}
       </Text>
       <Text style={styles.body}>
-        {isSelfVerification
-          ? 'Vi skickar en verifieringslänk — du bekräftar med ett klick.'
-          : 'Vi skickar dem en snabb fråga — de godkänner med ett klick.'}
+        {isSelfVerification ? t('o5.verifyBody2') : t('o5.consentBody2')}
       </Text>
 
       <TextField
-        label={
-          isSelfVerification
-            ? 'Din e-post eller mobilnummer'
-            : 'Förälders eller vårdnadshavares e-post eller mobilnummer'
-        }
+        label={isSelfVerification ? t('o5.verifyContactLabel') : t('o5.consentContactLabel')}
         value={parentContact}
         onChangeText={setParentContact}
-        placeholder="t.ex. namn@exempel.se"
+        placeholder={t('o5.contactPlaceholder')}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
         errorText={errorText ?? undefined}
       />
       <Text style={styles.helper}>
-        {isSelfVerification
-          ? 'Vi använder det bara för att verifiera ditt konto — inget annat.'
-          : 'Vi använder det bara för att fråga om lov — inget annat.'}
+        {isSelfVerification ? t('o5.verifyHelper') : t('o5.consentHelper')}
       </Text>
 
       <View style={styles.spacer} />
 
       <PrimaryButton
-        label="Skicka förfrågan"
+        label={t('o5.submit')}
         disabled={parentContact.trim().length === 0}
         loading={loading}
         onPress={() => onSubmit(parentContact.trim())}
       />
 
-      <Text style={styles.coachNote}>
-        Tränare: hjälp spelaren fylla i om de är osäkra på uppgifterna.
-      </Text>
+      <Text style={styles.coachNote}>{t('o5.coachNote')}</Text>
     </ScreenContainer>
   );
 }

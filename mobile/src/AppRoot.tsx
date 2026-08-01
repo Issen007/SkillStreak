@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { OnboardingFlow } from './onboarding/OnboardingFlow';
 import { AppShell } from './AppShell';
@@ -12,15 +13,17 @@ type RootStatus = 'checking-session' | 'onboarding' | 'home';
  * a real native install isn't the "public link, no account should be
  * real" risk this guards against. Kept here rather than in site/'s own
  * static wrapper since it's the same Expo web export either way, not a
- * separate build. */
+ * separate build. Shown before a language has necessarily been picked
+ * (it wraps every `RootStatus`, including `checking-session`), so it uses
+ * whatever `i18n.language` already resolved to (the device guess) rather
+ * than depending on the player having reached Screen O0 — `common` since
+ * this is app-wide chrome, not feature-scoped copy. */
 function TestModeBanner() {
+  const { t } = useTranslation('common');
   if (Platform.OS !== 'web') return null;
   return (
     <View style={styles.testBanner}>
-      <Text style={styles.testBannerText}>
-        🧪 Det här är bara ett TEST — skapa inte ett riktigt konto med
-        riktiga uppgifter.
-      </Text>
+      <Text style={styles.testBannerText}>{t('testModeBanner')}</Text>
     </View>
   );
 }

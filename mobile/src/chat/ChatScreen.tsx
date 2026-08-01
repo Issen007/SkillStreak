@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ChatIntroCard } from './components/ChatIntroCard';
 import { MessageBubble } from './components/MessageBubble';
@@ -111,6 +112,7 @@ interface ClipReportConfirmationState {
  * rolling window of the most recent messages, not a searchable archive
  * (deliberate, per the flow doc's judgment call 11). */
 export function ChatScreen({ teamId, viewerPlayerId, onOpened, onGoToClipsTab }: ChatScreenProps) {
+  const { t } = useTranslation('chat');
   const [hasSeenIntro, setHasSeenIntroState] = useState<boolean | null>(null);
   const [consentStatus, setConsentStatus] = useState<ConsentStatus | null>(null);
   // Added 2026-07-27 — a second, independent gate (captain approval of
@@ -208,9 +210,9 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened, onGoToClipsTab }:
       setMessages(response.messages);
       setLoadError(null);
     } catch {
-      setLoadError('Kunde inte hämta lagchatten. Kolla din uppkoppling.');
+      setLoadError(t('ch1.loadError'));
     }
-  }, [teamId]);
+  }, [teamId, t]);
 
   // Re-fetches the most recent window on every tick — not an incremental
   // `after` cursor — so an already-rendered message's `clip` (and
@@ -346,13 +348,9 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened, onGoToClipsTab }:
       setAttachedClip(null);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'message_rejected_by_filter') {
-        setSendError(
-          'Meddelandet skickades inte — det innehöll ord som inte funkar här. Skriv om det så går det bra! ✍️',
-        );
+        setSendError(t('ch1.filterRejected'));
       } else if (err instanceof ApiError && err.code === 'chat_send_rate_limited') {
-        setSendError(
-          'Du skickar meddelanden lite snabbt just nu. Vänta en liten stund så går det bra igen.',
-        );
+        setSendError(t('ch1.sendRateLimited'));
       } else if (err instanceof ApiError && err.code === 'consent_required') {
         setConsentStatus('pending');
       } else if (err instanceof ApiError && err.code === 'clip_not_found') {
@@ -361,11 +359,9 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened, onGoToClipsTab }:
         // send error); only the clip chip is removed, so the player can
         // immediately retry with the text alone.
         setAttachedClip(null);
-        setToastMessage(
-          'Klippet gick inte att skicka — det finns inte längre. Nu kan du skicka resten själv.',
-        );
+        setToastMessage(t('ch1.clipGoneOnSend'));
       } else {
-        setSendError('Något gick fel. Testa igen.');
+        setSendError(t('ch1.genericError'));
       }
     } finally {
       setSending(false);
@@ -414,19 +410,17 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened, onGoToClipsTab }:
       setReportTarget(null);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'chat_message_not_found') {
-        setToastMessage('Det där meddelandet finns inte längre.');
+        setToastMessage(t('ch1.messageNotFoundToast'));
         setReportTarget(null);
         void fetchInitial();
       } else if (err instanceof ApiError && err.code === 'chat_message_already_reported_by_you') {
-        setToastMessage('Du har redan rapporterat det här meddelandet.');
+        setToastMessage(t('ch1.alreadyReportedToast'));
         setReportTarget(null);
       } else if (err instanceof ApiError && err.code === 'chat_report_rate_limited') {
-        setToastMessage(
-          'Du har rapporterat en del på sistone. Vänta en liten stund innan du rapporterar igen.',
-        );
+        setToastMessage(t('ch1.reportRateLimitedToast'));
         setReportTarget(null);
       } else {
-        setToastMessage('Något gick fel. Testa igen.');
+        setToastMessage(t('ch1.genericError'));
       }
     } finally {
       setReportSubmitting(false);
@@ -461,19 +455,17 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened, onGoToClipsTab }:
       setClipReportTarget(null);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'clip_not_found') {
-        setToastMessage('Den där videon finns inte längre.');
+        setToastMessage(t('ch1.clipNotFoundToast'));
         setClipReportTarget(null);
         void fetchInitial();
       } else if (err instanceof ApiError && err.code === 'clip_already_reported_by_you') {
-        setToastMessage('Du har redan rapporterat den här videon.');
+        setToastMessage(t('ch1.clipAlreadyReportedToast'));
         setClipReportTarget(null);
       } else if (err instanceof ApiError && err.code === 'clip_report_rate_limited') {
-        setToastMessage(
-          'Du har rapporterat en del på sistone. Vänta en liten stund innan du rapporterar igen.',
-        );
+        setToastMessage(t('ch1.clipReportRateLimitedToast'));
         setClipReportTarget(null);
       } else {
-        setToastMessage('Något gick fel. Testa igen.');
+        setToastMessage(t('ch1.genericError'));
       }
     } finally {
       setClipReportSubmitting(false);
@@ -503,9 +495,9 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened, onGoToClipsTab }:
             .map((m) => (m.clip?.uploaderPlayerId === target.playerId ? { ...m, clip: null } : m)) ??
           prev,
       );
-      setToastMessage(`Du ser inte längre meddelanden eller klipp från ${target.screenName}.`);
+      setToastMessage(t('ch1.blockedToast', { screenName: target.screenName }));
     } catch {
-      setToastMessage('Något gick fel. Testa igen.');
+      setToastMessage(t('ch1.genericError'));
     } finally {
       setBlockSubmitting(false);
     }
@@ -599,9 +591,9 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened, onGoToClipsTab }:
       keyboardVerticalOffset={0}
     >
       <View style={styles.header}>
-        <Text style={styles.heading}>Lagchatt 💬</Text>
+        <Text style={styles.heading}>{t('ch1.heading')}</Text>
         <Pressable accessibilityRole="button" onPress={() => setView('blocked-list')}>
-          <Text style={styles.blockedLink}>🚫 Blockerade</Text>
+          <Text style={styles.blockedLink}>{t('ch1.blockedLink')}</Text>
         </Pressable>
       </View>
 
@@ -613,13 +605,13 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened, onGoToClipsTab }:
         <View style={styles.centered}>
           <Text style={styles.errorText}>{loadError}</Text>
           <Text style={styles.retryText} onPress={() => void fetchInitial()}>
-            Försök igen
+            {t('ch1.retry')}
           </Text>
         </View>
       ) : messages.length === 0 ? (
         <View style={styles.centered}>
-          <Text style={styles.emptyHeading}>Inga meddelanden än</Text>
-          <Text style={styles.emptySub}>Skriv det första meddelandet till laget!</Text>
+          <Text style={styles.emptyHeading}>{t('ch1.emptyHeading')}</Text>
+          <Text style={styles.emptySub}>{t('ch1.emptySub')}</Text>
         </View>
       ) : (
         <ScrollView ref={scrollRef} contentContainerStyle={styles.list}>

@@ -1,1 +1,115 @@
-{}
+{
+  "v0": {
+    "heading": "Jak funguje Shorts",
+    "bullet1": "Videa Shorts nahraná sem vidí jen tvůj vlastní tým.",
+    "bullet2": "Rodič nebo zákonný zástupce musí souhlasit, než budeš moct nahrát vlastní Shorts.",
+    "bullet3": "Připadá ti nějaké Shorts video divné? Nahlas ho a hned zmizí celému týmu, zatímco se na něj podívá dospělý.",
+    "bullet4": "Svoje vlastní Shorts videa můžeš kdykoli smazat.",
+    "dismiss": "Dobře, chápu!"
+  },
+  "v1": {
+    "joinPendingTitle": "Čeká se na kapitána týmu",
+    "consentPendingTitleSelfVerify": "Čeká se, až se ověříš",
+    "consentPendingTitle": "Čeká se na schválení",
+    "consentPartSelfVerify": "Musíš ověřit svůj e-mail nebo telefonní číslo.",
+    "consentPart": "Rodič nebo zákonný zástupce musí souhlasit.",
+    "joinPart": "Kapitán týmu musí schválit tvůj vstup do týmu.",
+    "bothPendingSuffix": "Jakmile bude hotové obojí, odemkneme záložku Shorts.",
+    "joinPendingSuffix": "Jakmile kapitán schválí, odemkneme záložku Shorts.",
+    "consentPendingSuffix": "Jakmile to bude hotové, odemkneme záložku Shorts.",
+    "pausedTitle": "Shorts je právě pozastaveno",
+    "pausedBody": "Rodič nebo zákonný zástupce odvolal souhlas. Pokud máš otázky, promluv si se svým trenérem.",
+    "refresh": "Zkontrolovat znovu",
+    "refreshing": "Kontroluje se..."
+  },
+  "v2": {
+    "heading": "Shorts 🎬",
+    "loadError": "Shorts se nepodařilo načíst. Zkontroluj své připojení.",
+    "retry": "Zkusit znovu",
+    "emptyHeading": "Zatím žádná Shorts videa",
+    "emptySub": "Buď první, kdo se s týmem podělí o Shorts video!",
+    "uploadButton": "Nahrát Shorts",
+    "showMore": "Zobrazit další Shorts",
+    "showMoreError": "Další Shorts se nepodařilo načíst. Zkus to znovu.",
+    "uploadLockedToast": "Pořád se čeká na schválení, než budeš moct nahrávat.",
+    "challengeBanner": "🎯 {{screenName}} tě vyzval/a! Podívej se na Shorts video.",
+    "consentRevokedToast": "Pořád potřebujeme schválení, než budeš moct nahrávat. Stránku ti mezitím obnovíme.",
+    "reportNotFoundToast": "Tohle video už neexistuje.",
+    "reportAlreadyToast": "Tohle video jsi už nahlásil/a.",
+    "reportRateLimitedToast": "V poslední době jsi toho dost nahlásil/a. Chvíli počkej, než budeš nahlašovat znovu.",
+    "genericError": "Něco se pokazilo. Zkus to znovu.",
+    "deletedToast": "Video bylo smazáno.",
+    "deleteNotFoundToast": "Tohle video už neexistuje.",
+    "blockedToast": "Už neuvidíš Shorts ani zprávy od uživatele {{screenName}}."
+  },
+  "clipCard": {
+    "challengeChip": "🎯 Vyzývá uživatele {{screenName}}",
+    "report": "🚩 Nahlásit",
+    "delete": "🗑️ Smazat video"
+  },
+  "v9": {
+    "heading": "Proč nahlašuješ tohle video?",
+    "reasonAppearsWithoutConsent": "Jsem v tomhle videu a nechtěl/a jsem v něm být",
+    "reasonBullying": "Šikana",
+    "reasonInappropriateContent": "Nevhodný obsah",
+    "reasonNotTrainingRelated": "Nemá nic společného s tréninkem",
+    "reasonOther": "Jiné",
+    "noteLabel": "Chceš napsat víc? (nepovinné)",
+    "notePlaceholder": "Nepovinné…",
+    "submit": "Odeslat nahlášení",
+    "cancel": "Zrušit"
+  },
+  "v10": {
+    "heading": "Díky, že jsi to nahlásil/a.",
+    "body": "Video je teď skryté celému týmu, včetně tebe. Nikdo se nedozví, že jsi to nahlásil/a ty.",
+    "bodySecondary": "Dozví se o tom dospělý, ale nemůžeme slíbit přesně, kdy bude video znovu zkontrolováno.",
+    "followUp": "Chceš také přestat vidět další Shorts videa a zprávy od téhle osoby?",
+    "block": "Zablokovat uživatele {{screenName}}",
+    "noThanks": "Ne, díky",
+    "done": "Hotovo"
+  },
+  "v11": {
+    "heading": "Smazat tohle Shorts video?",
+    "body": "Video natrvalo zmizí celému týmu — tohle nejde vrátit zpět.",
+    "confirm": "Ano, smazat video",
+    "cancel": "Zrušit"
+  },
+  "v4": {
+    "heading": "Vyber nebo natoč Shorts video",
+    "sub": "Video může být dlouhé až {{maxSeconds}} sekund.",
+    "record": "🎥 Natočit",
+    "pickFromLibrary": "🖼️ Vybrat z galerie",
+    "cancel": "Zrušit",
+    "tooLong": "Video je moc dlouhé — max {{maxSeconds}} sekund. Zkus jiné!",
+    "wrongFormat": "Tenhle typ souboru tady nefunguje. Zkus video z fotoaparátu nebo z galerie.",
+    "unreadable": "Video se nepodařilo přečíst. Zkus jiné.",
+    "permission": "Potřebujeme k tomu tvé svolení. Zkus to znovu, nebo vyber druhou možnost."
+  },
+  "v5": {
+    "heading": "Popisek a výzva",
+    "captionPlaceholder": "Přidat popisek (nepovinné)…",
+    "challengeLabel": "Vyzvat spoluhráče? (nepovinné)",
+    "noTeammates": "Zatím žádní spoluhráči k vyzvání.",
+    "taggedHelper": "{{screenName}} uvidí, že jsi ho/ji vyzval/a, až příště otevře Shorts.",
+    "upload": "Nahrát",
+    "cancel": "Zrušit",
+    "captionRejected": "Popisek se nepodařilo uložit — obsahoval slova, která tady nefungují. Zkus ho přepsat! ✍️",
+    "rateLimited": "Nahráváš Shorts zrovna trochu rychle. Chvíli počkej a bude to zase fungovat.",
+    "taggedPlayerGone": "Tenhle hráč už není v týmu. Vyber někoho jiného, nebo nikoho.",
+    "genericError": "Něco se pokazilo. Zkus to znovu."
+  },
+  "v6": {
+    "heading": "Nahrává se tvoje Shorts video…",
+    "sub": "Neopouštěj aplikaci — bude to trvat jen chviličku.",
+    "retry": "Zkusit znovu",
+    "cancel": "Zrušit",
+    "backToFeed": "Zpět na feed",
+    "retryFailure": "Při nahrávání se něco pokazilo. Zkusíme to znovu od začátku.",
+    "giveUp": "Nahrávání se tentokrát nepovedlo. Zkontroluj své připojení a zkus to znovu."
+  },
+  "v7": {
+    "heading": "Tvoje Shorts video je nahoře! 🎉",
+    "sub": "Tým ho teď může vidět.",
+    "done": "Na feed"
+  }
+}

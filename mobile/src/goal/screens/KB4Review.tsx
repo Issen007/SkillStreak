@@ -1,4 +1,5 @@
 import { StyleSheet, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { GoalCard } from '../components/GoalCard';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -38,11 +39,12 @@ export function KB4Review({
   onActivate,
   onBack,
 }: KB4Props) {
+  const { t } = useTranslation('goal');
   const activateBlocked = activateBlockedByServer || activateBlockedLocally;
 
   return (
     <ScreenContainer scroll>
-      <Text style={styles.heading}>Så här ser det ut för laget</Text>
+      <Text style={styles.heading}>{t('kb4.heading')}</Text>
 
       <GoalCard
         title={data.title}
@@ -60,18 +62,15 @@ export function KB4Review({
 
       {errorText ? <Text style={styles.error}>{errorText}</Text> : null}
 
-      <SecondaryButton label="Spara som utkast" loading={submitting} onPress={onSaveDraft} />
+      <SecondaryButton label={t('kb4.saveDraft')} loading={submitting} onPress={onSaveDraft} />
 
       {activateBlocked ? (
-        <Text style={styles.inlineExplain}>
-          Ni har redan ett aktivt mål. Det här sparas som utkast tills det är klart, eller tills
-          du avbryter det andra.
-        </Text>
+        <Text style={styles.inlineExplain}>{t('kb4.activateBlockedExplain')}</Text>
       ) : (
-        <PrimaryButton label="Aktivera nu" loading={submitting} onPress={onActivate} />
+        <PrimaryButton label={t('kb4.activateNow')} loading={submitting} onPress={onActivate} />
       )}
 
-      <SecondaryLink label="Tillbaka" onPress={onBack} />
+      <SecondaryLink label={t('kb4.back')} onPress={onBack} />
     </ScreenContainer>
   );
 }
