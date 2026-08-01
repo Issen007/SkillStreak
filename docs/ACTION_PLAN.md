@@ -2476,9 +2476,21 @@ exists yet.
             read-only-scoped credential, or no direct MinIO access at all.
             **Folded into ADR-0018 Decision 5** the same day; not yet
             implemented.
-- [ ] **ux-designer**: Decision 3's tagging-disclosure copy addition (now
-      sitting on top of corrected, honest copy rather than a false claim)
-      — not yet written.
+- [x] **ux-designer**: Decision 3's tagging-disclosure copy, all 8
+      locales → `docs/design/adr0018-tagging-disclosure-copy.md`. One new
+      sentence appended to `body2` (not `body1`, which stays exactly as
+      the earlier same-day consent-copy fix left it) in both
+      `CONSENT_CONFIRM_COPY` and `SELF_VERIFICATION_CONFIRM_COPY` —
+      "video clips you share may also be automatically analyzed to
+      generate tags describing what kind of training they show."
+      Deliberately "may... be analyzed," not present tense: accurate both
+      now (the classifier isn't deployed yet) and after launch (tagging
+      is best-effort/threshold-gated per Decision 4, so not every clip
+      gets a confident tag even once live). No new gate, checkbox, or
+      page — matches Decision 3's "copy change, not a new flow." Wired
+      into `backend/src/consent/consent-page.templates.ts` (all 8
+      locales, both copy objects) and verified with a clean backend
+      build.
 - [ ] **backend-developer**: additive Postgres schema (`VideoClipTag`,
       `VideoClip.tagging_status`) may start now per the confirmed parts of
       the ADR; the classification service itself waits on the two

@@ -73,8 +73,10 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       träningsstreak och ett gemensamt lagpoäng-mål. Inga platsdata samlas in någonsin, och
       allt ${safeName} delar — inklusive eventuella videoklipp — syns bara för sitt eget lag.`,
       body2: (safeName) =>
-        `Om du godkänner kan ${safeName} börja logga träningspass från och med nu. Du kan alltid
-      höra av dig till tränaren om du ändrar dig senare.`,
+        `Om du godkänner kan ${safeName} börja logga träningspass från och med nu. Videoklipp som
+      ${safeName} delar kan också analyseras automatiskt för att skapa taggar som beskriver
+      vilken typ av träning de visar. Du kan alltid höra av dig till tränaren om du ändrar dig
+      senare.`,
       button: 'Jag godkänner',
     },
     en: {
@@ -85,8 +87,10 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       training streaks and a shared team point goal. No location data is ever collected, and
       anything ${safeName} shares — including any video clips — is only visible to their own team.`,
       body2: (safeName) =>
-        `If you approve, ${safeName} can start logging training sessions right away. You can always
-      get in touch with the coach if you change your mind later.`,
+        `If you approve, ${safeName} can start logging training sessions right away. Video clips
+      ${safeName} shares may also be automatically analyzed to generate tags describing what kind
+      of training they show. You can always get in touch with the coach if you change your mind
+      later.`,
       button: 'I approve',
     },
     fi: {
@@ -98,8 +102,10 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       ei kerätä koskaan, ja kaikki mitä ${safeName} jakaa — myös mahdolliset videoklipit —
       näkyy vain omalle joukkueelleen.`,
       body2: (safeName) =>
-        `Jos hyväksyt, ${safeName} voi alkaa kirjata harjoituksia heti. Voit aina ottaa yhteyttä
-      valmentajaan, jos muutat mielesi myöhemmin.`,
+        `Jos hyväksyt, ${safeName} voi alkaa kirjata harjoituksia heti. Videoklipit, joita
+      ${safeName} jakaa, voidaan myös analysoida automaattisesti taggien luomiseksi sen mukaan,
+      millaista harjoittelua ne näyttävät. Voit aina ottaa yhteyttä valmentajaan, jos muutat
+      mielesi myöhemmin.`,
       button: 'Hyväksyn',
     },
     da: {
@@ -110,8 +116,10 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       træningsstreaks og et fælles holdpoint-mål. Der indsamles aldrig placeringsdata, og alt
       hvad ${safeName} deler — inklusive eventuelle videoklip — er kun synligt for sit eget hold.`,
       body2: (safeName) =>
-        `Hvis du godkender det, kan ${safeName} begynde at logge træningspas med det samme. Du kan
-      altid kontakte træneren, hvis du skifter mening senere.`,
+        `Hvis du godkender det, kan ${safeName} begynde at logge træningspas med det samme.
+      Videoklip, som ${safeName} deler, kan også blive analyseret automatisk for at skabe tags,
+      der beskriver, hvilken slags træning de viser. Du kan altid kontakte træneren, hvis du
+      skifter mening senere.`,
       button: 'Jeg godkender',
     },
     nb: {
@@ -122,8 +130,10 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       treningsstreaker og et felles lagpoengmål. Det samles aldri inn stedsdata, og alt
       ${safeName} deler — inkludert eventuelle videoklipp — er bare synlig for sitt eget lag.`,
       body2: (safeName) =>
-        `Hvis du godkjenner, kan ${safeName} begynne å logge treningsøkter med en gang. Du kan alltid
-      ta kontakt med treneren hvis du ombestemmer deg senere.`,
+        `Hvis du godkjenner, kan ${safeName} begynne å logge treningsøkter med en gang. Videoklipp
+      som ${safeName} deler kan også bli analysert automatisk for å lage tagger som beskriver hva
+      slags trening de viser. Du kan alltid ta kontakt med treneren hvis du ombestemmer deg
+      senere.`,
       button: 'Jeg godkjenner',
     },
     de: {
@@ -135,8 +145,10 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       Standortdaten erhoben, und alles, was ${safeName} teilt — einschließlich etwaiger
       Videoclips — ist nur für das eigene Team sichtbar.`,
       body2: (safeName) =>
-        `Wenn du zustimmst, kann ${safeName} ab sofort Trainingseinheiten eintragen. Du kannst dich
-      jederzeit an den Trainer bzw. die Trainerin wenden, falls du es dir später anders überlegst.`,
+        `Wenn du zustimmst, kann ${safeName} ab sofort Trainingseinheiten eintragen. Videoclips, die
+      ${safeName} teilt, können außerdem automatisch analysiert werden, um Tags zu erstellen, die
+      beschreiben, welche Art von Training zu sehen ist. Du kannst dich jederzeit an den Trainer
+      bzw. die Trainerin wenden, falls du es dir später anders überlegst.`,
       button: 'Ich stimme zu',
     },
     cs: {
@@ -148,8 +160,10 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       co ${safeName} sdílí — včetně případných video klipů — je viditelné pouze pro jeho
       vlastní tým.`,
       body2: (safeName) =>
-        `Pokud souhlasíte, ${safeName} může začít zaznamenávat tréninky ihned. Kdykoli se můžete
-      obrátit na trenéra, pokud si to později rozmyslíte.`,
+        `Pokud souhlasíte, ${safeName} může začít zaznamenávat tréninky ihned. Video klipy, které
+      ${safeName} sdílí, mohou být také automaticky analyzovány za účelem vytvoření štítků
+      popisujících, jaký typ tréninku ukazují. Kdykoli se můžete obrátit na trenéra, pokud si to
+      později rozmyslíte.`,
       button: 'Souhlasím',
     },
     fr: {
@@ -163,7 +177,9 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       équipe.`,
       body2: (safeName) =>
         `Si vous approuvez, ${safeName} pourra commencer à enregistrer ses séances d'entraînement dès
-      maintenant. Vous pouvez toujours contacter l'entraîneur si vous changez d'avis plus tard.`,
+      maintenant. Les clips vidéo partagés par ${safeName} peuvent également être analysés
+      automatiquement pour générer des étiquettes décrivant le type d'entraînement montré. Vous
+      pouvez toujours contacter l'entraîneur si vous changez d'avis plus tard.`,
       button: "J'approuve",
     },
   };
@@ -211,7 +227,9 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
       aktivera ditt konto. Inga platsdata samlas in någonsin, och allt du delar — inklusive
       eventuella videoklipp — syns bara för ditt eget lag.`,
     body2: () =>
-      `När du bekräftar kan du börja logga träningspass från och med nu.`,
+      `När du bekräftar kan du börja logga träningspass från och med nu. Videoklipp du delar kan
+      också analyseras automatiskt för att skapa taggar som beskriver vilken typ av träning de
+      visar.`,
     button: 'Verifiera mitt konto',
   },
   en: {
@@ -222,7 +240,9 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
       account. No location data is ever collected, and anything you share — including any video
       clips — is only visible to your own team.`,
     body2: () =>
-      `Once you confirm, you can start logging training sessions right away.`,
+      `Once you confirm, you can start logging training sessions right away. Video clips you share
+      may also be automatically analyzed to generate tags describing what kind of training they
+      show.`,
     button: 'Verify my account',
   },
   fi: {
@@ -232,7 +252,10 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
       `Melkein valmista, <strong>${safeName}</strong>! Vahvista, että tämä on sähköpostiosoitteesi,
       jotta voit aktivoida tilisi. Sijaintitietoja ei kerätä koskaan, ja kaikki mitä jaat —
       myös mahdolliset videoklipit — näkyy vain omalle joukkueellesi.`,
-    body2: () => `Kun vahvistat, voit alkaa kirjata harjoituksia heti.`,
+    body2: () =>
+      `Kun vahvistat, voit alkaa kirjata harjoituksia heti. Videoklipit, joita jaat, voidaan myös
+      analysoida automaattisesti taggien luomiseksi sen mukaan, millaista harjoittelua ne
+      näyttävät.`,
     button: 'Vahvista tilini',
   },
   da: {
@@ -243,7 +266,9 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
       din konto. Der indsamles aldrig placeringsdata, og alt hvad du deler — inklusive
       eventuelle videoklip — er kun synligt for dit eget hold.`,
     body2: () =>
-      `Når du har bekræftet, kan du begynde at logge træningspas med det samme.`,
+      `Når du har bekræftet, kan du begynde at logge træningspas med det samme. Videoklip, du
+      deler, kan også blive analyseret automatisk for at skabe tags, der beskriver, hvilken slags
+      træning de viser.`,
     button: 'Bekræft min konto',
   },
   nb: {
@@ -254,7 +279,8 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
       kontoen din. Det samles aldri inn stedsdata, og alt du deler — inkludert eventuelle
       videoklipp — er bare synlig for ditt eget lag.`,
     body2: () =>
-      `Når du bekrefter, kan du begynne å logge treningsøkter med en gang.`,
+      `Når du bekrefter, kan du begynne å logge treningsøkter med en gang. Videoklipp du deler kan
+      også bli analysert automatisk for å lage tagger som beskriver hva slags trening de viser.`,
     button: 'Bekreft kontoen min',
   },
   de: {
@@ -265,7 +291,9 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
       dein Konto zu aktivieren. Es werden niemals Standortdaten erhoben, und alles, was du
       teilst — einschließlich etwaiger Videoclips — ist nur für dein eigenes Team sichtbar.`,
     body2: () =>
-      `Sobald du bestätigst, kannst du sofort mit dem Eintragen von Trainingseinheiten beginnen.`,
+      `Sobald du bestätigst, kannst du sofort mit dem Eintragen von Trainingseinheiten beginnen.
+      Videoclips, die du teilst, können außerdem automatisch analysiert werden, um Tags zu
+      erstellen, die beschreiben, welche Art von Training zu sehen ist.`,
     button: 'Mein Konto bestätigen',
   },
   cs: {
@@ -275,7 +303,10 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
       `Už téměř hotovo, <strong>${safeName}</strong>! Potvrďte, že toto je váš e-mail, abyste
       aktivovali svůj účet. Údaje o poloze se nikdy nesbírají a vše, co sdílíte — včetně
       případných video klipů — je viditelné pouze pro váš vlastní tým.`,
-    body2: () => `Jakmile potvrdíte, můžete ihned začít zaznamenávat tréninky.`,
+    body2: () =>
+      `Jakmile potvrdíte, můžete ihned začít zaznamenávat tréninky. Video klipy, které sdílíte,
+      mohou být také automaticky analyzovány za účelem vytvoření štítků popisujících, jaký typ
+      tréninku ukazují.`,
     button: 'Ověřit můj účet',
   },
   fr: {
@@ -287,7 +318,9 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
       et tout ce que vous partagez — y compris d'éventuels clips vidéo — n'est visible que par
       votre propre équipe.`,
     body2: () =>
-      `Une fois confirmé, vous pourrez commencer à enregistrer vos séances d'entraînement dès maintenant.`,
+      `Une fois confirmé, vous pourrez commencer à enregistrer vos séances d'entraînement dès
+      maintenant. Les clips vidéo que vous partagez peuvent également être analysés
+      automatiquement pour générer des étiquettes décrivant le type d'entraînement montré.`,
     button: 'Vérifier mon compte',
   },
 };
