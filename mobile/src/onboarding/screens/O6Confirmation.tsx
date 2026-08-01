@@ -39,34 +39,34 @@ export function O6Confirmation({
   // addendum) — both are checked so this reads correctly even if a future
   // response ever decoupled them.
   const isFoundingCaptain = teamCreated && isCaptain;
-  const { t } = useTranslation();
+  const { t } = useTranslation('onboarding');
 
   return (
     <ScreenContainer>
       <View style={styles.spacerTop} />
       {isFoundingCaptain ? (
         <>
-          <Text style={styles.icon}>{t('onboarding.o6.foundingIcon')}</Text>
+          <Text style={styles.icon}>{t('o6.foundingIcon')}</Text>
           <Text style={styles.heading}>
-            {t('onboarding.o6.foundingHeading', { screenName, teamName })}
+            {t('o6.foundingHeading', { screenName, teamName })}
           </Text>
-          <Text style={styles.body}>{t('onboarding.o6.foundingBody')}</Text>
+          <Text style={styles.body}>{t('o6.foundingBody')}</Text>
           <View style={styles.codeChipWrap}>
-            <Text style={styles.codeChip}>{t('onboarding.o6.codeChip', { inviteCode })}</Text>
+            <Text style={styles.codeChip}>{t('o6.codeChip', { inviteCode })}</Text>
           </View>
-          <Text style={styles.codeHelper}>{t('onboarding.o6.codeHelper')}</Text>
+          <Text style={styles.codeHelper}>{t('o6.codeHelper')}</Text>
         </>
       ) : (
         <>
-          <Text style={styles.icon}>{t('onboarding.o6.joinedIcon')}</Text>
-          <Text style={styles.heading}>{t('onboarding.o6.joinedHeading', { screenName })}</Text>
-          <Text style={styles.body}>{t('onboarding.o6.joinedBody', { teamName })}</Text>
+          <Text style={styles.icon}>{t('o6.joinedIcon')}</Text>
+          <Text style={styles.heading}>{t('o6.joinedHeading', { screenName })}</Text>
+          <Text style={styles.body}>{t('o6.joinedBody', { teamName })}</Text>
         </>
       )}
 
       <View style={styles.spacer} />
 
-      <PrimaryButton label={t('onboarding.o6.doneButton')} onPress={onDone} />
+      <PrimaryButton label={t('o6.doneButton')} onPress={onDone} />
     </ScreenContainer>
   );
 }

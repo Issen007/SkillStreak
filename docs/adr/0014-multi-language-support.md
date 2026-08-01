@@ -174,13 +174,25 @@ rather than silently picking:
 
 Recommend `i18next`.
 
-**Layout:** `mobile/src/i18n/index.ts` (init, `fallbackLng: 'sv'`) +
-`mobile/src/i18n/locales/{sv,en,fi,da,nb,de,cs,fr}.json`. A single flat
-resource file per language is fine at this app's current screen count —
-splitting into namespaces is premature. Only `sv.json` needs real content
-to ship part (a) (it's a direct copy of strings already hardcoded today);
-every other locale file starts as an empty object and relies on the
-fallback above.
+**Layout, part (a): one flat file per language.** `mobile/src/i18n/index.ts`
+(init, `fallbackLng: 'sv'`) + `mobile/src/i18n/locales/{sv,en,fi,da,nb,de,
+cs,fr}.json`. A single flat resource file per language was fine at part
+(a)'s 3-key pilot scope — splitting into namespaces would've been
+premature. Only `sv.json` needed real content to ship part (a); every
+other locale file started empty, relying on the fallback above.
+
+**Restructured, 2026-08-01, ahead of part (b)**: switched to real i18next
+namespaces — `mobile/src/i18n/locales/<lang>/<namespace>.json`, one file
+per (language, feature area) pair (`common`/`onboarding`/`home`/`team`/
+`goal`/`chat`/`clips`), `useTranslation('<namespace>')` scoped per screen
+instead of dot-path keys against one shared file. Reason: part (b) covers
+the whole app across multiple independent translation/retrofit passes
+(one per feature area), and a single flat `sv.json` would make every one
+of those passes write-conflict on the same file. Namespacing gives each
+pass a fully disjoint set of files to own — no coordination needed between
+them. `i18n/index.ts`'s `resources` config and the typed-augmentation file
+(`react-i18next.d.ts`) both updated to match; the 3 existing pilot call
+sites (O0, O6, home greeting) migrated to the new scoped-`t()` convention.
 
 **Explicitly out of scope for part (a):** retrofitting every existing
 hardcoded-Swedish screen to `t('key')` calls — that mechanical-but-large

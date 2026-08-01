@@ -26,7 +26,7 @@ interface O0ChooseLanguageProps {
  * round-trip is real immediately, not just on submit — matching the ADR's
  * "sets i18next's active language synchronously on selection" decision. */
 export function O0ChooseLanguage({ initialLocale, onNext }: O0ChooseLanguageProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('onboarding');
   const [selected, setSelected] = useState<PlayerLocale>(initialLocale);
 
   const handleSelect = (code: PlayerLocale) => {
@@ -37,8 +37,8 @@ export function O0ChooseLanguage({ initialLocale, onNext }: O0ChooseLanguageProp
   return (
     <ScreenContainer scroll>
       <View style={styles.spacerTop} />
-      <Text style={styles.heading}>{t('onboarding.o0.heading')}</Text>
-      <Text style={styles.sub}>{t('onboarding.o0.sub')}</Text>
+      <Text style={styles.heading}>{t('o0.heading')}</Text>
+      <Text style={styles.sub}>{t('o0.sub')}</Text>
 
       <View style={styles.list}>
         {LOCALE_CATALOG.map((option) => {
@@ -62,7 +62,7 @@ export function O0ChooseLanguage({ initialLocale, onNext }: O0ChooseLanguageProp
 
       <View style={styles.spacer} />
 
-      <PrimaryButton label={t('onboarding.o0.next')} onPress={() => onNext(selected)} />
+      <PrimaryButton label={t('o0.next')} onPress={() => onNext(selected)} />
     </ScreenContainer>
   );
 }

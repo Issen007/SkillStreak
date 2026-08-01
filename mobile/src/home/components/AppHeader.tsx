@@ -41,12 +41,13 @@ export function AppHeader({ screenName, avatarId, onAvatarPress }: AppHeaderProp
       </Pressable>
       <Text style={styles.greeting}>
         {/* Pilot t()/Trans wiring (docs/adr/0014-multi-language-support.md
-         * Decision 2's part-(a) pilot) — the `bold` tag in sv.json's
-         * "home.greeting" maps to this Text component by name, no
-         * wrapping element injected (no `parent` prop passed), so this
+         * Decision 2's part-(a) pilot) — the `bold` tag in the `home`
+         * namespace's "greeting" key maps to this Text component by name,
+         * no wrapping element injected (no `parent` prop passed), so this
          * stays valid React Native output. */}
         <Trans
-          i18nKey="home.greeting"
+          i18nKey="greeting"
+          ns="home"
           values={{ screenName }}
           components={{ bold: <Text style={styles.greetingName} /> }}
         />
