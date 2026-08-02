@@ -31,6 +31,36 @@ Decisions 1-9 already specify. The blocking security-reviewer scope now
 explicitly includes Decision 10's reauth mechanism and its
 out-of-band content-sync design, not just Decisions 1-9's.
 
+**Security-reviewer pass, 2026-08-02 — full weight, as required above, not
+a clean sign-off.** Decisions 1, 3, 4, 5, 8, and 9 confirmed sound as
+written, independently verified against the actual existing codebase
+(route audits, CORS config, `ThrottlerGuard` behavior, git history), not
+just restated. Decision 2 confirmed sound with one wording correction
+(the `SameSite=Strict` residual overstated its own scope for this app's
+shared-registrable-domain subdomains) and one framing addition (the
+authentication-vs-authorization distinction). Decision 6 confirmed
+accurate with one non-blocking implementation note (`request.route` can
+be `undefined` for unmatched routes — needs a guard). **Two required
+fixes, both applied the same day**: Decision 7's escaping guarantee
+originally covered only `description`, leaving `app_version`/`os_version`
+(equally attacker-controllable via the same authenticated endpoint) and
+`screen` (claimed "allow-listed" in prose but typed as an unconstrained
+`varchar`) unaddressed — fixed: all rendered fields now escaped
+identically, `screen` is now a genuine enum. Decision 10 never stated
+that the `admin-planning-docs` ConfigMap's mount path must stay disjoint
+from any statically-served directory — a real, not hypothetical, gap
+given this app's first-ever use of static file serving — fixed:
+stated as a structural requirement. **One strong recommendation, not
+blocking Decisions 1-9**: Decision 10's step-up re-auth should use a real
+second factor (TOTP), not the same password, since the Decision's own
+argument for needing extra protection is precisely a compromised
+credential — against which a second password prompt adds nothing. **Net:
+backend-developer may build the full ADR as amended** — Decisions 1-9
+were sound from the start bar the two now-applied Decision 7 fixes;
+Decision 10's two fixes are applied, and its TOTP recommendation should
+be resolved before those three specific endpoints ship, though it doesn't
+block starting on the rest.
+
 ## Context
 
 The project owner, verbatim: *"Now let's build our backend control center
@@ -229,12 +259,32 @@ table rather than by adding one).
   cookie is immune to the dominant realistic threat (XSS token theft) in
   exactly the way a bearer token in `localStorage` is not. `SameSite=Strict`
   is the standard, adequate CSRF mitigation for a single-operator,
-  low-traffic internal tool (the cookie is never attached to any
-  cross-site request at all, including top-level navigations) — no
-  separate CSRF-token scheme is needed at this scale. This is a genuinely
-  new pattern for this codebase (no existing route uses cookie auth) —
-  named explicitly for security-reviewer to double-check, not slipped in
-  as if it were the established norm.
+  low-traffic internal tool — no separate CSRF-token scheme is needed at
+  this scale. This is a genuinely new pattern for this codebase (no
+  existing route uses cookie auth) — named explicitly for
+  security-reviewer to double-check, not slipped in as if it were the
+  established norm.
+  **Security-reviewer correction, 2026-08-02**: the original claim that
+  this cookie is "never attached to any cross-site request at all"
+  overstates `SameSite=Strict`'s actual scope for this app's specific
+  domain structure. `SameSite` operates on the registrable *site*
+  (`skillstreak.xyz`), not the origin — `api.skillstreak.xyz`,
+  `skillstreak.xyz`, and `try.skillstreak.xyz` all share that registrable
+  site, so a request from `try.skillstreak.xyz` (the public Expo web
+  export, a real script-hosting client of this API) to an admin endpoint
+  counts as **same-site**, not cross-site, and `SameSite=Strict` does not
+  block it. Verified independently that the practical exposure is
+  narrow, not absent: this app's CORS config never sets `credentials:
+  true` anywhere, so cross-origin *reading* of admin response data stays
+  blocked regardless, and any state-changing admin route requiring a
+  non-simple method/JSON body still needs a preflight that also fails
+  without `Access-Control-Allow-Credentials`. The one realistic residual
+  is a forced `POST` to `/api/v1/admin/auth/logout` via a plain HTML form
+  from a compromised `try.skillstreak.xyz` page — a forced logout, not
+  data exposure or tampering. Restated here precisely, matching this
+  project's own standing practice of naming residuals exactly
+  (ADR-0016/0020) rather than claiming an absolute guarantee that
+  doesn't hold for this app's actual multi-subdomain structure.
 - **Lifetime**: short — recommend 24 hours (a working session, re-login
   the next day), shorter even than ADR-0004 Part 1's original 30-day coach
   recommendation, since this account gates operational visibility into a
@@ -255,6 +305,12 @@ table rather than by adding one).
   cookie's signature against `ADMIN_JWT_SECRET` and expiry only. No
   per-request DB lookup is needed (unlike `JwtAuthGuard`'s `token_version`
   check) — there is exactly one admin identity, nothing to look up.
+- **Cookie scope, minor hardening flagged by security-reviewer**: set
+  `Path=/api/v1/admin` explicitly rather than accepting the default
+  `Path=/` — the cookie has no reason to ride along on ordinary player-app
+  requests to the rest of `api.skillstreak.xyz`. Harmless either way today
+  (`JwtAuthGuard` never inspects cookies), but cheap to scope correctly
+  from the start rather than leave broader than necessary.
 
 **Why this doesn't reopen the risk category Phase 2's pivot removed —
 argued, not assumed:** the pivot's actual objection was to a **new class
@@ -269,6 +325,22 @@ account is different along the exact axis that mattered:
    3 names explicitly) — this ADR makes *existing* access more convenient
    and auditable (a real login instead of raw `psql`), it doesn't grant a
    new capability to a new party.
+   **Security-reviewer refinement, 2026-08-02**: this argument is correct
+   for the *authorization* dimension (no new party gains a capability) but
+   incomplete for the *authentication* dimension — reaching this data
+   today requires possessing a `kubeconfig`/DB credential file, not a
+   guessable, phishable, credential-stuffable secret reachable from a
+   public HTTP login form anywhere on the internet. This ADR does
+   introduce a new remote attack vector (online guessing bounded by rate
+   limiting, a phished fake login page, password reuse) that raw infra
+   credentials didn't have in the same shape. This doesn't make the design
+   wrong — bcrypt, per-IP rate limiting, a generic `401`, an httpOnly
+   cookie, and a short session are a proportionate, well-mitigated
+   response to that new vector for a single-operator internal tool — but
+   the trade should be named explicitly, the same way ADR-0016/0020 name
+   their own residuals precisely, rather than resting entirely on "the
+   operator already had this access," which is true for authorization and
+   incomplete for authentication.
 2. **It cannot grow into a second admin.** There is no `AdminUser` table,
    no invite flow, no role to extend — a single hardcoded credential is
    structurally incapable of scaling into the multi-coach shape the pivot
@@ -534,6 +606,16 @@ message or a logged request body can):
   admin console displays. Use Express's `request.route.path` (the
   registered pattern, e.g. `/api/v1/consent/:token`) instead — never the
   literal URL.
+  **Security-reviewer note, 2026-08-02, non-blocking but must be handled
+  in the implementation**: Express only populates `request.route` once a
+  route has actually matched — for an ordinary unmatched request (a 404
+  from internet background-noise scanning, which will happen constantly
+  in production), `request.route` is `undefined`, and a naive
+  `request.route.path` read would throw *inside the exception filter
+  itself*, on the single most common real-world unhandled-request case.
+  Implement as `request.route?.path ?? null` (nullable on the schema
+  already allows this), not asserted here as a schema change, just named
+  so it isn't discovered live.
 - **Never the request body, query string, or headers** (in particular,
   never `Authorization`) — no full-payload dump, ever. If a specific
   error's context is genuinely useful to capture beyond
@@ -599,19 +681,33 @@ BugReport
   player_id     uuid, not null, FK -> Player, ON DELETE CASCADE
   category      enum('crash','login_issue','missing_or_wrong_data',
                       'upload_failed','other'), not null
-  description   varchar(500), nullable  -- freeform, capped, HTML-escaped
-                                          -- on render (reuses the existing
-                                          -- html-escape.util.ts convention)
+  description   varchar(500), nullable  -- freeform, capped; escaped on
+                                          -- render like every other field
+                                          -- below, see the note after
+                                          -- this schema
   app_version   varchar, not null
   platform      enum('ios','android','web'), not null
   os_version    varchar, nullable
-  screen        varchar, nullable   -- a fixed, allow-listed screen
-                                      -- identifier from the app's own
-                                      -- navigation, never freeform
+  screen        enum, a fixed, closed set of this app's actual screen
+                identifiers (e.g. 'home', 'team', 'goal', 'roster',
+                'clips', 'chat', 'profile', ...) -- NOT a plain varchar;
+                see the security-reviewer note below for why
   locale        enum, reusing PlayerLocale (ADR-0014)
   status        enum('open','triaged','closed'), not null, default 'open'
   created_at    timestamptz, not null
 ```
+
+**Security-reviewer correction, 2026-08-02, required before build**: the
+original draft typed `screen` as a plain `varchar` while describing it in
+prose as "a fixed, allow-listed screen identifier... never freeform" —
+the schema didn't actually enforce the claim the prose made, exactly the
+"structural, not by policy" standard this same ADR holds itself to
+elsewhere (Decisions 5/6). Fixed: `screen` is now a genuine Postgres enum,
+matching `category`/`platform`/`locale`'s existing treatment on this same
+table, not a fourth, weaker pattern. If the DTO-level enum is ever
+insufficient for some reason at implementation time, the minimum
+acceptable fallback is an explicit `@IsIn([...])` validator — never an
+unconstrained string.
 
 **Auto-captured diagnostic allow-list, answering `docs/BACKLOG.md`'s open
 question explicitly**: app version, platform, OS version, current screen
@@ -625,9 +721,35 @@ field is included (`docs/BACKLOG.md` explicitly left this open) — a
 technical bug description a 9-13-year-old writes in their own words is
 materially more useful than a category enum alone, and since it's routed
 only to the developer, not displayed to any peer, ADR-0007's peer-facing
-chat-moderation filter doesn't apply the same way; it still gets
-HTML-escaped before ever being rendered in the admin queue, to prevent
-stored XSS in a surface that has never needed that discipline before.
+chat-moderation filter doesn't apply the same way.
+
+**Security-reviewer correction, 2026-08-02, required before build — the
+original escaping guarantee was incompletely specified.** The first draft
+said only `description` "gets HTML-escaped before ever being rendered in
+the admin queue" — but `app_version` and `os_version` are just as
+attacker-controllable as `description`: `POST /api/v1/bug-reports` is an
+ordinary `JwtAuthGuard`-protected endpoint, so *any* authenticated
+player's account (a modified client, or a raw HTTP request — no
+production app UI needed) can set either field to arbitrary text,
+including a script payload, and the original prose never said those
+fields get escaped too. This matters more than an ordinary stored-XSS
+finding because the admin cookie, while `httpOnly` (can't be read by
+injected JS), offers **no protection** against an XSS payload silently
+using the ambient authenticated session to act *as* the admin — same-
+origin `fetch()` calls need no token the page's own JS has to steal,
+since the browser attaches the cookie automatically. Combined with this
+ADR's own stated preference for a boring, vanilla-JS admin frontend with
+no framework-default auto-escaping (Consequences, "left open"), the
+realistic failure mode is exactly `element.innerHTML =
+bugReport.appVersion` somewhere in that frontend.
+
+**Fixed, required**: every `BugReport` field ever rendered in the admin
+console — `description`, `app_version`, `os_version`, and any other
+free-text field, not description alone — must be escaped identically
+(reusing the existing `html-escape.util.ts` convention) before being
+written into the DOM. This is a rendering-layer requirement on the admin
+frontend, stated here explicitly so it is not narrowed to the one field
+the original draft happened to name.
 
 **Submission**: `POST /api/v1/bug-reports`, behind the existing
 `JwtAuthGuard` (an ordinary authenticated player action, reusing
@@ -883,6 +1005,25 @@ not an assumption either way:
   app already accepts for `JWT_SECRET`/`PII_ENCRYPTION_KEY` rotation) —
   not real-time, deliberately, since planning docs don't change minute to
   minute.
+
+**Security-reviewer correction, 2026-08-02, required before build**: the
+original design never stated where this volume gets mounted relative to
+the admin page's own static assets — a real gap, not a theoretical one,
+given this app has zero prior use of `ServeStaticModule` anywhere and the
+boring implementation this ADR itself recommends (a static file server
+under `/admin`) is exactly the shape that gets this wrong by default. If
+the `admin-planning-docs` volume is ever mounted inside, above, or
+alongside the directory a static handler serves, the raw markdown files —
+security-issues list included — become directly downloadable via an
+ordinary unauthenticated static-file request, bypassing `AdminAuthGuard`
+*and* this Decision's step-up check entirely, through a path that was
+never one of the three intentionally-gated controller endpoints at all.
+**Fixed, required**: the `admin-planning-docs` ConfigMap's mount path
+must be a directory disjoint from (never an ancestor or descendant of)
+any statically-served directory anywhere in this app, and the only code
+ever permitted to read from it is the three `AdminAuthGuard`-plus-
+step-up-gated controller endpoints in this Decision — never a static file
+handler, by construction, not by configuration care.
 - **The new security-issues list is treated identically to
   `BACKLOG.md`/`PROJECT.md`'s curated subsets — gitignored, ConfigMap-
   delivered, not tracked — even though every individual fact in it is
@@ -958,6 +1099,25 @@ the re-auth requirement at sub-tab granularity within one "roadmap" view
 for negligible benefit, versus a few extra seconds of friction on an
 already-infrequent action. The boring, uniform choice over a fragmented
 one.
+
+**Security-reviewer correction, 2026-08-02, strongly recommended before
+this pillar ships (not blocking Decisions 1-9's admin surface, which may
+proceed with password-only auth as designed)**: step-up re-auth using
+*the same single password* as ordinary login genuinely closes the gap it
+explicitly claims to close — a stolen or replayed session cookie alone
+can't unlock this pillar. But this Decision's own argument for why this
+pillar deserves stronger protection is that the credential itself being
+compromised (phished, keylogged, reused/leaked elsewhere) is a
+categorically worse outcome than for the rest of the console — and
+against exactly that threat, a second password prompt provides **zero**
+additional protection, because possessing the compromised credential is
+precisely what lets an attacker pass the step-up check too. Recommend a
+real second factor — TOTP, cheap and standard, no new infrastructure
+required — gating specifically these three `planning/*` endpoints, not
+the rest of the admin console. This is a recommendation, not a hard
+blocker for the ADR's other eight decisions, but should be resolved
+before Decision 10's own endpoints are built, given the Decision's own
+stated reasoning for why they need to be different.
 
 ### New endpoints
 
@@ -1037,7 +1197,15 @@ an even more clearly internal, non-child-data content type.
   non-trivial curation task at implementation time, not fabricated in this
   ADR); whether read-only planning views (Decision 10) ever need to become
   editable from the web UI (explicitly not built now, a real, separate,
-  larger decision if it comes up).
+  larger decision if it comes up); a real TOTP second factor for
+  Decision 10's three `planning/*` endpoints specifically (strongly
+  recommended by the 2026-08-02 security-reviewer pass, should be
+  resolved before those endpoints ship, not blocking Decisions 1-9); a
+  CI check flagging suspicious real-looking content accidentally pasted
+  into a tracked `*.example` file (an inherited risk this ADR's new
+  `admin-planning-configmap.yaml.example` shares with the pre-existing
+  `k8s/secret.yaml.example`, not a new gap this ADR introduces — a
+  plausible shared future improvement, not scoped to this ADR).
 - **Hand-off**:
   - **ux-designer**: the admin console's actual layout/visuals (the
     statistics dashboard's charts/tiles, the error-log list, the

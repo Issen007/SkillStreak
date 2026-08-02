@@ -3219,19 +3219,42 @@ non-player-facing web surface with its own login.
       step-up re-auth achieves the same goal from anywhere, at a small,
       one-time-per-session friction cost. No new schema, no new consent
       question (none of this content is about an identifiable child).
-- [ ] **security-reviewer**: blocking pass — scoped specifically to the
-      admin-auth mechanism (cookie flags, CSRF posture via
-      `SameSite=Strict`, brute-force defenses, secret separation from
-      `JWT_SECRET`), confirming Decision 5's structural aggregate-only
-      floor genuinely holds in the real endpoint/DTO code, confirming
-      Decision 6's redaction allow-list is followed everywhere an error
-      can originate (in particular the token-in-URL routes), confirming
-      `BugReport`'s capture allow-list matches the ADR exactly, and
-      (Decision 10) confirming the fresh-reauthentication window is
-      actually enforced on all three new `planning/*` endpoints with no
-      bypass, and that the new `admin-planning-docs` `ConfigMap`/its
-      `.example` template never carries real content into the tracked,
-      public tree.
+- [x] **security-reviewer**: full-weight blocking pass, 2026-08-02 — not a
+      clean sign-off. Decisions 1, 3, 4, 5, 8, 9 confirmed sound,
+      independently verified against the real codebase (route audits,
+      CORS config, `ThrottlerGuard` behavior, git history), not just
+      restated. Decision 2 confirmed sound with a wording fix (the
+      `SameSite=Strict` residual overstated its scope — `api`/`www`/
+      `try`.skillstreak.xyz share a registrable site, so a request from
+      `try.skillstreak.xyz` counts as same-site, not cross-site; the
+      practical exposure is bounded to a forced-logout, not data
+      exposure, since this app's CORS never sets `credentials: true`) and
+      an added authentication-vs-authorization framing note. Decision 6
+      confirmed accurate, plus a non-blocking implementation note
+      (`request.route` is `undefined` for unmatched routes — needs a
+      guard so the error filter doesn't itself crash on an ordinary 404).
+      **Two required fixes, both applied same day**: Decision 7's
+      escaping guarantee originally named only `description`, leaving
+      `app_version`/`os_version` (equally attacker-controllable via the
+      same authenticated endpoint — any player's account, not an
+      external attacker) unaddressed, and `screen` was typed as an
+      unconstrained `varchar` despite being described in prose as
+      "allow-listed" — fixed: every rendered `BugReport` field now
+      escaped identically, `screen` is now a genuine enum matching
+      `category`/`platform`/`locale`'s existing treatment. Decision 10
+      never stated the `admin-planning-docs` ConfigMap's mount path must
+      stay disjoint from any statically-served directory — a real gap
+      given this app's first-ever use of static file serving, since the
+      boring `/admin` static-server implementation this ADR itself
+      recommends would otherwise make the raw planning docs directly
+      downloadable, bypassing `AdminAuthGuard` and the step-up check
+      entirely — fixed as an explicit structural requirement. **One
+      strong recommendation, not blocking Decisions 1-9**: Decision 10's
+      step-up re-auth should use a real second factor (TOTP), not the
+      same password, since a compromised credential — the exact threat
+      Decision 10 says this pillar most needs protecting against — would
+      pass a same-password step-up check trivially. Net: backend-developer
+      may build the full ADR as amended.
 - [ ] **ux-designer**: the admin console's layout/visuals (statistics
       dashboard, error-log list, bug-report triage queue, login screen,
       the new roadmap/ideas/security-issues tabs, the inline password
