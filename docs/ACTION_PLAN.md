@@ -2531,6 +2531,38 @@ exists yet.
       with no orphaned types on a live revert/reapply test, no
       environment-specific values, zero scope creep into any
       controller/DTO/client-facing surface.
+- [x] **security-reviewer**: sign-off, 2026-08-02, on what's actually
+      implemented (not just the design) — read the real diffs (`fed43d4`,
+      `8fe331a`, `c2c36e0`) directly, same reviewer/session as the
+      original ADR pass, not a fresh one starting from zero. **Safe to
+      merge, no blocking items on this slice.** Confirmed: the
+      `VideoClipTag` schema matches Decision 4 exactly, and is in fact
+      stronger than required — the entity isn't even registered in
+      `video-clips.module.ts`'s `TypeOrmModule.forFeature` yet, so
+      nothing in the running app can query it at all, not just "no
+      controller references it." Confirmed the consent-copy fix + the
+      tagging-disclosure sentence together close the original Finding 1
+      in substance (grepped the whole `backend/`/`docs/` tree — the old
+      false claim only survives in review-history prose now, never in a
+      live template). Confirmed the schema-only commit introduces none of
+      the surface Findings 4/5 warn about (no Deployment/Service/queue/
+      credential code exists yet) — those two findings correctly remain
+      open, but correctly gate only the not-yet-built classification
+      service, not anything currently on `prerelease`. No new finding
+      from reading the actual code that the design-level pass couldn't
+      have caught.
+
+**ADR-0018's schema-only slice is fully done and gated-clean: architect
+designed it, security-reviewer signed off on the design (with one fixed
+finding — the consent copy — and two findings correctly deferred),
+ux-designer wrote the tagging-disclosure copy, backend-developer
+implemented the schema, code-critic caught and fixed a real bug
+(unbounded `confidence`), and security-reviewer re-signed-off on the
+actual implementation.** What's left before the classification service
+itself can be built: ADR-0018 Decision 5's two infra requirements
+(ClusterIP-only network posture, least-privilege MinIO credential),
+model/vendor selection (explicitly not decided in the ADR), and the
+background job/queue that would actually populate this table.
 
 ## Phase 6 — Public Shorts feed, reactions & personal archive
 
