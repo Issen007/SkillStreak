@@ -2610,6 +2610,93 @@ itself can be built: ADR-0018 Decision 5's two infra requirements
 model/vendor selection (explicitly not decided in the ADR), and the
 background job/queue that would actually populate this table.
 
+## Phase 4.6 — Video-clip challenge notifications (ADR-0021)
+
+From the project owner directly, verbatim: "When we do a challenge of a
+video between teammates, it should pop up as a Team challenge and also be
+a text notice in the team chat." The underlying tag-a-teammate mechanism
+(`VideoClip.taggedPlayerId`) has existed since ADR-0010 but only ever
+drove a one-time, easy-to-miss client-local toast — this phase gives it a
+real, persisted, account-level notification path. Design-only so far; no
+schema or endpoint exists yet.
+
+- [x] **architect**: `docs/adr/0021-clip-challenge-notifications.md`.
+      Scope: **no new lifecycle entity** (rejected a heavier
+      issued→accepted→declined→responded state machine nobody asked for,
+      and which would have needed its own name to avoid colliding with the
+      existing `Challenge`/weekly-goal entity, per ADR-0005's own
+      anticipation of exactly this naming overlap) — instead, one new
+      nullable `VideoClip.challenge_acknowledged_at` column backs a real,
+      persistent "pending challenges for me" list (`GET .../clips/
+      challenges/pending`, `POST .../clips/:clipId/challenge-ack`),
+      recommended surfaced in the Laget (Team) tab, replacing today's
+      per-device `AsyncStorage`-based "seen" tracking
+      (`mobile/src/api/localFlags.ts`) — a real bug fix (lost on reinstall/
+      device switch), not just a smaller feature. Separately, team chat's
+      **first-ever system message**: two new `TeamChatMessage` columns
+      (`author_type` enum('player','system'), `system_event_type` enum,
+      a `BadgeAward.context`-style discriminated-union extension point) —
+      deliberately not overloading the existing nullable `sender_player_id`
+      (which already means something different post-ADR-0013: a real
+      player's message, anonymized after their own erasure). `content` is
+      a fixed, server-rendered template baked in once at the clip's
+      `completeUpload`/publish step (never at upload-url/pending_upload
+      time, mirroring ADR-0017's "must be published" rule for clip
+      references), using only the uploader's and tagged player's current
+      screen names — never freeform, never re-resolved live from the clip
+      afterward (a deliberate, argued departure from ADR-0017 Decision 2's
+      "no snapshot" precedent, since losing the clip would otherwise
+      silently erase the entire announcement's meaning, not just an
+      attachment). Explicitly walks through every existing chat invariant
+      the new message type bypasses and why: no `assertTeamMembership`
+      (never sent through the HTTP path — a direct repository write from
+      `VideoClipsModule`, avoiding a module cycle the same way
+      `PlayersModule`/`WeeklyGoalModule` already do per ADR-0013 Decision
+      4), no per-sender rate limit (volume already bounded by the existing
+      clip-upload cooldown), no keyword moderation (the only variables are
+      screen names already shown unmoderated everywhere else in the app),
+      report structurally rejected (no real reported player to email),
+      block structurally inert (`blocked_player_id` can never equal
+      `NULL`). Confirms, by reading the code directly, that today's
+      `taggedPlayerId` check only validates team membership, not the
+      tagged player's own consent/join status — no new consent gate on the
+      tagged player (being named is read/mention-shaped, the same
+      ungated category as roster/leaderboard visibility), but tightens the
+      check to require `teamJoinStatus === APPROVED`, closing a small
+      pre-existing gap this design's higher visibility surfaces. Walks the
+      erasure interaction against ADR-0013's existing per-entity table
+      (uploader-erased and tagged-player-erased cases) and confirms no new
+      entry/migration is needed there — both reuse existing cascades.
+      Recommends a **scoped, not full-weight** security-reviewer pass
+      (argued explicitly, same style as ADR-0020's own scoping): this adds
+      no new freeform-text path, no new report/block mechanism, no
+      cross-team exposure, and no new external party — but it is the first
+      exception to team chat's "every message has a real, authenticated
+      sender" invariant, which ADR-0007's original review scrutinized
+      carefully, so it doesn't get a free pass either.
+- [ ] **security-reviewer**: scoped pass, not yet done — confirm
+      `authorType`/`systemEventType` are genuinely unreachable from any
+      player-facing input, `content` is genuinely fixed-template-only in
+      the real implementation, the report/block "structural no" claims
+      hold against the actual code, the new `teamJoinStatus` tightening
+      doesn't regress anything, and the erasure-interaction claims hold
+      against the actual FK/migration state.
+- [ ] **ux-designer**: pending-challenges surface placement/visuals in the
+      Laget tab, the exact ack-trigger interaction (auto-on-view vs.
+      explicit dismiss), the system-message chat-bubble treatment
+      (visually distinct from an ordinary player message), and the exact
+      Swedish copy for the challenge-announcement template.
+- [ ] **backend-developer**: the two migrations, the two new endpoints,
+      the `completeUpload` transaction change (publish + system-message
+      insert together), the `VideoClipsModule` module-wiring fix, the
+      `teamJoinStatus` tightening on `taggedPlayerId`, the report-rejection
+      guard for system messages, and the contract-doc updates, once
+      security-reviewer signs off.
+- [ ] **frontend-developer**: the Team-tab pending-challenges badge/list,
+      removal of the old `AsyncStorage`-based seen-tracking
+      (`localFlags.ts`), and the new system-message bubble in
+      `ChatScreen.tsx`.
+
 ## Phase 5 — Usage analytics / product metrics ("Fas 5", item 1)
 
 From `docs/PROJECT.md`'s Fas 5, item 1: "Användningsanalys/produktmått...
