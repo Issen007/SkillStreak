@@ -3080,6 +3080,181 @@ Net: two new small shared utilities (`transactional-page.util.ts`,
 removed, one component (`CatchUpBanner`) removed entirely, zero behavior
 changes anywhere, full test/typecheck suites green throughout.
 
+## Phase 7 — Admin control center (ADR-0022)
+
+From the project owner directly, 2026-08-02: "our backend control center
+so we can see how many users, teams and see our users behavior, see
+issues and much more... static of all our data... also see patterns how
+people are using our app... static so we can in the future sale our
+Personal Traning functions and coche functions." Clarified directly before
+design started: "user behavior/patterns" means app-wide aggregate
+statistics only (never a named team/player — reuses ADR-0020 Decision 3's
+already-reviewed floor verbatim, not loosened); "see issues" means both
+application errors/failed jobs (never built before) and user-submitted bug
+reports (`docs/BACKLOG.md`'s raw, undesigned "report a problem" idea); the
+PT/coach-monetization angle is context for why this matters, not a feature
+to design now (`docs/PROJECT.md` Fas 5 item 2 needs its own dedicated
+architect/security pass first, unrelated to this ADR). This is the first
+ADR in this app's history to add an authenticated, browsable,
+non-player-facing web surface with its own login.
+
+- [x] **architect**: `docs/adr/0022-admin-control-center.md`. Scope:
+      exactly three data sources — an on-demand web view of ADR-0020's
+      already-approved usage-statistics query set; a new, durable,
+      queryable record of application errors/crashes/failed scheduled
+      jobs (this app has never had one — the existing `AppExceptionFilter`
+      only logs unhandled 5xx exceptions to ephemeral stdout today); and a
+      new user-submitted bug-report feature end to end. Explicitly
+      excludes infra/cluster health (a materially bigger,
+      Grafana/Prometheus-shaped tool the project owner's existing
+      `kubectl`/Postgres access already covers at this beta's scale — a
+      future ADR if that ever changes), social-media-campaign control and
+      blog generation (the other two pieces of `docs/BACKLOG.md`'s bigger
+      "Admin control/monitoring Web UI" idea, undesigned, unaffected), and
+      any piece of the PT/coach feature itself. Admin auth: a single
+      project-owner credential (`ADMIN_USERNAME`/`ADMIN_PASSWORD_HASH`,
+      bcrypt, new `Secret` entries — no `AdminUser` table, no multi-admin/
+      role system, no self-service reset since the only person who could
+      need one already holds direct `Secret`-rotation access), a separate
+      `ADMIN_JWT_SECRET` (never `JWT_SECRET`, mirroring ADR-0004 Part 2's
+      already-established "different secret, not a shared one" reasoning),
+      session delivered via an httpOnly/`SameSite=Strict` cookie
+      (a deliberate, explicitly-flagged divergence from every existing
+      bearer-token pattern in this app, argued from XSS being the real
+      threat model for a browser page with no legitimate reason for JS to
+      read the token) rather than a JSON-returned bearer token. Argues
+      explicitly why this doesn't reopen the risk category Phase 2's
+      pivot removed: no new person gains any access they don't already
+      have (the project owner already holds direct Postgres/`kubectl`
+      credentials), the account structurally cannot grow into a second
+      admin (no table, no invite flow), and the surface it gates is never
+      a per-child drill-down (usage stats) or is a bounded, voluntary,
+      single-incident exception (bug reports), not the original coach
+      dashboard's standing roster/challenge authority. Hosting: new routes
+      on the *existing* `api` Deployment/Service/HTTPRoute (`site/` is
+      confirmed, by direct investigation, to be purely static with zero
+      auth capability, ruled out as a host) — zero new Kubernetes
+      primitive. Reachability: authenticated and public, like the rest of
+      the API, not VPN/network-isolated — argued from the player API
+      already being public+authenticated for *more* sensitive data, and
+      from this ADR's own data-layer redactions (Decisions 5-7) already
+      bounding the residual risk, not network topology. Catches a real
+      environment-parity gap before it ships: the `prerelease`/`ubuntu01`
+      cluster has no TLS at all, so a `Secure`-flagged cookie would
+      silently break admin login there — fixed via a new
+      `ADMIN_COOKIE_SECURE` runtime config value read per-cluster's own
+      `ConfigMap`, reusing the existing backend runtime-config convention,
+      not a new mechanism. Usage stats: extends (not supersedes) ADR-0020
+      Decision 5 — both the existing scheduled email job and the new
+      `GET /api/v1/admin/usage-metrics` endpoint call one shared
+      `UsageMetricsService`, no duplicated query logic; the aggregate-only
+      floor is enforced structurally (no `teamId`/`playerId` field
+      anywhere in the service's method signatures or return types, not
+      just absent from the UI). Errors: reapplies ADR-0010/0018/0020's
+      self-hosted-vs-third-party framework (Sentry SaaS rejected as a new
+      sub-processor; self-hosted Sentry rejected as disproportionate
+      operational weight) to recommend extending the existing
+      `AppExceptionFilter` into a new `ErrorLogEntry` table with **no**
+      player/team column at all, plus an explicit redaction allow-list
+      (the Express route *template*, never the literal resolved path —
+      several existing routes carry a live bearer token as a path
+      parameter; never the request body/headers/`Authorization`; a
+      standing code-review convention against interpolating
+      `PlayerPrivateInfo` into exception messages). Bug reports: a new
+      `BugReport` entity (category enum + capped, HTML-escaped freeform
+      description + a fixed diagnostic allow-list — app version,
+      platform, OS version, screen, locale; explicitly never location,
+      device ID, IP, or an auto-attached action trail), submitted via the
+      existing player `JwtAuthGuard` (no new auth), erasure-cascaded
+      exactly like `ClipReport.reporter_player_id` already is. Argues
+      explicitly why a bug report's per-player identity doesn't violate
+      the usage-stats aggregate floor: it's a voluntary, single-incident,
+      self-initiated report, structurally unlike a passive behavioral
+      trail, and must never be joined into the usage-metrics pipeline.
+      Consent: no new copy for usage stats (unchanged from ADR-0020) or
+      errors (conditioned on the redaction allow-list holding); a short
+      disclosure-copy addition for bug reports (not a new gate), mirroring
+      ADR-0018 Decision 3's precedent. Explicitly states this supersedes
+      `docs/BACKLOG.md`'s "report a problem" entry's own prior "email, not
+      a console" conclusion, per the project owner's direct ask. **Full
+      ADR-0010/0018/0019-weight blocking security-reviewer pass required**
+      before backend-developer builds anything — not ADR-0020's lighter
+      scoped gate, since this is the first ADR to add admin auth, a second
+      token universe, and three new data-exposure surfaces at once.
+- [x] **architect (mid-review addition, same day)**: the project owner
+      added a fourth requirement before this ADR was finalized — "a full
+      list off issues, ideas, security issues and roadmap in this...
+      site." Covered in the same ADR's new Decision 10, not a separate
+      ADR. Scope: currently-open items only, hand-curated (never a raw
+      verbatim render of `docs/BACKLOG.md`/`docs/PROJECT.md`, never an
+      auto-extraction pipeline over freeform prose) — `ACTION_PLAN.md`'s
+      own open `- [ ]` items parsed directly from the already-tracked,
+      already-public file; a curated open subset of `PROJECT.md`; a
+      curated open subset of `BACKLOG.md`; and a new, hand-maintained
+      security-issues list consolidating findings currently scattered
+      across ADRs/this file. Read-only for v1 (no web-UI write-back to any
+      file — markdown stays the single source of truth). Content-sync:
+      confirmed via `git log`/`git ls-files` that `BACKLOG.md`/
+      `PROJECT.md` were deliberately untracked on 2026-07-26 specifically
+      because this repo is public and their content is business-sensitive
+      — explicitly **does not reverse that decision** (recommitting them
+      would immediately republish a week-plus of new planning content).
+      Instead reuses this project's own existing `k8s/secret.yaml`
+      pattern (gitignored real file + committed `.example` template,
+      applied by hand, never through public CI) for a new
+      `admin-planning-docs` `ConfigMap`, populated out-of-band by the
+      project owner on each cluster independently. The new
+      security-issues list gets the same gitignored/`ConfigMap` treatment
+      as `BACKLOG.md`/`PROJECT.md`, even though its individual facts are
+      already public in tracked ADRs — argued explicitly as a deliberate
+      "aggregation itself is a new risk" call, not an inconsistency.
+      Reachability: unlike Decisions 4/6/7's three pillars (low-sensitivity
+      by construction), this pillar's content has a materially higher
+      blast radius if the admin credential is compromised — requires a new
+      fresh-reauthentication ("step-up auth") check on top of the
+      ordinary session cookie, not just Decision 3's existing
+      public+authenticated posture unmodified. IP-allowlisting was
+      considered and not recommended as the primary control (the project
+      owner's real usage pattern has no stable source IPs to allowlist);
+      step-up re-auth achieves the same goal from anywhere, at a small,
+      one-time-per-session friction cost. No new schema, no new consent
+      question (none of this content is about an identifiable child).
+- [ ] **security-reviewer**: blocking pass — scoped specifically to the
+      admin-auth mechanism (cookie flags, CSRF posture via
+      `SameSite=Strict`, brute-force defenses, secret separation from
+      `JWT_SECRET`), confirming Decision 5's structural aggregate-only
+      floor genuinely holds in the real endpoint/DTO code, confirming
+      Decision 6's redaction allow-list is followed everywhere an error
+      can originate (in particular the token-in-URL routes), confirming
+      `BugReport`'s capture allow-list matches the ADR exactly, and
+      (Decision 10) confirming the fresh-reauthentication window is
+      actually enforced on all three new `planning/*` endpoints with no
+      bypass, and that the new `admin-planning-docs` `ConfigMap`/its
+      `.example` template never carries real content into the tracked,
+      public tree.
+- [ ] **ux-designer**: the admin console's layout/visuals (statistics
+      dashboard, error-log list, bug-report triage queue, login screen,
+      the new roadmap/ideas/security-issues tabs, the inline password
+      re-entry prompt Decision 10's step-up auth needs) and the small
+      player-facing "Report a problem" entry point/form in the mobile app.
+- [ ] **backend-developer**: the three original data pipelines
+      (`UsageMetricsService` + its two consumers; `ErrorLogService` +
+      `AppExceptionFilter`/scheduled-job wiring + a retention sweep;
+      `BugReport` entity + submission/queue/triage endpoints), admin auth
+      end to end (`admin-auth/` module, `AdminAuthGuard`, the
+      `ADMIN_COOKIE_SECURE`/cookie wiring), the consent-page copy
+      addition, and (Decision 10) the fresh-reauthentication check, the
+      three new `planning/*` endpoints, the `ACTION_PLAN.md` checkbox
+      parser, and the `admin-planning-docs` `ConfigMap`/volume-mount
+      wiring plus its `.example` template — once security-reviewer signs
+      off.
+- [ ] **project owner**: curating the actual initial content of the three
+      planning views and refreshing the `admin-planning-docs` `ConfigMap`
+      after local edits (Decision 10) — only the project owner holds the
+      local, gitignored source files.
+- [ ] **frontend-developer**: the mobile "Report a problem" screen, once
+      ux-designer's flow is ready.
+
 ## Standing practice, every phase
 
 - Every PR that touches auth, media, or child data goes through
