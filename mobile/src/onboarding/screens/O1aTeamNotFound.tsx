@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { colors } from '../../theme/colors';
@@ -26,13 +27,19 @@ export function O1aTeamNotFound({
   onWrongCode,
   onCreateTeam,
 }: O1aTeamNotFoundProps) {
+  const { t } = useTranslation('onboarding');
   return (
     <ScreenContainer scroll>
       <View style={styles.spacerTop} />
       <Text style={styles.heading}>
-        Vi hittade inget lag med koden <Text style={styles.codeChip}>{inviteCode}</Text>
+        <Trans
+          i18nKey="o1a.heading"
+          ns="onboarding"
+          values={{ inviteCode }}
+          components={{ code: <Text style={styles.codeChip} /> }}
+        />
       </Text>
-      <Text style={styles.sub}>Ingen fara — välj det som stämmer för dig:</Text>
+      <Text style={styles.sub}>{t('o1a.sub')}</Text>
 
       <Pressable
         accessibilityRole="button"
@@ -41,8 +48,8 @@ export function O1aTeamNotFound({
       >
         <Text style={styles.cardIcon}>🔍</Text>
         <View style={styles.cardText}>
-          <Text style={styles.cardTitle}>Jag skrev nog fel</Text>
-          <Text style={styles.cardSub}>Testa koden igen</Text>
+          <Text style={styles.cardTitle}>{t('o1a.wrongCodeTitle')}</Text>
+          <Text style={styles.cardSub}>{t('o1a.wrongCodeSub')}</Text>
         </View>
       </Pressable>
 
@@ -53,16 +60,14 @@ export function O1aTeamNotFound({
       >
         <Text style={styles.cardIcon}>✨</Text>
         <View style={styles.cardText}>
-          <Text style={styles.cardTitle}>Vårt lag har ingen kod än</Text>
-          <Text style={styles.cardSub}>Skapa ett nytt lag med den här koden</Text>
+          <Text style={styles.cardTitle}>{t('o1a.createTeamTitle')}</Text>
+          <Text style={styles.cardSub}>{t('o1a.createTeamSub')}</Text>
         </View>
       </Pressable>
 
       <View style={styles.spacer} />
 
-      <Text style={styles.helper}>
-        Osäker? Fråga din tränare innan du skapar ett nytt lag.
-      </Text>
+      <Text style={styles.helper}>{t('o1a.helper')}</Text>
     </ScreenContainer>
   );
 }

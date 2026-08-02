@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
@@ -8,7 +9,10 @@ export type TabKey = 'home' | 'chat' | 'clips' | 'goal' | 'team';
 interface TabDef {
   key: TabKey;
   icon: string;
-  label: string;
+  /** `common.tabs.<key>` — the i18next key for this tab's label, kept
+   * alongside the icon so the render loop doesn't need a separate lookup
+   * table. */
+  labelKey: 'tabs.home' | 'tabs.chat' | 'tabs.clips' | 'tabs.goal' | 'tabs.team';
 }
 
 // Fas 2.6b added "Chatt" as a real fourth tab, placed *second* — a
@@ -22,11 +26,11 @@ interface TabDef {
 // pull, but a small roster realistically posts new clips less often than
 // new chat messages, so it sits just behind Chatt rather than tied with it.
 const TABS: TabDef[] = [
-  { key: 'home', icon: '🏠', label: 'Hem' },
-  { key: 'chat', icon: '💬', label: 'Chatt' },
-  { key: 'clips', icon: '🎬', label: 'Shorts' },
-  { key: 'goal', icon: '🎯', label: 'Mål' },
-  { key: 'team', icon: '👥', label: 'Laget' },
+  { key: 'home', icon: '🏠', labelKey: 'tabs.home' },
+  { key: 'chat', icon: '💬', labelKey: 'tabs.chat' },
+  { key: 'clips', icon: '🎬', labelKey: 'tabs.clips' },
+  { key: 'goal', icon: '🎯', labelKey: 'tabs.goal' },
+  { key: 'team', icon: '👥', labelKey: 'tabs.team' },
 ];
 
 interface TabBarProps {
@@ -54,6 +58,7 @@ export function TabBar({
   chatTabDot = false,
   clipsTabDot = false,
 }: TabBarProps) {
+  const { t } = useTranslation('common');
   return (
     <View style={styles.bar}>
       {TABS.map((tab) => {
@@ -74,7 +79,7 @@ export function TabBar({
               <Text style={styles.icon}>{tab.icon}</Text>
               {showDot ? <View style={styles.dot} /> : null}
             </View>
-            <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
+            <Text style={[styles.label, active && styles.labelActive]}>{t(tab.labelKey)}</Text>
           </Pressable>
         );
       })}

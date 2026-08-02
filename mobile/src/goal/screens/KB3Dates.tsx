@@ -1,12 +1,14 @@
 import { createElement, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
+import i18n from '../../i18n';
 
 interface KB3Props {
   initialStartDate: string;
@@ -29,9 +31,13 @@ function parseIsoDate(iso: string): Date {
   return new Date(y, (m ?? 1) - 1, d ?? 1);
 }
 
+/** Uses the active i18next language (not a hardcoded 'sv-SE') so the
+ * weekday/month abbreviation shown here matches whatever language the
+ * player picked at Screen O0 — same reasoning as `GoalCard`/
+ * `TeammateStatusRow`'s `Intl.NumberFormat(i18n.language)` switch. */
 function formatDisplayDate(iso: string): string {
   if (!ISO_DATE_PATTERN.test(iso)) return iso;
-  return parseIsoDate(iso).toLocaleDateString('sv-SE', {
+  return parseIsoDate(iso).toLocaleDateString(i18n.language, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -57,6 +63,7 @@ interface DateFieldProps {
  * up" behavior for free, using the browser's own picker rather than a
  * third dependency. */
 function DateField({ label, value, onChange }: DateFieldProps) {
+  const { t } = useTranslation('goal');
   const [pickerOpen, setPickerOpen] = useState(false);
 
   if (Platform.OS === 'web') {
@@ -128,7 +135,7 @@ function DateField({ label, value, onChange }: DateFieldProps) {
                 display="inline"
                 onChange={handleChange}
               />
-              <PrimaryButton label="Klar" onPress={() => setPickerOpen(false)} />
+              <PrimaryButton label={t('kb3.doneButton')} onPress={() => setPickerOpen(false)} />
             </View>
           </View>
         </Modal>
@@ -138,6 +145,7 @@ function DateField({ label, value, onChange }: DateFieldProps) {
 }
 
 export function KB3Dates({ initialStartDate, initialEndDate, onNext, onBack }: KB3Props) {
+  const { t } = useTranslation('goal');
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
 
@@ -147,21 +155,21 @@ export function KB3Dates({ initialStartDate, initialEndDate, onNext, onBack }: K
 
   return (
     <ScreenContainer scroll>
-      <Text style={styles.heading}>När börjar och slutar veckans mål?</Text>
+      <Text style={styles.heading}>{t('kb3.heading')}</Text>
 
-      <DateField label="Startdatum" value={startDate} onChange={setStartDate} />
-      <DateField label="Slutdatum" value={endDate} onChange={setEndDate} />
+      <DateField label={t('kb3.startDateLabel')} value={startDate} onChange={setStartDate} />
+      <DateField label={t('kb3.endDateLabel')} value={endDate} onChange={setEndDate} />
 
       {bothValid && !orderValid ? (
-        <Text style={styles.error}>Slutdatum måste vara efter startdatum.</Text>
+        <Text style={styles.error}>{t('kb3.dateOrderError')}</Text>
       ) : null}
 
       <PrimaryButton
-        label="Nästa"
+        label={t('kb3.next')}
         disabled={!canSubmit}
         onPress={() => onNext(startDate, endDate)}
       />
-      <SecondaryLink label="Tillbaka" onPress={onBack} />
+      <SecondaryLink label={t('kb3.back')} onPress={onBack} />
     </ScreenContainer>
   );
 }

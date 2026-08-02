@@ -1,0 +1,86 @@
+{
+  "k1": {
+    "heading": "Équipe 👥",
+    "loadError": "Impossible de charger l'équipe. Vérifie ta connexion.",
+    "genericError": "Une erreur s'est produite.",
+    "retry": "Réessayer",
+    "pendingSectionLabel": "En attente d'approbation",
+    "teammatesSectionLabel": "Joueurs de l'équipe",
+    "inviteCodeLabel": "Code d'équipe",
+    "inviteButton": "📨 Inviter un ami",
+    "captainBadge": "👑 Tu es capitaine",
+    "captainSeeDetail": "Voir l'équipe en détail",
+    "captainManageGoal": "Gérer l'objectif de la semaine",
+    "captainSwapCaptain": "Changer de capitaine",
+    "notCaptainToast": "Cette page est réservée au capitaine de l'équipe.",
+    "approveSuccessToast": "{{screenName}} est maintenant approuvé(e) dans l'équipe ! 🎉",
+    "approveErrorToast": "Impossible d'approuver pour le moment. Réessaie.",
+    "rejectSuccessToast": "{{screenName}} a été refusé(e).",
+    "rejectErrorToast": "Impossible de refuser pour le moment. Réessaie.",
+    "captainTransferredToast": "Le brassard de capitaine a été transmis à {{newCaptainScreenName}}. 👑",
+    "linkCopiedToast": "Lien copié !"
+  },
+  "k2": {
+    "heading": "Équipe en détail",
+    "loadError": "Impossible de charger la liste de l'équipe. Vérifie ta connexion.",
+    "genericError": "Une erreur s'est produite.",
+    "retry": "Réessayer",
+    "back": "Retour",
+    "reminderSentToast": "Rappel envoyé.",
+    "consentNoLongerPendingToast": "Ce joueur n'attend plus d'approbation.",
+    "reminderErrorToast": "Une erreur s'est produite. Réessaie.",
+    "reissueSentToast": "Code de connexion envoyé au parent/tuteur.",
+    "reissueRateLimitedToast": "Un code vient d'être envoyé — attends une minute avant d'en renvoyer un."
+  },
+  "k4": {
+    "heading": "Choisir un nouveau capitaine",
+    "sub": "La personne que tu choisis devient immédiatement la nouvelle/le nouveau capitaine de l'équipe.",
+    "loadError": "Impossible de charger la liste de l'équipe. Vérifie ta connexion.",
+    "genericError": "Une erreur s'est produite.",
+    "retry": "Réessayer",
+    "back": "Retour",
+    "targetNotFoundToast": "Impossible de retrouver ce joueur. La liste se met à jour.",
+    "genericErrorToast": "Une erreur s'est produite. Réessaie."
+  },
+  "consentChips": {
+    "approved": "{{count}} approuvé(s) ✓",
+    "pending": "{{count}} en attente ⏳",
+    "revoked": "{{count}} en pause ⏸️"
+  },
+  "inviteFriendSheet": {
+    "heading": "Inviter un ami",
+    "subExpoGo": "Fais-lui scanner le code pour ouvrir l'appli dans Expo Go, puis il/elle entre le code d'équipe ci-dessous.",
+    "subDefault": "Fais-lui scanner le code ou partage le lien — il/elle n'a qu'à indiquer son propre pseudo, l'équipe est déjà remplie.",
+    "codeLabel": "Code d'équipe",
+    "shareButton": "Partager l'invitation",
+    "close": "Fermer",
+    "shareMessageExpoGo": "Rejoins {{teamName}} sur SkillStreak ! Ouvre le lien dans Expo Go, puis entre le code d'équipe {{inviteCode}} une fois l'appli lancée : {{joinUrl}}",
+    "shareMessageDefault": "Rejoins {{teamName}} sur SkillStreak ! Utilise le code d'équipe {{inviteCode}} ou clique sur le lien : {{joinUrl}}"
+  },
+  "pendingJoinRow": {
+    "reject": "Refuser",
+    "approve": "Approuver"
+  },
+  "reminderActionSheet": {
+    "sendReminder": "Envoyer un rappel au parent",
+    "sendReissue": "Envoyer un nouveau lien de connexion",
+    "cancel": "Annuler"
+  },
+  "rosterRow": {
+    "statusApproved": "Approuvé ✓",
+    "statusPending": "En attente ⏳",
+    "statusRevoked": "En pause ⏸️",
+    "statusNotRequested": "Pas encore envoyé",
+    "lastTrained": "Dernière séance enregistrée : {{date}}",
+    "notTrainedYet": "N'a encore rien enregistré"
+  },
+  "teammateRow": {
+    "selfTag": "(Toi)"
+  },
+  "captainTransferConfirmSheet": {
+    "heading": "Faire de {{screenName}} le/la capitaine ?",
+    "body": "{{screenName}} reçoit immédiatement les boutons de capitaine. Tu restes dans l'équipe comme d'habitude — et si {{screenName}} le souhaite, il/elle pourra toujours te le rendre plus tard, comme tu le fais maintenant.",
+    "confirmButton": "Oui, faire de {{screenName}} le/la capitaine",
+    "cancel": "Annuler"
+  }
+}

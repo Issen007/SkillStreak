@@ -1,0 +1,115 @@
+{
+  "v0": {
+    "heading": "So funktioniert Shorts",
+    "bullet1": "Nur dein eigenes Team sieht die Shorts-Videos, die hier hochgeladen werden.",
+    "bullet2": "Ein Elternteil oder Erziehungsberechtigter muss zustimmen, bevor du selbst eine Shorts hochladen kannst.",
+    "bullet3": "Fühlt sich eine Shorts komisch an? Melde sie, dann verschwindet sie sofort für das ganze Team, während sich ein Erwachsener das ansieht.",
+    "bullet4": "Du kannst deine eigenen Shorts jederzeit löschen, wann immer du willst.",
+    "dismiss": "Okay, verstanden!"
+  },
+  "v1": {
+    "joinPendingTitle": "Warten auf die Kapitänin/den Kapitän deines Teams",
+    "consentPendingTitleSelfVerify": "Warten auf deine Verifizierung",
+    "consentPendingTitle": "Warten auf Freigabe",
+    "consentPartSelfVerify": "Du musst deine E-Mail-Adresse oder Handynummer verifizieren.",
+    "consentPart": "Ein Elternteil oder Erziehungsberechtigter muss zustimmen.",
+    "joinPart": "Die Kapitänin/der Kapitän deines Teams muss bestätigen, dass du dem Team beigetreten bist.",
+    "bothPendingSuffix": "Sobald beides erledigt ist, schalten wir den Shorts-Tab frei.",
+    "joinPendingSuffix": "Sobald die Kapitänin/der Kapitän zustimmt, schalten wir den Shorts-Tab frei.",
+    "consentPendingSuffix": "Sobald das erledigt ist, schalten wir den Shorts-Tab frei.",
+    "pausedTitle": "Shorts ist gerade pausiert",
+    "pausedBody": "Ein Elternteil oder Erziehungsberechtigter hat die Freigabe zurückgezogen. Sprich mit deinem Trainer/deiner Trainerin, wenn du Fragen hast.",
+    "refresh": "Nochmal prüfen",
+    "refreshing": "Wird geprüft..."
+  },
+  "v2": {
+    "heading": "Shorts 🎬",
+    "loadError": "Shorts konnten nicht geladen werden. Überprüfe deine Verbindung.",
+    "retry": "Nochmal versuchen",
+    "emptyHeading": "Noch keine Shorts",
+    "emptySub": "Sei die/der Erste, die/der eine Shorts mit dem Team teilt!",
+    "uploadButton": "Shorts hochladen",
+    "showMore": "Mehr Shorts anzeigen",
+    "showMoreError": "Weitere Shorts konnten nicht geladen werden. Versuch es nochmal.",
+    "uploadLockedToast": "Wartet noch auf Freigabe, bevor du hochladen kannst.",
+    "challengeBanner": "🎯 {{screenName}} hat dich herausgefordert! Schau dir das Shorts-Video an.",
+    "consentRevokedToast": "Wir brauchen noch eine Freigabe, bevor du hochladen kannst. Wir aktualisieren die Seite für dich.",
+    "reportNotFoundToast": "Dieses Video gibt es nicht mehr.",
+    "reportAlreadyToast": "Du hast dieses Video bereits gemeldet.",
+    "reportRateLimitedToast": "Du hast in letzter Zeit einiges gemeldet. Warte einen Moment, bevor du wieder etwas meldest.",
+    "genericError": "Etwas ist schiefgelaufen. Versuch es nochmal.",
+    "deletedToast": "Das Video wurde gelöscht.",
+    "deleteNotFoundToast": "Das Video gibt es nicht mehr.",
+    "blockedToast": "Du siehst keine Shorts oder Nachrichten mehr von {{screenName}}."
+  },
+  "clipCard": {
+    "challengeChip": "🎯 Fordert {{screenName}} heraus",
+    "report": "🚩 Melden",
+    "delete": "🗑️ Video löschen"
+  },
+  "v9": {
+    "heading": "Warum meldest du dieses Video?",
+    "reasonAppearsWithoutConsent": "Ich bin in diesem Video zu sehen und wollte das nicht",
+    "reasonBullying": "Mobbing",
+    "reasonInappropriateContent": "Unangemessener Inhalt",
+    "reasonNotTrainingRelated": "Hat nichts mit dem Training zu tun",
+    "reasonOther": "Anderes",
+    "noteLabel": "Möchtest du mehr erzählen? (freiwillig)",
+    "notePlaceholder": "Optional…",
+    "submit": "Meldung senden",
+    "cancel": "Abbrechen"
+  },
+  "v10": {
+    "heading": "Danke, dass du Bescheid gesagt hast.",
+    "body": "Das Video ist jetzt für das ganze Team verborgen, auch für dich selbst. Niemand erfährt, dass du gemeldet hast.",
+    "bodySecondary": "Ein Erwachsener erfährt davon, aber wir können nicht versprechen, wann genau das Video erneut geprüft wird.",
+    "followUp": "Möchtest du auch keine weiteren Shorts und Nachrichten von dieser Person mehr sehen?",
+    "block": "{{screenName}} blockieren",
+    "noThanks": "Nein danke",
+    "done": "Fertig"
+  },
+  "v11": {
+    "heading": "Diese Shorts löschen?",
+    "body": "Das Video verschwindet dauerhaft für das ganze Team — das kann nicht rückgängig gemacht werden.",
+    "confirm": "Ja, Video löschen",
+    "cancel": "Abbrechen"
+  },
+  "v4": {
+    "heading": "Wähle oder nimm eine Shorts auf",
+    "sub": "Das Video darf bis zu {{maxSeconds}} Sekunden lang sein.",
+    "record": "🎥 Aufnehmen",
+    "pickFromLibrary": "🖼️ Aus Galerie wählen",
+    "cancel": "Abbrechen",
+    "tooLong": "Das Video ist zu lang — maximal {{maxSeconds}} Sekunden. Versuch ein anderes!",
+    "wrongFormat": "Dieser Dateityp funktioniert hier nicht. Versuch ein Video von der Kamera oder aus der Galerie.",
+    "unreadable": "Das Video konnte nicht gelesen werden. Versuch ein anderes.",
+    "permission": "Wir brauchen deine Erlaubnis dafür. Versuch es nochmal oder wähle die andere Option."
+  },
+  "v5": {
+    "heading": "Bildunterschrift & Herausforderung",
+    "captionPlaceholder": "Bildunterschrift hinzufügen (freiwillig)…",
+    "challengeLabel": "Ein Teammitglied herausfordern? (freiwillig)",
+    "noTeammates": "Noch keine Teammitglieder zum Herausfordern.",
+    "taggedHelper": "{{screenName}} sieht, dass du sie/ihn herausgefordert hast, sobald sie/er Shorts das nächste Mal öffnet.",
+    "upload": "Hochladen",
+    "cancel": "Abbrechen",
+    "captionRejected": "Die Bildunterschrift konnte nicht gespeichert werden — sie enthielt Wörter, die hier nicht funktionieren. Schreib sie um, dann klappt's! ✍️",
+    "rateLimited": "Du lädst gerade etwas schnell Shorts hoch. Warte einen Moment, dann funktioniert es wieder.",
+    "taggedPlayerGone": "Diese Spielerin/dieser Spieler ist nicht mehr im Team. Wähl jemand anderen oder niemanden.",
+    "genericError": "Etwas ist schiefgelaufen. Versuch es nochmal."
+  },
+  "v6": {
+    "heading": "Deine Shorts wird hochgeladen…",
+    "sub": "Verlass die App nicht — es dauert nur einen kleinen Moment.",
+    "retry": "Nochmal versuchen",
+    "cancel": "Abbrechen",
+    "backToFeed": "Zurück zum Feed",
+    "retryFailure": "Beim Hochladen ist etwas schiefgelaufen. Wir versuchen es nochmal von vorne.",
+    "giveUp": "Der Upload hat dieses Mal nicht geklappt. Überprüfe deine Verbindung und versuch es nochmal."
+  },
+  "v7": {
+    "heading": "Deine Shorts ist online! 🎉",
+    "sub": "Das Team kann sie jetzt sehen.",
+    "done": "Zum Feed"
+  }
+}

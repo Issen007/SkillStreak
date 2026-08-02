@@ -1,0 +1,115 @@
+{
+  "v0": {
+    "heading": "Näin Shorts toimii",
+    "bullet1": "Vain oma joukkueesi näkee tänne ladatut Shorts-videot.",
+    "bullet2": "Vanhemman tai huoltajan täytyy sanoa kyllä, ennen kuin voit ladata oman Shorts-videon.",
+    "bullet3": "Tuntuuko jokin Shorts-video väärältä? Ilmoita siitä, niin se katoaa heti koko joukkueelta, kun aikuinen katsoo sen läpi.",
+    "bullet4": "Voit aina poistaa omat Shorts-videosi, milloin vain haluat.",
+    "dismiss": "Selvä homma!"
+  },
+  "v1": {
+    "joinPendingTitle": "Odottaa joukkueen kapteenia",
+    "consentPendingTitleSelfVerify": "Odottaa vahvistustasi",
+    "consentPendingTitle": "Odottaa hyväksyntää",
+    "consentPartSelfVerify": "Sinun täytyy vahvistaa sähköpostisi tai puhelinnumerosi.",
+    "consentPart": "Vanhemman tai huoltajan täytyy sanoa kyllä.",
+    "joinPart": "Joukkueen kapteenin täytyy hyväksyä liittymisesi joukkueeseen.",
+    "bothPendingSuffix": "Heti kun molemmat on hoidettu, avaamme Shorts-välilehden.",
+    "joinPendingSuffix": "Heti kun kapteeni hyväksyy, avaamme Shorts-välilehden.",
+    "consentPendingSuffix": "Heti kun se on hoidettu, avaamme Shorts-välilehden.",
+    "pausedTitle": "Shorts on juuri nyt keskeytetty",
+    "pausedBody": "Vanhempi tai huoltaja on perunut hyväksyntänsä. Puhu valmentajallesi, jos sinulla on kysyttävää.",
+    "refresh": "Tarkista uudelleen",
+    "refreshing": "Tarkistetaan..."
+  },
+  "v2": {
+    "heading": "Shorts 🎬",
+    "loadError": "Shorts-videoita ei saatu ladattua. Tarkista yhteytesi.",
+    "retry": "Yritä uudelleen",
+    "emptyHeading": "Ei vielä Shorts-videoita",
+    "emptySub": "Ole ensimmäinen, joka jakaa Shorts-videon joukkueelle!",
+    "uploadButton": "Lataa Shorts",
+    "showMore": "Näytä lisää Shorts-videoita",
+    "showMoreError": "Lisää Shorts-videoita ei saatu ladattua. Yritä uudelleen.",
+    "uploadLockedToast": "Odottaa yhä hyväksyntää, ennen kuin voit ladata.",
+    "challengeBanner": "🎯 {{screenName}} haastoi sinut! Katso Shorts-video.",
+    "consentRevokedToast": "Tarvitsemme yhä hyväksynnän, ennen kuin voit ladata. Päivitämme sivun puolestasi.",
+    "reportNotFoundToast": "Kyseistä videota ei enää ole olemassa.",
+    "reportAlreadyToast": "Olet jo ilmoittanut tästä videosta.",
+    "reportRateLimitedToast": "Olet ilmoittanut asioista viime aikoina aika paljon. Odota hetki ennen kuin ilmoitat uudelleen.",
+    "genericError": "Jokin meni pieleen. Yritä uudelleen.",
+    "deletedToast": "Video on poistettu.",
+    "deleteNotFoundToast": "Videota ei enää ole olemassa.",
+    "blockedToast": "Et enää näe Shorts-videoita tai viestejä käyttäjältä {{screenName}}."
+  },
+  "clipCard": {
+    "challengeChip": "🎯 Haastaa käyttäjän {{screenName}}",
+    "report": "🚩 Ilmoita",
+    "delete": "🗑️ Poista video"
+  },
+  "v9": {
+    "heading": "Miksi ilmoitat tästä videosta?",
+    "reasonAppearsWithoutConsent": "Olen tässä videossa enkä halunnut olla",
+    "reasonBullying": "Kiusaaminen",
+    "reasonInappropriateContent": "Sopimaton sisältö",
+    "reasonNotTrainingRelated": "Ei liity harjoitteluun",
+    "reasonOther": "Muu",
+    "noteLabel": "Haluatko kertoa lisää? (vapaaehtoinen)",
+    "notePlaceholder": "Vapaaehtoinen…",
+    "submit": "Lähetä ilmoitus",
+    "cancel": "Peruuta"
+  },
+  "v10": {
+    "heading": "Kiitos, että kerroit.",
+    "body": "Video on nyt piilotettu koko joukkueelta, myös sinulta itseltäsi. Kukaan ei saa tietää, että sinä ilmoitit.",
+    "bodySecondary": "Aikuinen saa tietää tästä, mutta emme voi luvata tarkkaa aikaa, jolloin video tarkistetaan uudelleen.",
+    "followUp": "Haluaisitko myös lopettaa kyseisen henkilön Shorts-videoiden ja viestien näkemisen?",
+    "block": "Estä {{screenName}}",
+    "noThanks": "Ei kiitos",
+    "done": "Valmis"
+  },
+  "v11": {
+    "heading": "Poistetaanko tämä Shorts-video?",
+    "body": "Video katoaa pysyvästi koko joukkueelta — tätä ei voi perua.",
+    "confirm": "Kyllä, poista video",
+    "cancel": "Peruuta"
+  },
+  "v4": {
+    "heading": "Valitse tai kuvaa Shorts-video",
+    "sub": "Video voi olla enintään {{maxSeconds}} sekuntia pitkä.",
+    "record": "🎥 Kuvaa",
+    "pickFromLibrary": "🖼️ Valitse galleriasta",
+    "cancel": "Peruuta",
+    "tooLong": "Video on liian pitkä — enintään {{maxSeconds}} sekuntia. Kokeile toista!",
+    "wrongFormat": "Tuo tiedostotyyppi ei toimi täällä. Kokeile videota kamerasta tai galleriasta.",
+    "unreadable": "Videota ei voitu lukea. Kokeile toista.",
+    "permission": "Tarvitsemme luvan tähän. Yritä uudelleen tai valitse toinen vaihtoehto."
+  },
+  "v5": {
+    "heading": "Kuvateksti & haaste",
+    "captionPlaceholder": "Lisää kuvateksti (vapaaehtoinen)…",
+    "challengeLabel": "Haastatko joukkuekaverin? (vapaaehtoinen)",
+    "noTeammates": "Ei vielä joukkuekavereita haastettavaksi.",
+    "taggedHelper": "{{screenName}} näkee, että haastoit hänet, kun hän seuraavan kerran avaa Shorts-välilehden.",
+    "upload": "Lataa",
+    "cancel": "Peruuta",
+    "captionRejected": "Kuvatekstiä ei voitu tallentaa — se sisälsi sanoja, jotka eivät toimi täällä. Kirjoita se uudelleen, niin homma toimii! ✍️",
+    "rateLimited": "Lataat Shorts-videoita nyt hieman liian nopeasti. Odota hetki, niin se onnistuu taas.",
+    "taggedPlayerGone": "Kyseinen pelaaja ei ole enää joukkueessa. Valitse joku muu tai ei ketään.",
+    "genericError": "Jokin meni pieleen. Yritä uudelleen."
+  },
+  "v6": {
+    "heading": "Ladataan Shorts-videotasi…",
+    "sub": "Älä poistu sovelluksesta — tämä kestää vain hetken.",
+    "retry": "Yritä uudelleen",
+    "cancel": "Peruuta",
+    "backToFeed": "Takaisin syötteeseen",
+    "retryFailure": "Latauksessa tapahtui virhe. Yritämme uudelleen alusta.",
+    "giveUp": "Lataus ei onnistunut tällä kertaa. Tarkista yhteytesi ja yritä uudelleen."
+  },
+  "v7": {
+    "heading": "Shorts-videosi on julkaistu! 🎉",
+    "sub": "Joukkue näkee sen nyt.",
+    "done": "Syötteeseen"
+  }
+}

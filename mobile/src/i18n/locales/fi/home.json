@@ -1,0 +1,204 @@
+{
+  "greeting": "Hei, <bold>{{screenName}}</bold>!",
+  "shared": {
+    "retry": "Yritä uudelleen",
+    "cancel": "Peruuta",
+    "genericError": "Jokin meni pieleen.",
+    "genericErrorTryAgain": "Jokin meni pieleen. Yritä uudelleen.",
+    "save": "Tallenna",
+    "edit": "Muokkaa"
+  },
+  "appHeader": {
+    "profileAccessibilityLabel": "Oma profiilisi",
+    "workingTitle": "työnimi"
+  },
+  "homeScreen": {
+    "loadError": "Tietojasi ei saatu ladattua. Tarkista verkkoyhteytesi.",
+    "extraLogToast": "Mahtavaa työtä! +{{minutes}} min joukkueen pottiin 🥇",
+    "consentRequiredToast": "Tarvitsemme vielä luvan ennen kuin voit kirjata harjoituksia. Päivitämme sivun sinulle.",
+    "successBanner": "🔥 Hienoa työtä! {{count}} päivää putkeen.",
+    "successFloatingText": "+{{minutes}} min joukkueelle"
+  },
+  "activitySheet": {
+    "heading": "Mitä harjoittelit?",
+    "durationHeading": "Kuinka kauan?",
+    "submit": "Valmis!",
+    "activities": {
+      "fitness": "Kunto",
+      "drill": "Tekniikka/harjoitus",
+      "running": "Juoksu",
+      "other": "Muu"
+    },
+    "durations": {
+      "d10": "10 min",
+      "d15": "15 min",
+      "d20": "20 min",
+      "d30plus": "30+ min"
+    }
+  },
+  "goalBonusTakeover": {
+    "headline": "Joukkue saavutti viikon tavoitteen!",
+    "sub": "Sinun harjoituksesi oli viimeinen palanen — nyt koko joukkue on saavuttanut tavoitteensa!",
+    "points": "+{{points}} bonuspistettä joukkueen pottiin! 🥇"
+  },
+  "streakCard": {
+    "loggedTodayChip": "Kirjattu tänään ✓",
+    "count": "{{count}} päivää",
+    "label": "Oma putkesi — jatka samaan malliin!"
+  },
+  "teamPoolCard": {
+    "title": "🥇 MM-kultataulukko",
+    "points": "{{points}} pistettä",
+    "rankLine": "{{rank}} sija {{teamCount}} joukkueesta",
+    "noActiveSeason": "Ei käynnissä olevaa kautta juuri nyt",
+    "noActiveSeasonSub": "Olette taas mukana heti kun uusi kausi alkaa.",
+    "effortLine": "🌟 {{effortRank}} paras joukkueen yrittämisessä",
+    "tapHint": "Katso taulukko →"
+  },
+  "trainedButton": {
+    "disabled": "Olen harjoitellut 🔒",
+    "secondary": "Kirjaa vielä yksi harjoitus",
+    "primary": "Olen harjoitellut"
+  },
+  "waitingCard": {
+    "titleBothPending": "Odotetaan hyväksyntää",
+    "titleJoinPending": "Odotetaan joukkueen kapteenia",
+    "titleConsentPending": "Odotetaan hyväksyntää",
+    "titleSelfVerificationPending": "Odotetaan, että vahvistat itse",
+    "titlePaused": "Harjoittelu on juuri nyt tauolla",
+    "consentPartSelfVerification": "Lähetimme vahvistuslinkin sähköpostiisi tai puhelinnumeroosi.",
+    "consentPartParent": "Kysyimme luvan vanhemmalta tai huoltajalta.",
+    "joinPart": "Joukkueen kapteenin täytyy hyväksyä liittymisesi joukkueeseen.",
+    "suffixBoth": "Heti kun molemmat on hoidettu, avaamme alla olevan napin!",
+    "suffixJoinOnly": "Heti kun kapteeni hyväksyy, avaamme alla olevan napin!",
+    "suffixConsentOnly": "Heti kun se on hoidettu, avaamme alla olevan napin!",
+    "pausedBody": "Vanhempi tai huoltaja on perunut hyväksyntänsä. Juttele valmentajasi kanssa, jos sinulla on kysyttävää.",
+    "refresh": "Tarkista uudelleen",
+    "refreshing": "Tarkistetaan..."
+  },
+  "profileScreen": {
+    "loadError": "Profiiliasi ei saatu ladattua. Tarkista verkkoyhteytesi.",
+    "savedToast": "Tallennettu!",
+    "contactChangeRateLimited": "Olet jo äskettäin pyytänyt muutosta — odota hetki ennen kuin yrität uudelleen.",
+    "contactChangeGenericError": "Jokin meni pieleen. Tarkista tiedot ja yritä uudelleen.",
+    "contactChangeConfirmedToast": "Vahvistettu! Tulee voimaan noin {{hours}} t kuluttua. Vanha osoite voi perua muutoksen sinne lähetetyn sähköpostin kautta.",
+    "codeInvalid": "Tuo koodi ei enää toimi. Tarkista, että kirjoitit sen oikein, tai pyydä uusi.",
+    "codeGenericError": "Jokin meni pieleen. Tarkista verkkoyhteytesi ja yritä uudelleen.",
+    "erasureTeamInfoError": "Joukkueen tietoja ei saatu ladattua. Yritä uudelleen.",
+    "erasureTeammatesError": "Joukkuelistaa ei saatu ladattua. Tarkista verkkoyhteytesi.",
+    "erasureBlockedPendingContactChange": "Sinulla on kesken oleva yhteystiedon muutos. Sen täytyy valmistua (tai peruuntua) ennen kuin voit poistaa tilisi — tarkista hetken kuluttua uudelleen.",
+    "erasureRateLimited": "Pyysit tätä juuri äsken. Odota hetki ja yritä uudelleen.",
+    "erasureSuccessorInvalid": "Tuo pelaaja ei ole enää joukkueessa. Valitse joku toinen.",
+    "erasureStaleState": "Joukkueessa on tapahtunut muutoksia sen jälkeen, kun avasit tämän näkymän. Tarkista profiilisi ja yritä uudelleen.",
+    "erasureCancelledToast": "Valmista! Tiliäsi ei poisteta. 🎉",
+    "erasureCancelError": "Jokin meni pieleen. Lataa sivu uudelleen ja yritä uudelleen.",
+    "editName": {
+      "heading": "Nimesi",
+      "sub": "Vapaaehtoinen — ei näy koskaan muille joukkueessa, vain sinä näet tämän.",
+      "placeholder": "Etu- ja sukunimi"
+    },
+    "editAvatar": {
+      "heading": "Valitse avatar",
+      "sub": "Kuvaa ei tarvita — valitse hahmo, josta pidät."
+    },
+    "requestChange": {
+      "heading": "Vaihda yhteystieto",
+      "sub": "Anna uusi osoite. Lähetämme sinne koodin vahvistusta varten sekä ilmoituksen vanhaan osoitteeseen siitä, että muutos on tekeillä.",
+      "placeholder": "Uusi sähköpostiosoite tai puhelinnumero",
+      "submit": "Lähetä koodi"
+    },
+    "confirmChange": {
+      "heading": "Tarkista sähköpostisi",
+      "sub": "Lähetimme koodin uuteen osoitteeseen. Anna se alla vahvistaaksesi vaihdon.",
+      "placeholder": "esim. H4K7QWXP",
+      "submit": "Vahvista",
+      "resend": "Etkö saanut koodia? Yritä uudelleen"
+    },
+    "view": {
+      "heading": "Profiilisi",
+      "avatarLabel": "Avatar",
+      "nameLabel": "Nimi",
+      "nameNotSet": "Ei asetettu",
+      "addName": "Lisää",
+      "birthYearLabel": "Syntymävuosi",
+      "birthYearHelper": "Et voi muuttaa tätä itse — ota yhteyttä joukkueen valmentajaan, jos tämä pitää korjata.",
+      "contactLabel": "Yhteystieto",
+      "changeContact": "Vaihda",
+      "back": "Takaisin",
+      "logout": "Kirjaudu ulos",
+      "deleteAccount": "Poista tilini"
+    }
+  },
+  "erasureCheckEmail": {
+    "heading": "Tarkista sähköpostisi",
+    "body": "Lähetimme sähköpostin, jossa on linkki. Avaa sähköposti ja napauta linkkiä käynnistääksesi 30 päivän jakson — voit myös odottaa ja tehdä sen huomenna.",
+    "mutedBody": "Jos et napauta linkkiä, mitään ei tapahdu — tilisi pysyy täysin ennallaan.",
+    "cta": "Takaisin profiiliin"
+  },
+  "erasureConfirmSheet": {
+    "heading": "Oletko varma?",
+    "body": "Lähetämme sähköpostin, joka pitää vahvistaa 30 päivän jakson käynnistämiseksi. Jos muutat mielesi, voit perua milloin tahansa ennen kuin ne ovat kuluneet.",
+    "successorBody": "{{successorScreenName}} ottaa kapteenin paikan sinä päivänä, kun tili poistetaan.",
+    "confirm": "Kyllä, poista tilini"
+  },
+  "erasureRequest": {
+    "heading": "Poistetaanko tilisi?",
+    "bulletHistory": "Kaikki harjoitushistoriasi, merkkisi ja klippisi poistetaan pysyvästi.",
+    "bulletTeam": "Katoat joukkueesta. Viestisi joukkuechatissa muuttuvat anonyymeiksi — joukkue ja joukkuekaverisi eivät muuten vaikutu.",
+    "bulletFinal": "Kun 30 päivää on kulunut, muutosta ei voi enää perua.",
+    "tip": "Lähetämme sähköpostin, jonka sinun (tai vanhempasi tai huoltajasi) täytyy vahvistaa — pelkkä alla olevan napin painaminen ei vielä tee mitään. Heti kun sähköposti on vahvistettu, sinulla on 30 päivää aikaa muuttaa mielesi, ja tili toimii sillä välin täysin normaalisti.",
+    "captainTitle": "Olet joukkueen kapteeni",
+    "captainBody": "Sinun täytyy valita, kuka ottaa kapteenin paikan, ennen kuin voit jatkaa.",
+    "successorNotChosen": "Ei vielä valittu",
+    "chooseSuccessor": "Valitse",
+    "changeSuccessor": "Vaihda",
+    "lastPlayerWarning": "Juuri nyt olet ainoa jäljellä oleva pelaaja joukkueessa. Jos tämä pitää edelleen paikkansa 30 päivän kuluttua, koko joukkue katoaa, kun tilisi poistetaan — pisteet, klipit ja kaikki muu.",
+    "submit": "Poista tilini"
+  },
+  "erasureStatusCard": {
+    "titleGracePeriod": "Tilisi poistetaan {{date}}.",
+    "unknownDate": "(tuntematon päivämäärä)",
+    "titleRequested": "Odotetaan, että vahvistat poistamisen",
+    "gracePeriodBody": "Tili toimii siihen asti täysin normaalisti. Jos muutat mielesi, voit perua milloin tahansa ennen sitä.",
+    "gracePeriodSuccessor": "{{successorScreenName}} ottaa kapteenin paikan sinä päivänä.",
+    "requestedBody": "Lähetimme sinulle linkin sähköpostitse. Avaa sähköposti ja vahvista käynnistääksesi 30 päivän jakson. Jos et tee mitään, tili pysyy täysin ennallaan.",
+    "cancelGracePeriod": "Peru poistaminen",
+    "cancelRequested": "Peru pyyntö",
+    "cancelling": "Perutaan..."
+  },
+  "erasureSuccessor": {
+    "heading": "Kuka ottaa kapteenin paikan?",
+    "sub": "Valitsemasi henkilö tulee joukkueen kapteeniksi sinä päivänä, kun tilisi poistetaan — ei ennen sitä. Olet kapteeni normaalisti siihen asti.",
+    "done": "Valmis"
+  },
+  "leaderboard": {
+    "pageHeading": "MM-kulta-taulukko 🥇",
+    "tabPoints": "🥇 Eniten pisteitä",
+    "tabEffort": "💪 Paras joukkuepanos",
+    "loadError": "Taulukkoa ei voitu hakea. Tarkista verkkoyhteytesi.",
+    "genericError": "Jokin meni pieleen.",
+    "retry": "Yritä uudelleen",
+    "back": "Takaisin",
+    "effortNudge": "🌟 Pelaajanne tekevät hyvää työtä! Katso Paras joukkuepanos →",
+    "noActiveSeasonBanner": "Joukkueellanne ei ole aktiivista kautta juuri nyt — mutta katsokaa muiden joukkueiden pisteet!",
+    "emptyPointsHeading": "Ei vielä taulukkoa näytettäväksi.",
+    "emptyPointsSub": "Tule takaisin, kun useammalla joukkueella on aktiivinen kausi.",
+    "tieCaption": "Tasapisteet saavat saman sijoituksen.",
+    "meTag": "Sinun joukkueesi",
+    "pointsSuffix": "p",
+    "effortCaption": "Reilu keskiarvo — näin pienempikin joukkue voi voittaa.",
+    "infoLink": "ⓘ Näin laskemme sen",
+    "noEffortBanner": "Joukkueenne ei ole vielä tällä listalla — mukana tulee olla vähintään yksi hyväksytty pelaaja.",
+    "emptyEffortHeading": "Ei vielä joukkuepanosta näytettäväksi.",
+    "emptyEffortSub": "Tule takaisin, kun useammalla joukkueella on hyväksyttyjä pelaajia.",
+    "playerCountSuffix": "pelaajaa",
+    "pointsPerPlayerSuffix": "p/pelaaja",
+    "infoSheet": {
+      "heading": "Näin laskemme Parhaan joukkuepanoksen",
+      "body1": "Vertaamme, kuinka monta pistettä joukkue saa pelaajaa kohti — emme pelkkää joukkueen kokonaissummaa. Näin pienikin joukkue voi voittaa, kun kaikki tekevät parhaansa.",
+      "body2": "Jos joukkue on pieni, laskemme vähän varovaisemmin, jotta muutama todella hyvä päivä ei anna ensimmäistä sijaa sattumalta. Mitä enemmän pelaajia joukkueessa on, sitä enemmän luotamme heidän omaan keskiarvoonsa.",
+      "ownTeamLine": "Joukkueenne: {{pointsPerPlayer}} p/pelaaja, {{playerCount}} pelaajaa → {{adjustedScore}} p reilusti laskettuna.",
+      "gotIt": "Selvä juttu!"
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { DangerButton } from '../../components/DangerButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
@@ -28,23 +29,21 @@ export function ErasureConfirmSheet({
   onConfirm,
   onClose,
 }: ErasureConfirmSheetProps) {
+  const { t } = useTranslation('home');
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={loading ? undefined : onClose} />
       <View style={styles.sheet}>
-        <Text style={styles.heading}>Är du säker?</Text>
-        <Text style={styles.body}>
-          Vi skickar ett mejl som måste bekräftas för att sätta igång de 30 dagarna. Ångrar du dig
-          kan du avbryta när som helst innan de gått ut.
-        </Text>
+        <Text style={styles.heading}>{t('erasureConfirmSheet.heading')}</Text>
+        <Text style={styles.body}>{t('erasureConfirmSheet.body')}</Text>
         {successorScreenName ? (
           <Text style={styles.successorBody}>
-            {successorScreenName} tar över som kapten den dag kontot raderas.
+            {t('erasureConfirmSheet.successorBody', { successorScreenName })}
           </Text>
         ) : null}
         {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
-        <DangerButton label="Ja, radera mitt konto" loading={loading} onPress={onConfirm} />
-        <SecondaryLink label="Avbryt" onPress={onClose} />
+        <DangerButton label={t('erasureConfirmSheet.confirm')} loading={loading} onPress={onConfirm} />
+        <SecondaryLink label={t('shared.cancel')} onPress={onClose} />
       </View>
     </Modal>
   );

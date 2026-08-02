@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -35,6 +36,7 @@ export function O1bNameTeam({
   onNext,
   onChangeCode,
 }: O1bNameTeamProps) {
+  const { t } = useTranslation('onboarding');
   const [teamName, setTeamName] = useState(initialTeamName);
   const [error, setError] = useState<string | null>(externalError ?? null);
   const inputRef = useRef<TextInput>(null);
@@ -54,35 +56,32 @@ export function O1bNameTeam({
       <View style={styles.spacerTop} />
 
       <View style={styles.codeRow}>
-        <Text style={styles.codeChip}>Lagkod: {inviteCode}</Text>
-        <SecondaryLink label="Byt kod" onPress={onChangeCode} />
+        <Text style={styles.codeChip}>{t('o1b.codeChip', { inviteCode })}</Text>
+        <SecondaryLink label={t('o1b.changeCode')} onPress={onChangeCode} />
       </View>
 
-      <Text style={styles.heading}>Vad ska ert lag heta?</Text>
-      <Text style={styles.sub}>
-        Du blir lagets första spelare — och kapten! Välj ett namn som resten
-        av laget kan vara stolta över.
-      </Text>
+      <Text style={styles.heading}>{t('o1b.heading')}</Text>
+      <Text style={styles.sub}>{t('o1b.sub')}</Text>
 
       <TextField
         ref={inputRef}
-        label="Lagnamn"
+        label={t('o1b.nameLabel')}
         value={teamName}
         onChangeText={(text) => {
           setTeamName(text);
           if (error) setError(null);
         }}
-        placeholder="T.ex. IBK Falken P13"
+        placeholder={t('o1b.namePlaceholder')}
         autoCorrect={false}
         autoComplete="off"
         errorText={error ?? undefined}
       />
-      <Text style={styles.helper}>Andra lag kan se namnet på topplistan.</Text>
+      <Text style={styles.helper}>{t('o1b.helper')}</Text>
 
       <View style={styles.spacer} />
 
       <PrimaryButton
-        label="Nästa"
+        label={t('o1b.next')}
         disabled={teamName.trim().length === 0}
         onPress={() => onNext(teamName.trim())}
       />

@@ -9,6 +9,8 @@ import { PlayersModule } from '../players/players.module';
 import { RedisModule } from '../redis/redis.module';
 import { TeamCoach } from '../teams/entities/team-coach.entity';
 import { TeamsModule } from '../teams/teams.module';
+import { VideoClip } from '../video-clips/entities/video-clip.entity';
+import { VideoClipsModule } from '../video-clips/video-clips.module';
 import { TeamChatBlock } from './entities/team-chat-block.entity';
 import { TeamChatMessage } from './entities/team-chat-message.entity';
 import { TeamChatMessageReport } from './entities/team-chat-message-report.entity';
@@ -29,6 +31,18 @@ import { TeamChatService } from './team-chat.service';
 // Decision 5) — imported here rather than declared inline, so
 // TeamsModule can reuse the identical binding without importing all of
 // this module. Behavior is unchanged; this is a pure extraction.
+//
+// docs/adr/0017-chat-clip-attachments.md — VideoClip is registered directly
+// via TypeOrmModule.forFeature (same "grab just the entity, not the whole
+// sibling module" precedent as TeamChatBlock/TeamCoach/Coach above) so
+// TeamChatService can run its own team-scoped loaded-row check (write time)
+// and join (read time) against it — see that ADR's Decision 1, don't add a
+// bare, unscoped `findOne({ id })` against this repository anywhere.
+// VideoClipsModule is imported (not just the entity) purely to reuse its
+// already-exported ObjectStorageService singleton for presigning clip
+// playback URLs — the same singleton the clip feed itself mints from, not a
+// second MinIO client/bucket-init pass. One-directional: video-clips/ has
+// no dependency back on team-chat/.
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -37,6 +51,7 @@ import { TeamChatService } from './team-chat.service';
       TeamChatMessageReport,
       TeamCoach,
       Coach,
+      VideoClip,
     ]),
     AuthModule,
     PlayersModule,
@@ -45,6 +60,7 @@ import { TeamChatService } from './team-chat.service';
     RedisModule,
     MailModule,
     ModerationModule,
+    VideoClipsModule,
   ],
   controllers: [TeamChatController],
   providers: [TeamChatService],

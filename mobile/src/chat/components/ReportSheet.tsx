@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
@@ -7,12 +8,7 @@ import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 import type { ChatReportReason } from '../../api/types';
 
-const REASONS: { value: ChatReportReason; label: string }[] = [
-  { value: 'bullying', label: 'Mobbning' },
-  { value: 'inappropriate_language', label: 'Olämpligt språk' },
-  { value: 'spam', label: 'Skräppost' },
-  { value: 'other', label: 'Annat' },
-];
+const REASON_VALUES: ChatReportReason[] = ['bullying', 'inappropriate_language', 'spam', 'other'];
 
 const NOTE_MAX_LENGTH = 140;
 
@@ -27,7 +23,21 @@ interface ReportSheetProps {
 /** Screen CH2 — the report-reason bottom sheet. Four large, tappable
  * rows (radio-style, single-select — not a dropdown), per this app's "big
  * obvious targets" rule. */
+function reasonLabelKey(value: ChatReportReason): 'ch2.reasonBullying' | 'ch2.reasonInappropriateLanguage' | 'ch2.reasonSpam' | 'ch2.reasonOther' {
+  switch (value) {
+    case 'bullying':
+      return 'ch2.reasonBullying';
+    case 'inappropriate_language':
+      return 'ch2.reasonInappropriateLanguage';
+    case 'spam':
+      return 'ch2.reasonSpam';
+    default:
+      return 'ch2.reasonOther';
+  }
+}
+
 export function ReportSheet({ visible, messageExcerpt, loading, onSubmit, onClose }: ReportSheetProps) {
+  const { t } = useTranslation('chat');
   const [reason, setReason] = useState<ChatReportReason | null>(null);
   const [note, setNote] = useState('');
 
@@ -46,29 +56,29 @@ export function ReportSheet({ visible, messageExcerpt, loading, onSubmit, onClos
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable style={styles.backdrop} onPress={loading ? undefined : handleClose} />
       <View style={styles.sheet}>
-        <Text style={styles.excerpt}>Du rapporterar: &quot;{messageExcerpt}…&quot;</Text>
-        <Text style={styles.heading}>Varför rapporterar du det här meddelandet?</Text>
+        <Text style={styles.excerpt}>{t('ch2.excerpt', { excerpt: messageExcerpt })}</Text>
+        <Text style={styles.heading}>{t('ch2.heading')}</Text>
 
-        {REASONS.map((option) => {
-          const selected = option.value === reason;
+        {REASON_VALUES.map((value) => {
+          const selected = value === reason;
           return (
             <Pressable
-              key={option.value}
+              key={value}
               accessibilityRole="button"
               accessibilityState={{ selected }}
-              onPress={() => setReason(option.value)}
+              onPress={() => setReason(value)}
               style={[styles.reasonRow, selected && styles.reasonRowSelected]}
             >
-              <Text style={styles.reasonLabel}>{option.label}</Text>
+              <Text style={styles.reasonLabel}>{t(reasonLabelKey(value))}</Text>
             </Pressable>
           );
         })}
 
-        <Text style={styles.noteLabel}>Vill du berätta mer? (frivilligt)</Text>
+        <Text style={styles.noteLabel}>{t('ch2.noteLabel')}</Text>
         <TextInput
           value={note}
           onChangeText={(text) => setNote(text.slice(0, NOTE_MAX_LENGTH))}
-          placeholder="Valfritt…"
+          placeholder={t('ch2.notePlaceholder')}
           placeholderTextColor={colors.textMuted}
           multiline
           style={styles.noteInput}
@@ -78,12 +88,12 @@ export function ReportSheet({ visible, messageExcerpt, loading, onSubmit, onClos
         </Text>
 
         <PrimaryButton
-          label="Skicka rapport"
+          label={t('ch2.submit')}
           disabled={!reason}
           loading={loading}
           onPress={handleSubmit}
         />
-        <SecondaryLink label="Avbryt" onPress={handleClose} />
+        <SecondaryLink label={t('ch2.cancel')} onPress={handleClose} />
       </View>
     </Modal>
   );

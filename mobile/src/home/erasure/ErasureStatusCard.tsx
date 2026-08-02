@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -40,19 +41,28 @@ export function ErasureStatusCard({
   onCancel,
   cancelling,
 }: ErasureStatusCardProps) {
+  const { t } = useTranslation('home');
   const isGracePeriod = status === 'grace_period';
   const title = isGracePeriod
-    ? `Ditt konto raderas den ${scheduledFor ? formatSwedishDateWithYear(scheduledFor) : '(okänt datum)'}.`
-    : 'Väntar på att du bekräftar raderingen';
+    ? t('erasureStatusCard.titleGracePeriod', {
+        date: scheduledFor
+          ? formatSwedishDateWithYear(scheduledFor)
+          : t('erasureStatusCard.unknownDate'),
+      })
+    : t('erasureStatusCard.titleRequested');
   const body = isGracePeriod
     ? [
-        'Kontot funkar precis som vanligt fram tills dess. Ångrar du dig kan du avbryta när som helst innan dess.',
-        successorScreenName ? `${successorScreenName} tar över som kapten den dagen.` : null,
+        t('erasureStatusCard.gracePeriodBody'),
+        successorScreenName
+          ? t('erasureStatusCard.gracePeriodSuccessor', { successorScreenName })
+          : null,
       ]
         .filter(Boolean)
         .join(' ')
-    : 'Vi har mejlat en länk. Öppna mejlet och bekräfta för att sätta igång de 30 dagarna. Gör du ingenting stannar kontot precis som det är.';
-  const actionLabel = isGracePeriod ? 'Ångra raderingen' : 'Ångra begäran';
+    : t('erasureStatusCard.requestedBody');
+  const actionLabel = isGracePeriod
+    ? t('erasureStatusCard.cancelGracePeriod')
+    : t('erasureStatusCard.cancelRequested');
 
   return (
     <View style={styles.card}>
@@ -67,7 +77,9 @@ export function ErasureStatusCard({
         onPress={cancelling ? undefined : onCancel}
         style={({ pressed }) => [styles.action, pressed && !cancelling && styles.actionPressed]}
       >
-        <Text style={styles.actionText}>{cancelling ? 'Avbryter...' : actionLabel}</Text>
+        <Text style={styles.actionText}>
+          {cancelling ? t('erasureStatusCard.cancelling') : actionLabel}
+        </Text>
       </Pressable>
     </View>
   );

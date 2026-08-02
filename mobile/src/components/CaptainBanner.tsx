@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
@@ -23,6 +24,7 @@ interface CaptainBannerProps {
  * as `CatchUpBanner`: this needs to show "at the top of whichever tab is
  * open," not just inside "Laget". */
 export function CaptainBanner({ variant, onDismiss }: CaptainBannerProps) {
+  const { t } = useTranslation('common');
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -54,11 +56,11 @@ export function CaptainBanner({ variant, onDismiss }: CaptainBannerProps) {
       >
         {variant === 'promoted' ? (
           <>
-            <Text style={styles.text}>👑 Grattis! Du är nu lagets kapten.</Text>
-            <Text style={styles.sub}>Du hittar dina nya verktyg i Laget-fliken.</Text>
+            <Text style={styles.text}>{t('captainBanner.promotedTitle')}</Text>
+            <Text style={styles.sub}>{t('captainBanner.promotedSub')}</Text>
           </>
         ) : (
-          <Text style={styles.textNeutral}>Kaptensskapet gick vidare till en lagkompis.</Text>
+          <Text style={styles.textNeutral}>{t('captainBanner.demoted')}</Text>
         )}
       </Pressable>
     </Animated.View>

@@ -5,6 +5,7 @@ import { TeamPoolService } from '../team-pool/team-pool.service';
 import { TeamsService } from '../teams/teams.service';
 import { stockholmDateString } from '../common/time/stockholm-date.util';
 import { isSelfVerificationAge } from '../common/age/self-verification-age.util';
+import { PlayerLocale } from '../common/locale/player-locale.enum';
 import { PlayersService } from './players.service';
 
 interface PlayerMeResponse {
@@ -23,6 +24,12 @@ interface PlayerMeResponse {
     // independent gate alongside consentStatus above (see
     // docs/adr/0009-self-service-team-creation.md's 2026-07-27 addendum).
     teamJoinStatus: string;
+    // ADR-0014 Decision 2 — the post-auth "server value is source of
+    // truth" flip: this is the one call every AppShell mount already
+    // makes (`ensureIdentity`), so it's the actual restore point for a
+    // returning player's saved locale, not just a Profile-screen-only
+    // fetch of `GET /players/me/profile`.
+    locale: PlayerLocale;
   };
   team: {
     teamId: string;
@@ -102,6 +109,7 @@ export class PlayersController {
         consentStatus: player.parentalConsentStatus,
         isSelfVerification: isSelfVerificationAge(player.birthYear),
         teamJoinStatus: player.teamJoinStatus,
+        locale: player.locale,
       },
       team: {
         teamId: team.id,

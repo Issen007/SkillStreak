@@ -1,0 +1,123 @@
+{
+  "metricLabel": {
+    "fitness": "Kondition",
+    "drill": "Teknik/övning",
+    "running": "Löpning",
+    "other": "Annat",
+    "total": "Totalt (alla typer)"
+  },
+  "metricLabelInline": {
+    "fitness": "kondition",
+    "drill": "teknik/övning",
+    "running": "löpning",
+    "other": "annat",
+    "total": "totalt (alla typer)"
+  },
+  "unitLabel": {
+    "minutes": "minuter",
+    "sessions": "pass"
+  },
+  "g1": {
+    "loadError": "Kunde inte hämta lagets mål. Kolla din uppkoppling.",
+    "genericError": "Något gick fel.",
+    "retry": "Försök igen",
+    "pageHeading": "Veckans mål 🎯",
+    "emptyHeading": "🎯 Inget mål just nu",
+    "emptySub": "Er kapten sätter snart ett nytt mål för laget!",
+    "seeHistory": "Se tidigare mål",
+    "cancelGoal": "Avbryt målet",
+    "editDraft": "Redigera",
+    "activateNow": "Aktivera nu",
+    "activateBlockedExplain": "Ni har redan ett aktivt mål. Det här sparas som utkast tills det är klart, eller tills du avbryter det andra.",
+    "setNewGoal": "+ Sätt veckans mål",
+    "activatedToast": "Målet är aktiverat — laget ser det nu.",
+    "genericErrorToast": "Något gick fel. Testa igen.",
+    "cancelConfirmTitle": "Avbryta \"{{title}}\"?",
+    "cancelConfirmBody": "Loggad träning påverkas inte, men den räknas inte längre mot ett mål.",
+    "cancelConfirmCancel": "Avbryt",
+    "cancelConfirmConfirm": "Ja, avbryt",
+    "historyHeading": "Tidigare mål",
+    "historyCompleted": "Avslutad",
+    "historyCancelled": "Avbruten",
+    "historyTally": "{{completed}} av {{eligible}} lagkamrater klara · +{{bonus}}p bonus",
+    "historyEmpty": "Inga tidigare mål än.",
+    "back": "Tillbaka"
+  },
+  "builder": {
+    "draftSavedToast": "Målet är sparat!",
+    "activatedToast": "Målet är aktiverat — laget ser det nu.",
+    "genericError": "Något gick fel. Testa igen."
+  },
+  "g1d": {
+    "heading": "Lagkompisarnas status",
+    "subHeading": "för \"{{goalTitle}}\"",
+    "doneSectionLabel": "✅ Klara ({{count}})",
+    "inProgressSectionLabel": "⏳ Inte klara än ({{count}})",
+    "excludedSectionLabel": "➖ Inte med denna vecka ({{count}})",
+    "back": "Tillbaka",
+    "exclusion": {
+      "joinedAfterStart": "Gick med efter att målet redan startat",
+      "consentPending": "Väntar på godkännande från förälder ⏳",
+      "consentRevoked": "Pausad ⏸️",
+      "teamJoinPending": "Väntar på att bli godkänd i laget ⏳"
+    }
+  },
+  "kb1": {
+    "heading": "Sätt lagets mål för veckan",
+    "sub": "Ge det ett kul namn — det här är vad hela laget ser.",
+    "titleLabel": "Titel",
+    "titlePlaceholder": "T.ex. Zorro-finter-utmaningen",
+    "descriptionLabel": "Beskrivning",
+    "descriptionPlaceholder": "T.ex. Gör så många zorro-finter ni kan tillsammans innan fredag!",
+    "next": "Nästa",
+    "cancel": "Avbryt"
+  },
+  "kb2": {
+    "heading": "Vad ska varje spelare klara den här veckan?",
+    "sub": "Varje spelare i laget behöver nå målet på egen hand — välj om det räknas i minuter eller pass, och vilken typ av träning som gäller.",
+    "unitMinutes": "⏱️ Minuter",
+    "unitSessions": "🔁 Antal pass",
+    "unitHelper": "Ett pass = en loggad träning, oavsett hur lång den var.",
+    "targetLabel": "Mål per spelare ({{unit}})",
+    "placeholderMinutes": "T.ex. 20",
+    "placeholderSessions": "T.ex. 3",
+    "helper": "Det här är målet varje spelare behöver nå på egen hand — inte lagets totalsumma.",
+    "previewText": "Varje spelare i laget behöver samla {{value}} {{unit}} {{metric}} innan målet slutar.",
+    "next": "Nästa",
+    "back": "Tillbaka"
+  },
+  "kb3": {
+    "heading": "När börjar och slutar veckans mål?",
+    "startDateLabel": "Startdatum",
+    "endDateLabel": "Slutdatum",
+    "dateOrderError": "Slutdatum måste vara efter startdatum.",
+    "next": "Nästa",
+    "back": "Tillbaka",
+    "doneButton": "Klar"
+  },
+  "kb4": {
+    "heading": "Så här ser det ut för laget",
+    "saveDraft": "Spara som utkast",
+    "activateBlockedExplain": "Ni har redan ett aktivt mål. Det här sparas som utkast tills det är klart, eller tills du avbryter det andra.",
+    "activateNow": "Aktivera nu",
+    "back": "Tillbaka"
+  },
+  "goalCard": {
+    "eyebrow": "Veckans mål 🎯",
+    "metChip": "Nått! 🎉",
+    "sub": "Satt av lagets kapten",
+    "previewCallout": "Så här ser kortet ut när målet är aktivt — riktiga lagkamrater och vem som är klar visas då.",
+    "headlineMuted": "Ingen i laget kan tävla om det här målet just nu.",
+    "headline": "{{completed}} av {{eligible}} lagkamrater klara",
+    "metricChip": "{{icon}} {{label}} · {{value}} {{unit}} var",
+    "endDate": "Slutar {{date}}",
+    "detailLink": "Se vem som är klar →"
+  },
+  "teammateStatusRow": {
+    "inProgress": "På gång",
+    "notStarted": "Inte startat än",
+    "progressCaption": "{{progress}} av {{target}} {{unit}}",
+    "done": "Klar ✓",
+    "excludedChip": "Inte med denna vecka"
+  }
+}

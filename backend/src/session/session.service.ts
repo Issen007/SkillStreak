@@ -222,6 +222,7 @@ export class SessionService {
         teamName: team?.name ?? '',
         code,
         expiresInMinutes: Math.round(SESSION_REISSUE_CODE_TTL_MS / 60_000),
+        locale: targetPlayer.locale,
       });
       await this.mailService.sendMail({
         to: parentContact,

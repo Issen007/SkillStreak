@@ -1,0 +1,86 @@
+{
+  "ch0": {
+    "heading": "Sådan fungerer holdchatten",
+    "bullet1": "Kun dit eget hold kan se det, du skriver her.",
+    "bullet2": "Føles noget forkert? Du kan anmelde en besked eller blokere en person, så du ikke ser flere af deres beskeder.",
+    "bullet3": "Nogle ord virker ikke her. Hvis en besked ikke kan sendes, så prøv at skrive den om.",
+    "dismiss": "Okay, forstået!"
+  },
+  "ch1": {
+    "heading": "Holdchat 💬",
+    "blockedLink": "🚫 Blokerede",
+    "loadError": "Kunne ikke hente holdchatten. Tjek din forbindelse.",
+    "retry": "Prøv igen",
+    "emptyHeading": "Ingen beskeder endnu",
+    "emptySub": "Skriv den første besked til holdet!",
+    "filterRejected": "Beskeden blev ikke sendt — den indeholdt ord, der ikke virker her. Prøv at skrive den om! ✍️",
+    "sendRateLimited": "Du sender beskeder lidt hurtigt lige nu. Vent et lille øjeblik, så virker det igen.",
+    "genericError": "Noget gik galt. Prøv igen.",
+    "clipGoneOnSend": "Klippet kunne ikke sendes — det findes ikke længere. Nu kan du sende resten selv.",
+    "messageNotFoundToast": "Den besked findes ikke længere.",
+    "alreadyReportedToast": "Du har allerede anmeldt denne besked.",
+    "reportRateLimitedToast": "Du har anmeldt en del på det seneste. Vent et lille øjeblik, før du anmelder igen.",
+    "clipNotFoundToast": "Den video findes ikke længere.",
+    "clipAlreadyReportedToast": "Du har allerede anmeldt denne video.",
+    "clipReportRateLimitedToast": "Du har anmeldt en del på det seneste. Vent et lille øjeblik, før du anmelder igen.",
+    "blockedToast": "Du ser ikke længere beskeder eller klip fra {{screenName}}."
+  },
+  "ch2": {
+    "excerpt": "Du anmelder: \"{{excerpt}}…\"",
+    "heading": "Hvorfor anmelder du denne besked?",
+    "reasonBullying": "Mobning",
+    "reasonInappropriateLanguage": "Upassende sprog",
+    "reasonSpam": "Spam",
+    "reasonOther": "Andet",
+    "noteLabel": "Vil du fortælle mere? (valgfrit)",
+    "notePlaceholder": "Valgfrit…",
+    "submit": "Send anmeldelse",
+    "cancel": "Annuller"
+  },
+  "ch3": {
+    "heading": "Tak, fordi du sagde det.",
+    "body": "Vi har modtaget din anmeldelse. Du behøver ikke gøre mere — og ingen får at vide, at det var dig, der anmeldte.",
+    "followUp": "Vil du også slippe for at se flere beskeder fra den person?",
+    "block": "Bloker {{screenName}}",
+    "noThanks": "Nej tak",
+    "done": "Færdig"
+  },
+  "ch4": {
+    "body": "Hvis du blokerer {{screenName}}, holder du op med at se deres beskeder i holdchatten og deres Shorts i Shorts-feedet. {{screenName}} får ikke at vide, at du har blokeret dem.",
+    "confirm": "Bloker {{screenName}}",
+    "cancel": "Annuller"
+  },
+  "ch5": {
+    "heading": "Blokerede holdkammerater",
+    "headingSub": "En blokering gælder både holdchatten og Shorts.",
+    "empty": "Du har ikke blokeret nogen.",
+    "unblock": "Ophæv blokering",
+    "back": "Tilbage",
+    "unblockedToast": "Du ser igen beskeder fra {{screenName}}.",
+    "genericError": "Noget gik galt. Prøv igen."
+  },
+  "ch6": {
+    "heading": "Vedhæft et klip",
+    "loadError": "Kunne ikke hente klip. Tjek din forbindelse.",
+    "retry": "Prøv igen",
+    "emptyHeading": "Ingen klip at vedhæfte endnu",
+    "emptySub": "Ingen på holdet har uploadet et klip endnu. Gå til Klip-fanen for at uploade det første!",
+    "goToClips": "Gå til Klip",
+    "showMore": "Vis flere klip"
+  },
+  "composeBar": {
+    "lockedNote": "Venter på godkendelse, før du kan sende beskeder. Du kan stadig læse, hvad holdet skriver.",
+    "placeholder": "Skriv noget til holdet…",
+    "clipChipLabel": "Fra {{screenName}}"
+  },
+  "messageBubble": {
+    "reportMessage": "🚩 Anmeld beskeden",
+    "reportClip": "🚩 Anmeld klippet"
+  },
+  "clipEmbed": {
+    "attribution": "Klip af {{screenName}}"
+  },
+  "clipUnavailable": {
+    "text": "🎬 Videoen er ikke længere tilgængelig."
+  }
+}

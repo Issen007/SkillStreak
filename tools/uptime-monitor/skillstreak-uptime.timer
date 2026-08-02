@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the SkillStreak uptime checker every 2 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+Unit=skillstreak-uptime.service
+
+[Install]
+WantedBy=timers.target

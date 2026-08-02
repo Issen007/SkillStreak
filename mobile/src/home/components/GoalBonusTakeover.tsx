@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
+import i18n from '../../i18n';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 
@@ -9,7 +11,9 @@ interface GoalBonusTakeoverProps {
   onDismiss: () => void;
 }
 
-const numberFormatter = new Intl.NumberFormat('sv-SE');
+function numberFormatter() {
+  return new Intl.NumberFormat(i18n.language);
+}
 
 /** Screen G2 — "Laget nådde veckans mål!" (docs/design/phase2-flows.md Part
  * 3): the bigger, rarer takeover shown to whichever player's training log
@@ -22,6 +26,7 @@ const numberFormatter = new Intl.NumberFormat('sv-SE');
  * team-vs-individual color split, and white text on the gold fill per the
  * guide's own contrast rule ("solid flame or gold fill with white text"). */
 export function GoalBonusTakeover({ awardedPoints, onDismiss }: GoalBonusTakeoverProps) {
+  const { t } = useTranslation('home');
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.92)).current;
 
@@ -47,10 +52,10 @@ export function GoalBonusTakeover({ awardedPoints, onDismiss }: GoalBonusTakeove
       pointerEvents="none"
     >
       <Text style={styles.icon}>🏆🎉</Text>
-      <Text style={styles.headline}>Laget nådde veckans mål!</Text>
-      <Text style={styles.sub}>Din träning var den sista pusselbiten — nu har alla i laget klarat sitt mål!</Text>
+      <Text style={styles.headline}>{t('goalBonusTakeover.headline')}</Text>
+      <Text style={styles.sub}>{t('goalBonusTakeover.sub')}</Text>
       <Text style={styles.points}>
-        +{numberFormatter.format(awardedPoints)} bonuspoäng till lagets pott! 🥇
+        {t('goalBonusTakeover.points', { points: numberFormatter().format(awardedPoints) })}
       </Text>
     </Animated.View>
   );

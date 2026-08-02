@@ -1,10 +1,21 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
+import { PausedClipThumbnail } from './PausedClipThumbnail';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 
 const MAX_LENGTH = 500;
 const COUNTER_THRESHOLD = 400;
+
+/** The composer's attached-clip preview — just enough to render the chip
+ * and send the request, not the full `ClipFeedItem` shape (`ChatScreen`
+ * hangs onto that separately for the picker's own state). */
+export interface ComposerAttachedClip {
+  clipId: string;
+  uploaderScreenName: string;
+  playbackUrl: string;
+}
 
 interface ComposeBarProps {
   value: string;
@@ -20,9 +31,19 @@ interface ComposeBarProps {
    * the input per the contract's explicit instruction, nothing is
    * cleared. */
   filterErrorText: string | null;
+  /** ADR-0017 Part E — the clip picked in CH6, if any. */
+  attachedClip: ComposerAttachedClip | null;
+  onOpenClipPicker: () => void;
+  onRemoveClip: () => void;
+  /** Locked-state tap on the 🎬 button — surfaces the same existing toast
+   * copy the text input/send button already imply via `lockedNote` below,
+   * per the flow doc's "same lock treatment" instruction. */
+  onLockedAttachTap: (message: string) => void;
 }
 
-/** Screen CH1's bottom-fixed compose box. */
+/** Screen CH1's bottom-fixed compose box. Extended (ADR-0017 Part E) with a
+ * 🎬 attach-clip button left of the text input and a removable clip-preview
+ * chip above the row when a clip is attached. */
 export function ComposeBar({
   value,
   onChangeText,
@@ -30,18 +51,62 @@ export function ComposeBar({
   sending,
   locked,
   filterErrorText,
+  attachedClip,
+  onOpenClipPicker,
+  onRemoveClip,
+  onLockedAttachTap,
 }: ComposeBarProps) {
+  const { t } = useTranslation('chat');
   const trimmed = value.trim();
   const overLimit = value.length > MAX_LENGTH;
-  const canSend = !locked && !sending && trimmed.length > 0 && !overLimit;
+  // ADR-0017 Decision 4 — enabled when EITHER non-empty text OR an
+  // attached clip (or both), not text-only as Part B originally specified.
+  const canSend = !locked && !sending && !overLimit && (trimmed.length > 0 || attachedClip !== null);
+  const lockedNoteText = t('composeBar.lockedNote');
+
+  const handleTapAttach = () => {
+    if (locked) {
+      onLockedAttachTap(lockedNoteText);
+      return;
+    }
+    onOpenClipPicker();
+  };
 
   return (
     <View style={styles.container}>
+      {attachedClip ? (
+        <View style={styles.clipChip}>
+          <View style={styles.clipThumbWrap}>
+            <PausedClipThumbnail playbackUrl={attachedClip.playbackUrl} style={styles.clipThumb} />
+          </View>
+          <Text style={styles.clipChipLabel} numberOfLines={1}>
+            {t('composeBar.clipChipLabel', { screenName: attachedClip.uploaderScreenName })}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onRemoveClip}
+            hitSlop={10}
+            style={styles.clipChipRemove}
+          >
+            <Text style={styles.clipChipRemoveIcon}>✕</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <View style={styles.bar}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: locked }}
+          onPress={handleTapAttach}
+          style={[styles.attachButton, locked && styles.attachButtonLocked]}
+        >
+          <Text style={styles.attachIcon}>🎬</Text>
+        </Pressable>
+
         <TextInput
           value={value}
           onChangeText={onChangeText}
-          placeholder="Skriv något till laget…"
+          placeholder={t('composeBar.placeholder')}
           placeholderTextColor={colors.textMuted}
           editable={!locked && !sending}
           multiline
@@ -64,12 +129,7 @@ export function ComposeBar({
         </Text>
       ) : null}
 
-      {locked ? (
-        <Text style={styles.lockedNote}>
-          Väntar på godkännande innan du kan skicka meddelanden. Du kan fortfarande läsa vad laget
-          skriver.
-        </Text>
-      ) : null}
+      {locked ? <Text style={styles.lockedNote}>{lockedNoteText}</Text> : null}
 
       {filterErrorText ? <Text style={styles.filterError}>{filterErrorText}</Text> : null}
     </View>
@@ -84,12 +144,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 14,
-    gap: 4,
+    gap: 8,
   },
   bar: {
     flexDirection: 'row',
     gap: 8,
     alignItems: 'flex-end',
+  },
+  attachButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  attachButtonLocked: {
+    backgroundColor: colors.disabledBg,
+    borderColor: colors.disabledBg,
+  },
+  attachIcon: {
+    fontSize: 16,
   },
   input: {
     flex: 1,
@@ -142,5 +219,49 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: colors.error,
     lineHeight: 15,
+  },
+  clipChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    maxWidth: '80%',
+  },
+  clipThumbWrap: {
+    // ~60×80dp per the flow doc — big enough to recognize which clip it
+    // is, small enough not to crowd the compose row.
+    width: 60,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: colors.ink,
+  },
+  clipThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  clipChipLabel: {
+    flex: 1,
+    fontFamily: fonts.bodyBold,
+    fontSize: 11.5,
+    color: colors.ink,
+  },
+  clipChipRemove: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.disabledBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clipChipRemoveIcon: {
+    fontSize: 10,
+    color: colors.ink,
   },
 });

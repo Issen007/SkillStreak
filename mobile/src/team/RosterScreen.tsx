@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { RosterRow } from './components/RosterRow';
 import { ReminderActionSheet } from './components/ReminderActionSheet';
@@ -24,6 +25,7 @@ interface RosterScreenProps {
 /** Screen K2 — the captain-only full roster list. Self-contained fetch on
  * mount, same pattern as every other Phase 1/2 screen in this app. */
 export function RosterScreen({ teamId, onBack, onNotCaptain }: RosterScreenProps) {
+  const { t } = useTranslation('team');
   const [players, setPlayers] = useState<RosterPlayer[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -43,11 +45,11 @@ export function RosterScreen({ teamId, onBack, onNotCaptain }: RosterScreenProps
         onNotCaptain();
         return;
       }
-      setLoadError('Kunde inte hämta laglistan. Kolla din uppkoppling.');
+      setLoadError(t('k2.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [teamId, onNotCaptain]);
+  }, [teamId, onNotCaptain, t]);
 
   useEffect(() => {
     void fetchRoster();
@@ -59,14 +61,14 @@ export function RosterScreen({ teamId, onBack, onNotCaptain }: RosterScreenProps
     try {
       await sendConsentReminder(sheetTarget.playerId);
       setSheetTarget(null);
-      setToastMessage('Påminnelse skickad.');
+      setToastMessage(t('k2.reminderSentToast'));
     } catch (err) {
       if (err instanceof ApiError && err.code === 'consent_not_pending') {
         setSheetTarget(null);
-        setToastMessage('Den här spelaren väntar inte längre på godkännande.');
+        setToastMessage(t('k2.consentNoLongerPendingToast'));
         void fetchRoster();
       } else {
-        setToastMessage('Något gick fel. Testa igen.');
+        setToastMessage(t('k2.reminderErrorToast'));
       }
     } finally {
       setSheetLoading(false);
@@ -83,13 +85,13 @@ export function RosterScreen({ teamId, onBack, onNotCaptain }: RosterScreenProps
       // auth-and-session-reissue.md's 2026-07-27 addendum) — it went
       // straight to the player's own parent_contact by email, so this
       // toast can only confirm the request went out, not show anything.
-      setToastMessage('Inloggningskod skickad till förälder/vårdnadshavare.');
+      setToastMessage(t('k2.reissueSentToast'));
     } catch (err) {
       if (err instanceof ApiError && err.code === 'session_reissue_rate_limited') {
         setSheetTarget(null);
-        setToastMessage('En kod skickades nyss — vänta någon minut innan du skickar en till.');
+        setToastMessage(t('k2.reissueRateLimitedToast'));
       } else {
-        setToastMessage('Något gick fel. Testa igen.');
+        setToastMessage(t('k2.reminderErrorToast'));
       }
     } finally {
       setReissueLoading(false);
@@ -107,9 +109,9 @@ export function RosterScreen({ teamId, onBack, onNotCaptain }: RosterScreenProps
   if (loadError || !players) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>{loadError ?? 'Något gick fel.'}</Text>
+        <Text style={styles.errorText}>{loadError ?? t('k2.genericError')}</Text>
         <Text style={styles.retryText} onPress={() => void fetchRoster()}>
-          Försök igen
+          {t('k2.retry')}
         </Text>
       </View>
     );
@@ -118,7 +120,7 @@ export function RosterScreen({ teamId, onBack, onNotCaptain }: RosterScreenProps
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Laget i detalj</Text>
+        <Text style={styles.heading}>{t('k2.heading')}</Text>
         {players.map((player) => (
           <RosterRow
             key={player.playerId}
@@ -130,7 +132,7 @@ export function RosterScreen({ teamId, onBack, onNotCaptain }: RosterScreenProps
             onPress={() => setSheetTarget(player)}
           />
         ))}
-        <SecondaryLink label="Tillbaka" onPress={onBack} />
+        <SecondaryLink label={t('k2.back')} onPress={onBack} />
       </ScrollView>
 
       <ReminderActionSheet

@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
+import i18n from '../i18n';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 
@@ -9,7 +11,9 @@ interface CatchUpBannerProps {
   onDismiss: () => void;
 }
 
-const numberFormatter = new Intl.NumberFormat('sv-SE');
+function numberFormatter() {
+  return new Intl.NumberFormat(i18n.language);
+}
 
 /** Screen G3 — the one-time "catch-up" moment for every teammate who
  * *didn't* trigger the weekly-goal bonus themselves (docs/design/
@@ -22,6 +26,7 @@ const numberFormatter = new Intl.NumberFormat('sv-SE');
  * immediately on first display, not on dismissal (see
  * `AppShell.checkForCatchUp`). */
 export function CatchUpBanner({ awardedPoints, onDismiss }: CatchUpBannerProps) {
+  const { t } = useTranslation('common');
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -46,8 +51,7 @@ export function CatchUpBanner({ awardedPoints, onDismiss }: CatchUpBannerProps) 
     <Animated.View style={[styles.container, { opacity }]} pointerEvents="box-none">
       <Pressable onPress={handleTap} style={styles.pressable}>
         <Text style={styles.text}>
-          🎉 Alla i laget klarade veckans mål! Laget fick +{numberFormatter.format(awardedPoints)}{' '}
-          bonuspoäng.
+          {t('catchUpBanner.message', { points: numberFormatter().format(awardedPoints) })}
         </Text>
       </Pressable>
     </Animated.View>

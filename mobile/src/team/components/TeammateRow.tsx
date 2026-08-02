@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -25,6 +26,7 @@ interface TeammateRowProps {
  * teammates response. Shared between Screen K1's baseline "Spelare i
  * laget" section and Screen K4's transfer-target list. */
 export function TeammateRow({ screenName, avatarId, isCaptain, onPress, isSelf = false }: TeammateRowProps) {
+  const { t } = useTranslation('team');
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
   const tappable = !isSelf && onPress !== undefined;
 
@@ -34,7 +36,7 @@ export function TeammateRow({ screenName, avatarId, isCaptain, onPress, isSelf =
         <Text style={styles.avatarEmoji}>{emoji}</Text>
       </View>
       <Text style={styles.name}>{screenName}</Text>
-      {isSelf ? <Text style={styles.selfTag}>(Du)</Text> : null}
+      {isSelf ? <Text style={styles.selfTag}>{t('teammateRow.selfTag')}</Text> : null}
       {isCaptain ? <Text style={styles.crown}>👑</Text> : null}
     </>
   );

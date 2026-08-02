@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -19,10 +20,12 @@ interface TrainedButtonProps {
  *                 for today).
  * - `disabled`  — H4/O7, visibly present but locked, never hidden. */
 export function TrainedButton({ variant, onPress }: TrainedButtonProps) {
+  const { t } = useTranslation('home');
+
   if (variant === 'disabled') {
     return (
       <View style={[styles.base, styles.disabled]}>
-        <Text style={[styles.label, styles.disabledLabel]}>Jag har tränat 🔒</Text>
+        <Text style={[styles.label, styles.disabledLabel]}>{t('trainedButton.disabled')}</Text>
       </View>
     );
   }
@@ -34,7 +37,7 @@ export function TrainedButton({ variant, onPress }: TrainedButtonProps) {
         onPress={onPress}
         style={({ pressed }) => [styles.base, styles.secondary, pressed && styles.pressed]}
       >
-        <Text style={[styles.label, styles.secondaryLabel]}>Logga en till träning</Text>
+        <Text style={[styles.label, styles.secondaryLabel]}>{t('trainedButton.secondary')}</Text>
       </Pressable>
     );
   }
@@ -45,7 +48,7 @@ export function TrainedButton({ variant, onPress }: TrainedButtonProps) {
       onPress={onPress}
       style={({ pressed }) => [styles.base, styles.primary, pressed && styles.pressed]}
     >
-      <Text style={[styles.label, styles.primaryLabel]}>Jag har tränat</Text>
+      <Text style={[styles.label, styles.primaryLabel]}>{t('trainedButton.primary')}</Text>
     </Pressable>
   );
 }

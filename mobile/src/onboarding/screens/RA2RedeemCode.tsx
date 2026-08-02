@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -26,6 +27,7 @@ interface RA2RedeemCodeProps {
  * "we can't confirm, check your inbox" honesty rather than promising a
  * code is definitely on its way. */
 export function RA2RedeemCode({ onRedeemed, onRetryRequest }: RA2RedeemCodeProps) {
+  const { t } = useTranslation('onboarding');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,9 +43,9 @@ export function RA2RedeemCode({ onRedeemed, onRetryRequest }: RA2RedeemCodeProps
       onRedeemed();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'invalid_or_expired_code') {
-        setError('Den koden fungerar inte längre. Kolla att du skrev rätt, eller be om en ny.');
+        setError(t('ra2.invalidCodeError'));
       } else {
-        setError('Något gick fel. Kolla din uppkoppling och testa igen.');
+        setError(t('shared.genericError'));
       }
     } finally {
       setLoading(false);
@@ -54,11 +56,8 @@ export function RA2RedeemCode({ onRedeemed, onRetryRequest }: RA2RedeemCodeProps
     <ScreenContainer scroll>
       <View style={styles.spacerTop} />
       <Text style={styles.icon}>📩</Text>
-      <Text style={styles.heading}>Kolla inkorgen</Text>
-      <Text style={styles.sub}>
-        Om uppgifterna stämde har vi skickat en kod till din (eller din
-        förälders) e-post. Ange koden nedan för att logga in igen.
-      </Text>
+      <Text style={styles.heading}>{t('ra2.heading')}</Text>
+      <Text style={styles.sub}>{t('ra2.sub')}</Text>
 
       <TextField
         value={code}
@@ -66,7 +65,7 @@ export function RA2RedeemCode({ onRedeemed, onRetryRequest }: RA2RedeemCodeProps
           setCode(text);
           if (error) setError(null);
         }}
-        placeholder="T.ex. H4K7QWXP"
+        placeholder={t('ra2.codePlaceholder')}
         autoCapitalize="characters"
         autoCorrect={false}
         autoComplete="off"
@@ -78,13 +77,13 @@ export function RA2RedeemCode({ onRedeemed, onRetryRequest }: RA2RedeemCodeProps
       <View style={styles.spacer} />
 
       <PrimaryButton
-        label="Logga in"
+        label={t('ra2.submit')}
         onPress={handleSubmit}
         disabled={code.trim().length === 0}
         loading={loading}
       />
       <Text style={styles.backLink} onPress={onRetryRequest}>
-        Fick du ingen kod? Försök igen
+        {t('ra2.retryLink')}
       </Text>
     </ScreenContainer>
   );

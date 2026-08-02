@@ -1,0 +1,86 @@
+{
+  "k1": {
+    "heading": "Tým 👥",
+    "loadError": "Tým se nepodařilo načíst. Zkontroluj připojení.",
+    "genericError": "Něco se pokazilo.",
+    "retry": "Zkusit znovu",
+    "pendingSectionLabel": "Čeká na schválení",
+    "teammatesSectionLabel": "Hráči v týmu",
+    "inviteCodeLabel": "Kód týmu",
+    "inviteButton": "📨 Pozvat kamaráda",
+    "captainBadge": "👑 Jsi kapitán",
+    "captainSeeDetail": "Zobrazit tým podrobně",
+    "captainManageGoal": "Spravovat cíl týdne",
+    "captainSwapCaptain": "Změnit kapitána",
+    "notCaptainToast": "Tahle stránka je jen pro kapitána týmu.",
+    "approveSuccessToast": "{{screenName}} je teď v týmu schválen/a! 🎉",
+    "approveErrorToast": "Teď se nepodařilo schválit. Zkus to znovu.",
+    "rejectSuccessToast": "{{screenName}} byl/a odmítnut/a.",
+    "rejectErrorToast": "Teď se nepodařilo odmítnout. Zkus to znovu.",
+    "captainTransferredToast": "Kapitánství bylo předáno hráči {{newCaptainScreenName}}. 👑",
+    "linkCopiedToast": "Odkaz zkopírován!"
+  },
+  "k2": {
+    "heading": "Tým podrobně",
+    "loadError": "Soupisku se nepodařilo načíst. Zkontroluj připojení.",
+    "genericError": "Něco se pokazilo.",
+    "retry": "Zkusit znovu",
+    "back": "Zpět",
+    "reminderSentToast": "Připomínka odeslána.",
+    "consentNoLongerPendingToast": "Tenhle hráč už nečeká na schválení.",
+    "reminderErrorToast": "Něco se pokazilo. Zkus to znovu.",
+    "reissueSentToast": "Přihlašovací kód odeslán rodiči/zákonnému zástupci.",
+    "reissueRateLimitedToast": "Kód byl právě odeslán — počkej minutu, než pošleš další."
+  },
+  "k4": {
+    "heading": "Vyber nového kapitána",
+    "sub": "Ten, koho vybereš, se hned stane novým kapitánem týmu.",
+    "loadError": "Soupisku se nepodařilo načíst. Zkontroluj připojení.",
+    "genericError": "Něco se pokazilo.",
+    "retry": "Zkusit znovu",
+    "back": "Zpět",
+    "targetNotFoundToast": "Tohohle hráče se už nepodařilo najít. Seznam se aktualizuje.",
+    "genericErrorToast": "Něco se pokazilo. Zkus to znovu."
+  },
+  "consentChips": {
+    "approved": "{{count}} schváleno ✓",
+    "pending": "{{count}} čeká ⏳",
+    "revoked": "{{count}} pozastaveno ⏸️"
+  },
+  "inviteFriendSheet": {
+    "heading": "Pozvat kamaráda",
+    "subExpoGo": "Ať naskenují kód a otevřou aplikaci v Expo Go, pak zadají kód týmu níže.",
+    "subDefault": "Ať naskenují kód, nebo sdílej odkaz — stačí, když zadají svou přezdívku, tým je už vyplněný.",
+    "codeLabel": "Kód týmu",
+    "shareButton": "Sdílet pozvánku",
+    "close": "Zavřít",
+    "shareMessageExpoGo": "Přidej se k týmu {{teamName}} ve SkillStreaku! Otevři odkaz v Expo Go a po spuštění aplikace zadej kód týmu {{inviteCode}}: {{joinUrl}}",
+    "shareMessageDefault": "Přidej se k týmu {{teamName}} ve SkillStreaku! Použij kód týmu {{inviteCode}} nebo klikni na odkaz: {{joinUrl}}"
+  },
+  "pendingJoinRow": {
+    "reject": "Odmítnout",
+    "approve": "Schválit"
+  },
+  "reminderActionSheet": {
+    "sendReminder": "Poslat připomínku rodiči",
+    "sendReissue": "Poslat nový přihlašovací odkaz",
+    "cancel": "Zrušit"
+  },
+  "rosterRow": {
+    "statusApproved": "Schváleno ✓",
+    "statusPending": "Čeká ⏳",
+    "statusRevoked": "Pozastaveno ⏸️",
+    "statusNotRequested": "Zatím neodesláno",
+    "lastTrained": "Naposledy zaznamenáno: {{date}}",
+    "notTrainedYet": "Zatím nezaznamenal/a trénink"
+  },
+  "teammateRow": {
+    "selfTag": "(Ty)"
+  },
+  "captainTransferConfirmSheet": {
+    "heading": "Udělat z {{screenName}} kapitána?",
+    "body": "{{screenName}} hned získá kapitánská tlačítka. Ty zůstáváš v týmu úplně stejně jako dřív — a pokud bude {{screenName}} chtít, může ti to kdykoli později zase předat, přesně jako to teď děláš ty.",
+    "confirmButton": "Ano, udělat z {{screenName}} kapitána",
+    "cancel": "Zrušit"
+  }
+}

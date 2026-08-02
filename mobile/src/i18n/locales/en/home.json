@@ -1,0 +1,204 @@
+{
+  "greeting": "Hi, <bold>{{screenName}}</bold>!",
+  "shared": {
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "genericError": "Something went wrong.",
+    "genericErrorTryAgain": "Something went wrong. Try again.",
+    "save": "Save",
+    "edit": "Edit"
+  },
+  "appHeader": {
+    "profileAccessibilityLabel": "Your profile",
+    "workingTitle": "working title"
+  },
+  "homeScreen": {
+    "loadError": "Couldn't load your data. Check your connection.",
+    "extraLogToast": "Awesome work! +{{minutes}} min to the team pot 🥇",
+    "consentRequiredToast": "We still need approval before you can log training. We're refreshing this for you.",
+    "successBanner": "🔥 Nice work! {{count}} days in a row.",
+    "successFloatingText": "+{{minutes}} min to the team"
+  },
+  "activitySheet": {
+    "heading": "What did you train?",
+    "durationHeading": "How long?",
+    "submit": "Done!",
+    "activities": {
+      "fitness": "Fitness",
+      "drill": "Skills/drills",
+      "running": "Running",
+      "other": "Other"
+    },
+    "durations": {
+      "d10": "10 min",
+      "d15": "15 min",
+      "d20": "20 min",
+      "d30plus": "30+ min"
+    }
+  },
+  "goalBonusTakeover": {
+    "headline": "The team hit this week's goal!",
+    "sub": "Your training was the final piece — now everyone on the team has hit their goal!",
+    "points": "+{{points}} bonus points to the team pot! 🥇"
+  },
+  "streakCard": {
+    "loggedTodayChip": "Logged today ✓",
+    "count": "{{count}} days",
+    "label": "Your personal streak — keep it up!"
+  },
+  "teamPoolCard": {
+    "title": "🥇 World Championship Gold table",
+    "points": "{{points}} points",
+    "rankLine": "{{rank}} place out of {{teamCount}} teams",
+    "noActiveSeason": "No active season right now",
+    "noActiveSeasonSub": "You'll be back in as soon as a new season starts.",
+    "effortLine": "🌟 {{effortRank}} best team effort",
+    "tapHint": "See the table →"
+  },
+  "trainedButton": {
+    "disabled": "I've trained 🔒",
+    "secondary": "Log another session",
+    "primary": "I've trained"
+  },
+  "waitingCard": {
+    "titleBothPending": "Waiting for approval",
+    "titleJoinPending": "Waiting for the team captain",
+    "titleConsentPending": "Waiting for approval",
+    "titleSelfVerificationPending": "Waiting for you to verify",
+    "titlePaused": "Training is paused right now",
+    "consentPartSelfVerification": "We've sent a verification link to your email or phone number.",
+    "consentPartParent": "We've asked a parent or guardian for permission.",
+    "joinPart": "The team captain needs to approve you joining the team.",
+    "suffixBoth": "As soon as both are done, we'll unlock the button below!",
+    "suffixJoinOnly": "As soon as the captain approves, we'll unlock the button below!",
+    "suffixConsentOnly": "As soon as that's done, we'll unlock the button below!",
+    "pausedBody": "A parent or guardian has withdrawn their approval. Talk to your coach if you have questions.",
+    "refresh": "Check again",
+    "refreshing": "Checking..."
+  },
+  "profileScreen": {
+    "loadError": "Couldn't load your profile. Check your connection.",
+    "savedToast": "Saved!",
+    "contactChangeRateLimited": "You've already asked for a change recently — wait a bit before trying again.",
+    "contactChangeGenericError": "Something went wrong. Check the details and try again.",
+    "contactChangeConfirmedToast": "Confirmed! It takes effect in about {{hours}} hr. The old address can cancel it via the email we sent there.",
+    "codeInvalid": "That code doesn't work anymore. Check you typed it right, or ask for a new one.",
+    "codeGenericError": "Something went wrong. Check your connection and try again.",
+    "erasureTeamInfoError": "Couldn't load team info. Try again.",
+    "erasureTeammatesError": "Couldn't load the team list. Check your connection.",
+    "erasureBlockedPendingContactChange": "You have a contact-info change in progress. It has to finish (or be cancelled) before you can delete your account — check back in a bit.",
+    "erasureRateLimited": "You just asked for this. Wait a bit and try again.",
+    "erasureSuccessorInvalid": "That player isn't on the team anymore. Choose someone else.",
+    "erasureStaleState": "Something has changed on the team since you opened this screen. Check your profile and try again.",
+    "erasureCancelledToast": "Done! Your account won't be deleted. 🎉",
+    "erasureCancelError": "Something went wrong. Reload the page and try again.",
+    "editName": {
+      "heading": "Your name",
+      "sub": "Optional — never shown to anyone else on the team, only you see it here.",
+      "placeholder": "First and last name"
+    },
+    "editAvatar": {
+      "heading": "Choose an avatar",
+      "sub": "No photo needed — just pick a character you like."
+    },
+    "requestChange": {
+      "heading": "Change contact address",
+      "sub": "Enter the new address. We'll send a code there to confirm, plus a heads-up to the old address that a change is happening.",
+      "placeholder": "New email address or phone number",
+      "submit": "Send code"
+    },
+    "confirmChange": {
+      "heading": "Check your inbox",
+      "sub": "We've sent a code to the new address. Enter it below to confirm the change.",
+      "placeholder": "e.g. H4K7QWXP",
+      "submit": "Confirm",
+      "resend": "Didn't get a code? Try again"
+    },
+    "view": {
+      "heading": "Your profile",
+      "avatarLabel": "Avatar",
+      "nameLabel": "Name",
+      "nameNotSet": "Not set",
+      "addName": "Add",
+      "birthYearLabel": "Birth year",
+      "birthYearHelper": "Can't be changed yourself — contact your team's coach if it needs fixing.",
+      "contactLabel": "Contact address",
+      "changeContact": "Change",
+      "back": "Back",
+      "logout": "Log out",
+      "deleteAccount": "Delete my account"
+    }
+  },
+  "erasureCheckEmail": {
+    "heading": "Check your inbox",
+    "body": "We've sent an email with a link. Open the email and tap the link to start the 30 days — it's fine to wait and do it tomorrow too.",
+    "mutedBody": "If you don't tap the link, nothing happens — your account stays exactly as it is.",
+    "cta": "Back to profile"
+  },
+  "erasureConfirmSheet": {
+    "heading": "Are you sure?",
+    "body": "We'll send an email that has to be confirmed to start the 30 days. If you change your mind, you can cancel anytime before they're up.",
+    "successorBody": "{{successorScreenName}} takes over as captain the day the account is deleted.",
+    "confirm": "Yes, delete my account"
+  },
+  "erasureRequest": {
+    "heading": "Delete your account?",
+    "bulletHistory": "All your training history, badges, and clips are deleted forever.",
+    "bulletTeam": "You disappear from the team. Your messages in team chat become anonymous — the team and your teammates aren't affected otherwise.",
+    "bulletFinal": "There's no undoing it once the 30 days are up.",
+    "tip": "We'll send an email that you (or a parent or guardian) have to confirm — just tapping the button below doesn't do anything yet. As soon as the email is confirmed, you have 30 days to change your mind, and the account works exactly as normal in the meantime.",
+    "captainTitle": "You're the team captain",
+    "captainBody": "You have to choose who takes over as captain before you can continue.",
+    "successorNotChosen": "No one chosen yet",
+    "chooseSuccessor": "Choose",
+    "changeSuccessor": "Change",
+    "lastPlayerWarning": "Right now you're the only one left on the team. If that's still true in 30 days, the whole team disappears when your account is deleted — points, clips, everything.",
+    "submit": "Delete my account"
+  },
+  "erasureStatusCard": {
+    "titleGracePeriod": "Your account will be deleted on {{date}}.",
+    "unknownDate": "(unknown date)",
+    "titleRequested": "Waiting for you to confirm the deletion",
+    "gracePeriodBody": "Your account works exactly as normal until then. If you change your mind, you can cancel anytime before then.",
+    "gracePeriodSuccessor": "{{successorScreenName}} takes over as captain that day.",
+    "requestedBody": "We've emailed you a link. Open the email and confirm to start the 30 days. If you do nothing, the account stays exactly as it is.",
+    "cancelGracePeriod": "Undo the deletion",
+    "cancelRequested": "Undo the request",
+    "cancelling": "Cancelling..."
+  },
+  "erasureSuccessor": {
+    "heading": "Who takes over as captain?",
+    "sub": "Whoever you choose becomes team captain the day your account is deleted — not before. You stay captain as normal until then.",
+    "done": "Done"
+  },
+  "leaderboard": {
+    "pageHeading": "The World Championship Gold Table 🥇",
+    "tabPoints": "🥇 Most points",
+    "tabEffort": "💪 Best team effort",
+    "loadError": "Couldn't load the table. Check your connection.",
+    "genericError": "Something went wrong.",
+    "retry": "Try again",
+    "back": "Back",
+    "effortNudge": "🌟 Your players are giving it their all! Check out Best team effort →",
+    "noActiveSeasonBanner": "Your team doesn't have an active season right now — but check out the other teams' points!",
+    "emptyPointsHeading": "No table to show yet.",
+    "emptyPointsSub": "Come back once more teams have an active season.",
+    "tieCaption": "Tied points share the same rank.",
+    "meTag": "Your team",
+    "pointsSuffix": "pts",
+    "effortCaption": "A fair average — so even smaller teams can win.",
+    "infoLink": "ⓘ How we work it out",
+    "noEffortBanner": "Your team isn't on this list yet — it needs at least one approved player.",
+    "emptyEffortHeading": "No team effort to show yet.",
+    "emptyEffortSub": "Come back once more teams have approved players.",
+    "playerCountSuffix": "players",
+    "pointsPerPlayerSuffix": "pts/player",
+    "infoSheet": {
+      "heading": "How we work out Best team effort",
+      "body1": "We compare how many points each team earns per player — not just the team's total. That way, even a small team can win by everyone giving it their all.",
+      "body2": "If a team is small, we count a bit carefully, so a few really good days don't accidentally hand first place to chance. The more players a team has, the more we trust their own average.",
+      "ownTeamLine": "Your team: {{pointsPerPlayer}} pts/player with {{playerCount}} players → {{adjustedScore}} pts once we count fairly.",
+      "gotIt": "Okay, got it!"
+    }
+  }
+}

@@ -13,6 +13,15 @@ export type TeamJoinStatus = 'pending' | 'approved' | 'rejected';
 
 export type ActivityType = 'fitness' | 'drill' | 'running' | 'other';
 
+// docs/adr/0014-multi-language-support.md Decision 1/2 (Fas 4.3, part a).
+// Mirrors the backend's `PlayerLocale` enum
+// (backend/src/common/locale/player-locale.enum.ts) exactly — a fixed
+// 8-value set (widened 2026-08-01 to add German/Czech/French), not a
+// freeform BCP-47 tag. Deliberately no region subtag (`nb`/`de`, never
+// `nb-NO`/`de-DE`) — the point is "which of 8 languages," never "where is
+// this device" (CLAUDE.md's no-location-tracking constraint).
+export type PlayerLocale = 'sv' | 'en' | 'fi' | 'da' | 'nb' | 'de' | 'cs' | 'fr';
+
 // --- 1. GET /teams/invite/:inviteCode --------------------------------------
 
 export interface InvitePreviewResponse {
@@ -34,6 +43,12 @@ export interface CreatePlayerRequest {
   // team instead of retrying. Absent -> byte-for-byte the previous
   // behavior (join-only, existing 404 if the code doesn't match).
   teamName?: string;
+  // NEW (docs/adr/0014-multi-language-support.md Decision 2, Fas 4.3) —
+  // the language chosen at Screen O0, submitted alongside everything else
+  // collected during onboarding. Optional so an old app build that hasn't
+  // shipped Screen O0 yet keeps working unchanged; the backend column
+  // defaults to `sv` when omitted.
+  locale?: PlayerLocale;
 }
 
 export interface CreatePlayerResponse {
@@ -102,6 +117,9 @@ export interface PlayerMeResponse {
     isSelfVerification: boolean;
     // Added 2026-07-27 for captain approval of new team joins.
     teamJoinStatus: TeamJoinStatus;
+    // ADR-0014 Decision 2 — restored into i18next by AppShell on every
+    // app boot (the post-auth "server value is source of truth" flip).
+    locale: PlayerLocale;
   };
   team: {
     teamId: string;
@@ -180,16 +198,29 @@ export interface RedeemSessionResponse {
 
 // docs/adr/0012-profile-page-and-contact-email-change.md (Fas 4.1).
 
+// docs/adr/0014-multi-language-support.md Decision 2 — the post-auth
+// "server value is source of truth" flip: AppShell calls
+// i18n.changeLanguage(locale) from this field once it's fetched, so a
+// returning player's saved choice wins over the device's own guess
+// (src/i18n/deviceLocale.ts), which only matters pre-auth.
 export interface PlayerProfileResponse {
   realName: string | null;
   birthYear: number;
   parentContact: string;
   avatarId: string;
+  locale: PlayerLocale;
 }
 
 export interface UpdateProfileRequest {
   realName?: string | null;
   avatarId?: string;
+  // NEW (docs/adr/0014-multi-language-support.md Consequences, Fas 4.3) —
+  // same optional-PATCH-field addition as `CreatePlayerRequest.locale`
+  // above; no in-app settings screen calls this yet (out of scope for
+  // part (a) — the picker only lives at onboarding so far), but the
+  // request shape is already fixed by the ADR regardless of backend
+  // landing order.
+  locale?: PlayerLocale;
 }
 
 export interface RequestContactChangeRequest {
@@ -500,6 +531,24 @@ export type ChatReportReason =
   | 'spam'
   | 'other';
 
+/** ADR-0017 (2026-07-31) — the nullable `clip` block on both `POST
+ * .../chat/messages`'s response and `GET .../chat/messages`'s rows. Every
+ * field here is resolved *live*, per request, from the clip's current row
+ * (Decision 2) — never a snapshot. `null` on the `GET` shape collapses
+ * every one of "never had a clipId," "clip self-deleted/expired,"
+ * "clip report-hidden," and "viewer has blocked the uploader" into the
+ * identical value — the client cannot and should not try to tell these
+ * apart (see `ClipUnavailablePlaceholder`). */
+export interface MessageClipEmbed {
+  clipId: string;
+  uploaderPlayerId: string;
+  uploaderScreenName: string;
+  uploaderAvatarId: string;
+  caption: string | null;
+  playbackUrl: string;
+  createdAt: string;
+}
+
 /** endpoint 2, `GET .../chat/messages` row shape — also the shape of
  * endpoint 1's `POST .../chat/messages` response, minus `reportedByMe`
  * (a message the sender just posted couldn't have been reported by them
@@ -510,6 +559,7 @@ export interface ChatMessage {
   senderScreenName: string;
   senderAvatarId: string;
   content: string;
+  clip: MessageClipEmbed | null;
   createdAt: string;
   reportedByMe: boolean;
 }
@@ -520,6 +570,9 @@ export interface ChatMessagesResponse {
 
 export interface PostChatMessageRequest {
   content: string;
+  // ADR-0017 Decision 5 — must resolve to a `published` clip on this team;
+  // `404 clip_not_found` otherwise. Omitted entirely for a text-only send.
+  clipId?: string;
 }
 
 export interface PostChatMessageResponse {
@@ -529,6 +582,10 @@ export interface PostChatMessageResponse {
   senderScreenName: string;
   senderAvatarId: string;
   content: string;
+  // Always populated when `clipId` was sent and accepted; `null` only when
+  // no `clipId` was sent (ADR-0017 Decision 5) — the send response never
+  // returns the "unavailable" null-for-another-reason case `GET` can.
+  clip: MessageClipEmbed | null;
   createdAt: string;
 }
 

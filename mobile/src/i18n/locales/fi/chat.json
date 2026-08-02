@@ -1,0 +1,86 @@
+{
+  "ch0": {
+    "heading": "Näin joukkuechatti toimii",
+    "bullet1": "Vain oma joukkueesi näkee sen, mitä kirjoitat täällä.",
+    "bullet2": "Tuntuuko jokin väärältä? Voit ilmoittaa viestistä tai estää henkilön, jolloin et enää näe hänen viestejään.",
+    "bullet3": "Jotkin sanat eivät toimi täällä. Jos viesti ei lähde, kokeile kirjoittaa se uudelleen.",
+    "dismiss": "Selvä homma!"
+  },
+  "ch1": {
+    "heading": "Joukkuechatti 💬",
+    "blockedLink": "🚫 Estetyt",
+    "loadError": "Joukkuechattia ei saatu ladattua. Tarkista yhteytesi.",
+    "retry": "Yritä uudelleen",
+    "emptyHeading": "Ei vielä viestejä",
+    "emptySub": "Kirjoita joukkueelle ensimmäinen viesti!",
+    "filterRejected": "Viestiä ei lähetetty — se sisälsi sanoja, jotka eivät toimi täällä. Kirjoita se uudelleen, niin homma toimii! ✍️",
+    "sendRateLimited": "Lähetät viestejä nyt hieman liian nopeasti. Odota hetki, niin se onnistuu taas.",
+    "genericError": "Jokin meni pieleen. Yritä uudelleen.",
+    "clipGoneOnSend": "Klippiä ei voitu lähettää — sitä ei enää ole. Voit nyt lähettää lopun itse.",
+    "messageNotFoundToast": "Kyseistä viestiä ei enää ole olemassa.",
+    "alreadyReportedToast": "Olet jo ilmoittanut tästä viestistä.",
+    "reportRateLimitedToast": "Olet ilmoittanut asioista viime aikoina aika paljon. Odota hetki ennen kuin ilmoitat uudelleen.",
+    "clipNotFoundToast": "Kyseistä videota ei enää ole olemassa.",
+    "clipAlreadyReportedToast": "Olet jo ilmoittanut tästä videosta.",
+    "clipReportRateLimitedToast": "Olet ilmoittanut asioista viime aikoina aika paljon. Odota hetki ennen kuin ilmoitat uudelleen.",
+    "blockedToast": "Et enää näe viestejä tai klippejä käyttäjältä {{screenName}}."
+  },
+  "ch2": {
+    "excerpt": "Ilmoitat viestistä: \"{{excerpt}}…\"",
+    "heading": "Miksi ilmoitat tästä viestistä?",
+    "reasonBullying": "Kiusaaminen",
+    "reasonInappropriateLanguage": "Sopimaton kieli",
+    "reasonSpam": "Roskaposti",
+    "reasonOther": "Muu",
+    "noteLabel": "Haluatko kertoa lisää? (vapaaehtoinen)",
+    "notePlaceholder": "Vapaaehtoinen…",
+    "submit": "Lähetä ilmoitus",
+    "cancel": "Peruuta"
+  },
+  "ch3": {
+    "heading": "Kiitos, että kerroit.",
+    "body": "Olemme vastaanottaneet ilmoituksesi. Sinun ei tarvitse tehdä mitään muuta — eikä kukaan saa tietää, että sinä ilmoitit.",
+    "followUp": "Haluaisitko myös lopettaa kyseisen henkilön viestien näkemisen?",
+    "block": "Estä {{screenName}}",
+    "noThanks": "Ei kiitos",
+    "done": "Valmis"
+  },
+  "ch4": {
+    "body": "Jos estät käyttäjän {{screenName}}, et enää näe hänen viestejään joukkuechatissa etkä hänen Shorts-videoitaan Shorts-syötteessä. {{screenName}} ei saa tietää, että olet estänyt hänet.",
+    "confirm": "Estä {{screenName}}",
+    "cancel": "Peruuta"
+  },
+  "ch5": {
+    "heading": "Estetyt joukkuekaverit",
+    "headingSub": "Esto koskee sekä joukkuechattia että Shorts-videoita.",
+    "empty": "Et ole estänyt ketään.",
+    "unblock": "Poista esto",
+    "back": "Takaisin",
+    "unblockedToast": "Näet taas viestejä käyttäjältä {{screenName}}.",
+    "genericError": "Jokin meni pieleen. Yritä uudelleen."
+  },
+  "ch6": {
+    "heading": "Liitä klippi",
+    "loadError": "Klippejä ei saatu ladattua. Tarkista yhteytesi.",
+    "retry": "Yritä uudelleen",
+    "emptyHeading": "Ei vielä klippejä liitettäväksi",
+    "emptySub": "Kukaan joukkueessa ei ole vielä ladannut klippiä. Siirry Klipit-välilehdelle lataamaan ensimmäinen!",
+    "goToClips": "Siirry Klippeihin",
+    "showMore": "Näytä lisää klippejä"
+  },
+  "composeBar": {
+    "lockedNote": "Odottaa hyväksyntää, ennen kuin voit lähettää viestejä. Voit silti lukea, mitä joukkue kirjoittaa.",
+    "placeholder": "Kirjoita jotain joukkueelle…",
+    "clipChipLabel": "Käyttäjältä {{screenName}}"
+  },
+  "messageBubble": {
+    "reportMessage": "🚩 Ilmoita viestistä",
+    "reportClip": "🚩 Ilmoita klipistä"
+  },
+  "clipEmbed": {
+    "attribution": "Klippi käyttäjältä {{screenName}}"
+  },
+  "clipUnavailable": {
+    "text": "🎬 Video ei ole enää saatavilla."
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "o0": {
+    "heading": "Vilket språk vill du använda?",
+    "sub": "Du kan byta språk senare om du vill.",
+    "next": "Nästa"
+  },
+  "o1": {
+    "heading": "Vilket lag kör du för?",
+    "sub": "Fråga din tränare om lagets kod.",
+    "codePlaceholder": "T.ex. FALKEN24",
+    "findTeamButton": "Hitta mitt lag",
+    "returningUserLink": "Har du redan ett konto?"
+  },
+  "o1a": {
+    "heading": "Vi hittade inget lag med koden <code>{{inviteCode}}</code>",
+    "sub": "Ingen fara — välj det som stämmer för dig:",
+    "wrongCodeTitle": "Jag skrev nog fel",
+    "wrongCodeSub": "Testa koden igen",
+    "createTeamTitle": "Vårt lag har ingen kod än",
+    "createTeamSub": "Skapa ett nytt lag med den här koden",
+    "helper": "Osäker? Fråga din tränare innan du skapar ett nytt lag."
+  },
+  "o1b": {
+    "codeChip": "Lagkod: {{inviteCode}}",
+    "changeCode": "Byt kod",
+    "heading": "Vad ska ert lag heta?",
+    "sub": "Du blir lagets första spelare — och kapten! Välj ett namn som resten av laget kan vara stolta över.",
+    "nameLabel": "Lagnamn",
+    "namePlaceholder": "T.ex. IBK Falken P13",
+    "helper": "Andra lag kan se namnet på topplistan.",
+    "next": "Nästa"
+  },
+  "o1c": {
+    "heading": "Skapa {{teamName}}?",
+    "sub": "Lagkod: {{inviteCode}} — dela den med lagkompisar så de kan gå med sen.",
+    "tip": "Namnet och koden går inte att ändra sen, så dubbelkolla att allt stämmer!",
+    "confirm": "Ja, skapa laget!",
+    "editName": "Nej, ändra namnet"
+  },
+  "o2": {
+    "heading": "Ansluter du till {{teamName}}?",
+    "sub": "Stämmer det, så kör vi!",
+    "confirm": "Ja, det är mitt lag!",
+    "reject": "Nej, testa en annan kod"
+  },
+  "o3": {
+    "heading": "Välj ditt spelarnamn",
+    "sub": "Det här är namnet ditt lag ser — inte ditt riktiga namn om du inte vill.",
+    "nameLabel": "Spelarnamn",
+    "namePlaceholder": "T.ex. FloorballStar15",
+    "avatarLabel": "Välj en avatar",
+    "helper": "Ingen bild behövs — välj en figur du gillar.",
+    "next": "Nästa"
+  },
+  "o4": {
+    "heading": "Vilket år är du född?",
+    "sub": "Vi använder det för att anpassa utmaningar till din ålder.",
+    "yearRangeError": "Ange ett år mellan {{minYear}} och {{maxYear}}.",
+    "yearLabel": "Födelseår",
+    "yearPlaceholder": "T.ex. {{maxYear}}",
+    "next": "Nästa"
+  },
+  "o5": {
+    "verifyHeading": "Verifiera ditt konto",
+    "consentHeading": "Vi frågar en vuxen om lov",
+    "verifyBody1": "Innan du kan börja logga träningar behöver du verifiera din e-post eller ditt mobilnummer.",
+    "consentBody1": "Innan du kan börja logga träningar behöver en förälder eller vårdnadshavare säga ja.",
+    "verifyBody2": "Vi skickar en verifieringslänk — du bekräftar med ett klick.",
+    "consentBody2": "Vi skickar dem en snabb fråga — de godkänner med ett klick.",
+    "verifyContactLabel": "Din e-post eller mobilnummer",
+    "consentContactLabel": "Förälders eller vårdnadshavares e-post eller mobilnummer",
+    "contactPlaceholder": "t.ex. namn@exempel.se",
+    "verifyHelper": "Vi använder det bara för att verifiera ditt konto — inget annat.",
+    "consentHelper": "Vi använder det bara för att fråga om lov — inget annat.",
+    "submit": "Skicka förfrågan",
+    "coachNote": "Tränare: hjälp spelaren fylla i om de är osäkra på uppgifterna."
+  },
+  "o6": {
+    "foundingIcon": "👑🎉",
+    "foundingHeading": "Grattis, {{screenName}}! Du skapade {{teamName}}!",
+    "foundingBody": "Du är lagets första spelare — och kapten! Så fort en förälder eller vårdnadshavare säger ja kan du börja logga träningar och bjuda in lagkompisar.",
+    "codeChip": "Lagkod: {{inviteCode}}",
+    "codeHelper": "Dela den med dina lagkompisar!",
+    "joinedIcon": "✅👋",
+    "joinedHeading": "Klart, {{screenName}}!",
+    "joinedBody": "Du är med i {{teamName}}! Vi har skickat en fråga till en förälder eller vårdnadshavare. Så fort de säger ja kan du börja logga träningar och tjäna poäng till laget.",
+    "doneButton": "Nu kör vi"
+  },
+  "ra1": {
+    "heading": "Har du redan ett konto?",
+    "sub": "Ange lagets kod och ditt användarnamn, så skickar vi en inloggningskod till din (eller din förälders) e-post.",
+    "codePlaceholder": "Lagkod, t.ex. FALKEN24",
+    "namePlaceholder": "Ditt användarnamn",
+    "submit": "Skicka kod",
+    "back": "Tillbaka"
+  },
+  "ra2": {
+    "heading": "Kolla inkorgen",
+    "sub": "Om uppgifterna stämde har vi skickat en kod till din (eller din förälders) e-post. Ange koden nedan för att logga in igen.",
+    "codePlaceholder": "T.ex. H4K7QWXP",
+    "invalidCodeError": "Den koden fungerar inte längre. Kolla att du skrev rätt, eller be om en ny.",
+    "submit": "Logga in",
+    "retryLink": "Fick du ingen kod? Försök igen"
+  },
+  "flow": {
+    "screenNameTaken": "Det namnet är upptaget i laget — testa ett annat!",
+    "teamNameRejected": "Namnet eller lagkoden innehöll ord som inte funkar här. Skriv om namnet, eller tryck \"Byt kod\" ovan om det är koden.",
+    "codeTakenConcurrently": "Åh nej — någon hann skapa ett lag med den koden precis före dig! Testa en annan kod, så ordnar vi resten direkt.",
+    "inviteCodeNotFound": "Lagkoden fungerar inte längre. Fråga din tränare om en ny kod.",
+    "invalidParentContact": "Den kontaktuppgiften ser inte rätt ut — kolla att det är en riktig e-postadress eller ett telefonnummer.",
+    "invalidScreenName": "Det namnet fungerar inte riktigt — testa ett annat!",
+    "invalidBirthYear": "Hmm, det året ser inte rätt ut. Testa igen.",
+    "genericValidationError": "Något gick fel. Kolla uppgifterna och testa igen."
+  },
+  "shared": {
+    "genericError": "Något gick fel. Kolla din uppkoppling och testa igen."
+  }
+}

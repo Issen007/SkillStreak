@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryButton } from '../../components/SecondaryButton';
@@ -15,17 +16,13 @@ interface V4PickClipProps {
   onCancel: () => void;
 }
 
-const TOO_LONG_MESSAGE = `Videon är för lång — max ${CLIP_MAX_DURATION_SECONDS} sekunder. Testa ett annat!`;
-const WRONG_FORMAT_MESSAGE = 'Den filtypen funkar inte här. Testa en video från kameran eller galleriet.';
-const UNREADABLE_MESSAGE = 'Kunde inte läsa videon. Testa en annan.';
-const PERMISSION_MESSAGE = 'Vi behöver din tillåtelse för det här. Testa igen, eller välj det andra alternativet.';
-
 /** Screen V4 — "Välj eller spela in ett klipp." No API call yet — this is
  * the device's native camera/media-picker. A picked/recorded clip is
  * validated client-side (duration/size/format) against the same caps the
  * contract enforces server-side, so an obviously invalid file gets an
  * inline message here rather than a round-trip `400`. */
 export function V4PickClip({ onPicked, onCancel }: V4PickClipProps) {
+  const { t } = useTranslation('clips');
   const [errorText, setErrorText] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -36,10 +33,10 @@ export function V4PickClip({ onPicked, onCancel }: V4PickClipProps) {
     if (!validation.ok) {
       setErrorText(
         validation.reason === 'wrong_format'
-          ? WRONG_FORMAT_MESSAGE
+          ? t('v4.wrongFormat')
           : validation.reason === 'too_long'
-            ? TOO_LONG_MESSAGE
-            : UNREADABLE_MESSAGE,
+            ? t('v4.tooLong', { maxSeconds: CLIP_MAX_DURATION_SECONDS })
+            : t('v4.unreadable'),
       );
       return;
     }
@@ -53,7 +50,7 @@ export function V4PickClip({ onPicked, onCancel }: V4PickClipProps) {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        setErrorText(PERMISSION_MESSAGE);
+        setErrorText(t('v4.permission'));
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -62,7 +59,7 @@ export function V4PickClip({ onPicked, onCancel }: V4PickClipProps) {
       });
       await handleResult(result);
     } catch {
-      setErrorText(UNREADABLE_MESSAGE);
+      setErrorText(t('v4.unreadable'));
     } finally {
       setBusy(false);
     }
@@ -74,7 +71,7 @@ export function V4PickClip({ onPicked, onCancel }: V4PickClipProps) {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        setErrorText(PERMISSION_MESSAGE);
+        setErrorText(t('v4.permission'));
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -82,7 +79,7 @@ export function V4PickClip({ onPicked, onCancel }: V4PickClipProps) {
       });
       await handleResult(result);
     } catch {
-      setErrorText(UNREADABLE_MESSAGE);
+      setErrorText(t('v4.unreadable'));
     } finally {
       setBusy(false);
     }
@@ -90,21 +87,21 @@ export function V4PickClip({ onPicked, onCancel }: V4PickClipProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Välj eller spela in en Shorts</Text>
-      <Text style={styles.sub}>Videon får vara upp till {CLIP_MAX_DURATION_SECONDS} sekunder.</Text>
+      <Text style={styles.heading}>{t('v4.heading')}</Text>
+      <Text style={styles.sub}>{t('v4.sub', { maxSeconds: CLIP_MAX_DURATION_SECONDS })}</Text>
 
       {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
 
       <View style={styles.actions}>
-        <PrimaryButton label="🎥 Spela in" loading={busy} onPress={() => void handleRecord()} />
+        <PrimaryButton label={t('v4.record')} loading={busy} onPress={() => void handleRecord()} />
         <SecondaryButton
-          label="🖼️ Välj från galleriet"
+          label={t('v4.pickFromLibrary')}
           loading={busy}
           onPress={() => void handlePickFromLibrary()}
         />
       </View>
 
-      <SecondaryLink label="Avbryt" onPress={onCancel} />
+      <SecondaryLink label={t('v4.cancel')} onPress={onCancel} />
     </View>
   );
 }

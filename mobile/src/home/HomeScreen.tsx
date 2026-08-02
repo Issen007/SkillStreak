@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { AppHeader } from './components/AppHeader';
 import { ProfileScreen } from './ProfileScreen';
@@ -44,6 +45,7 @@ type SuccessMoment =
  * adds Screen G2 (the goal-bonus takeover) on top, driven by the same
  * `POST /training-logs` response's new `goalBonus` field. */
 export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScreenProps) {
+  const { t } = useTranslation('home');
   const [me, setMe] = useState<PlayerMeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -86,7 +88,7 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
         onSessionInvalid();
         return;
       }
-      setLoadError('Kunde inte hämta din data. Kolla din uppkoppling.');
+      setLoadError(t('homeScreen.loadError'));
     } finally {
       if (requestId !== fetchRequestId.current) return;
       setLoading(false);
@@ -173,7 +175,7 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
         });
       } else {
         // An additional same-day log — State H6.
-        setToastMessage(`Grymt jobbat! +${durationMinutes} min till lagets pott 🥇`);
+        setToastMessage(t('homeScreen.extraLogToast', { minutes: durationMinutes }));
       }
     } catch (err) {
       setSheetLoading(false);
@@ -191,12 +193,10 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
         // an explanation, and re-fetch to land back on the accurate
         // waiting/paused state.
         setSheetOpen(false);
-        setToastMessage(
-          'Vi behöver fortfarande godkännande innan du kan logga. Vi uppdaterar sidan åt dig.',
-        );
+        setToastMessage(t('homeScreen.consentRequiredToast'));
         void fetchMe();
       } else {
-        setSheetError('Något gick fel. Testa igen.');
+        setSheetError(t('shared.genericErrorTryAgain'));
       }
     }
   };
@@ -212,9 +212,9 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
   if (loadError || !me) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>{loadError ?? 'Något gick fel.'}</Text>
+        <Text style={styles.errorText}>{loadError ?? t('shared.genericError')}</Text>
         <Text style={styles.retryText} onPress={() => void fetchMe()}>
-          Försök igen
+          {t('shared.retry')}
         </Text>
       </View>
     );
@@ -259,8 +259,10 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
           />
         ) : successMoment?.kind === 'first-log' ? (
           <SuccessOverlay
-            bannerText={`🔥 Snyggt jobbat! ${successMoment.streakCount} dagar i rad.`}
-            floatingText={`+${successMoment.durationMinutes} min till laget`}
+            bannerText={t('homeScreen.successBanner', { count: successMoment.streakCount })}
+            floatingText={t('homeScreen.successFloatingText', {
+              minutes: successMoment.durationMinutes,
+            })}
             onDismiss={() => setSuccessMoment(null)}
           />
         ) : null}

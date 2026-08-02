@@ -52,14 +52,40 @@ email), the same broad-consumer profile `birth_year` already has and
 stayed on `Player` for. It also isn't sensitive personal data in the sense
 those fields are.
 
-**Shape: a fixed Postgres enum of the 5 targeted languages, not a
+**Shape: a fixed Postgres enum of the 8 targeted languages, not a
 freeform BCP-47 tag.**
 
+**Correction/expansion, 2026-08-01 (project owner directly)**: the
+originally-scoped set (`sv`/`en`/`fi`/`da`/`nb`) is widened to 8, covering
+all of Scandinavia plus the DACH region and Czechia, decided before any
+translation content exists so this ships as the real target set from day
+one rather than a second migration later:
+
 ```sql
-CREATE TYPE player_locale_enum AS ENUM ('sv', 'en', 'fi', 'da', 'nb');
+CREATE TYPE player_locale_enum AS ENUM
+  ('sv', 'en', 'fi', 'da', 'nb', 'de', 'cs', 'fr');
 ALTER TABLE player
   ADD COLUMN locale player_locale_enum NOT NULL DEFAULT 'sv';
 ```
+
+- `sv`/`fi`/`da`/`nb` — Sweden/Finland/Denmark/Norway (unchanged from the
+  original scope).
+- `en` — unchanged, kept as the general/fallback option alongside the
+  country-specific set (confirmed explicitly, not dropped).
+- `de` — **one** locale for Switzerland, Austria, *and* Germany, not three
+  — same language, and Decision 1's "no region subtags" rule (below)
+  applies here exactly as it does to `nb`: this enum answers "which
+  language," not "which country," so DACH doesn't become three near-
+  duplicate values.
+- `cs` — Czech Republic.
+- `fr` — French, added alongside the above at the project owner's request.
+
+This doesn't change any of Decision 1's reasoning — still a fixed enum
+matching an actual, deliberately-chosen set (not a freeform tag), still
+"exactly as easy to extend later via `ALTER TYPE ... ADD VALUE` as a
+freeform tag would be, without the resolution-chain machinery in the
+meantime" — only the target set itself grew from 5 to 8 before any code
+shipped against the smaller one.
 
 A freeform BCP-47 field would look more future-proof but buys nothing real
 here: content is translated by hand, per locale, one template/screen at a
@@ -75,7 +101,7 @@ would be, without the extra resolution logic in the meantime.
 `nb` (Norwegian Bokmål — the majority written standard) rather than `no`
 (a macrolanguage code, ambiguous between Bokmål/Nynorsk) or a region-tagged
 `nb-NO`: deliberately no region subtag anywhere in this enum — the point is
-"which of 5 languages," and adding region variants would be scope creep
+"which of 8 languages," and adding region variants would be scope creep
 toward exactly the kind of "where is this device" signal CLAUDE.md's
 no-location-tracking constraint (see Decision 5) has no business being
 adjacent to.
@@ -103,13 +129,27 @@ optional so an old app build that hasn't shipped this yet keeps working,
 backend default `sv` covers that case).
 
 Before `O0` is answered (and for any pre-auth surface), use the device's
-own locale (`expo-localization`) mapped to the nearest of the 5 supported
+own locale (`expo-localization`) mapped to the nearest of the 8 supported
 languages, falling back to `sv` if the device reports something outside
 that set — purely as the *pre-selected default* on the picker, never
 treated as a silent, permanent choice. Once a player has an authenticated
-session, the source of truth flips to the server's stored value (returned
-from `GET /players/me/profile`, ADR-0012) — the device guess only matters
-before that.
+session, the source of truth flips to the server's stored value.
+
+**Correction, 2026-08-01 (code-critic + security-reviewer, both
+independently flagged the same gap)**: the original text here named `GET
+/players/me/profile` (ADR-0012) as where that value comes from. That
+endpoint is real and does carry `locale` (see Decision 3's `PATCH` note
+below, unchanged), but it's only ever fetched when a player opens the
+Profile screen — not on every app open, so a returning player would keep
+seeing the device's guess, not their saved choice, until they happened to
+visit Profile. **The actual restore point is `GET /players/me`**
+(`PlayerMeResponse.player.locale`) — the one call `AppShell`'s
+`ensureIdentity` already makes on every mount, before any tab renders.
+`AppShell` calls `i18n.changeLanguage(me.player.locale)` there,
+fire-and-forget, right after resolving `teamId`/`playerId`. `GET
+/players/me/profile` still also carries `locale` (needed for the Profile
+screen's own edit form, `PATCH .../profile` below), but is no longer the
+thing this Decision depends on for the restore itself.
 
 **Library recommendation: `i18next` + `react-i18next` +
 `expo-localization`.** This is a genuinely open choice worth surfacing
@@ -118,7 +158,7 @@ rather than silently picking:
 - *`i18next`/`react-i18next`* (recommended) — the de facto standard for
   React/React Native, first-class Expo support, typed-resource
   augmentation (catches a typo'd or missing translation key at compile
-  time — valuable maintaining 5 languages incrementally with no dedicated
+  time — valuable maintaining 8 languages incrementally with no dedicated
   translator on staff), and a `fallbackLng` behavior that directly matches
   this rollout's shape: an unfinished locale's missing keys silently
   render Swedish instead of a blank/broken screen, so part (b) can ship
@@ -129,17 +169,30 @@ rather than silently picking:
   fallback story; not worth the savings at this app's size.
 - *`react-intl` / FormatJS* — heavier ICU-message-format ceremony (rich
   plural/gender rules) than this product needs; nothing in SkillStreak's
-  copy currently needs ICU-grade pluralization across all 5 languages.
+  copy currently needs ICU-grade pluralization across all 8 languages.
   Would be over-engineering for what's actually being shipped.
 
 Recommend `i18next`.
 
-**Layout:** `mobile/src/i18n/index.ts` (init, `fallbackLng: 'sv'`) +
-`mobile/src/i18n/locales/{sv,en,fi,da,nb}.json`. A single flat resource
-file per language is fine at this app's current screen count — splitting
-into namespaces is premature. Only `sv.json` needs real content to ship
-part (a) (it's a direct copy of strings already hardcoded today);
-`en/fi/da/nb.json` start as empty objects and rely on the fallback above.
+**Layout, part (a): one flat file per language.** `mobile/src/i18n/index.ts`
+(init, `fallbackLng: 'sv'`) + `mobile/src/i18n/locales/{sv,en,fi,da,nb,de,
+cs,fr}.json`. A single flat resource file per language was fine at part
+(a)'s 3-key pilot scope — splitting into namespaces would've been
+premature. Only `sv.json` needed real content to ship part (a); every
+other locale file started empty, relying on the fallback above.
+
+**Restructured, 2026-08-01, ahead of part (b)**: switched to real i18next
+namespaces — `mobile/src/i18n/locales/<lang>/<namespace>.json`, one file
+per (language, feature area) pair (`common`/`onboarding`/`home`/`team`/
+`goal`/`chat`/`clips`), `useTranslation('<namespace>')` scoped per screen
+instead of dot-path keys against one shared file. Reason: part (b) covers
+the whole app across multiple independent translation/retrofit passes
+(one per feature area), and a single flat `sv.json` would make every one
+of those passes write-conflict on the same file. Namespacing gives each
+pass a fully disjoint set of files to own — no coordination needed between
+them. `i18n/index.ts`'s `resources` config and the typed-augmentation file
+(`react-i18next.d.ts`) both updated to match; the 3 existing pilot call
+sites (O0, O6, home greeting) migrated to the new scoped-`t()` convention.
 
 **Explicitly out of scope for part (a):** retrofitting every existing
 hardcoded-Swedish screen to `t('key')` calls — that mechanical-but-large
@@ -165,7 +218,7 @@ type LocaleCopy = { subject: string; text: string; html: string };
 
 const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
   sv: { /* existing, unchanged Swedish copy */ },
-  // en/fi/da/nb: added incrementally, per part (b)
+  // en/fi/da/nb/de/cs/fr: added incrementally, per part (b)
 };
 
 function resolveCopy(locale: PlayerLocale): LocaleCopy {
@@ -183,9 +236,22 @@ file at a time, without touching call sites again.
 
 **Where `locale` comes from, per call site:**
 
-- **Onboarding** (consent-request / self-verification emails): the
-  freshly-submitted `dto.locale` from `CreatePlayerDto` — there's no
-  `Player` row with a stored locale yet at the moment these are sent.
+- **Onboarding** (consent-request / self-verification emails):
+  **Correction, 2026-07-31 (security-reviewer, design-review pass)** — the
+  original text here claimed there's no `Player` row with a stored locale
+  yet at send time, and said to thread the freshly-submitted (optional)
+  `dto.locale` into the (required) template param instead. That's wrong for
+  this codebase: `OnboardingService.createPlayer`'s transaction commits and
+  returns the created `Player` row *before* `buildConsentRequestEmail`/
+  `buildSelfVerificationEmail` are called. By send time,
+  `result.player.locale` already exists — either the submitted value or the
+  column's `DEFAULT 'sv'` — same as any later lifecycle email. **Use
+  `result.player.locale`, not `dto.locale`, at this call site too.** This
+  avoids threading an optional field into a required param (and whatever ad
+  hoc defaulting that would invite), and matches the source the consent web
+  page resolves its own locale from (`consentToken` → `Player` lookup,
+  `consent.controller.ts`) — same source for the email and the page it
+  links to, so the two can't diverge.
 - **Every later player-life-cycle email** (contact-change confirm/notify/
   cancel, erasure confirm/cancel, session-reissue): the already-loaded
   `Player` row's `.locale` column. No new query — every one of these flows
@@ -235,7 +301,7 @@ purely cosmetic screens, once (a) ships.
 
 No location signal is introduced anywhere in this design — reiterating
 Decision 1's choice not to use region-tagged locale codes (`nb-NO` etc.):
-"which of 5 languages" is not "where is this device," and this ADR is
+"which of 8 languages" is not "where is this device," and this ADR is
 deliberately built so it never becomes the latter.
 
 ## Consequences
@@ -244,7 +310,15 @@ deliberately built so it never becomes the latter.
   `Player.locale NOT NULL DEFAULT 'sv'`. No backfill judgment call needed.
 - `CreatePlayerDto` gains an optional `locale` field; `PlayersService`/
   `OnboardingService` persist it at shell-creation time alongside
-  `screenName`/`avatarId`.
+  `screenName`/`avatarId`. **Correction, 2026-07-31 (security-reviewer)**:
+  this field (and `UpdateProfileDto`'s new `locale` field, see below) must
+  carry `@IsEnum(PlayerLocale)`, matching every other enum-typed DTO field
+  in this backend (`ActivityType`, `WeeklyGoalTargetMetric`,
+  `ClipReportReason`, `ChatMessageReportReason`, etc.). Without it, a
+  malformed value passes the global `ValidationPipe` and only fails
+  downstream at the Postgres enum check — not exploitable (the exception
+  filter never leaks a stack trace), but a real, avoidable validation gap
+  the original text omitted.
 - Every existing mail-template function signature changes (a required
   `locale` param, resolved via the `COPY[locale] ?? COPY.sv` pattern) — a
   small, mechanical diff across the existing template files, with **no**

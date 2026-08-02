@@ -1,0 +1,115 @@
+{
+  "v0": {
+    "heading": "Så funkar Shorts",
+    "bullet1": "Bara ditt eget lag ser Shorts-videorna som laddas upp här.",
+    "bullet2": "En förälder eller vårdnadshavare måste säga ja innan du kan ladda upp en Shorts själv.",
+    "bullet3": "Känns en Shorts fel? Rapportera den så försvinner den direkt för hela laget, medan en vuxen tittar på den.",
+    "bullet4": "Du kan alltid ta bort dina egna Shorts, när du vill.",
+    "dismiss": "Okej, jag fattar!"
+  },
+  "v1": {
+    "joinPendingTitle": "Väntar på lagets kapten",
+    "consentPendingTitleSelfVerify": "Väntar på att du verifierar",
+    "consentPendingTitle": "Väntar på godkännande",
+    "consentPartSelfVerify": "Du behöver verifiera din e-post eller ditt mobilnummer.",
+    "consentPart": "En förälder eller vårdnadshavare behöver säga ja.",
+    "joinPart": "Lagets kapten behöver godkänna att du gick med i laget.",
+    "bothPendingSuffix": "Så fort båda är klara låser vi upp Shorts-fliken.",
+    "joinPendingSuffix": "Så fort kaptenen godkänner låser vi upp Shorts-fliken.",
+    "consentPendingSuffix": "Så fort det är klart låser vi upp Shorts-fliken.",
+    "pausedTitle": "Shorts är pausat just nu",
+    "pausedBody": "En förälder eller vårdnadshavare har dragit tillbaka godkännandet. Prata med din tränare om du har frågor.",
+    "refresh": "Kolla igen",
+    "refreshing": "Kollar..."
+  },
+  "v2": {
+    "heading": "Shorts 🎬",
+    "loadError": "Kunde inte hämta Shorts. Kolla din uppkoppling.",
+    "retry": "Försök igen",
+    "emptyHeading": "Inga Shorts än",
+    "emptySub": "Bli den första att dela en Shorts med laget!",
+    "uploadButton": "Ladda upp Shorts",
+    "showMore": "Visa fler Shorts",
+    "showMoreError": "Kunde inte hämta fler Shorts. Testa igen.",
+    "uploadLockedToast": "Väntar fortfarande på godkännande innan du kan ladda upp.",
+    "challengeBanner": "🎯 {{screenName}} utmanade dig! Kolla in Shorts-videon.",
+    "consentRevokedToast": "Vi behöver fortfarande godkännande innan du kan ladda upp. Vi uppdaterar sidan åt dig.",
+    "reportNotFoundToast": "Den där videon finns inte längre.",
+    "reportAlreadyToast": "Du har redan rapporterat den här videon.",
+    "reportRateLimitedToast": "Du har rapporterat en del på sistone. Vänta en liten stund innan du rapporterar igen.",
+    "genericError": "Något gick fel. Testa igen.",
+    "deletedToast": "Videon är borttagen.",
+    "deleteNotFoundToast": "Videon finns inte längre.",
+    "blockedToast": "Du ser inte längre Shorts eller meddelanden från {{screenName}}."
+  },
+  "clipCard": {
+    "challengeChip": "🎯 Utmanar {{screenName}}",
+    "report": "🚩 Rapportera",
+    "delete": "🗑️ Ta bort videon"
+  },
+  "v9": {
+    "heading": "Varför rapporterar du den här videon?",
+    "reasonAppearsWithoutConsent": "Jag är med i videon och ville inte vara det",
+    "reasonBullying": "Mobbning",
+    "reasonInappropriateContent": "Olämpligt innehåll",
+    "reasonNotTrainingRelated": "Har inget med träning att göra",
+    "reasonOther": "Annat",
+    "noteLabel": "Vill du berätta mer? (frivilligt)",
+    "notePlaceholder": "Valfritt…",
+    "submit": "Skicka rapport",
+    "cancel": "Avbryt"
+  },
+  "v10": {
+    "heading": "Tack för att du sa till.",
+    "body": "Videon är nu dold för hela laget, inklusive dig själv. Ingen får veta att det var du som rapporterade.",
+    "bodySecondary": "En vuxen får reda på det här, men vi kan inte lova exakt när videon granskas igen.",
+    "followUp": "Vill du också slippa se fler Shorts och meddelanden från den personen?",
+    "block": "Blockera {{screenName}}",
+    "noThanks": "Nej tack",
+    "done": "Klar"
+  },
+  "v11": {
+    "heading": "Ta bort den här Shorts-videon?",
+    "body": "Videon försvinner permanent för hela laget — det går inte att ångra.",
+    "confirm": "Ja, ta bort videon",
+    "cancel": "Avbryt"
+  },
+  "v4": {
+    "heading": "Välj eller spela in en Shorts",
+    "sub": "Videon får vara upp till {{maxSeconds}} sekunder.",
+    "record": "🎥 Spela in",
+    "pickFromLibrary": "🖼️ Välj från galleriet",
+    "cancel": "Avbryt",
+    "tooLong": "Videon är för lång — max {{maxSeconds}} sekunder. Testa ett annat!",
+    "wrongFormat": "Den filtypen funkar inte här. Testa en video från kameran eller galleriet.",
+    "unreadable": "Kunde inte läsa videon. Testa en annan.",
+    "permission": "Vi behöver din tillåtelse för det här. Testa igen, eller välj det andra alternativet."
+  },
+  "v5": {
+    "heading": "Bildtext & utmaning",
+    "captionPlaceholder": "Lägg till en bildtext (frivilligt)…",
+    "challengeLabel": "Utmana en lagkompis? (frivilligt)",
+    "noTeammates": "Inga lagkompisar att utmana ännu.",
+    "taggedHelper": "{{screenName}} ser att du utmanat dem nästa gång de öppnar Shorts.",
+    "upload": "Ladda upp",
+    "cancel": "Avbryt",
+    "captionRejected": "Bildtexten gick inte att spara — den innehöll ord som inte funkar här. Skriv om den så går det bra! ✍️",
+    "rateLimited": "Du laddar upp Shorts lite snabbt just nu. Vänta en liten stund så går det bra igen.",
+    "taggedPlayerGone": "Den spelaren är inte kvar i laget längre. Välj någon annan, eller ingen.",
+    "genericError": "Något gick fel. Testa igen."
+  },
+  "v6": {
+    "heading": "Laddar upp din Shorts…",
+    "sub": "Lämna inte appen — det tar bara en liten stund.",
+    "retry": "Försök igen",
+    "cancel": "Avbryt",
+    "backToFeed": "Tillbaka till flödet",
+    "retryFailure": "Något gick fel med uppladdningen. Vi provar igen från början.",
+    "giveUp": "Uppladdningen lyckades inte den här gången. Kolla din uppkoppling och testa igen."
+  },
+  "v7": {
+    "heading": "Din Shorts är uppe! 🎉",
+    "sub": "Laget kan se det nu.",
+    "done": "Till flödet"
+  }
+}

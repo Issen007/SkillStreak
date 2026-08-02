@@ -1034,6 +1034,142 @@ code-critic finding fixed and independently re-verified by security-reviewer,
 not just noted. One non-blocking follow-up remains tracked (the in-memory/
 multi-replica throttler gap above) for before real external-beta traffic.
 
+## Phase 2.11 — Chat message clip attachments (ADR-0017)
+
+Raised via `docs/BACKLOG.md`'s "Link/attach a Shorts video inside a chat
+message" entry, reiterated directly by the project owner 2026-07-30: let
+a player attach one of the team's existing Shorts clips to a team chat
+message, so "check out this trick" can point at a specific video instead
+of describing it in text. Sits on top of two already-shipped,
+already-reviewed features (ADR-0007 team chat, ADR-0010 video clips) and
+had to re-prove team-scoping across their intersection from scratch, the
+same bar ADR-0008/ADR-0016 set for any query crossing a team boundary.
+
+- [x] **architect**: `docs/adr/0017-chat-clip-attachments.md`. Team-scoping
+      enforced at two independent application layers — a write-time
+      loaded-row check (`clip.teamId === teamId && clip.status ===
+      'published'`, else `404 clip_not_found`) and a read-time join
+      predicate (team + status + per-viewer block, all in the `JOIN`'s
+      `ON` clause, not a bare id-join filtered afterward) — deliberately
+      **not** a composite FK, since `ON DELETE SET NULL` on one would null
+      the message's own `team_id` alongside `clip_id` on every clip
+      self-delete/expiry. No data ever snapshotted onto the chat message
+      (`clip_id` is the only new column) — a hide/delete of a clip takes
+      effect instantly and uniformly everywhere it's referenced, with no
+      second, driftable copy. One clip per message (nullable FK column,
+      not a join table); compose-time picker reuses the existing `GET
+      .../teams/:teamId/clips` feed endpoint verbatim, no new endpoint.
+- [x] **ux-designer**: `docs/design/phase2.6-2.7-flows.md` Part E. New
+      Screen CH6 (compose-time picker, a grid — not a list — of paused
+      first-frame cards), CH1 diffs (a 🎬 attach button, a removable
+      clip-preview chip, in-message clip embed with "only one clip plays
+      at a time"), the generic non-alarming "Videon är inte längre
+      tillgänglig" placeholder, and the report-affordance split
+      ("Rapportera meddelandet" / "Rapportera klippet" as up to two
+      buttons from the existing tap-to-reveal zone, driven by
+      "reporting yourself protects no one" applied independently to the
+      message's sender and the clip's uploader, since Decision 3 means
+      they're frequently different people). Reuses V9/V10 (clip
+      report/confirmation) unmodified.
+- [x] **backend-developer**: migration (nullable `clip_id` + partial index
+      + FK, `ON DELETE SET NULL`, no other table touched), `TeamChatService`
+      clip resolution/validation at write time, the content-or-clipId
+      combined validation, the join-predicate change to the message-list
+      query, the per-viewer block filter extended to the embed. Contract
+      doc updated to match.
+- [x] **frontend-developer**: `ChatScreen.tsx` wired to the new
+      `ComposeBar`/`MessageBubble` prop contracts and `ClipAttachSheet`;
+      new components `ClipEmbed`, `ClipPickerCard`,
+      `ClipUnavailablePlaceholder`, `PausedClipThumbnail`. Two-report-button
+      split, per-viewer block extended to clip uploaders, "only one clip
+      plays at a time" state.
+- [x] **code-critic**: one **CONFIRMED** finding, fixed — the chat poll only
+      ever appended newly-seen messages (`after`-cursor), so a clip that
+      became unavailable (hard-delete/report-hide/uploader block) *while a
+      message referencing it was already rendered on an open device* never
+      re-resolved to `clip: null` there, undercutting the ADR's own "takes
+      effect instantly and uniformly" guarantee for exactly the case — an
+      already-open chat — it matters most for. Fixed by reconciling the
+      most recent window on every poll tick instead of only appending.
+      **A second regression was caught and fixed while implementing that
+      fix, before it ever shipped**: naively replacing each message with
+      its fresh copy on every poll would have restarted playback for
+      anyone actively watching an embedded clip, since `playbackUrl` is
+      re-presigned (a different string) on every response even when the
+      underlying clip hasn't changed, and `expo-video`'s `useVideoPlayer`
+      memoizes its player by that string's *value* (confirmed by reading
+      the hook's own source), not a stable reference. Fixed by merging
+      field-by-field — only `clip` flipping to `null` and `reportedByMe`
+      changing are ever applied to an already-rendered message; everything
+      else, `playbackUrl` included, keeps its exact existing object.
+      Everything else checked (write/read-time team-scoping, the no-snapshot
+      guarantee, the content-or-clipId validation, the 3-case placeholder
+      logic's cases 1 and 3, the report-affordance table, the migration
+      shape) came back correct against the ADR/flow doc. One trivial
+      unused-field cleanup (`ClipReportTarget.messageId`, flagged as dead
+      by the reviewer's own comment) also removed.
+- [x] **security-reviewer**: **clean sign-off**, no findings — the
+      blocking confirmation pass ADR-0017's hand-off section required.
+      Independently verified both required checks by reading the actual
+      query/join code (not the ADR's claims) and re-running the e2e suite
+      live against real Postgres/Redis/MinIO: write-time + read-time
+      team-scoping structurally closes the boundary (traced the exact
+      `findOne`/`leftJoin` calls), and no clip data is ever snapshotted
+      onto `TeamChatMessage` — every field in the response is resolved
+      live, per request, from the current `VideoClip` row. Also confirmed:
+      the per-viewer block filter genuinely covers the clip-uploader case
+      (not just the message-sender case), the two report flows
+      (message/clip) stay fully independent per Decision 6, and attaching
+      a clip doesn't bypass or cheapen the existing chat send-rate-limit.
+
+**Fas 2.11 has cleared every gate and is merged to `prerelease`.**
+294/294 backend unit tests, mobile `tsc`/`expo-doctor` clean. Both the
+mandatory code-critic pass and the ADR-required security-reviewer
+confirmation are complete, with code-critic's one real finding (plus the
+playback-interruption regression caught while fixing it) resolved and
+verified, not just noted.
+
+## Unplanned fix, 2026-07-31 — clip upload failing on the "try it" website
+
+Raised by the project owner directly: uploading a clip via
+`try.skillstreak.xyz` on a phone browser always failed with a generic
+"Uppladdningen lyckades inte den här gången" error. Two independent bugs,
+both required for a browser upload to work at all, neither related to the
+Safespring S3 migration itself (initial suspicion, ruled out — production
+API/S3 reachability and TLS were both confirmed healthy first):
+
+- `expo-file-system`'s `createUploadTask`/`uploadAsync` (used for the
+  native app's presigned-PUT step) has **no web implementation at all** —
+  its own `.web.ts` shim doesn't define the native method, so it throws
+  immediately on every attempt, from a fresh page load through both
+  automatic retries.
+- Separately, even a correct web upload path would still have failed: the
+  video-clip storage bucket (self-hosted MinIO internally, Safespring S3
+  in production) never had a CORS policy configured, and a browser
+  enforces CORS on a direct cross-origin `PUT` from the site's own origin
+  straight to the storage endpoint — unlike the native app's direct
+  native-module HTTP call, which was never subject to browser CORS.
+
+Fixed both, on a short-lived `fix/clip-upload-web-cors` branch, merged to
+`prerelease`: `ObjectStorageService.configureCorsPolicy()` applies a
+`PUT`-only bucket CORS policy at boot, reusing the exact `CORS_ORIGIN`
+origin list `main.ts` already trusts for the API's own CORS (no new,
+parallel trust list); `V6UploadProgress.tsx` gained a `Platform.OS ===
+'web'` branch using `XMLHttpRequest` (for cross-browser upload-progress
+events) against a `Blob` fetched from the picked file's `blob:` URI,
+native path unchanged. **security-reviewer** signed off (scoped review,
+media-upload path) — confirmed the bucket CORS policy doesn't widen
+exposure beyond origins already trusted with `Authorization`-bearing API
+access, the web path doesn't skip any server-side validation
+(`completeUpload`'s HEAD-and-compare check is unchanged and platform-
+agnostic), and cancel (`xhr.abort()`) mirrors the native path's existing
+best-effort-cleanup posture. One tightening applied from that review:
+narrowed the bucket CORS policy to `PUT` only (`GET`/`HEAD` were
+unnecessary — clip playback is a plain `<video>`-element load, which
+browsers don't subject to CORS at all). 286/286 backend unit tests
+(this branch, before Fas 2.11 above added its own), mobile `tsc`/
+`expo-doctor` clean.
+
 ## Phase 3 — Media & social ("Fas 3")
 
 This phase is the highest privacy risk (video, a feed, tagging teammates) —
@@ -1672,6 +1808,52 @@ treat `security-reviewer` involvement as blocking, not a final check.
 - [ ] **architect**: Helm chart — not done; current manifests are plain
       YAML per the project owner's explicit request, not a rejection of
       Helm, just not needed yet.
+- [x] **24/7 health/uptime monitoring — done 2026-08-02.** Was blocked on
+      production DNS/TLS actually being live; unblocked since 2026-07-31
+      (Phase 4.4). Scoped deliberately small per `docs/PROJECT.md`'s own
+      instruction for this item: "börja med en enkel schemalagd
+      hälsokontroll, inte den större 'AI-driven'-idén" — a script + user
+      systemd timer, not a dashboard. → `tools/uptime-monitor/`
+      (`check-health.sh`, `.service`/`.timer` units, `.env.example`,
+      README), same posture/pattern as `tools/local-release-poller/` in
+      the same directory: a standalone tool meant to run on `ubuntu01`,
+      not part of the product itself. Polls the three real production
+      hostnames (`api.skillstreak.xyz/health`, `skillstreak.xyz`,
+      `try.skillstreak.xyz` — deliberately not the internal test cluster,
+      which has no public DNS/TLS and isn't what this item was blocked
+      on) every 2 minutes, and emails only on a state *change*
+      (healthy→down or down→recovered), not on every tick, to avoid
+      spamming an inbox during a prolonged real outage. Reuses the
+      backend's existing `SMTP_HOST`/`SMTP_USER`/`SMTP_PASSWORD`/
+      `SMTP_FROM` env var names and Google Workspace relay
+      (`k8s/secret.yaml.example`/`configmap.yaml`) rather than inventing
+      a second mail account/naming convention; real credentials live in a
+      local, gitignored `.env`, never committed. If unconfigured, checks
+      still run and log to the systemd journal — only the email step is
+      skipped, so installing the timer is safe before wiring up SMTP.
+      **Verified live, not just written**: ran against the real
+      production endpoints (all three currently healthy), confirmed the
+      first-ever run correctly sends no alert (no "previous status" to
+      compare against yet — avoids a spurious alert on install), then
+      forced both a healthy→down and a down→recovered transition against
+      a deliberately broken URL and confirmed the alert path fires
+      exactly on the transition and not on repeated unchanged ticks, and
+      confirmed the state files persist correctly between runs. **Not
+      independently verified**: the actual SMTP send over a live network
+      round-trip (starttls/login/sendmail) — this sandbox has no real
+      mail credentials and a hand-rolled fake SMTP server wasn't a good
+      use of time given it's standard library `smtplib` usage matching
+      the backend's own already-proven mail pattern; worth a quick manual
+      confirmation (`systemctl --user start skillstreak-uptime.service`
+      after a real outage, or a deliberate temporary bad URL) the first
+      time this is actually installed on `ubuntu01`. Deliberately not
+      built, per the README's own "not built here" section: no
+      repeat-reminder during an ongoing outage, no Postgres/Redis/MinIO
+      connectivity check (the API's `/health` is liveness-only), no
+      dashboard. The bigger "control monitoring web UI" idea (stats,
+      errors, social campaigns, blog generation) stays a separate,
+      much larger, not-yet-designed item in `docs/BACKLOG.md` — this
+      tool is not a step toward that.
 - [x] **security-reviewer**: full production-hardening pass — done
       2026-07-30/31 as a live audit of the actual running cluster, not
       just the code. See Phase 4.4 below for the full findings/fixes list.
@@ -1889,7 +2071,7 @@ player, all behind a 30-day grace period. See
       real code and a live Postgres/Redis/MinIO stack at each step, not
       taken on any agent's self-report alone.
 
-## Phase 4.3 — Multi-language support (part a: locale architecture) — design done 2026-07-30
+## Phase 4.3 — Multi-language support (part a: locale architecture) — done 2026-08-01
 
 **Fas 4 item 5 in `docs/PROJECT.md`, moved up the roadmap 2026-07-27 at the
 project owner's explicit request**: a player should be able to choose a
@@ -1927,9 +2109,155 @@ here for the checklist.
       templates first once translation starts, since a consent decision
       made in a language the recipient can't confidently read is a real
       comprehension risk to that consent's validity, not just cosmetic.
-- [ ] **security-reviewer**, **backend-developer**, **frontend-developer**:
-      not started — this phase is design-only so far, per the project
-      owner's own "architecture now, content gradually" sequencing.
+- [x] **security-reviewer** (design-review pass, 2026-07-31, before any
+      code): safe to proceed, with two corrections applied to the ADR
+      before implementation started — (1) onboarding's consent/self-
+      verification emails should use the already-persisted
+      `result.player.locale`, not the unvalidated, optional `dto.locale`
+      from the request body (the original draft's stated reason — "no
+      `Player` row exists yet at send time" — was factually wrong for this
+      codebase; the transaction commits and returns first); (2)
+      `CreatePlayerDto.locale`/`UpdateProfileDto.locale` both need
+      `@IsEnum(PlayerLocale)`, missing from the original draft.
+- [x] **Scope widened, 2026-08-01 (project owner directly)**: the enum grew
+      from 5 languages to 8 mid-implementation — `de` (one locale for
+      Switzerland/Austria/Germany, not three — same no-region-subtag rule
+      already applied to `nb`), `cs` (Czech), `fr` (French) added to the
+      original `sv`/`en`/`fi`/`da`/`nb`. Caught before the backend agent's
+      migration finalized; both backend and mobile implementers were
+      redirected mid-task rather than needing a second migration later.
+- [x] **backend-developer**: `PlayerLocale` enum (8 values), the additive
+      migration, `Player.locale` (required column), both DTOs, all 8 mail
+      templates + the 4 consent-page renderers on the `COPY[locale] ??
+      COPY.sv` fallback pattern, `PATCH /players/me/profile` gaining
+      `locale`, and the ADR-required sv-fallback regression test. Both
+      security-review corrections followed. 296/296 unit tests.
+- [x] **frontend-developer**: `i18next`/`react-i18next`/`expo-localization`
+      wired up (`fallbackLng: 'sv'`), new Screen O0 (device-locale
+      pre-selection, local-only, no network call), pilot `t()` wiring
+      through exactly O0/O6/the home greeting per the ADR's explicit
+      scoping (everything else stays hardcoded Swedish — that's part (b)).
+      Widened to 8 languages in lockstep with backend. Clean
+      `tsc`/`expo-doctor` both times.
+- [x] **code-critic** + **security-reviewer** (implementation review,
+      2026-08-01): both independently caught the same real gap — the
+      ADR's own Decision 2 named `GET /players/me/profile` as the
+      post-auth "server value is source of truth" restore point, but that
+      endpoint is only ever fetched when a player opens the Profile
+      screen, not on every app open, so a returning player would keep
+      seeing the device's guess indefinitely. **Fixed**: the actual
+      restore point is `GET /players/me` (`AppShell`'s `ensureIdentity`,
+      the one call every app mount already makes) — `locale` added to
+      that response too, `AppShell` now calls `i18n.changeLanguage()`
+      there. ADR corrected to match. Also fixed: a stale "en/fi/da/nb"
+      comment left over from the 8-language widening in 12 places across
+      the mail/consent-page templates, and a missing e2e boundary-
+      validation test (`PATCH .../profile` with an out-of-enum `locale`
+      now asserted `400`, not just reasoned about from reading
+      `@IsEnum`'s code). Everything else both reviewers checked — the two
+      prior corrections actually landing in code, the fallback pattern
+      applied identically across all 8 templates, the consent web page
+      resolving locale server-side from the verified `Player` row behind
+      the token (never client-supplied), no location signal anywhere in
+      the 8-value no-region-subtag enum, `PATCH /players/me/profile`
+      staying scoped to the caller's own JWT — came back clean.
+      **security-reviewer's explicit verdict: PASS, no blocking
+      findings.** 296/296 unit + 141/141 e2e (up from 139, the two new
+      boundary tests), mobile `tsc`/`expo-doctor` clean.
+
+**Fas 4.3 part (a) is done.** No translation content beyond Swedish exists
+yet outside the 3 pilot strings (O0, O6, home greeting) — every other
+screen and mail template renders Swedish regardless of locale, correctly,
+via the fallback. Part (b) — real translation content for all 8 languages
+— starts next, at the project owner's explicit request, with one caveat
+stated plainly: the translations will be AI-generated (by this same
+session), not sourced from a professional/native-speaker translator.
+Recommended before relying on this for real families: a native-speaker
+review pass, at minimum on the consent-request and self-verification
+email templates specifically, since that's a real GDPR consent moment,
+not just cosmetic copy — flagged, not silently assumed fine.
+
+## Phase 4.3 part (b) — real translation content, all 8 languages — done 2026-08-01
+
+Retrofitted every remaining hardcoded-Swedish screen/component to real
+`t()`/`Trans` calls (part (a) had only wired 3 pilot strings — O0, O6, the
+home greeting) and wrote real translation content into `en`/`fi`/`da`/
+`nb`/`de`/`cs`/`fr` for all of it, plus all 8 backend mail templates and
+the 4 consent-page renderers. **563 translation keys across 7 namespaces
+× 8 languages, verified byte-for-byte identical key structure in every
+language, zero drift.**
+
+- [x] **Restructured `mobile/src/i18n/` into per-namespace files first**
+      (`locales/<lang>/<namespace>.json` — `common`/`onboarding`/`home`/
+      `team`/`goal`/`chat`/`clips` — instead of part (a)'s one-flat-file-
+      per-language layout), specifically so several translation passes
+      could run in parallel without write-conflicting on a shared
+      resource file. Purely mechanical, no behavior change — the 3 pilot
+      call sites migrated to scoped `useTranslation('<namespace>')`.
+- [x] **backend-developer**: all 8 mail templates + the 4 consent-page
+      renderers, prioritized per the ADR's own instruction (consent-
+      request/self-verification first — the real GDPR consent moment).
+      Each template's `<html lang="...">` also fixed to match its actual
+      content language (previously hardcoded `"sv"` in every locale's
+      markup — a real, if minor, pre-existing bug this pass incidentally
+      caught). AI-translation-disclosure comment added to every file.
+      296/296 backend unit tests.
+- [x] **frontend-developer × 4** (parallel, one per feature area —
+      onboarding+shared, home, team+goal, chat+clips — each owning a
+      fully disjoint set of namespace files, no coordination needed
+      between them): full retrofit + translation across all ~90 mobile
+      screens/components. Particular care taken on chat/clips' moderation
+      copy (report/block/filter-rejection strings) to preserve the
+      deliberate "never overpromise a review outcome, never alarming"
+      tone in every language, not just literally translate it.
+- [x] **Follow-up gaps closed** (found by the agents themselves flagging
+      out-of-scope issues, then fixed directly): the orphaned
+      `mobile/src/leaderboard/` screen (nobody's assigned directory —
+      missed in the original area split), and three shared formatting
+      utilities (`utils/formatDate.ts`, `utils/ordinal.ts`) that were
+      hardcoded to Swedish grammar/month-names/ordinal-suffix rules
+      regardless of active language — now genuinely locale-aware (8
+      real ordinal-suffix rules, not just Swedish's; 8 sets of month
+      names; per-language relative-time pluralization).
+- [x] **code-critic**: 3 CONFIRMED findings, all fixed — (1) three files
+      (`TeamPoolCard.tsx`, `GoalBonusTakeover.tsx`, `CatchUpBanner.tsx`)
+      still hardcoded `Intl.NumberFormat('sv-SE')` despite being touched
+      in this same pass, inconsistent with the correct pattern used
+      elsewhere in the identical diff; (2) Czech relative-time phrasing
+      used the plural instrumental for n=1 ("před 1 minutami"), which is
+      grammatically wrong — n=1 needs the singular instrumental ("před
+      minutou") — and is the *common* case (every clip/message passes
+      through "1 minute ago"), not the rare exception the original
+      comment thought it was excusing; (3) `AppRoot.tsx`'s
+      `TestModeBanner` (shown on the public `try.skillstreak.xyz` web
+      demo) was the one file left with zero `t()` wrapping at all —
+      outside every area agent's assigned directory and the
+      leaderboard/utils follow-up pass, only caught by a dedicated
+      grep-for-å/ä/ö sweep. Everything else checked (shared-utils
+      correctness, JSON/interpolation parity, no logic regression during
+      retrofit, the leaderboard formatter conversion's behavioral
+      equivalence for `sv`) came back clean.
+- [x] **security-reviewer**: **clean sign-off**, no findings. Verified by
+      diffing pre-and-post for every flagged risk area, not assuming
+      "mostly string changes" meant no logic changed: consent-flow gating
+      logic (`O5ConsentAsk.tsx` and the full O0-O6 chain) confirmed
+      byte-for-byte unchanged outside string literals; every chat/clip
+      report-block-delete submission handler confirmed unchanged (only
+      copy moved into `t()`); every new `{{interpolation}}` variable
+      audited — no real name or other sensitive field newly interpolated
+      anywhere, screen-names-only rule intact; the mail-template locale-
+      resolution mechanism from part (a) (`result.player.locale`, not
+      `dto.locale`; `COPY[locale] ?? COPY.sv!`) confirmed untouched,
+      changes purely additive; no location/EXIF signal introduced anywhere
+      in the diff.
+
+**Fas 4.3 is fully done, parts (a) and (b) both merged to `prerelease`.**
+296/296 backend unit tests, mobile `tsc`/`expo-doctor` clean, 563/563
+translation keys with verified parity across all 8 languages. The
+AI-translation-quality caveat from part (a) stands unchanged: a native-
+speaker review pass is still recommended before relying on any of this
+for real families, especially the consent/self-verification templates —
+tracked, not silently assumed fine.
 
 ## Phase 4.4 — Public launch: DNS, TLS, and a full production security pass — done 2026-07-31
 
@@ -2131,6 +2459,156 @@ Full technical detail and exact commands for every item above are in
 `docs/BACKLOG.md` (the individual findings, most now marked resolved
 in-place) and `k8s/README.md` (the MinIO scoped-credential recreate/
 rotate runbook, the internal-cluster section).
+
+## Phase 4.5 — AI video content tagging (design pass, in progress)
+
+From `docs/BACKLOG.md`'s "AI video tagging/understanding" entries
+(2026-07-26, 2026-07-31) — the project owner asking for AI to auto-tag
+each uploaded clip's content. Design-only so far; no schema or service
+exists yet.
+
+- [x] **architect**: `docs/adr/0018-ai-video-content-tagging.md`. Scope:
+      activity/drill-type classification only (a fixed-vocabulary tag per
+      clip), with a coarse "no confident match" signal as an advisory
+      moderation byproduct — not a replacement for ADR-0010's
+      report-driven auto-hide. Recommends a self-hosted, server-side
+      classifier reading from the existing MinIO bucket over a
+      third-party AI vision API (would mean sending real, identifiable
+      video of children to an external company — the same category of
+      call ADR-0010 Decision 1 already made for storage) or on-device
+      (poor fit for the presigned-upload path). New `VideoClipTag` table,
+      `ON DELETE CASCADE` against `VideoClip` (deliberately unlike
+      `ClipReport`'s survives-the-clip pattern — a tag has no value
+      independent of its video), internal-only/never player-facing this
+      phase. Tagging is strictly async/non-blocking, never a new
+      upload/publish gate. "RAG database"/freeform-tag idea from the
+      informal backlog note explicitly rejected in favor of a fixed,
+      allow-listed vocabulary, consistent with this schema's standing
+      pattern (`BadgeAward.context`, `PlayerLocale`).
+- [x] **security-reviewer**: blocking pass, 2026-08-01 — **not a clean
+      sign-off.** Confirmed correct as written: the self-hosted-over-
+      third-party call (Decision 2) and the cascade-deleted, internal-only
+      tag table (Decision 4), which closes the same class of gap
+      ADR-0010's own review caught twice (GPS-metadata leak,
+      `pending_upload`-TTL). Three findings:
+      - [x] **CONFIRMED, and a live bug independent of this ADR's
+            fate**: Decision 3's premise — existing upload-consent already
+            covers tagging "in substance" — didn't hold, because the real
+            parent/self-verification consent-page copy
+            (`backend/src/consent/consent-page.templates.ts`) said, in all
+            8 languages, "no photos or location data are collected," a
+            claim that had been false since video upload shipped
+            (2026-07-22) and was still being copied into a brand-new
+            consent surface five days later. **Fixed same day**: false
+            claim removed from both `CONSENT_CONFIRM_COPY` and
+            `SELF_VERIFICATION_CONFIRM_COPY` (all 8 locales); the true
+            "no location data" claim kept, honest closed-team-bubble
+            language added for shared content including video clips. See
+            `docs/BACKLOG.md`'s standalone entry for the full writeup —
+            this was surfaced as its own urgent item, not folded silently
+            into the AI-tagging entry, since it's a real gap regardless of
+            whether tagging ever ships.
+      - [ ] **PLAUSIBLE, required before the classification service is
+            deployed**: the ADR didn't originally state the new service
+            must follow ADR-0010 Decision 2's `ClusterIP`-only/no-Ingress
+            posture, or that a queue (if used) must carry reference-only
+            payloads (`clipId`, never raw bytes/frames). **Folded into
+            ADR-0018 Decision 5 as an explicit requirement** the same day;
+            not yet implemented (no service exists yet).
+      - [ ] **PLAUSIBLE, required before the classification service is
+            deployed**: no least-privilege MinIO credential concept exists
+            in this codebase yet (the API's own credential has full
+            put/delete/head) — the tagging service must get its own
+            read-only-scoped credential, or no direct MinIO access at all.
+            **Folded into ADR-0018 Decision 5** the same day; not yet
+            implemented.
+- [x] **ux-designer**: Decision 3's tagging-disclosure copy, all 8
+      locales → `docs/design/adr0018-tagging-disclosure-copy.md`. One new
+      sentence appended to `body2` (not `body1`, which stays exactly as
+      the earlier same-day consent-copy fix left it) in both
+      `CONSENT_CONFIRM_COPY` and `SELF_VERIFICATION_CONFIRM_COPY` —
+      "video clips you share may also be automatically analyzed to
+      generate tags describing what kind of training they show."
+      Deliberately "may... be analyzed," not present tense: accurate both
+      now (the classifier isn't deployed yet) and after launch (tagging
+      is best-effort/threshold-gated per Decision 4, so not every clip
+      gets a confident tag even once live). No new gate, checkbox, or
+      page — matches Decision 3's "copy change, not a new flow." Wired
+      into `backend/src/consent/consent-page.templates.ts` (all 8
+      locales, both copy objects) and verified with a clean backend
+      build.
+- [x] **backend-developer**: additive Postgres schema, schema-only per
+      the ADR's scoping (no controller/DTO/service touched, no
+      classification service/job/queue built — those still wait on the
+      two open infra findings above). → new `VideoClipTag` entity/table
+      (`backend/src/video-clips/entities/video-clip-tag.entity.ts`),
+      `VideoClip.tagging_status` column, migration
+      `1785800000000-AddVideoClipTagging.ts`. Fixed-enum vocabulary
+      adopted as-is from the ADR's illustrative list
+      (shooting/stickhandling/passing/fitness_conditioning/goalkeeping/
+      team_drill/other_training/unclear_or_unrelated); `clip_id` is
+      `ON DELETE CASCADE` (deliberately unlike `ClipReport`'s `SET NULL`,
+      per Decision 4's reasoning — a tag has no value independent of its
+      video). Verified independently (not just the implementing agent's
+      report): migration applies cleanly on top of the full 15-migration
+      history, `down()`/`up()` round-trips cleanly, cascade confirmed
+      directly (delete a `VideoClip` with a tag row, tag row is gone).
+      296/296 unit tests, 141/141 e2e, unchanged.
+- [x] **code-critic**: one CONFIRMED finding — `confidence numeric` had
+      no bound or `CHECK` constraint; live-tested against the actual
+      migration and confirmed Postgres accepted `1.5`, `-3`, and even the
+      literal `NaN` with nothing to catch a bad value from a future buggy
+      classifier before it corrupts a downstream `WHERE confidence > 0.8`
+      filter. **Fixed**: `numeric(4,3)` + `CHECK (confidence >= 0 AND
+      confidence <= 1)`, at both the migration and the entity
+      (`@Check(...)`, first use of that decorator in this codebase — no
+      prior `CHECK`-constraint precedent existed to follow). Re-verified
+      directly: reverted and reran the migration, then confirmed live
+      that `1.5`/`-3`/`NaN` are now all rejected by Postgres while a
+      real `0.874` insert still succeeds; full suite re-run clean
+      (296/296 unit, 141/141 e2e) after the fix. One PLAUSIBLE
+      low-severity finding, deliberately left open (matches the entity's
+      own comment and the ADR's "schema-only, job comes later" scoping):
+      no index yet backs a future `tagging_status = 'not_processed'`
+      sweep query — the existing `status` index partially covers it for
+      now, revisit when the sweep job is actually built. Everything else
+      checked clean: enum values/naming match the codebase's existing
+      convention exactly, `down()` reverses in correct dependency order
+      with no orphaned types on a live revert/reapply test, no
+      environment-specific values, zero scope creep into any
+      controller/DTO/client-facing surface.
+- [x] **security-reviewer**: sign-off, 2026-08-02, on what's actually
+      implemented (not just the design) — read the real diffs (`fed43d4`,
+      `8fe331a`, `c2c36e0`) directly, same reviewer/session as the
+      original ADR pass, not a fresh one starting from zero. **Safe to
+      merge, no blocking items on this slice.** Confirmed: the
+      `VideoClipTag` schema matches Decision 4 exactly, and is in fact
+      stronger than required — the entity isn't even registered in
+      `video-clips.module.ts`'s `TypeOrmModule.forFeature` yet, so
+      nothing in the running app can query it at all, not just "no
+      controller references it." Confirmed the consent-copy fix + the
+      tagging-disclosure sentence together close the original Finding 1
+      in substance (grepped the whole `backend/`/`docs/` tree — the old
+      false claim only survives in review-history prose now, never in a
+      live template). Confirmed the schema-only commit introduces none of
+      the surface Findings 4/5 warn about (no Deployment/Service/queue/
+      credential code exists yet) — those two findings correctly remain
+      open, but correctly gate only the not-yet-built classification
+      service, not anything currently on `prerelease`. No new finding
+      from reading the actual code that the design-level pass couldn't
+      have caught.
+
+**ADR-0018's schema-only slice is fully done and gated-clean: architect
+designed it, security-reviewer signed off on the design (with one fixed
+finding — the consent copy — and two findings correctly deferred),
+ux-designer wrote the tagging-disclosure copy, backend-developer
+implemented the schema, code-critic caught and fixed a real bug
+(unbounded `confidence`), and security-reviewer re-signed-off on the
+actual implementation.** What's left before the classification service
+itself can be built: ADR-0018 Decision 5's two infra requirements
+(ClusterIP-only network posture, least-privilege MinIO credential),
+model/vendor selection (explicitly not decided in the ADR), and the
+background job/queue that would actually populate this table.
 
 ## Phase 6 — Public Shorts feed, reactions & personal archive
 

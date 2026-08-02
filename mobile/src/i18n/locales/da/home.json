@@ -1,0 +1,204 @@
+{
+  "greeting": "Hej, <bold>{{screenName}}</bold>!",
+  "shared": {
+    "retry": "Prøv igen",
+    "cancel": "Annuller",
+    "genericError": "Noget gik galt.",
+    "genericErrorTryAgain": "Noget gik galt. Prøv igen.",
+    "save": "Gem",
+    "edit": "Rediger"
+  },
+  "appHeader": {
+    "profileAccessibilityLabel": "Din profil",
+    "workingTitle": "arbejdstitel"
+  },
+  "homeScreen": {
+    "loadError": "Kunne ikke hente dine data. Tjek din forbindelse.",
+    "extraLogToast": "Flot klaret! +{{minutes}} min til holdets pulje 🥇",
+    "consentRequiredToast": "Vi mangler stadig godkendelse, før du kan logge træning. Vi opdaterer siden for dig.",
+    "successBanner": "🔥 Flot klaret! {{count}} dage i træk.",
+    "successFloatingText": "+{{minutes}} min til holdet"
+  },
+  "activitySheet": {
+    "heading": "Hvad trænede du?",
+    "durationHeading": "Hvor længe?",
+    "submit": "Færdig!",
+    "activities": {
+      "fitness": "Kondition",
+      "drill": "Teknik/øvelse",
+      "running": "Løb",
+      "other": "Andet"
+    },
+    "durations": {
+      "d10": "10 min",
+      "d15": "15 min",
+      "d20": "20 min",
+      "d30plus": "30+ min"
+    }
+  },
+  "goalBonusTakeover": {
+    "headline": "Holdet nåede ugens mål!",
+    "sub": "Din træning var den sidste brik — nu har hele holdet nået sit mål!",
+    "points": "+{{points}} bonuspoint til holdets pulje! 🥇"
+  },
+  "streakCard": {
+    "loggedTodayChip": "Logget i dag ✓",
+    "count": "{{count}} dage",
+    "label": "Din personlige stime — bliv ved!"
+  },
+  "teamPoolCard": {
+    "title": "🥇 VM-guld-tabellen",
+    "points": "{{points}} point",
+    "rankLine": "{{rank}} plads ud af {{teamCount}} hold",
+    "noActiveSeason": "Ingen aktiv sæson lige nu",
+    "noActiveSeasonSub": "I er med igen, så snart en ny sæson starter.",
+    "effortLine": "🌟 {{effortRank}} bedst til holdindsats",
+    "tapHint": "Se tabellen →"
+  },
+  "trainedButton": {
+    "disabled": "Jeg har trænet 🔒",
+    "secondary": "Log en træning mere",
+    "primary": "Jeg har trænet"
+  },
+  "waitingCard": {
+    "titleBothPending": "Venter på godkendelse",
+    "titleJoinPending": "Venter på holdets anfører",
+    "titleConsentPending": "Venter på godkendelse",
+    "titleSelfVerificationPending": "Venter på, at du bekræfter",
+    "titlePaused": "Træning er sat på pause lige nu",
+    "consentPartSelfVerification": "Vi har sendt et bekræftelseslink til din e-mail eller dit mobilnummer.",
+    "consentPartParent": "Vi har spurgt en forælder eller værge om lov.",
+    "joinPart": "Holdets anfører skal godkende, at du er kommet med på holdet.",
+    "suffixBoth": "Så snart begge dele er klaret, låser vi knappen nedenfor op!",
+    "suffixJoinOnly": "Så snart anføreren godkender, låser vi knappen nedenfor op!",
+    "suffixConsentOnly": "Så snart det er klaret, låser vi knappen nedenfor op!",
+    "pausedBody": "En forælder eller værge har trukket godkendelsen tilbage. Snak med din træner, hvis du har spørgsmål.",
+    "refresh": "Tjek igen",
+    "refreshing": "Tjekker..."
+  },
+  "profileScreen": {
+    "loadError": "Kunne ikke hente din profil. Tjek din forbindelse.",
+    "savedToast": "Gemt!",
+    "contactChangeRateLimited": "Du har allerede bedt om en ændring for nylig — vent lidt, før du prøver igen.",
+    "contactChangeGenericError": "Noget gik galt. Tjek oplysningen, og prøv igen.",
+    "contactChangeConfirmedToast": "Bekræftet! Træder i kraft om ca. {{hours}} t. Den gamle adresse kan annullere via den mail, vi har sendt dertil.",
+    "codeInvalid": "Den kode virker ikke længere. Tjek, at du skrev den rigtigt, eller bed om en ny.",
+    "codeGenericError": "Noget gik galt. Tjek din forbindelse, og prøv igen.",
+    "erasureTeamInfoError": "Kunne ikke hente holdoplysninger. Prøv igen.",
+    "erasureTeammatesError": "Kunne ikke hente holdlisten. Tjek din forbindelse.",
+    "erasureBlockedPendingContactChange": "Du har en igangværende ændring af din kontaktoplysning. Den skal være færdig (eller annulleret), før du kan slette din konto — tjek igen om lidt.",
+    "erasureRateLimited": "Du har lige bedt om det her. Vent lidt, og prøv igen.",
+    "erasureSuccessorInvalid": "Den spiller er ikke længere på holdet. Vælg en anden.",
+    "erasureStaleState": "Der er sket ændringer på holdet, siden du åbnede denne skærm. Tjek din profil, og prøv igen.",
+    "erasureCancelledToast": "Klaret! Din konto bliver ikke slettet. 🎉",
+    "erasureCancelError": "Noget gik galt. Genindlæs siden, og prøv igen.",
+    "editName": {
+      "heading": "Dit navn",
+      "sub": "Valgfrit — vises aldrig for andre på holdet, kun du ser det her.",
+      "placeholder": "For- og efternavn"
+    },
+    "editAvatar": {
+      "heading": "Vælg avatar",
+      "sub": "Intet billede nødvendigt — vælg en figur, du kan lide."
+    },
+    "requestChange": {
+      "heading": "Skift kontaktadresse",
+      "sub": "Angiv den nye adresse. Vi sender en kode dertil for at bekræfte, samt en besked til den gamle adresse om, at en ændring er på vej.",
+      "placeholder": "Ny e-mailadresse eller telefonnummer",
+      "submit": "Send kode"
+    },
+    "confirmChange": {
+      "heading": "Tjek din indbakke",
+      "sub": "Vi har sendt en kode til den nye adresse. Indtast den nedenfor for at bekræfte skiftet.",
+      "placeholder": "F.eks. H4K7QWXP",
+      "submit": "Bekræft",
+      "resend": "Fik du ingen kode? Prøv igen"
+    },
+    "view": {
+      "heading": "Din profil",
+      "avatarLabel": "Avatar",
+      "nameLabel": "Navn",
+      "nameNotSet": "Ikke angivet",
+      "addName": "Tilføj",
+      "birthYearLabel": "Fødselsår",
+      "birthYearHelper": "Kan ikke ændres selv — kontakt holdets træner, hvis det skal rettes.",
+      "contactLabel": "Kontaktadresse",
+      "changeContact": "Skift",
+      "back": "Tilbage",
+      "logout": "Log ud",
+      "deleteAccount": "Slet min konto"
+    }
+  },
+  "erasureCheckEmail": {
+    "heading": "Tjek din indbakke",
+    "body": "Vi har sendt en mail med et link. Åbn mailen, og tryk på linket for at sætte de 30 dage i gang — det er helt fint at vente og gøre det i morgen.",
+    "mutedBody": "Trykker du ikke på linket, sker der ingenting — kontoen forbliver præcis som normalt.",
+    "cta": "Til profilen"
+  },
+  "erasureConfirmSheet": {
+    "heading": "Er du sikker?",
+    "body": "Vi sender en mail, som skal bekræftes for at sætte de 30 dage i gang. Fortryder du, kan du annullere når som helst, inden de er gået.",
+    "successorBody": "{{successorScreenName}} overtager som anfører den dag, kontoen slettes.",
+    "confirm": "Ja, slet min konto"
+  },
+  "erasureRequest": {
+    "heading": "Slet din konto?",
+    "bulletHistory": "Al din træningshistorik, dine mærker og dine klip slettes for altid.",
+    "bulletTeam": "Du forsvinder fra holdet. Dine beskeder i holdchatten bliver anonyme — holdet og dine holdkammerater påvirkes ikke ellers.",
+    "bulletFinal": "Det kan ikke fortrydes, når de 30 dage er gået.",
+    "tip": "Vi sender en mail, som du (eller en forælder eller værge) skal bekræfte — bare det at trykke på knappen nedenfor gør endnu ikke noget. Så snart mailen er bekræftet, har du 30 dage til at fortryde, og kontoen fungerer helt normalt i mellemtiden.",
+    "captainTitle": "Du er holdets anfører",
+    "captainBody": "Du skal vælge, hvem der overtager som anfører, før du kan gå videre.",
+    "successorNotChosen": "Ingen valgt endnu",
+    "chooseSuccessor": "Vælg",
+    "changeSuccessor": "Skift",
+    "lastPlayerWarning": "Lige nu er du den eneste tilbage på holdet. Hvis det stadig er tilfældet om 30 dage, forsvinder hele holdet, når din konto slettes — point, klip og alt andet.",
+    "submit": "Slet min konto"
+  },
+  "erasureStatusCard": {
+    "titleGracePeriod": "Din konto slettes den {{date}}.",
+    "unknownDate": "(ukendt dato)",
+    "titleRequested": "Venter på, at du bekræfter sletningen",
+    "gracePeriodBody": "Kontoen fungerer helt normalt indtil da. Fortryder du, kan du annullere når som helst inden da.",
+    "gracePeriodSuccessor": "{{successorScreenName}} overtager som anfører den dag.",
+    "requestedBody": "Vi har sendt dig et link på mail. Åbn mailen, og bekræft for at sætte de 30 dage i gang. Gør du ingenting, forbliver kontoen præcis som den er.",
+    "cancelGracePeriod": "Fortryd sletningen",
+    "cancelRequested": "Fortryd anmodningen",
+    "cancelling": "Fortryder..."
+  },
+  "erasureSuccessor": {
+    "heading": "Hvem overtager som anfører?",
+    "sub": "Den, du vælger, bliver holdets anfører den dag, din konto slettes — ikke før. Du er anfører som normalt indtil da.",
+    "done": "Færdig"
+  },
+  "leaderboard": {
+    "pageHeading": "VM-guld-tabellen 🥇",
+    "tabPoints": "🥇 Flest point",
+    "tabEffort": "💪 Bedste holdindsats",
+    "loadError": "Kunne ikke hente tabellen. Tjek din forbindelse.",
+    "genericError": "Noget gik galt.",
+    "retry": "Prøv igen",
+    "back": "Tilbage",
+    "effortNudge": "🌟 Jeres spillere kæmper godt! Se Bedste holdindsats →",
+    "noActiveSeasonBanner": "Jeres hold har ikke en aktiv sæson lige nu — men se de andre holds point!",
+    "emptyPointsHeading": "Ingen tabel at vise endnu.",
+    "emptyPointsSub": "Kom tilbage, når flere hold har en aktiv sæson.",
+    "tieCaption": "Delt point giver samme placering.",
+    "meTag": "Jeres hold",
+    "pointsSuffix": "p",
+    "effortCaption": "Et fair gennemsnit — så kan selv mindre hold vinde.",
+    "infoLink": "ⓘ Sådan regner vi det ud",
+    "noEffortBanner": "Jeres hold er ikke med på denne liste endnu — det kræver mindst én godkendt spiller.",
+    "emptyEffortHeading": "Ingen holdindsats at vise endnu.",
+    "emptyEffortSub": "Kom tilbage, når flere hold har godkendte spillere.",
+    "playerCountSuffix": "spillere",
+    "pointsPerPlayerSuffix": "p/spiller",
+    "infoSheet": {
+      "heading": "Sådan regner vi Bedste holdindsats ud",
+      "body1": "Vi sammenligner, hvor mange point hvert hold får pr. spiller — ikke kun holdets samlede sum. Sådan kan selv et lille hold vinde, hvis alle kæmper godt.",
+      "body2": "Hvis et hold er lille, regner vi lidt forsigtigt, så nogle få rigtig gode dage ikke tilfældigt giver førstepladsen. Jo flere spillere et hold har, jo mere stoler vi på deres eget gennemsnit.",
+      "ownTeamLine": "Jeres hold: {{pointsPerPlayer}} p/spiller med {{playerCount}} spillere → {{adjustedScore}} p når vi regner fair.",
+      "gotIt": "Okay, forstået!"
+    }
+  }
+}

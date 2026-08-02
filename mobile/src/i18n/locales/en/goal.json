@@ -1,0 +1,123 @@
+{
+  "metricLabel": {
+    "fitness": "Fitness",
+    "drill": "Skills/drills",
+    "running": "Running",
+    "other": "Other",
+    "total": "Total (all types)"
+  },
+  "metricLabelInline": {
+    "fitness": "fitness",
+    "drill": "skills/drills",
+    "running": "running",
+    "other": "other",
+    "total": "total (all types)"
+  },
+  "unitLabel": {
+    "minutes": "minutes",
+    "sessions": "sessions"
+  },
+  "g1": {
+    "loadError": "Couldn't load the team's goal. Check your connection.",
+    "genericError": "Something went wrong.",
+    "retry": "Try again",
+    "pageHeading": "This week's goal 🎯",
+    "emptyHeading": "🎯 No goal right now",
+    "emptySub": "Your captain will set a new team goal soon!",
+    "seeHistory": "See past goals",
+    "cancelGoal": "Cancel the goal",
+    "editDraft": "Edit",
+    "activateNow": "Activate now",
+    "activateBlockedExplain": "You already have an active goal. This will be saved as a draft until it's done, or until you cancel the other one.",
+    "setNewGoal": "+ Set this week's goal",
+    "activatedToast": "The goal is now active — the team can see it.",
+    "genericErrorToast": "Something went wrong. Try again.",
+    "cancelConfirmTitle": "Cancel \"{{title}}\"?",
+    "cancelConfirmBody": "Logged training isn't affected, but it will no longer count toward a goal.",
+    "cancelConfirmCancel": "Cancel",
+    "cancelConfirmConfirm": "Yes, cancel it",
+    "historyHeading": "Past goals",
+    "historyCompleted": "Completed",
+    "historyCancelled": "Cancelled",
+    "historyTally": "{{completed}} of {{eligible}} teammates done · +{{bonus}}p bonus",
+    "historyEmpty": "No past goals yet.",
+    "back": "Back"
+  },
+  "builder": {
+    "draftSavedToast": "The goal has been saved!",
+    "activatedToast": "The goal is now active — the team can see it.",
+    "genericError": "Something went wrong. Try again."
+  },
+  "g1d": {
+    "heading": "Teammates' status",
+    "subHeading": "for \"{{goalTitle}}\"",
+    "doneSectionLabel": "✅ Done ({{count}})",
+    "inProgressSectionLabel": "⏳ Not done yet ({{count}})",
+    "excludedSectionLabel": "➖ Not in this week ({{count}})",
+    "back": "Back",
+    "exclusion": {
+      "joinedAfterStart": "Joined after the goal had already started",
+      "consentPending": "Waiting for approval from a parent ⏳",
+      "consentRevoked": "Paused ⏸️",
+      "teamJoinPending": "Waiting to be approved on the team ⏳"
+    }
+  },
+  "kb1": {
+    "heading": "Set the team's goal for the week",
+    "sub": "Give it a fun name — this is what the whole team will see.",
+    "titleLabel": "Title",
+    "titlePlaceholder": "E.g. The Zorro-fake challenge",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "E.g. Pull off as many Zorro fakes together as you can before Friday!",
+    "next": "Next",
+    "cancel": "Cancel"
+  },
+  "kb2": {
+    "heading": "What should each player manage this week?",
+    "sub": "Every player on the team needs to hit the goal on their own — choose whether it's counted in minutes or sessions, and which type of training counts.",
+    "unitMinutes": "⏱️ Minutes",
+    "unitSessions": "🔁 Number of sessions",
+    "unitHelper": "A session = one logged training, no matter how long it was.",
+    "targetLabel": "Goal per player ({{unit}})",
+    "placeholderMinutes": "E.g. 20",
+    "placeholderSessions": "E.g. 3",
+    "helper": "This is the goal each player needs to hit on their own — not the team's total.",
+    "previewText": "Every player on the team needs to rack up {{value}} {{unit}} of {{metric}} before the goal ends.",
+    "next": "Next",
+    "back": "Back"
+  },
+  "kb3": {
+    "heading": "When does this week's goal start and end?",
+    "startDateLabel": "Start date",
+    "endDateLabel": "End date",
+    "dateOrderError": "The end date must be after the start date.",
+    "next": "Next",
+    "back": "Back",
+    "doneButton": "Done"
+  },
+  "kb4": {
+    "heading": "Here's how it'll look for the team",
+    "saveDraft": "Save as draft",
+    "activateBlockedExplain": "You already have an active goal. This will be saved as a draft until it's done, or until you cancel the other one.",
+    "activateNow": "Activate now",
+    "back": "Back"
+  },
+  "goalCard": {
+    "eyebrow": "This week's goal 🎯",
+    "metChip": "Reached! 🎉",
+    "sub": "Set by the team captain",
+    "previewCallout": "This is what the card will look like once the goal is active — real teammates and who's done will show up then.",
+    "headlineMuted": "No one on the team can work toward this goal right now.",
+    "headline": "{{completed}} of {{eligible}} teammates done",
+    "metricChip": "{{icon}} {{label}} · {{value}} {{unit}} each",
+    "endDate": "Ends {{date}}",
+    "detailLink": "See who's done →"
+  },
+  "teammateStatusRow": {
+    "inProgress": "In progress",
+    "notStarted": "Not started yet",
+    "progressCaption": "{{progress}} of {{target}} {{unit}}",
+    "done": "Done ✓",
+    "excludedChip": "Not in this week"
+  }
+}

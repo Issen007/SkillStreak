@@ -1,4 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
@@ -33,6 +34,7 @@ export function ReminderActionSheet({
   onSendReminder,
   onSendReissue,
 }: ReminderActionSheetProps) {
+  const { t } = useTranslation('team');
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable
@@ -42,18 +44,18 @@ export function ReminderActionSheet({
       <View style={styles.sheet}>
         <Text style={styles.heading}>{screenName}</Text>
         <PrimaryButton
-          label="Skicka påminnelse till förälder"
+          label={t('reminderActionSheet.sendReminder')}
           loading={loading}
           disabled={reissueLoading}
           onPress={onSendReminder}
         />
         <PrimaryButton
-          label="Skicka ny inloggningslänk"
+          label={t('reminderActionSheet.sendReissue')}
           loading={reissueLoading}
           disabled={loading}
           onPress={onSendReissue}
         />
-        <SecondaryLink label="Avbryt" onPress={onClose} />
+        <SecondaryLink label={t('reminderActionSheet.cancel')} onPress={onClose} />
       </View>
     </Modal>
   );

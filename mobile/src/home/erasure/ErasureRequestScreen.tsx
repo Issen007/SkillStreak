@@ -1,4 +1,5 @@
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { DangerButton } from '../../components/DangerButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
@@ -38,6 +39,8 @@ export function ErasureRequestScreen({
   onSubmit,
   onCancel,
 }: ErasureRequestScreenProps) {
+  const { t } = useTranslation('home');
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -55,7 +58,7 @@ export function ErasureRequestScreen({
       <View style={styles.centered}>
         <Text style={styles.errorText}>{errorText}</Text>
         <Text style={styles.retryText} onPress={onRetry}>
-          Försök igen
+          {t('shared.retry')}
         </Text>
       </View>
     );
@@ -70,33 +73,22 @@ export function ErasureRequestScreen({
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Radera ditt konto?</Text>
+        <Text style={styles.heading}>{t('erasureRequest.heading')}</Text>
 
         <View style={styles.bullets}>
-          <Text style={styles.bullet}>
-            •  All din träningshistorik, dina märken och dina klipp raderas för alltid.
-          </Text>
-          <Text style={styles.bullet}>
-            •  Du försvinner från laget. Dina meddelanden i lagchatten blir anonyma — laget och
-            lagkompisarna påverkas inte annars.
-          </Text>
-          <Text style={styles.bullet}>•  Det går inte att ångra så fort de 30 dagarna har gått.</Text>
+          <Text style={styles.bullet}>•  {t('erasureRequest.bulletHistory')}</Text>
+          <Text style={styles.bullet}>•  {t('erasureRequest.bulletTeam')}</Text>
+          <Text style={styles.bullet}>•  {t('erasureRequest.bulletFinal')}</Text>
         </View>
 
         <View style={styles.tipRow}>
-          <Text style={styles.tipText}>
-            ℹ️ Vi skickar ett mejl som du (eller en förälder eller vårdnadshavare) måste bekräfta —
-            bara att trycka på knappen här nedan gör ingenting än. Så fort mejlet är bekräftat har
-            du 30 dagar på dig att ångra dig, och kontot funkar precis som vanligt under tiden.
-          </Text>
+          <Text style={styles.tipText}>ℹ️ {t('erasureRequest.tip')}</Text>
         </View>
 
         {requiresSuccessor ? (
           <View style={styles.captainBox}>
-            <Text style={styles.captainBoxTitle}>👑 Du är lagets kapten</Text>
-            <Text style={styles.captainBoxBody}>
-              Du måste välja vem som tar över som kapten innan du kan gå vidare.
-            </Text>
+            <Text style={styles.captainBoxTitle}>👑 {t('erasureRequest.captainTitle')}</Text>
+            <Text style={styles.captainBoxBody}>{t('erasureRequest.captainBody')}</Text>
             <View style={styles.successorRow}>
               {successorScreenName ? (
                 <>
@@ -106,30 +98,31 @@ export function ErasureRequestScreen({
                   <Text style={styles.successorName}>{successorScreenName}</Text>
                 </>
               ) : (
-                <Text style={styles.successorMuted}>Ingen vald än</Text>
+                <Text style={styles.successorMuted}>{t('erasureRequest.successorNotChosen')}</Text>
               )}
               <SecondaryLink
-                label={successorScreenName ? 'Ändra' : 'Välj'}
+                label={
+                  successorScreenName
+                    ? t('erasureRequest.changeSuccessor')
+                    : t('erasureRequest.chooseSuccessor')
+                }
                 onPress={onChooseSuccessor}
               />
             </View>
           </View>
         ) : isLastPlayer ? (
           <View style={styles.warnRow}>
-            <Text style={styles.warnText}>
-              Just nu är du ensam kvar i laget. Om det fortfarande stämmer om 30 dagar försvinner
-              hela laget när ditt konto raderas — poäng, klipp och allt annat.
-            </Text>
+            <Text style={styles.warnText}>{t('erasureRequest.lastPlayerWarning')}</Text>
           </View>
         ) : null}
 
         <View style={styles.spacer} />
         <DangerButton
-          label="Radera mitt konto"
+          label={t('erasureRequest.submit')}
           onPress={onSubmit}
           disabled={requiresSuccessor && !successorScreenName}
         />
-        <SecondaryLink label="Avbryt" onPress={onCancel} />
+        <SecondaryLink label={t('shared.cancel')} onPress={onCancel} />
       </ScrollView>
     </View>
   );

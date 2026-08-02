@@ -1,0 +1,86 @@
+{
+  "ch0": {
+    "heading": "So funktioniert der Team-Chat",
+    "bullet1": "Nur dein eigenes Team sieht, was du hier schreibst.",
+    "bullet2": "Fühlt sich etwas komisch an? Du kannst eine Nachricht melden oder eine Person blockieren, damit du keine weiteren Nachrichten von ihr siehst.",
+    "bullet3": "Manche Wörter funktionieren hier nicht. Wenn eine Nachricht nicht gesendet werden kann, versuch sie umzuformulieren.",
+    "dismiss": "Okay, verstanden!"
+  },
+  "ch1": {
+    "heading": "Team-Chat 💬",
+    "blockedLink": "🚫 Blockiert",
+    "loadError": "Der Team-Chat konnte nicht geladen werden. Überprüfe deine Verbindung.",
+    "retry": "Nochmal versuchen",
+    "emptyHeading": "Noch keine Nachrichten",
+    "emptySub": "Schreib die erste Nachricht an dein Team!",
+    "filterRejected": "Die Nachricht wurde nicht gesendet — sie enthielt Wörter, die hier nicht funktionieren. Schreib sie um, dann klappt's! ✍️",
+    "sendRateLimited": "Du schickst gerade etwas schnell Nachrichten. Warte einen Moment, dann funktioniert es wieder.",
+    "genericError": "Etwas ist schiefgelaufen. Versuch es nochmal.",
+    "clipGoneOnSend": "Der Clip konnte nicht gesendet werden — er existiert nicht mehr. Du kannst den Rest jetzt selbst senden.",
+    "messageNotFoundToast": "Diese Nachricht gibt es nicht mehr.",
+    "alreadyReportedToast": "Du hast diese Nachricht bereits gemeldet.",
+    "reportRateLimitedToast": "Du hast in letzter Zeit einiges gemeldet. Warte einen Moment, bevor du wieder etwas meldest.",
+    "clipNotFoundToast": "Dieses Video gibt es nicht mehr.",
+    "clipAlreadyReportedToast": "Du hast dieses Video bereits gemeldet.",
+    "clipReportRateLimitedToast": "Du hast in letzter Zeit einiges gemeldet. Warte einen Moment, bevor du wieder etwas meldest.",
+    "blockedToast": "Du siehst keine Nachrichten oder Clips mehr von {{screenName}}."
+  },
+  "ch2": {
+    "excerpt": "Du meldest: „{{excerpt}}…“",
+    "heading": "Warum meldest du diese Nachricht?",
+    "reasonBullying": "Mobbing",
+    "reasonInappropriateLanguage": "Unangemessene Sprache",
+    "reasonSpam": "Spam",
+    "reasonOther": "Anderes",
+    "noteLabel": "Möchtest du mehr erzählen? (freiwillig)",
+    "notePlaceholder": "Optional…",
+    "submit": "Meldung senden",
+    "cancel": "Abbrechen"
+  },
+  "ch3": {
+    "heading": "Danke, dass du Bescheid gesagt hast.",
+    "body": "Wir haben deine Meldung erhalten. Du musst nichts weiter tun – und niemand erfährt, dass du gemeldet hast.",
+    "followUp": "Möchtest du auch keine weiteren Nachrichten von dieser Person mehr sehen?",
+    "block": "{{screenName}} blockieren",
+    "noThanks": "Nein danke",
+    "done": "Fertig"
+  },
+  "ch4": {
+    "body": "Wenn du {{screenName}} blockierst, siehst du keine Nachrichten mehr von dieser Person im Team-Chat und keine Shorts mehr im Shorts-Feed. {{screenName}} erfährt nicht, dass du sie/ihn blockiert hast.",
+    "confirm": "{{screenName}} blockieren",
+    "cancel": "Abbrechen"
+  },
+  "ch5": {
+    "heading": "Blockierte Teamkolleg:innen",
+    "headingSub": "Eine Blockierung gilt sowohl für den Team-Chat als auch für Shorts.",
+    "empty": "Du hast noch niemanden blockiert.",
+    "unblock": "Blockierung aufheben",
+    "back": "Zurück",
+    "unblockedToast": "Du siehst wieder Nachrichten von {{screenName}}.",
+    "genericError": "Etwas ist schiefgelaufen. Versuch es nochmal."
+  },
+  "ch6": {
+    "heading": "Einen Clip anhängen",
+    "loadError": "Clips konnten nicht geladen werden. Überprüfe deine Verbindung.",
+    "retry": "Nochmal versuchen",
+    "emptyHeading": "Noch keine Clips zum Anhängen",
+    "emptySub": "Noch niemand im Team hat einen Clip hochgeladen. Geh zum Tab „Clips“, um den ersten hochzuladen!",
+    "goToClips": "Zu Clips",
+    "showMore": "Mehr Clips anzeigen"
+  },
+  "composeBar": {
+    "lockedNote": "Wartet auf Freigabe, bevor du Nachrichten senden kannst. Du kannst trotzdem lesen, was das Team schreibt.",
+    "placeholder": "Schreib etwas an dein Team…",
+    "clipChipLabel": "Von {{screenName}}"
+  },
+  "messageBubble": {
+    "reportMessage": "🚩 Nachricht melden",
+    "reportClip": "🚩 Clip melden"
+  },
+  "clipEmbed": {
+    "attribution": "Clip von {{screenName}}"
+  },
+  "clipUnavailable": {
+    "text": "🎬 Dieses Video ist nicht mehr verfügbar."
+  }
+}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { SecondaryButton } from '../components/SecondaryButton';
 import { SecondaryLink } from '../components/SecondaryLink';
@@ -29,6 +30,7 @@ interface BlockedListScreenProps {
  * covers both the chat and the Klipp feed (the same `TeamChatBlock` row,
  * not two independent settings). */
 export function BlockedListScreen({ teamId, onBack }: BlockedListScreenProps) {
+  const { t } = useTranslation('chat');
   const [blocks, setBlocks] = useState<CachedChatBlock[] | null>(null);
   const [unblockingId, setUnblockingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -48,9 +50,9 @@ export function BlockedListScreen({ teamId, onBack }: BlockedListScreenProps) {
       await unblockChatPlayer(teamId, block.blockedPlayerId);
       await removeCachedChatBlock(teamId, block.blockedPlayerId);
       setBlocks((prev) => (prev ?? []).filter((b) => b.blockedPlayerId !== block.blockedPlayerId));
-      setToastMessage(`Du ser meddelanden från ${block.screenName} igen.`);
+      setToastMessage(t('ch5.unblockedToast', { screenName: block.screenName }));
     } catch {
-      setToastMessage('Något gick fel. Testa igen.');
+      setToastMessage(t('ch5.genericError'));
     } finally {
       setUnblockingId(null);
     }
@@ -59,13 +61,13 @@ export function BlockedListScreen({ teamId, onBack }: BlockedListScreenProps) {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Blockerade lagkompisar</Text>
-        <Text style={styles.headingSub}>En blockering gäller både lagchatten och Shorts.</Text>
+        <Text style={styles.heading}>{t('ch5.heading')}</Text>
+        <Text style={styles.headingSub}>{t('ch5.headingSub')}</Text>
 
         {blocks === null ? (
           <ActivityIndicator color={colors.flame} />
         ) : blocks.length === 0 ? (
-          <Text style={styles.emptyText}>Du har inte blockerat någon.</Text>
+          <Text style={styles.emptyText}>{t('ch5.empty')}</Text>
         ) : (
           blocks.map((block) => {
             const emoji = AVATAR_CATALOG.find((a) => a.avatarId === block.avatarId)?.emoji ?? '🙂';
@@ -76,7 +78,7 @@ export function BlockedListScreen({ teamId, onBack }: BlockedListScreenProps) {
                 </View>
                 <Text style={styles.name}>{block.screenName}</Text>
                 <SecondaryButton
-                  label="Sluta blockera"
+                  label={t('ch5.unblock')}
                   loading={unblockingId === block.blockedPlayerId}
                   onPress={() => void handleUnblock(block)}
                 />
@@ -85,7 +87,7 @@ export function BlockedListScreen({ teamId, onBack }: BlockedListScreenProps) {
           })
         )}
 
-        <SecondaryLink label="Tillbaka" onPress={onBack} />
+        <SecondaryLink label={t('ch5.back')} onPress={onBack} />
       </ScrollView>
 
       {toastMessage ? <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} /> : null}

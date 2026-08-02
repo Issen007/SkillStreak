@@ -1,5 +1,12 @@
 import { Transform } from 'class-transformer';
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { PlayerLocale } from '../../common/locale/player-locale.enum';
 
 // Same trim-before-validate reasoning as create-player.dto.ts.
 const trimString = ({ value }: { value: unknown }) =>
@@ -45,4 +52,13 @@ export class UpdateProfileDto {
   @IsNotEmpty()
   @MaxLength(MAX_AVATAR_ID_LENGTH)
   avatarId?: string;
+
+  // docs/adr/0014-multi-language-support.md Consequences — optional,
+  // omitted (not `null`-able; every player already always has one) leaves
+  // it unchanged, matching PATCH semantics. `@IsEnum` per the ADR's
+  // 2026-07-31 security-review correction — matches CreatePlayerDto's own
+  // `locale` field and every other enum-typed DTO field in this backend.
+  @IsOptional()
+  @IsEnum(PlayerLocale)
+  locale?: PlayerLocale;
 }

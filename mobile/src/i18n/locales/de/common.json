@@ -1,0 +1,18 @@
+{
+  "captainBanner": {
+    "promotedTitle": "👑 Glückwunsch! Du bist jetzt Kapitän des Teams.",
+    "promotedSub": "Deine neuen Werkzeuge findest du im Team-Tab.",
+    "demoted": "Das Kapitänsamt ist an ein Teammitglied weitergegangen."
+  },
+  "catchUpBanner": {
+    "message": "🎉 Das ganze Team hat das Wochenziel geschafft! Das Team hat +{{points}} Bonuspunkte bekommen."
+  },
+  "tabs": {
+    "home": "Start",
+    "chat": "Chat",
+    "clips": "Shorts",
+    "goal": "Ziel",
+    "team": "Team"
+  },
+  "testModeBanner": "🧪 Das hier ist nur ein TEST — leg kein echtes Konto mit echten Daten an."
+}

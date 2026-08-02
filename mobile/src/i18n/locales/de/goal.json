@@ -1,0 +1,123 @@
+{
+  "metricLabel": {
+    "fitness": "Kondition",
+    "drill": "Technik/Übungen",
+    "running": "Laufen",
+    "other": "Sonstiges",
+    "total": "Gesamt (alle Arten)"
+  },
+  "metricLabelInline": {
+    "fitness": "Kondition",
+    "drill": "Technik/Übungen",
+    "running": "Laufen",
+    "other": "Sonstiges",
+    "total": "insgesamt (alle Arten)"
+  },
+  "unitLabel": {
+    "minutes": "Minuten",
+    "sessions": "Einheiten"
+  },
+  "g1": {
+    "loadError": "Das Ziel des Teams konnte nicht geladen werden. Prüf deine Verbindung.",
+    "genericError": "Etwas ist schiefgelaufen.",
+    "retry": "Erneut versuchen",
+    "pageHeading": "Wochenziel 🎯",
+    "emptyHeading": "🎯 Gerade kein Ziel",
+    "emptySub": "Euer Kapitän setzt bald ein neues Ziel fürs Team!",
+    "seeHistory": "Frühere Ziele ansehen",
+    "cancelGoal": "Ziel abbrechen",
+    "editDraft": "Bearbeiten",
+    "activateNow": "Jetzt aktivieren",
+    "activateBlockedExplain": "Ihr habt schon ein aktives Ziel. Das hier wird als Entwurf gespeichert, bis es fertig ist oder du das andere abbrichst.",
+    "setNewGoal": "+ Wochenziel festlegen",
+    "activatedToast": "Das Ziel ist jetzt aktiv — das Team sieht es.",
+    "genericErrorToast": "Etwas ist schiefgelaufen. Versuch's noch mal.",
+    "cancelConfirmTitle": "„{{title}}“ abbrechen?",
+    "cancelConfirmBody": "Geloggtes Training bleibt erhalten, zählt aber nicht mehr für ein Ziel.",
+    "cancelConfirmCancel": "Abbrechen",
+    "cancelConfirmConfirm": "Ja, abbrechen",
+    "historyHeading": "Frühere Ziele",
+    "historyCompleted": "Abgeschlossen",
+    "historyCancelled": "Abgebrochen",
+    "historyTally": "{{completed}} von {{eligible}} Teammitgliedern fertig · +{{bonus}}p Bonus",
+    "historyEmpty": "Noch keine früheren Ziele.",
+    "back": "Zurück"
+  },
+  "builder": {
+    "draftSavedToast": "Das Ziel wurde gespeichert!",
+    "activatedToast": "Das Ziel ist jetzt aktiv — das Team sieht es.",
+    "genericError": "Etwas ist schiefgelaufen. Versuch's noch mal."
+  },
+  "g1d": {
+    "heading": "Status der Teammitglieder",
+    "subHeading": "für „{{goalTitle}}“",
+    "doneSectionLabel": "✅ Fertig ({{count}})",
+    "inProgressSectionLabel": "⏳ Noch nicht fertig ({{count}})",
+    "excludedSectionLabel": "➖ Diese Woche nicht dabei ({{count}})",
+    "back": "Zurück",
+    "exclusion": {
+      "joinedAfterStart": "Ist beigetreten, nachdem das Ziel schon gestartet war",
+      "consentPending": "Wartet auf Freigabe durch ein Elternteil ⏳",
+      "consentRevoked": "Pausiert ⏸️",
+      "teamJoinPending": "Wartet auf Freigabe fürs Team ⏳"
+    }
+  },
+  "kb1": {
+    "heading": "Wochenziel fürs Team festlegen",
+    "sub": "Gib ihm einen coolen Namen — das sieht das ganze Team.",
+    "titleLabel": "Titel",
+    "titlePlaceholder": "Z. B. Die Zorro-Fake-Challenge",
+    "descriptionLabel": "Beschreibung",
+    "descriptionPlaceholder": "Z. B. Macht gemeinsam so viele Zorro-Fakes wie möglich, bis Freitag!",
+    "next": "Weiter",
+    "cancel": "Abbrechen"
+  },
+  "kb2": {
+    "heading": "Was soll jede Spielerin/jeder Spieler diese Woche schaffen?",
+    "sub": "Jede Person im Team muss das Ziel selbst erreichen — wähle, ob es in Minuten oder Einheiten gezählt wird, und welche Trainingsart zählt.",
+    "unitMinutes": "⏱️ Minuten",
+    "unitSessions": "🔁 Anzahl Einheiten",
+    "unitHelper": "Eine Einheit = ein geloggtes Training, egal wie lang es war.",
+    "targetLabel": "Ziel pro Spieler ({{unit}})",
+    "placeholderMinutes": "Z. B. 20",
+    "placeholderSessions": "Z. B. 3",
+    "helper": "Das ist das Ziel, das jede Person im Team selbst erreichen muss — nicht die Gesamtsumme des Teams.",
+    "previewText": "Jede Person im Team muss {{value}} {{unit}} {{metric}} sammeln, bevor das Ziel endet.",
+    "next": "Weiter",
+    "back": "Zurück"
+  },
+  "kb3": {
+    "heading": "Wann beginnt und endet das Wochenziel?",
+    "startDateLabel": "Startdatum",
+    "endDateLabel": "Enddatum",
+    "dateOrderError": "Das Enddatum muss nach dem Startdatum liegen.",
+    "next": "Weiter",
+    "back": "Zurück",
+    "doneButton": "Fertig"
+  },
+  "kb4": {
+    "heading": "So sieht es fürs Team aus",
+    "saveDraft": "Als Entwurf speichern",
+    "activateBlockedExplain": "Ihr habt schon ein aktives Ziel. Das hier wird als Entwurf gespeichert, bis es fertig ist oder du das andere abbrichst.",
+    "activateNow": "Jetzt aktivieren",
+    "back": "Zurück"
+  },
+  "goalCard": {
+    "eyebrow": "Wochenziel 🎯",
+    "metChip": "Geschafft! 🎉",
+    "sub": "Vom Kapitän des Teams festgelegt",
+    "previewCallout": "So sieht die Karte aus, sobald das Ziel aktiv ist — dann werden echte Teammitglieder und wer fertig ist angezeigt.",
+    "headlineMuted": "Gerade kann niemand im Team an diesem Ziel arbeiten.",
+    "headline": "{{completed}} von {{eligible}} Teammitgliedern fertig",
+    "metricChip": "{{icon}} {{label}} · {{value}} {{unit}} pro Person",
+    "endDate": "Endet {{date}}",
+    "detailLink": "Wer ist fertig? →"
+  },
+  "teammateStatusRow": {
+    "inProgress": "In Arbeit",
+    "notStarted": "Noch nicht begonnen",
+    "progressCaption": "{{progress}} von {{target}} {{unit}}",
+    "done": "Fertig ✓",
+    "excludedChip": "Diese Woche nicht dabei"
+  }
+}

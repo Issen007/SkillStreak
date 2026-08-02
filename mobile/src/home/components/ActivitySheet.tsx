@@ -1,5 +1,6 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
@@ -9,21 +10,21 @@ import type { ActivityType } from '../../api/types';
 interface ActivityOption {
   activityType: ActivityType;
   emoji: string;
-  label: string;
+  labelKey: 'fitness' | 'drill' | 'running' | 'other';
 }
 
 const ACTIVITIES: ActivityOption[] = [
-  { activityType: 'fitness', emoji: '🏋️', label: 'Kondition' },
-  { activityType: 'drill', emoji: '🏑', label: 'Teknik/övning' },
-  { activityType: 'running', emoji: '🏃', label: 'Löpning' },
-  { activityType: 'other', emoji: '⭐', label: 'Annat' },
+  { activityType: 'fitness', emoji: '🏋️', labelKey: 'fitness' },
+  { activityType: 'drill', emoji: '🏑', labelKey: 'drill' },
+  { activityType: 'running', emoji: '🏃', labelKey: 'running' },
+  { activityType: 'other', emoji: '⭐', labelKey: 'other' },
 ];
 
-const DURATIONS: { label: string; minutes: number }[] = [
-  { label: '10 min', minutes: 10 },
-  { label: '15 min', minutes: 15 },
-  { label: '20 min', minutes: 20 },
-  { label: '30+ min', minutes: 30 },
+const DURATIONS: { labelKey: 'd10' | 'd15' | 'd20' | 'd30plus'; minutes: number }[] = [
+  { labelKey: 'd10', minutes: 10 },
+  { labelKey: 'd15', minutes: 15 },
+  { labelKey: 'd20', minutes: 20 },
+  { labelKey: 'd30plus', minutes: 30 },
 ];
 
 interface ActivitySheetProps {
@@ -45,6 +46,7 @@ export function ActivitySheet({
   onClose,
   onSubmit,
 }: ActivitySheetProps) {
+  const { t } = useTranslation('home');
   const [activityType, setActivityType] = useState<ActivityType | null>(null);
   const [durationMinutes, setDurationMinutes] = useState<number | null>(null);
   const wasVisible = useRef(visible);
@@ -80,7 +82,7 @@ export function ActivitySheet({
     >
       <Pressable style={styles.backdrop} onPress={handleClose} />
       <View style={styles.sheet}>
-        <Text style={styles.heading}>Vad tränade du?</Text>
+        <Text style={styles.heading}>{t('activitySheet.heading')}</Text>
 
         <View style={styles.chipRow}>
           {ACTIVITIES.map((option) => {
@@ -94,7 +96,7 @@ export function ActivitySheet({
                 style={[styles.activityChip, selected && styles.chipSelected]}
               >
                 <Text style={styles.chipEmoji}>{option.emoji}</Text>
-                <Text style={styles.chipLabel}>{option.label}</Text>
+                <Text style={styles.chipLabel}>{t(`activitySheet.activities.${option.labelKey}`)}</Text>
               </Pressable>
             );
           })}
@@ -102,19 +104,19 @@ export function ActivitySheet({
 
         {activityType ? (
           <>
-            <Text style={styles.subheading}>Hur länge?</Text>
+            <Text style={styles.subheading}>{t('activitySheet.durationHeading')}</Text>
             <View style={styles.chipRow}>
               {DURATIONS.map((option) => {
                 const selected = option.minutes === durationMinutes;
                 return (
                   <Pressable
-                    key={option.label}
+                    key={option.labelKey}
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     onPress={() => setDurationMinutes(option.minutes)}
                     style={[styles.durationChip, selected && styles.chipSelected]}
                   >
-                    <Text style={styles.chipLabel}>{option.label}</Text>
+                    <Text style={styles.chipLabel}>{t(`activitySheet.durations.${option.labelKey}`)}</Text>
                   </Pressable>
                 );
               })}
@@ -125,7 +127,7 @@ export function ActivitySheet({
         {errorText ? <Text style={styles.error}>{errorText}</Text> : null}
 
         <PrimaryButton
-          label="Klart!"
+          label={t('activitySheet.submit')}
           disabled={!canSubmit}
           loading={loading}
           onPress={() => {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -8,7 +9,7 @@ import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 import {
   TARGET_METRIC_OPTIONS,
-  targetMetricLabel,
+  targetMetricLabelInline,
   targetUnitForMetric,
   targetUnitLabel,
 } from '../types';
@@ -21,10 +22,10 @@ interface KB2Props {
   onBack: () => void;
 }
 
-const UNIT_PLACEHOLDER: Record<WeeklyGoalTargetUnit, string> = {
-  minutes: 'T.ex. 20',
-  sessions: 'T.ex. 3',
-};
+const UNIT_PLACEHOLDER_KEYS = {
+  minutes: 'kb2.placeholderMinutes',
+  sessions: 'kb2.placeholderSessions',
+} as const satisfies Record<WeeklyGoalTargetUnit, string>;
 
 /** Screen KB2 — activity type + per-player target, redesigned 2026-07-31
  * per docs/adr/0015-weekly-goal-per-player-completion.md +
@@ -38,6 +39,7 @@ export function KB2TargetMetric({
   onNext,
   onBack,
 }: KB2Props) {
+  const { t } = useTranslation('goal');
   const initialOption = initialTargetMetric
     ? TARGET_METRIC_OPTIONS.find(
         (option) =>
@@ -64,7 +66,7 @@ export function KB2TargetMetric({
       : null;
   const targetValue = Number.parseInt(targetValueText, 10);
   const canSubmit = targetMetric !== null && Number.isFinite(targetValue) && targetValue > 0;
-  const unitLabel = targetUnitLabel(selectedUnit);
+  const unitLabel = targetUnitLabel(t, selectedUnit);
 
   // Switching units resets the numeric field — a "20" typed while
   // "Minuter" was selected shouldn't silently become "20 pass" by muscle
@@ -77,11 +79,8 @@ export function KB2TargetMetric({
 
   return (
     <ScreenContainer scroll>
-      <Text style={styles.heading}>Vad ska varje spelare klara den här veckan?</Text>
-      <Text style={styles.sub}>
-        Varje spelare i laget behöver nå målet på egen hand — välj om det räknas i minuter eller
-        pass, och vilken typ av träning som gäller.
-      </Text>
+      <Text style={styles.heading}>{t('kb2.heading')}</Text>
+      <Text style={styles.sub}>{t('kb2.sub')}</Text>
 
       <View style={styles.unitRow}>
         <Pressable
@@ -90,7 +89,7 @@ export function KB2TargetMetric({
           onPress={() => handleSelectUnit('minutes')}
           style={[styles.unitPill, selectedUnit === 'minutes' && styles.unitPillSelected]}
         >
-          <Text style={styles.unitPillLabel}>⏱️ Minuter</Text>
+          <Text style={styles.unitPillLabel}>{t('kb2.unitMinutes')}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -98,59 +97,60 @@ export function KB2TargetMetric({
           onPress={() => handleSelectUnit('sessions')}
           style={[styles.unitPill, selectedUnit === 'sessions' && styles.unitPillSelected]}
         >
-          <Text style={styles.unitPillLabel}>🔁 Antal pass</Text>
+          <Text style={styles.unitPillLabel}>{t('kb2.unitSessions')}</Text>
         </Pressable>
       </View>
-      <Text style={styles.unitHelper}>Ett pass = en loggad träning, oavsett hur lång den var.</Text>
+      <Text style={styles.unitHelper}>{t('kb2.unitHelper')}</Text>
 
       <View style={styles.chipRow}>
         {TARGET_METRIC_OPTIONS.map((option, index) => {
           const selected = index === selectedOptionIndex;
           return (
             <Pressable
-              key={option.label}
+              key={option.labelKey}
               accessibilityRole="button"
               accessibilityState={{ selected }}
               onPress={() => setSelectedOptionIndex(index)}
               style={[styles.chip, selected && styles.chipSelected]}
             >
               <Text style={styles.chipEmoji}>{option.icon}</Text>
-              <Text style={styles.chipLabel}>{option.label}</Text>
+              <Text style={styles.chipLabel}>{t(option.labelKey)}</Text>
             </Pressable>
           );
         })}
       </View>
 
-      <Text style={styles.label}>Mål per spelare ({unitLabel})</Text>
+      <Text style={styles.label}>{t('kb2.targetLabel', { unit: unitLabel })}</Text>
       <TextInput
         keyboardType="number-pad"
-        placeholder={UNIT_PLACEHOLDER[selectedUnit]}
+        placeholder={t(UNIT_PLACEHOLDER_KEYS[selectedUnit])}
         placeholderTextColor={colors.textMuted}
         value={targetValueText}
         onChangeText={setTargetValueText}
         style={styles.input}
       />
-      <Text style={styles.helper}>
-        Det här är målet varje spelare behöver nå på egen hand — inte lagets totalsumma.
-      </Text>
+      <Text style={styles.helper}>{t('kb2.helper')}</Text>
 
       {targetMetric && canSubmit ? (
         <View style={styles.previewCallout}>
           <Text style={styles.previewText}>
-            Varje spelare i laget behöver samla {targetValue} {unitLabel}{' '}
-            {targetMetricLabel(targetMetric).toLowerCase()} innan målet slutar.
+            {t('kb2.previewText', {
+              value: targetValue,
+              unit: unitLabel,
+              metric: targetMetricLabelInline(t, targetMetric),
+            })}
           </Text>
         </View>
       ) : null}
 
       <PrimaryButton
-        label="Nästa"
+        label={t('kb2.next')}
         disabled={!canSubmit}
         onPress={() => {
           if (targetMetric && canSubmit) onNext(targetMetric, targetValue);
         }}
       />
-      <SecondaryLink label="Tillbaka" onPress={onBack} />
+      <SecondaryLink label={t('kb2.back')} onPress={onBack} />
     </ScreenContainer>
   );
 }

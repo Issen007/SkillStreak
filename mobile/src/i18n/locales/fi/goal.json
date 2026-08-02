@@ -1,0 +1,123 @@
+{
+  "metricLabel": {
+    "fitness": "Kunto",
+    "drill": "Tekniikka/harjoitteet",
+    "running": "Juoksu",
+    "other": "Muu",
+    "total": "Yhteensä (kaikki tyypit)"
+  },
+  "metricLabelInline": {
+    "fitness": "kuntoa",
+    "drill": "tekniikkaa/harjoitteita",
+    "running": "juoksua",
+    "other": "muuta",
+    "total": "yhteensä (kaikkia tyyppejä)"
+  },
+  "unitLabel": {
+    "minutes": "minuuttia",
+    "sessions": "kertaa"
+  },
+  "g1": {
+    "loadError": "Joukkueen tavoitetta ei voitu hakea. Tarkista verkkoyhteytesi.",
+    "genericError": "Jokin meni pieleen.",
+    "retry": "Yritä uudelleen",
+    "pageHeading": "Viikon tavoite 🎯",
+    "emptyHeading": "🎯 Ei tavoitetta juuri nyt",
+    "emptySub": "Kapteeninne asettaa pian uuden tavoitteen joukkueelle!",
+    "seeHistory": "Näytä aiemmat tavoitteet",
+    "cancelGoal": "Peru tavoite",
+    "editDraft": "Muokkaa",
+    "activateNow": "Aktivoi nyt",
+    "activateBlockedExplain": "Teillä on jo aktiivinen tavoite. Tämä tallennetaan luonnokseksi, kunnes se on valmis tai kunnes peruutat toisen.",
+    "setNewGoal": "+ Aseta viikon tavoite",
+    "activatedToast": "Tavoite on nyt aktiivinen — joukkue näkee sen.",
+    "genericErrorToast": "Jokin meni pieleen. Yritä uudelleen.",
+    "cancelConfirmTitle": "Perutaanko \"{{title}}\"?",
+    "cancelConfirmBody": "Kirjattuun harjoitteluun ei vaikuta, mutta se ei enää lasketa tavoitetta kohti.",
+    "cancelConfirmCancel": "Peruuta",
+    "cancelConfirmConfirm": "Kyllä, peru",
+    "historyHeading": "Aiemmat tavoitteet",
+    "historyCompleted": "Päättynyt",
+    "historyCancelled": "Peruttu",
+    "historyTally": "{{completed}}/{{eligible}} joukkuekaveria valmiina · +{{bonus}}p bonusta",
+    "historyEmpty": "Ei vielä aiempia tavoitteita.",
+    "back": "Takaisin"
+  },
+  "builder": {
+    "draftSavedToast": "Tavoite on tallennettu!",
+    "activatedToast": "Tavoite on nyt aktiivinen — joukkue näkee sen.",
+    "genericError": "Jokin meni pieleen. Yritä uudelleen."
+  },
+  "g1d": {
+    "heading": "Joukkuekavereiden tilanne",
+    "subHeading": "tavoitteelle \"{{goalTitle}}\"",
+    "doneSectionLabel": "✅ Valmiit ({{count}})",
+    "inProgressSectionLabel": "⏳ Eivät vielä valmiita ({{count}})",
+    "excludedSectionLabel": "➖ Eivät mukana tällä viikolla ({{count}})",
+    "back": "Takaisin",
+    "exclusion": {
+      "joinedAfterStart": "Liittyi joukkueeseen tavoitteen alkamisen jälkeen",
+      "consentPending": "Odottaa vanhemman hyväksyntää ⏳",
+      "consentRevoked": "Keskeytetty ⏸️",
+      "teamJoinPending": "Odottaa hyväksymistä joukkueeseen ⏳"
+    }
+  },
+  "kb1": {
+    "heading": "Aseta joukkueen tavoite viikolle",
+    "sub": "Anna sille hauska nimi — tämän näkee koko joukkue.",
+    "titleLabel": "Otsikko",
+    "titlePlaceholder": "Esim. Zorro-vetojen haaste",
+    "descriptionLabel": "Kuvaus",
+    "descriptionPlaceholder": "Esim. Tehkää yhdessä niin monta zorro-vetoa kuin pystytte ennen perjantaita!",
+    "next": "Seuraava",
+    "cancel": "Peruuta"
+  },
+  "kb2": {
+    "heading": "Mitä jokaisen pelaajan pitää saavuttaa tällä viikolla?",
+    "sub": "Jokaisen pelaajan pitää saavuttaa tavoite itse — valitse lasketaanko se minuutteina vai kertoina, ja millainen harjoittelu kelpaa.",
+    "unitMinutes": "⏱️ Minuutit",
+    "unitSessions": "🔁 Kertojen määrä",
+    "unitHelper": "Yksi kerta = yksi kirjattu harjoitus, kestosta riippumatta.",
+    "targetLabel": "Tavoite per pelaaja ({{unit}})",
+    "placeholderMinutes": "Esim. 20",
+    "placeholderSessions": "Esim. 3",
+    "helper": "Tämä on tavoite, jonka jokaisen pelaajan pitää saavuttaa itse — ei joukkueen yhteissummaa.",
+    "previewText": "Jokaisen pelaajan pitää kerätä {{value}} {{unit}} {{metric}} ennen kuin tavoite päättyy.",
+    "next": "Seuraava",
+    "back": "Takaisin"
+  },
+  "kb3": {
+    "heading": "Milloin viikon tavoite alkaa ja päättyy?",
+    "startDateLabel": "Alkupäivä",
+    "endDateLabel": "Loppupäivä",
+    "dateOrderError": "Loppupäivän täytyy olla alkupäivän jälkeen.",
+    "next": "Seuraava",
+    "back": "Takaisin",
+    "doneButton": "Valmis"
+  },
+  "kb4": {
+    "heading": "Näin tämä näkyy joukkueelle",
+    "saveDraft": "Tallenna luonnoksena",
+    "activateBlockedExplain": "Teillä on jo aktiivinen tavoite. Tämä tallennetaan luonnokseksi, kunnes se on valmis tai kunnes peruutat toisen.",
+    "activateNow": "Aktivoi nyt",
+    "back": "Takaisin"
+  },
+  "goalCard": {
+    "eyebrow": "Viikon tavoite 🎯",
+    "metChip": "Saavutettu! 🎉",
+    "sub": "Joukkueen kapteenin asettama",
+    "previewCallout": "Tältä kortti näyttää, kun tavoite on aktiivinen — silloin näet oikeat joukkuekaverit ja kuka on valmis.",
+    "headlineMuted": "Kukaan joukkueessa ei voi juuri nyt tavoitella tätä.",
+    "headline": "{{completed}}/{{eligible}} joukkuekaveria valmiina",
+    "metricChip": "{{icon}} {{label}} · {{value}} {{unit}} / pelaaja",
+    "endDate": "Päättyy {{date}}",
+    "detailLink": "Näytä, kuka on valmis →"
+  },
+  "teammateStatusRow": {
+    "inProgress": "Menossa",
+    "notStarted": "Ei vielä aloitettu",
+    "progressCaption": "{{progress}}/{{target}} {{unit}}",
+    "done": "Valmis ✓",
+    "excludedChip": "Ei mukana tällä viikolla"
+  }
+}

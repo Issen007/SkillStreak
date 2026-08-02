@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryButton } from '../../components/SecondaryButton';
@@ -27,6 +28,7 @@ export function ReportConfirmationSheet({
   onBlock,
   onDone,
 }: ReportConfirmationSheetProps) {
+  const { t } = useTranslation('chat');
   const [followUpDismissed, setFollowUpDismissed] = useState(false);
   const showBlockFollowUp =
     !followUpDismissed && (reason === 'bullying' || reason === 'inappropriate_language');
@@ -41,23 +43,21 @@ export function ReportConfirmationSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDone}>
       <Pressable style={styles.backdrop} onPress={onDone} />
       <View style={styles.sheet}>
-        <Text style={styles.heading}>Tack för att du sa till.</Text>
-        <Text style={styles.body}>
-          Vi har tagit emot din rapport. Du behöver inte göra något mer – och ingen får veta att
-          det var du som rapporterade.
-        </Text>
+        <Text style={styles.heading}>{t('ch3.heading')}</Text>
+        <Text style={styles.body}>{t('ch3.body')}</Text>
 
         {showBlockFollowUp ? (
           <>
-            <Text style={styles.followUp}>
-              Vill du också slippa se fler meddelanden från den personen?
-            </Text>
-            <SecondaryButton label={`Blockera ${reportedScreenName}`} onPress={onBlock} />
-            <SecondaryLink label="Nej tack" onPress={() => setFollowUpDismissed(true)} />
+            <Text style={styles.followUp}>{t('ch3.followUp')}</Text>
+            <SecondaryButton
+              label={t('ch3.block', { screenName: reportedScreenName })}
+              onPress={onBlock}
+            />
+            <SecondaryLink label={t('ch3.noThanks')} onPress={() => setFollowUpDismissed(true)} />
           </>
         ) : null}
 
-        <PrimaryButton label="Klar" onPress={onDone} />
+        <PrimaryButton label={t('ch3.done')} onPress={onDone} />
       </View>
     </Modal>
   );

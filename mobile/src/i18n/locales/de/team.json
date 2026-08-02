@@ -1,0 +1,86 @@
+{
+  "k1": {
+    "heading": "Team 👥",
+    "loadError": "Team konnte nicht geladen werden. Prüf deine Verbindung.",
+    "genericError": "Etwas ist schiefgelaufen.",
+    "retry": "Erneut versuchen",
+    "pendingSectionLabel": "Wartet auf Freigabe",
+    "teammatesSectionLabel": "Spieler im Team",
+    "inviteCodeLabel": "Team-Code",
+    "inviteButton": "📨 Freund einladen",
+    "captainBadge": "👑 Du bist Kapitän",
+    "captainSeeDetail": "Team im Detail ansehen",
+    "captainManageGoal": "Wochenziel verwalten",
+    "captainSwapCaptain": "Kapitän wechseln",
+    "notCaptainToast": "Diese Seite ist nur für den Kapitän des Teams.",
+    "approveSuccessToast": "{{screenName}} ist jetzt im Team freigegeben! 🎉",
+    "approveErrorToast": "Freigabe gerade nicht möglich. Versuch's noch mal.",
+    "rejectSuccessToast": "{{screenName}} wurde abgelehnt.",
+    "rejectErrorToast": "Ablehnen gerade nicht möglich. Versuch's noch mal.",
+    "captainTransferredToast": "Die Kapitänsrolle wurde an {{newCaptainScreenName}} übergeben. 👑",
+    "linkCopiedToast": "Link kopiert!"
+  },
+  "k2": {
+    "heading": "Team im Detail",
+    "loadError": "Teamliste konnte nicht geladen werden. Prüf deine Verbindung.",
+    "genericError": "Etwas ist schiefgelaufen.",
+    "retry": "Erneut versuchen",
+    "back": "Zurück",
+    "reminderSentToast": "Erinnerung gesendet.",
+    "consentNoLongerPendingToast": "Dieser Spieler wartet nicht mehr auf Freigabe.",
+    "reminderErrorToast": "Etwas ist schiefgelaufen. Versuch's noch mal.",
+    "reissueSentToast": "Login-Code an Elternteil/Erziehungsberechtigte gesendet.",
+    "reissueRateLimitedToast": "Ein Code wurde gerade erst gesendet — warte eine Minute, bevor du einen neuen anforderst."
+  },
+  "k4": {
+    "heading": "Neuen Kapitän wählen",
+    "sub": "Wen du auswählst, wird sofort der neue Kapitän des Teams.",
+    "loadError": "Teamliste konnte nicht geladen werden. Prüf deine Verbindung.",
+    "genericError": "Etwas ist schiefgelaufen.",
+    "retry": "Erneut versuchen",
+    "back": "Zurück",
+    "targetNotFoundToast": "Dieser Spieler wurde nicht mehr gefunden. Die Liste wird aktualisiert.",
+    "genericErrorToast": "Etwas ist schiefgelaufen. Versuch's noch mal."
+  },
+  "consentChips": {
+    "approved": "{{count}} freigegeben ✓",
+    "pending": "{{count}} wartend ⏳",
+    "revoked": "{{count}} pausiert ⏸️"
+  },
+  "inviteFriendSheet": {
+    "heading": "Freund einladen",
+    "subExpoGo": "Lass sie den Code scannen, um die App in Expo Go zu öffnen, dann geben sie unten den Team-Code ein.",
+    "subDefault": "Lass sie den Code scannen oder teile den Link — sie geben nur ihren eigenen Spitznamen ein, das Team ist schon ausgefüllt.",
+    "codeLabel": "Team-Code",
+    "shareButton": "Einladung teilen",
+    "close": "Schließen",
+    "shareMessageExpoGo": "Tritt {{teamName}} auf SkillStreak bei! Öffne den Link in Expo Go und gib dann den Team-Code {{inviteCode}} ein, sobald die App startet: {{joinUrl}}",
+    "shareMessageDefault": "Tritt {{teamName}} auf SkillStreak bei! Nutze den Team-Code {{inviteCode}} oder klicke auf den Link: {{joinUrl}}"
+  },
+  "pendingJoinRow": {
+    "reject": "Ablehnen",
+    "approve": "Freigeben"
+  },
+  "reminderActionSheet": {
+    "sendReminder": "Erinnerung an Eltern senden",
+    "sendReissue": "Neuen Login-Link senden",
+    "cancel": "Abbrechen"
+  },
+  "rosterRow": {
+    "statusApproved": "Freigegeben ✓",
+    "statusPending": "Wartend ⏳",
+    "statusRevoked": "Pausiert ⏸️",
+    "statusNotRequested": "Noch nicht gesendet",
+    "lastTrained": "Zuletzt geloggt: {{date}}",
+    "notTrainedYet": "Hat noch nicht geloggt"
+  },
+  "teammateRow": {
+    "selfTag": "(Du)"
+  },
+  "captainTransferConfirmSheet": {
+    "heading": "{{screenName}} zum Kapitän machen?",
+    "body": "{{screenName}} bekommt sofort die Kapitäns-Buttons. Du bleibst ganz normal im Team dabei — und wenn {{screenName}} möchte, kann er/sie dir die Rolle später jederzeit zurückgeben, genau wie du es jetzt tust.",
+    "confirmButton": "Ja, {{screenName}} zum Kapitän machen",
+    "cancel": "Abbrechen"
+  }
+}

@@ -14,6 +14,7 @@ import {
 import { decryptPii, encryptPii } from '../common/crypto/pii-encryption.util';
 import { generateHumanCode } from '../common/crypto/human-code.util';
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
+import { PlayerLocale } from '../common/locale/player-locale.enum';
 import { MailService } from '../mail/mail.service';
 import { buildErasureCancelEmail } from '../mail/templates/erasure-cancel-email.template';
 import { buildErasureConfirmEmail } from '../mail/templates/erasure-confirm-email.template';
@@ -206,6 +207,7 @@ export class AccountErasureService {
 
     await this.sendConfirmEmailBestEffort(
       player.screenName,
+      player.locale,
       parentContact,
       code,
     );
@@ -590,6 +592,7 @@ export class AccountErasureService {
 
   private async sendConfirmEmailBestEffort(
     screenName: string,
+    locale: PlayerLocale,
     parentContact: string | null,
     code: string,
   ): Promise<void> {
@@ -604,6 +607,7 @@ export class AccountErasureService {
       screenName,
       confirmUrl,
       expiresInHours: Math.round(ERASURE_CONFIRM_CODE_TTL_MS / 3_600_000),
+      locale,
     });
     try {
       await this.mailService.sendMail({
@@ -638,6 +642,7 @@ export class AccountErasureService {
       screenName: player.screenName,
       cancelUrl,
       scheduledForDateLabel: dateLabel(scheduledFor),
+      locale: player.locale,
     });
     try {
       await this.mailService.sendMail({

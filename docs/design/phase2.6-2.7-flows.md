@@ -23,6 +23,14 @@ the ranking math (that's `docs/adr/0016-cross-team-leaderboard-fairness.md`,
 already decided) — only the UX built on top of it. Its own companion mockup:
 `docs/design/phase2.7-effort-leaderboard-mockup.html`.
 
+**Addendum, 2026-07-31 (ADR-0017):** a new **Part E**, at the end of this
+doc (after Part D), extends Part B's chat flow (CH0-CH5, unchanged) with the
+ability to attach one of the team's existing Shorts clips to a chat message
+— one new screen (CH6, the compose-time clip picker) plus diffs to CH1's
+composer and message-list rendering. Built directly against
+`docs/adr/0017-chat-clip-attachments.md` and reuses `docs/design/
+phase3-flows.md`'s Screens V9/V10 (clip report/confirmation) unmodified.
+
 **Read this first if you're frontend-developer:** three of the four parts
 below touch code that already exists (`mobile/src/team/TeamScreen.tsx`,
 `mobile/src/home/components/TeamPoolCard.tsx`, `mobile/src/goal/`) — this
@@ -954,6 +962,397 @@ here too.
 
 ---
 
+## Part E — Fas 2.6b addendum (ADR-0017): chat message clip attachments
+
+Extends Part B above — **CH0-CH5 are unchanged**, this only adds one new
+screen (CH6) and diffs to CH1. Built directly against
+`docs/adr/0017-chat-clip-attachments.md`'s Decisions 1-6 and the `clipId`/
+`clip` fields it adds to `docs/api/phase2.6b-contract.md`'s endpoints 1-2.
+Also reuses two Fas 3 screens **verbatim, unmodified**: V9 (the clip
+report-reason sheet) and V10 (its confirmation), `docs/design/
+phase3-flows.md` — see "Report affordance" below for why no new report UI
+is designed here at all.
+
+No new companion mockup — this addendum is small enough, and close enough
+to `phase2.6-2.7-mockup.html`'s existing chat-bubble language and
+`phase3-mockup.html`'s existing clip-card language, that a third mockup
+file wasn't judged worth building; flagged as optional if
+frontend-developer wants one before implementing.
+
+### Judgment call — one small icon button in the compose row opens the picker; attaching is not a separate "mode"
+
+CH1's compose box (Part B) is a single text input + send button. **Decision:
+add one small icon button, "🎬," to the left of the text input**, same row,
+same height — tapping it opens CH6 (below). This keeps the composer a
+single, familiar row rather than introducing a second input mode a kid has
+to switch into and out of (e.g. a "text vs. clip" toggle) — a player can
+type, attach, remove, and retype in any order, exactly like attaching a
+photo in an ordinary messaging app already works, a pattern this age group
+already knows from outside this app.
+
+**Locked exactly like the rest of the compose box under `consent_required`**
+(Part B's existing rule for the text input/send button) — the 🎬 button is
+**visible but disabled**, greyed, same lock treatment. Tapping it while
+locked shows the same existing toast: **"Väntar på godkännande innan du kan
+skicka meddelanden. Du kan fortfarande läsa vad laget skriver."** No new
+copy needed for this case. This is also, conveniently, never actually
+reachable in practice: `GET .../teams/:teamId/clips` (the endpoint CH6
+calls, per ADR-0017 Decision 3) is itself consent-gated per
+`docs/adr/0010-video-storage-and-serving.md`'s Decision on gated reads, so
+a consent-pending player couldn't successfully open the picker even if the
+button weren't disabled — the composer lock and the picker's own data
+dependency agree with each other for free, not a coincidence worth
+re-deciding.
+
+### Screen CH6 — Bifoga ett klipp (compose-time clip picker)
+
+**Trigger:** tapping the 🎬 button on CH1's compose row (only reachable when
+consent is approved, per above).
+**API:** `GET /api/v1/teams/:teamId/clips` (`docs/api/phase3-contract.md`
+endpoint 3) — **the exact same call and response shape the Klipp tab's own
+feed (Screen V2) already uses**, per ADR-0017 Decision 3: team-scoped,
+`published`-only, the viewer's own block list already filtered out
+server-side, paginated, freshly-presigned `playbackUrl` per item. No new
+backend capability — this screen is a second *renderer* of data V2 already
+fetches the same way, not a new data source.
+
+**Layout:** a near-full-height sheet (not a small bottom sheet like CH2/K4
+— this needs real browsing room), header **"Bifoga ett klipp"** with a
+close **"✕"** (dismiss, no selection made, returns to CH1 with the composer
+exactly as it was).
+
+Below the header: a **two-column grid of clip cards** (not a vertical list
+like V2) — a grid reads faster for "scan and pick one," the same reason a
+native photo/video picker on a phone already uses a grid, a metaphor this
+age group already knows without any explanation needed. Each card:
+
+- The clip itself, **paused at its first frame** (no separate thumbnail
+  asset exists or is generated — see the in-message embed section below for
+  why this is the deliberate, consistent choice across this whole
+  addendum), muted, **not tappable to preview-play inside the picker** — a
+  single tap on a card **selects and attaches it immediately**, closing the
+  sheet and returning to CH1 with the clip now shown in the composer's
+  preview chip (below). No separate "confirm" step — exactly as low-friction
+  as picking a photo from a native gallery picker, and nothing is
+  irreversible yet: the composer's own preview chip has its own remove
+  button before Send is ever tapped.
+- Small caption below the thumbnail: avatar emoji + `uploaderScreenName`
+  (any teammate's clip is pickable, not just the player's own — per ADR-0017
+  Decision 3 — so this label matters, it's often not "your own" clip) + a
+  short relative timestamp (**"igår," "för 3 dagar sedan"**), same format
+  V2 already uses.
+
+**Pagination:** identical convention to V2 — the initial `limit` batch
+(default 20), then a plain **"Visa fler klipp"** button at the bottom of the
+grid, not scroll-triggered auto-loading (same CLAUDE.md "no infinite
+scroll" instruction V2 already follows; reusing the identical mechanism
+here rather than inventing a picker-specific one).
+
+**Empty state (a team with zero published clips yet)** — reads as an
+invitation, not an error, same posture as V2's own empty state:
+
+> Heading: **"Inga klipp att bifoga än"**
+> Sub: **"Ingen i laget har laddat upp ett klipp än. Gå till Klipp-fliken
+> för att ladda upp det första!"**
+> Button: **"Gå till Klipp"** → closes CH6, switches the active tab to
+> "Klipp" (V2/empty state, which itself has its own **"Ladda upp klipp"**
+> entry point) — reuses the app's existing tab-switch mechanism, not a new
+> navigation concept, and gives the player a real next step instead of a
+> dead end.
+
+**Next:** tap a card → attaches it, closes CH6, back to CH1 (composer now
+shows the preview chip below). Tap **"✕"** or the empty state's "Gå till
+Klipp" → back to CH1/Klipp tab, composer unchanged.
+
+### Screen CH1 — updated: composer gains a removable clip-preview chip
+
+**Trigger:** returning from CH6 with a clip selected.
+
+A small horizontal chip appears directly above the text input (below any
+already-typed text, part of the same compose area, not a separate screen):
+
+- A small thumbnail (paused first frame, same treatment as CH6's grid
+  cards, ~60×80dp — big enough to recognize which clip it is, small enough
+  not to crowd the compose row).
+- **"Från {uploaderScreenName}"** label next to it.
+- A small **"✕"** in the thumbnail's corner — tapping it removes the
+  attachment and returns the composer to a plain text-only state, typed
+  text untouched.
+
+**Send button enablement — updated rule** (per ADR-0017 Decision 4's
+combined validation): the send button is enabled when **either** the text
+input has non-empty, non-whitespace-only content **or** a clip is attached
+(or both) — not text alone, as Part B originally specified. Still disabled
+if text is over the 500-character cap, unchanged.
+
+**On send:** `POST .../chat/messages { content, clipId? }`. New/updated
+responses, on top of Part B's existing ones:
+
+- **`201`** → message appears in the list (per CH1's existing "re-fetch/
+  optimistic append" behavior, unchanged) with its `clip` block populated
+  (per Decision 5, always populated on a successful send — see the embed
+  rendering below). **Composer clears both the text and the attached-clip
+  chip together** on success, same as it already clears text alone today.
+- **`404 clip_not_found`** (new — a rare race: the picked clip was deleted,
+  hidden, or its uploader got blocked between picking it in CH6 and hitting
+  Send): **the typed text is preserved** (same existing rule for every
+  other CH1 send error) **and the clip chip is automatically removed**,
+  with a small toast: **"Klippet gick inte att skicka — det finns inte
+  längre. Nu kan du skicka resten själv."** The player can immediately tap
+  Send again for the text alone (if any), or reopen CH6 to pick a different
+  clip. This is a deliberate, non-punishing recovery: the player didn't do
+  anything wrong, so nothing about the rest of their message is lost.
+- **`422 message_rejected_by_filter`** (unchanged trigger — only ever runs
+  against non-empty `content`, per Decision 5's check order; a clip-only
+  message with empty `content` can never trigger this) — **both the typed
+  text and the attached-clip chip are preserved**, extending Part B's
+  existing "typed text stays in the input" rule to the clip attachment too,
+  so a filter rejection on the text never forces re-picking the clip.
+- All other existing CH1 send errors (`consent_required`,
+  `chat_send_rate_limited`, `400` empty-message) are unchanged in behavior;
+  the `400` case's trigger condition is simply widened per Decision 4 (both
+  empty text **and** no clip attached, rather than empty text alone) — no
+  new copy needed, the send button being disabled already prevents a player
+  from reaching it in the newly-widened case.
+
+### CH1 — updated: in-message clip-embed rendering
+
+**The central open question ADR-0017 hands off: autoplay, static
+first-frame, or something else. Decision: static first-frame, tap to play,
+muted by default — identical playback philosophy to Screen V2's feed, not
+a new one invented for chat.**
+
+Reasoning:
+
+- **Consistency with the one other place this app already renders these
+  exact bytes.** V2 (`docs/design/phase3-flows.md`) already answered this
+  question for clips generally: "clips render as an ordinary vertical list
+  of cards... not a full-screen, one-clip-at-a-time, swipe-to-advance,
+  autoplay-on-load stack," muted by default, tap to play/pause, **no
+  autoplay on scroll**. The same video bytes, reached from a second screen,
+  autoplaying there while requiring a tap here would be an inconsistent,
+  confusing double standard for identical content — a kid shouldn't have to
+  learn two different rules for "does this video just start playing."
+- **Chat is arguably the *worse* place to autoplay, not a neutral one.**
+  CH1 polls every ~5 seconds and auto-scrolls to new messages (Part B,
+  unchanged) — a chat screen a kid keeps open while chatting is exactly the
+  surface where an autoplaying video embed would come closest to
+  reproducing the autoplay-plus-constant-new-content mechanic CLAUDE.md
+  explicitly names as the dark pattern to avoid, worse than V2's own
+  deliberately-static list.
+- **No new thumbnail concept is needed.** This app has no thumbnail image
+  or thumbnail-generation pipeline today (ADR-0010 never built one, and
+  ADR-0017's hand-off explicitly flags this as open) — "static first frame"
+  means literally rendering the same `<Video>` element paused at position
+  0, exactly the technique V2's own cards already rely on implicitly (no
+  separate thumbnail asset exists there either). Reusing this costs nothing
+  new to build; a thumbnail-generation service would be new infrastructure
+  this phase has no evidence it needs (the same "boring, no new primitive"
+  reasoning ADR-0010 already applied to deciding against on-device
+  thumbnail extraction as a separate step).
+
+**Layout inside a bubble that carries a clip** (text and a clip render
+together, per Decision 3/4 — never either/or):
+
+1. Sender row (avatar + `senderScreenName`) — unchanged from Part B.
+2. **If `content` is non-empty:** the text, in the ordinary bubble-fill
+   treatment — unchanged from Part B.
+3. **If `clip` is populated:** a compact video card below the text (or in
+   the bubble alone, if `content` is empty) —
+   - Rounded corners, portrait aspect ratio (matches V2's own clips —
+     that's genuinely how these are shot), but **capped to a smaller
+     max-height than V2's full-width feed card** (recommend roughly
+     220-260dp tall, frontend-developer's exact call) — this is a chat
+     bubble in a scrolling conversation, not a dedicated feed, and a
+     single embedded clip shouldn't dominate the visible screen the way
+     it's allowed to on the Klipp tab itself.
+   - A visible centered ▶️ play-button overlay on the paused first frame —
+     called out explicitly here (V2's own spec doesn't state one, though
+     frontend-developer may already have added one there) because a small
+     embed sitting inside a dense chat bubble needs an unambiguous
+     "this is a video, tap it" cue more than a full-width feed card does;
+     worth retrofitting to V2 too if it isn't already there, but that's not
+     this addendum's screen to redesign.
+   - Tap the video area once → plays in place, muted, small speaker-icon
+     toggle to unmute (identical control to V2's). Tap again → pause. No
+     navigation away from CH1, ever.
+   - **Recommended, not contract-required: only one embedded clip plays at
+     a time across the visible chat.** Starting playback on one message's
+     embed auto-pauses any other currently-playing embed in the same list
+     — ordinary, expected behavior in any app with multiple inline videos,
+     and avoids overlapping audio from two clips at once. Flagged as a
+     recommendation for frontend-developer to confirm is cheap to build
+     (a single "currently playing message id" ref), not a hard requirement.
+   - **Below the video, only when relevant (kept compact when not):**
+     - If `clip.caption` is non-empty: the caption text, small, muted.
+     - If `clip.uploaderPlayerId !== message.senderPlayerId`** (any
+       teammate's clip is attachable, so the clip's uploader and the
+       message's sender are frequently different people) — a small,
+       muted, **tappable** line: **"Klipp av {uploaderScreenName}"** →
+       opens the existing CH4 sheet ("Om {screenName}") for **the clip's
+       uploader**, not the message's sender. When uploader and sender are
+       the same person, this line is omitted entirely (the sender's own
+       avatar/name at the top of the row already covers it — no redundant
+       second name shown).
+
+**Technical flag for frontend-developer — polling must not interrupt
+playback.** CH1 polls `GET .../chat/messages` every ~5 seconds (Part B,
+unchanged), and per ADR-0017 Decision 5, every response mints a **fresh**
+`playbackUrl` for every clip, every time. If the client naively replaces
+each message object wholesale on every poll, a clip a player is actively
+watching mid-scroll could have its underlying `<Video>` component
+re-mounted (new `playbackUrl` treated as a new source) every ~5 seconds,
+interrupting playback repeatedly. **Recommendation:** key message rows by
+`id`, and for a message whose embed is currently playing, don't swap its
+`playbackUrl` mid-playback on a poll refresh — the existing URL is still
+valid for its own short presigned window regardless of what a later poll
+re-mints. This is a genuinely new interaction between two mechanisms that
+never had to coexist before this ADR (chat's 5-second poll cadence, and
+clips' per-request-fresh presigned URLs) — flagged explicitly rather than
+assumed to be handled implicitly by whatever list-rendering approach gets
+built.
+
+### The "clip unavailable" placeholder
+
+**One single, generic, non-alarming placeholder, shown in place of the
+video card, for every reason a `clip` can resolve to `null`** — self-delete,
+retention expiry, report-hide, or the viewer having blocked the clip's
+uploader (ADR-0017 Decision 2). The client cannot and structurally should
+not try to distinguish which — a single, calm placeholder that reveals
+*that* a clip is gone without ever implying *why*, exactly matching how V2
+and V10's own copy already avoid ever asserting a specific cause to a
+viewer who wasn't the reporter.
+
+**Copy, adapted from the ADR's own placeholder suggestion, kept short and
+non-alarming:**
+
+> **"🎬 Videon är inte längre tillgänglig."**
+
+Rendered as a compact, muted box roughly the height of one text line plus
+the icon — **deliberately not the same tall footprint as a real video
+card** — a small, unremarkable "nothing to see here" note, not a big empty
+frame drawing extra attention to an absence. Neutral fill (`paper`/`border`
+tones, `ink`-muted text), never red/alarming — the same "don't scare a kid
+with styling that implies something went wrong" posture this doc already
+applies to blocking (CH4) and captain transfer (K4), extended here since
+this state is a routine content-lifecycle outcome (a clip aged out, or the
+uploader deleted it themselves), not evidence of anything the *viewer* did
+wrong.
+
+**When the placeholder renders — a real, honest gap, stated plainly rather
+than silently worked around:**
+
+Per Decision 2, `clip: null` is the *identical* response shape for "this
+message never had a `clipId` at all" and "this message had a clip that's
+now gone" — the API contract as written gives the client no separate
+signal distinguishing the two. Showing the placeholder on every plain
+text-only message would obviously be wrong (every ordinary message would
+sprout a broken-video note). The design below gets this right in two of
+three cases without needing any new backend field, and is explicit about
+the one narrower case it can't:
+
+1. **`clip` is `null` and `content` is empty/whitespace-only** → **always
+   show the placeholder.** This is a free, purely logical inference, not a
+   heuristic: per Decision 4's own send-time validation ("both
+   content-empty and clipId-absent is a `400`, rejected before it can ever
+   be sent"), a message that reaches the client with empty `content` **and**
+   a null `clip` can only have existed in the first place because it
+   originally carried a clip that's since become unavailable — there is no
+   other way such a message could have ever been successfully sent. Always
+   correct, no gap.
+2. **`clip` is `null`, `content` is non-empty, and this device previously
+   saw this exact `messageId` with a populated `clip`** (i.e., during this
+   same app session, an earlier poll rendered the embed, and a later poll's
+   response for the same message now shows `clip: null`) → **show the
+   placeholder**, tracked via a small in-memory "messages seen with a clip
+   this session" set, not persisted. Correctly covers the common, real-time
+   case: a clip gets self-deleted, hidden, or its uploader gets blocked
+   *while the player has the chat open*.
+3. **`clip` is `null`, `content` is non-empty, and this device never saw a
+   populated `clip` for this `messageId`** (a fresh app open, or a device
+   that never had the chat open while the clip was still resolvable — most
+   likely after a **hard delete**, since ADR-0017 Decision 1's `ON DELETE
+   SET NULL` FK genuinely erases the message's own `clip_id` column on
+   self-delete/retention-expiry, indistinguishable at the database layer
+   from "never had one") → **no placeholder is shown; the message renders
+   as an ordinary text-only message.** This is a real, narrower gap than
+   case 1/2 cover, not glossed over: a message that originally had *both*
+   text and a now-hard-deleted clip will, after a cold start, silently lose
+   any indication a clip was ever attached.
+
+**Flagged for architect, not decided here:** case 3's gap would close
+completely with one small addition — a `hadClip: boolean` on the message
+response, set once at write time whenever `clipId` was present and **never
+cleared**, independent of `clip_id`'s own nullability. This carries zero
+content (no caption/thumbnail/uploader-name, just a single fact bit), so it
+doesn't reopen the exact leak Decision 2 argues against avoiding (a
+*content* snapshot) — it only ever answers "was a clip attached here,"
+never "what was it or why is it gone," which is the same generic-placeholder
+guarantee this design already relies on for cases 1 and 2. Recommended as a
+small, low-risk follow-up; this addendum ships correctly without it (cases
+1 and 2 are the common ones — a clip vanishing while the chat is closed
+*and* the message had non-empty text is the narrow remainder), so it's not
+treated as blocking.
+
+### Report affordance — clip vs. message, resolved (ADR-0017 Decision 6)
+
+**Decision: yes, offer both, as two separately-labeled options reached from
+the existing tap-to-reveal zone on the bubble — not a new action sheet, and
+not two new screens.** Both underlying flows already exist and are reused
+completely unmodified:
+
+- **"Rapportera meddelandet"** → opens the existing **CH2** (Part B),
+  unchanged, calling the existing `POST .../chat/messages/:messageId/report`.
+- **"Rapportera klippet"** → opens the existing **V9**
+  (`docs/design/phase3-flows.md`), unchanged, calling the existing
+  `POST .../clips/:clipId/report` with the `clipId` already known from the
+  message's `clip` block — exactly the "no backend change needed, only a UI
+  affordance decision" case the ADR's hand-off section names directly.
+
+**Why a combined reveal, not a full action-sheet menu**: CH1 already has an
+established "tap the bubble body, a small text-button reveals below it"
+interaction (Part B) — reusing that shape and simply letting it reveal
+**up to two** buttons instead of always exactly one is a smaller change than
+introducing a new menu/sheet pattern for one feature. It also preserves the
+existing spatial-separation rule (bubble body = "about this content," which
+now sometimes means two pieces of content instead of one; avatar/name =
+"about a person") rather than blurring it with a generic "..." menu.
+
+**Which button(s) show — driven by two independent, pre-existing rules
+("reporting yourself protects no one"), applied to the message's sender and
+the clip's uploader separately, since Decision 3 means they're frequently
+different people:**
+
+| Message sender is... | Clip present & resolvable, uploaded by... | Reveal shows |
+|---|---|---|
+| a teammate | no clip / clip unavailable | **"🚩 Rapportera meddelandet"** only (unchanged from Part B) |
+| a teammate | a teammate (uploader ≠ viewer) | both: **"🚩 Rapportera meddelandet"** and **"🚩 Rapportera klippet"** |
+| a teammate | the viewer's own clip | **"🚩 Rapportera meddelandet"** only (can't report your own clip) |
+| the viewer | a teammate (uploader ≠ viewer) | **"🚩 Rapportera klippet"** only (can't report your own message) |
+| the viewer | no clip / the viewer's own clip / clip unavailable | **no reveal at all** — tapping your own plain bubble does nothing, same as today |
+
+A clip in its **unavailable/placeholder state offers no report action at
+all** — there's nothing for the client to report (no `clipId` is even known
+to it in that state), which also means the placeholder can never
+accidentally become a second, confusing path to "report a clip that
+already isn't visible to anyone."
+
+**The clip-uploader-attribution line ("Klipp av {uploaderScreenName}") stays
+a *separate*, third tap target from this reveal**, opening CH4 (block) for
+the uploader specifically — kept spatially distinct from the report reveal
+for the identical reason Part B already keeps "report" (bubble body) and
+"block" (avatar/name) apart: reporting and blocking are different actions
+with different consequences, and this app's own established convention is
+that the distinction should be spatial, not just textual, so a kid never has
+to read carefully to tell them apart.
+
+**No new screen, no new endpoint, no new tap-target *type*** — this
+resolves Decision 6 by composition of what already exists (CH2, CH4, V9,
+V10), the same "celebration/action by composition, not new build" instinct
+Part D's ADR-0016 addendum already used for its own 🏆 trophy marker.
+
+---
+
 1. **Teammates list is a new, always-visible baseline section on K1**, not
    folded into the captain-only K2 — the whole point of `GET
    .../teammates` being open to everyone is wasted if only the captain
@@ -1054,6 +1453,42 @@ here too.
     consistent with this doc's own earlier judgment call (item 2) against
     stacking multiple tap targets on a small, frequently-glanced surface.
 
+**Addendum (2026-07-31, ADR-0017 — Part E):**
+
+21. **Clip attachment is one small 🎬 icon button in CH1's existing compose
+    row, not a separate mode or screen** — a player can type, attach,
+    remove, and retype in any order, matching how attaching a photo already
+    works in ordinary messaging apps this age group already knows.
+22. **The in-message clip embed uses the identical playback philosophy as
+    the Klipp feed (V2): static first frame, muted, tap to play, no
+    autoplay** — chosen for consistency (the same bytes shouldn't behave
+    differently on two screens) and because CH1's 5-second poll plus
+    auto-scroll would make autoplay here a *closer* approximation of the
+    autoplay-plus-constant-new-content mechanic CLAUDE.md warns against
+    than V2's own already-static feed.
+23. **The "clip unavailable" placeholder is one generic, non-alarming line,
+    shown correctly in two of three cases without any new backend field** —
+    always correct when `content` is empty (a free logical inference from
+    Decision 4's send-time validation) and when the client observed the
+    clip live during the current session; the one narrower, honestly-stated
+    gap (a hard-deleted clip on a message with non-empty text, discovered
+    cold) silently renders as plain text rather than guessing — flagged for
+    architect as a small `hadClip` boolean that would close it outright.
+24. **Reporting a clip attached to a message reuses the existing CH2
+    (report message) and V9 (report clip) screens unmodified, offered as
+    two labeled options from the same tap-to-reveal zone CH1 already has**
+    — resolves ADR-0017 Decision 6 by composition, no new screen, no new
+    endpoint, no new tap-target *type*; which button(s) show is driven by
+    "reporting yourself protects no one" applied independently to the
+    message's sender and the clip's uploader, since Decision 3 means they
+    can be different people.
+25. **The clip-uploader attribution line ("Klipp av {screenName}") is a
+    third, spatially separate tap target opening CH4 (block)** — kept apart
+    from the report reveal for the same reason Part B already keeps report
+    and block on physically different parts of a row: different
+    consequences shouldn't share one tap target, even when they both start
+    from the same message.
+
 ## Flagged for others, not decided here
 
 - **Architect:** consider a small `GET /teams/:teamId/chat/blocks`
@@ -1081,3 +1516,29 @@ here too.
   existing formatter as-is, it would drop the decimal. The "Mest poäng"
   tab's optional discovery nudge (this addendum's cuttable nicety) is a
   judgment call for build-time, not required for this feature to ship.
+- **Architect (ADR-0017 Part E):** consider a small, content-free
+  `hadClip: boolean` on the chat message response, set once at write time
+  and never cleared by the `clip_id` FK's `ON DELETE SET NULL` — closes the
+  one honestly-stated gap in the "clip unavailable" placeholder logic (item
+  23 above: a hard-deleted clip on a message with non-empty text, seen
+  cold by a client that never observed it live). Not blocking — the design
+  ships correctly without it, this only tightens the one narrow remaining
+  case.
+- **Frontend-developer (ADR-0017 Part E):** the poll-refresh-must-not-
+  interrupt-playback note under CH1's updated embed section is a real,
+  new interaction between chat's 5-second poll and clips' per-request-fresh
+  `playbackUrl` that didn't exist before this feature — worth confirming
+  directly against however the message list ends up keyed/re-rendered, not
+  assumed to be handled automatically.
+- **Frontend-developer (ADR-0017 Part E):** the "only one embedded clip
+  plays at a time" recommendation under CH1's updated embed section is a
+  nicety, not a hard requirement — confirm it's cheap before committing to
+  it, same posture as this doc's other explicitly-flagged niceties.
+- **Security-reviewer (ADR-0017 Part E):** per the ADR's own hand-off, a
+  confirmation pass on Decision 1's team-scoping and Decision 2's
+  no-snapshot claim is warranted before merge; worth also confirming this
+  doc's own placeholder-logic recommendation (case 2, the in-memory
+  "seen with a clip this session" set) never itself becomes a place a
+  cached caption/thumbnail could accidentally get stored — it's specified
+  here as message-id-keyed presence tracking only, no clip content, and
+  should stay that way in the implementation.

@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -18,12 +19,12 @@ interface RosterRowProps {
   onPress: () => void;
 }
 
-const STATUS_LABEL: Record<ConsentStatus, string> = {
-  approved: 'Godkänd ✓',
-  pending: 'Väntar ⏳',
-  revoked: 'Pausad ⏸️',
-  not_requested: 'Inte skickad än',
-};
+const STATUS_LABEL_KEY = {
+  approved: 'rosterRow.statusApproved',
+  pending: 'rosterRow.statusPending',
+  revoked: 'rosterRow.statusRevoked',
+  not_requested: 'rosterRow.statusNotRequested',
+} as const satisfies Record<ConsentStatus, string>;
 
 /** Screen K2's roster row — screen name, never real name, per the
  * unchanged "never real names" rule. Row tap only opens an action sheet
@@ -38,6 +39,7 @@ export function RosterRow({
   isCaptain,
   onPress,
 }: RosterRowProps) {
+  const { t } = useTranslation('team');
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
   const isPending = consentStatus === 'pending';
 
@@ -58,11 +60,11 @@ export function RosterRow({
         </View>
         <Text style={styles.subLine}>
           {lastTrainedDate
-            ? `Senast loggade: ${formatSwedishDate(lastTrainedDate)}`
-            : 'Har inte loggat än'}
+            ? t('rosterRow.lastTrained', { date: formatSwedishDate(lastTrainedDate) })
+            : t('rosterRow.notTrainedYet')}
         </Text>
       </View>
-      <Text style={styles.statusLabel}>{STATUS_LABEL[consentStatus]}</Text>
+      <Text style={styles.statusLabel}>{t(STATUS_LABEL_KEY[consentStatus])}</Text>
     </Pressable>
   );
 }

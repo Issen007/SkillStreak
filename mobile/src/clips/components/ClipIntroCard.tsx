@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
@@ -14,21 +15,17 @@ interface ClipIntroCardProps {
  * guardrails are worth knowing before a kid even learns *why* upload might
  * be locked, not gated behind approval themselves. */
 export function ClipIntroCard({ onDismiss }: ClipIntroCardProps) {
+  const { t } = useTranslation('clips');
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.heading}>Så funkar Shorts</Text>
-        <Text style={styles.bullet}>• Bara ditt eget lag ser Shorts-videorna som laddas upp här.</Text>
-        <Text style={styles.bullet}>
-          • En förälder eller vårdnadshavare måste säga ja innan du kan ladda upp en Shorts
-          själv.
-        </Text>
-        <Text style={styles.bullet}>
-          • Känns en Shorts fel? Rapportera den så försvinner den direkt för hela laget, medan en
-          vuxen tittar på den.
-        </Text>
-        <Text style={styles.bullet}>• Du kan alltid ta bort dina egna Shorts, när du vill.</Text>
-        <PrimaryButton label="Okej, jag fattar!" onPress={onDismiss} />
+        <Text style={styles.heading}>{t('v0.heading')}</Text>
+        <Text style={styles.bullet}>• {t('v0.bullet1')}</Text>
+        <Text style={styles.bullet}>• {t('v0.bullet2')}</Text>
+        <Text style={styles.bullet}>• {t('v0.bullet3')}</Text>
+        <Text style={styles.bullet}>• {t('v0.bullet4')}</Text>
+        <PrimaryButton label={t('v0.dismiss')} onPress={onDismiss} />
       </View>
     </View>
   );

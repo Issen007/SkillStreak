@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
+import { useTranslation } from 'react-i18next';
 
 import { SecondaryButton } from '../../components/SecondaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
@@ -11,9 +12,6 @@ import { fonts } from '../../theme/fonts';
 import type { CompleteClipUploadResponse, CreateClipUploadUrlResponse } from '../../api/types';
 import type { PickedClip } from './PickedClip';
 
-const RETRY_FAILURE_MESSAGE = 'Något gick fel med uppladdningen. Vi provar igen från början.';
-const GIVE_UP_MESSAGE =
-  'Uppladdningen lyckades inte den här gången. Kolla din uppkoppling och testa igen.';
 // One silent automatic retry-from-scratch (per the flow doc's V6 note) —
 // capped rather than looped forever, so a persistently bad connection
 // surfaces a manual retry instead of silently burning through the upload
@@ -85,6 +83,7 @@ export function V6UploadProgress({
   onConsentRevoked,
   onCancel,
 }: V6UploadProgressProps) {
+  const { t } = useTranslation('clips');
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState<'uploading' | 'completing'>('uploading');
   const [manualError, setManualError] = useState<string | null>(null);
@@ -188,10 +187,10 @@ export function V6UploadProgress({
           }
         }
 
-        setManualError(isRetryableContractError ? RETRY_FAILURE_MESSAGE : GIVE_UP_MESSAGE);
+        setManualError(isRetryableContractError ? t('v6.retryFailure') : t('v6.giveUp'));
       }
     },
-    [teamId, clip, caption, taggedPlayerId, onSuccess, onConsentRevoked],
+    [teamId, clip, caption, taggedPlayerId, onSuccess, onConsentRevoked, t],
   );
 
   useEffect(() => {
@@ -235,8 +234,8 @@ export function V6UploadProgress({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Laddar upp din Shorts…</Text>
-      <Text style={styles.sub}>Lämna inte appen — det tar bara en liten stund.</Text>
+      <Text style={styles.heading}>{t('v6.heading')}</Text>
+      <Text style={styles.sub}>{t('v6.sub')}</Text>
 
       <View style={styles.barTrack}>
         <View
@@ -250,12 +249,12 @@ export function V6UploadProgress({
       {manualError ? (
         <>
           <Text style={styles.errorText}>{manualError}</Text>
-          <SecondaryButton label="Försök igen" onPress={handleManualRetry} />
+          <SecondaryButton label={t('v6.retry')} onPress={handleManualRetry} />
         </>
       ) : null}
 
-      <SecondaryButton label="Avbryt" loading={cancelling} onPress={() => void handleCancel()} />
-      {manualError ? <SecondaryLink label="Tillbaka till flödet" onPress={onCancel} /> : null}
+      <SecondaryButton label={t('v6.cancel')} loading={cancelling} onPress={() => void handleCancel()} />
+      {manualError ? <SecondaryLink label={t('v6.backToFeed')} onPress={onCancel} /> : null}
     </View>
   );
 }

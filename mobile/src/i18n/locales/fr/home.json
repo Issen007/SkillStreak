@@ -1,0 +1,204 @@
+{
+  "greeting": "Salut, <bold>{{screenName}}</bold> !",
+  "shared": {
+    "retry": "Réessayer",
+    "cancel": "Annuler",
+    "genericError": "Une erreur s'est produite.",
+    "genericErrorTryAgain": "Une erreur s'est produite. Réessaie.",
+    "save": "Enregistrer",
+    "edit": "Modifier"
+  },
+  "appHeader": {
+    "profileAccessibilityLabel": "Ton profil",
+    "workingTitle": "nom provisoire"
+  },
+  "homeScreen": {
+    "loadError": "Impossible de charger tes données. Vérifie ta connexion.",
+    "extraLogToast": "Bravo ! +{{minutes}} min pour la cagnotte de l'équipe 🥇",
+    "consentRequiredToast": "Il nous faut encore une autorisation avant que tu puisses enregistrer un entraînement. On rafraîchit la page pour toi.",
+    "successBanner": "🔥 Bien joué ! {{count}} jours d'affilée.",
+    "successFloatingText": "+{{minutes}} min pour l'équipe"
+  },
+  "activitySheet": {
+    "heading": "Qu'est-ce que tu as entraîné ?",
+    "durationHeading": "Pendant combien de temps ?",
+    "submit": "Terminé !",
+    "activities": {
+      "fitness": "Condition physique",
+      "drill": "Technique/exercice",
+      "running": "Course à pied",
+      "other": "Autre"
+    },
+    "durations": {
+      "d10": "10 min",
+      "d15": "15 min",
+      "d20": "20 min",
+      "d30plus": "30+ min"
+    }
+  },
+  "goalBonusTakeover": {
+    "headline": "L'équipe a atteint l'objectif de la semaine !",
+    "sub": "Ton entraînement était la dernière pièce du puzzle — toute l'équipe a maintenant atteint son objectif !",
+    "points": "+{{points}} points bonus pour la cagnotte de l'équipe ! 🥇"
+  },
+  "streakCard": {
+    "loggedTodayChip": "Enregistré aujourd'hui ✓",
+    "count": "{{count}} jours",
+    "label": "Ta série personnelle — continue comme ça !"
+  },
+  "teamPoolCard": {
+    "title": "🥇 Tableau de l'Or des Mondiaux",
+    "points": "{{points}} points",
+    "rankLine": "{{rank}} place sur {{teamCount}} équipes",
+    "noActiveSeason": "Aucune saison en cours pour le moment",
+    "noActiveSeasonSub": "Vous participerez de nouveau dès qu'une nouvelle saison commence.",
+    "effortLine": "🌟 {{effortRank}} meilleure implication d'équipe",
+    "tapHint": "Voir le tableau →"
+  },
+  "trainedButton": {
+    "disabled": "Je me suis entraîné(e) 🔒",
+    "secondary": "Enregistrer un autre entraînement",
+    "primary": "Je me suis entraîné(e)"
+  },
+  "waitingCard": {
+    "titleBothPending": "En attente d'autorisation",
+    "titleJoinPending": "En attente du capitaine de l'équipe",
+    "titleConsentPending": "En attente d'autorisation",
+    "titleSelfVerificationPending": "En attente de ta confirmation",
+    "titlePaused": "L'entraînement est en pause pour le moment",
+    "consentPartSelfVerification": "On a envoyé un lien de confirmation à ton e-mail ou ton numéro de téléphone.",
+    "consentPartParent": "On a demandé la permission à un parent ou un tuteur légal.",
+    "joinPart": "Le capitaine de l'équipe doit encore valider ton arrivée dans l'équipe.",
+    "suffixBoth": "Dès que les deux sont réglés, on débloque le bouton ci-dessous !",
+    "suffixJoinOnly": "Dès que le capitaine valide, on débloque le bouton ci-dessous !",
+    "suffixConsentOnly": "Dès que c'est réglé, on débloque le bouton ci-dessous !",
+    "pausedBody": "Un parent ou un tuteur légal a retiré son autorisation. Parles-en à ton entraîneur si tu as des questions.",
+    "refresh": "Vérifier à nouveau",
+    "refreshing": "Vérification..."
+  },
+  "profileScreen": {
+    "loadError": "Impossible de charger ton profil. Vérifie ta connexion.",
+    "savedToast": "Enregistré !",
+    "contactChangeRateLimited": "Tu as déjà demandé un changement récemment — attends un peu avant de réessayer.",
+    "contactChangeGenericError": "Une erreur s'est produite. Vérifie l'information et réessaie.",
+    "contactChangeConfirmedToast": "Confirmé ! Ça prend effet dans environ {{hours}} h. L'ancienne adresse peut annuler via l'e-mail qu'on lui a envoyé.",
+    "codeInvalid": "Ce code ne fonctionne plus. Vérifie que tu l'as bien tapé, ou demandes-en un nouveau.",
+    "codeGenericError": "Une erreur s'est produite. Vérifie ta connexion et réessaie.",
+    "erasureTeamInfoError": "Impossible de charger les infos de l'équipe. Réessaie.",
+    "erasureTeammatesError": "Impossible de charger la liste de l'équipe. Vérifie ta connexion.",
+    "erasureBlockedPendingContactChange": "Un changement de tes coordonnées est en cours. Il doit être terminé (ou annulé) avant que tu puisses supprimer ton compte — reviens vérifier dans un instant.",
+    "erasureRateLimited": "Tu viens de faire cette demande. Attends un peu et réessaie.",
+    "erasureSuccessorInvalid": "Ce joueur ou cette joueuse n'est plus dans l'équipe. Choisis quelqu'un d'autre.",
+    "erasureStaleState": "Quelque chose a changé dans l'équipe depuis que tu as ouvert cet écran. Vérifie ton profil et réessaie.",
+    "erasureCancelledToast": "C'est fait ! Ton compte ne sera pas supprimé. 🎉",
+    "erasureCancelError": "Une erreur s'est produite. Recharge la page et réessaie.",
+    "editName": {
+      "heading": "Ton nom",
+      "sub": "Facultatif — jamais montré aux autres membres de l'équipe, toi seul(e) le vois ici.",
+      "placeholder": "Prénom et nom"
+    },
+    "editAvatar": {
+      "heading": "Choisis un avatar",
+      "sub": "Pas besoin de photo — choisis simplement un personnage que tu aimes."
+    },
+    "requestChange": {
+      "heading": "Changer l'adresse de contact",
+      "sub": "Indique la nouvelle adresse. On y envoie un code pour confirmer, ainsi qu'un message à l'ancienne adresse pour prévenir qu'un changement est en cours.",
+      "placeholder": "Nouvelle adresse e-mail ou numéro de téléphone",
+      "submit": "Envoyer le code"
+    },
+    "confirmChange": {
+      "heading": "Va voir ta boîte mail",
+      "sub": "On a envoyé un code à la nouvelle adresse. Saisis-le ci-dessous pour confirmer le changement.",
+      "placeholder": "ex. H4K7QWXP",
+      "submit": "Confirmer",
+      "resend": "Tu n'as pas reçu de code ? Réessayer"
+    },
+    "view": {
+      "heading": "Ton profil",
+      "avatarLabel": "Avatar",
+      "nameLabel": "Nom",
+      "nameNotSet": "Non renseigné",
+      "addName": "Ajouter",
+      "birthYearLabel": "Année de naissance",
+      "birthYearHelper": "Tu ne peux pas le modifier toi-même — contacte l'entraîneur de ton équipe si ça doit être corrigé.",
+      "contactLabel": "Adresse de contact",
+      "changeContact": "Changer",
+      "back": "Retour",
+      "logout": "Se déconnecter",
+      "deleteAccount": "Supprimer mon compte"
+    }
+  },
+  "erasureCheckEmail": {
+    "heading": "Va voir ta boîte mail",
+    "body": "On t'a envoyé un e-mail avec un lien. Ouvre l'e-mail et appuie sur le lien pour lancer les 30 jours — tu peux aussi attendre et le faire demain.",
+    "mutedBody": "Si tu n'appuies pas sur le lien, il ne se passe rien — le compte reste exactement comme avant.",
+    "cta": "Retour au profil"
+  },
+  "erasureConfirmSheet": {
+    "heading": "Tu es sûr(e) ?",
+    "body": "On envoie un e-mail qui doit être confirmé pour lancer les 30 jours. Si tu changes d'avis, tu peux annuler à tout moment avant qu'ils ne soient écoulés.",
+    "successorBody": "{{successorScreenName}} deviendra capitaine le jour où le compte sera supprimé.",
+    "confirm": "Oui, supprimer mon compte"
+  },
+  "erasureRequest": {
+    "heading": "Supprimer ton compte ?",
+    "bulletHistory": "Tout ton historique d'entraînement, tes badges et tes clips sont supprimés pour toujours.",
+    "bulletTeam": "Tu disparais de l'équipe. Tes messages dans le chat d'équipe deviennent anonymes — l'équipe et tes coéquipiers ne sont pas affectés autrement.",
+    "bulletFinal": "Impossible de revenir en arrière une fois les 30 jours écoulés.",
+    "tip": "On envoie un e-mail que toi (ou un parent ou un tuteur légal) devez confirmer — appuyer sur le bouton ci-dessous ne fait encore rien. Dès que l'e-mail est confirmé, tu as 30 jours pour changer d'avis, et le compte fonctionne normalement pendant ce temps.",
+    "captainTitle": "Tu es capitaine de l'équipe",
+    "captainBody": "Tu dois choisir qui deviendra capitaine avant de pouvoir continuer.",
+    "successorNotChosen": "Personne choisi pour l'instant",
+    "chooseSuccessor": "Choisir",
+    "changeSuccessor": "Changer",
+    "lastPlayerWarning": "Pour l'instant, tu es le seul ou la seule à rester dans l'équipe. Si c'est encore le cas dans 30 jours, toute l'équipe disparaît quand ton compte est supprimé — points, clips et tout le reste.",
+    "submit": "Supprimer mon compte"
+  },
+  "erasureStatusCard": {
+    "titleGracePeriod": "Ton compte sera supprimé le {{date}}.",
+    "unknownDate": "(date inconnue)",
+    "titleRequested": "En attente de ta confirmation de suppression",
+    "gracePeriodBody": "Le compte fonctionne normalement jusque-là. Si tu changes d'avis, tu peux annuler à tout moment avant.",
+    "gracePeriodSuccessor": "{{successorScreenName}} deviendra capitaine ce jour-là.",
+    "requestedBody": "On t'a envoyé un lien par e-mail. Ouvre l'e-mail et confirme pour lancer les 30 jours. Si tu ne fais rien, le compte reste exactement comme il est.",
+    "cancelGracePeriod": "Annuler la suppression",
+    "cancelRequested": "Annuler la demande",
+    "cancelling": "Annulation..."
+  },
+  "erasureSuccessor": {
+    "heading": "Qui deviendra capitaine ?",
+    "sub": "La personne que tu choisis deviendra capitaine de l'équipe le jour où ton compte sera supprimé — pas avant. Tu restes capitaine normalement jusque-là.",
+    "done": "Terminé"
+  },
+  "leaderboard": {
+    "pageHeading": "Le classement Or des Mondiaux 🥇",
+    "tabPoints": "🥇 Plus de points",
+    "tabEffort": "💪 Meilleur effort d'équipe",
+    "loadError": "Impossible de charger le classement. Vérifie ta connexion.",
+    "genericError": "Un problème est survenu.",
+    "retry": "Réessayer",
+    "back": "Retour",
+    "effortNudge": "🌟 Vos joueurs se donnent à fond ! Découvrez Meilleur effort d'équipe →",
+    "noActiveSeasonBanner": "Votre équipe n'a pas de saison active en ce moment — mais regardez les points des autres équipes !",
+    "emptyPointsHeading": "Aucun classement à afficher pour l'instant.",
+    "emptyPointsSub": "Revenez quand plus d'équipes auront une saison active.",
+    "tieCaption": "Une égalité de points donne le même rang.",
+    "meTag": "Votre équipe",
+    "pointsSuffix": "pts",
+    "effortCaption": "Une moyenne équitable — pour que même une petite équipe puisse gagner.",
+    "infoLink": "ⓘ Comment on calcule ça",
+    "noEffortBanner": "Votre équipe n'est pas encore sur cette liste — il faut au moins un joueur approuvé.",
+    "emptyEffortHeading": "Aucun effort d'équipe à afficher pour l'instant.",
+    "emptyEffortSub": "Revenez quand plus d'équipes auront des joueurs approuvés.",
+    "playerCountSuffix": "joueurs",
+    "pointsPerPlayerSuffix": "pts/joueur",
+    "infoSheet": {
+      "heading": "Comment on calcule le Meilleur effort d'équipe",
+      "body1": "On compare combien de points chaque équipe obtient par joueur — pas seulement le total de l'équipe. Ainsi, même une petite équipe peut gagner si tout le monde se donne à fond.",
+      "body2": "Si une équipe est petite, on calcule un peu prudemment, pour que quelques journées vraiment excellentes ne donnent pas la première place par hasard. Plus une équipe a de joueurs, plus on fait confiance à sa propre moyenne.",
+      "ownTeamLine": "Votre équipe : {{pointsPerPlayer}} pts/joueur avec {{playerCount}} joueurs → {{adjustedScore}} pts une fois calculé équitablement.",
+      "gotIt": "D'accord, compris !"
+    }
+  }
+}

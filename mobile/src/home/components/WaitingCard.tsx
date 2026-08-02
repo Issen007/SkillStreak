@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -37,28 +38,31 @@ export function WaitingCard({
   onRefresh,
   refreshing,
 }: WaitingCardProps) {
+  const { t } = useTranslation('home');
   const isPaused = consentStatus === 'revoked';
   const consentPending = consentStatus !== 'approved' && !isPaused;
   const joinPending = teamJoinStatus === 'pending';
 
   function pendingTitle(): string {
-    if (consentPending && joinPending) return 'Väntar på godkännande';
-    if (joinPending) return 'Väntar på lagets kapten';
-    return isSelfVerification ? 'Väntar på att du verifierar' : 'Väntar på godkännande';
+    if (consentPending && joinPending) return t('waitingCard.titleBothPending');
+    if (joinPending) return t('waitingCard.titleJoinPending');
+    return isSelfVerification
+      ? t('waitingCard.titleSelfVerificationPending')
+      : t('waitingCard.titleConsentPending');
   }
 
   function pendingBody(): string {
     const consentPart = isSelfVerification
-      ? 'Vi har skickat en verifieringslänk till din e-post eller ditt mobilnummer.'
-      : 'Vi har frågat en förälder eller vårdnadshavare om lov.';
-    const joinPart = 'Lagets kapten behöver godkänna att du gick med i laget.';
+      ? t('waitingCard.consentPartSelfVerification')
+      : t('waitingCard.consentPartParent');
+    const joinPart = t('waitingCard.joinPart');
     if (consentPending && joinPending) {
-      return `${consentPart} ${joinPart} Så fort båda är klara låser vi upp knappen nedan!`;
+      return `${consentPart} ${joinPart} ${t('waitingCard.suffixBoth')}`;
     }
     if (joinPending) {
-      return `${joinPart} Så fort kaptenen godkänner låser vi upp knappen nedan!`;
+      return `${joinPart} ${t('waitingCard.suffixJoinOnly')}`;
     }
-    return `${consentPart} Så fort det är klart låser vi upp knappen nedan!`;
+    return `${consentPart} ${t('waitingCard.suffixConsentOnly')}`;
   }
 
   return (
@@ -66,13 +70,11 @@ export function WaitingCard({
       <View style={styles.headRow}>
         <Text style={styles.icon}>{isPaused ? '⏸️' : '⏳'}</Text>
         <Text style={styles.title}>
-          {isPaused ? 'Träning är pausad just nu' : pendingTitle()}
+          {isPaused ? t('waitingCard.titlePaused') : pendingTitle()}
         </Text>
       </View>
       <Text style={styles.body}>
-        {isPaused
-          ? 'En förälder eller vårdnadshavare har dragit tillbaka godkännandet. Prata med din tränare om du har frågor.'
-          : pendingBody()}
+        {isPaused ? t('waitingCard.pausedBody') : pendingBody()}
       </Text>
       {!isPaused ? (
         <Pressable
@@ -81,7 +83,9 @@ export function WaitingCard({
           disabled={refreshing}
           style={({ pressed }) => [styles.refreshButton, pressed && styles.refreshPressed]}
         >
-          <Text style={styles.refreshText}>{refreshing ? 'Kollar...' : 'Kolla igen'}</Text>
+          <Text style={styles.refreshText}>
+            {refreshing ? t('waitingCard.refreshing') : t('waitingCard.refresh')}
+          </Text>
         </Pressable>
       ) : null}
     </View>

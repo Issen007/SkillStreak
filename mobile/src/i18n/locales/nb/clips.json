@@ -1,0 +1,115 @@
+{
+  "v0": {
+    "heading": "Slik fungerer Shorts",
+    "bullet1": "Bare ditt eget lag ser Shorts-videoene som lastes opp her.",
+    "bullet2": "En forelder eller foresatt må si ja før du kan laste opp en Shorts selv.",
+    "bullet3": "Føles en Shorts feil? Rapporter den, så forsvinner den med det samme for hele laget, mens en voksen ser på den.",
+    "bullet4": "Du kan alltid slette dine egne Shorts, når du vil.",
+    "dismiss": "OK, jeg skjønner!"
+  },
+  "v1": {
+    "joinPendingTitle": "Venter på lagets kaptein",
+    "consentPendingTitleSelfVerify": "Venter på at du verifiserer",
+    "consentPendingTitle": "Venter på godkjenning",
+    "consentPartSelfVerify": "Du må verifisere e-posten eller mobilnummeret ditt.",
+    "consentPart": "En forelder eller foresatt må si ja.",
+    "joinPart": "Lagets kaptein må godkjenne at du ble med i laget.",
+    "bothPendingSuffix": "Så snart begge deler er ordnet, låser vi opp Shorts-fanen.",
+    "joinPendingSuffix": "Så snart kapteinen godkjenner, låser vi opp Shorts-fanen.",
+    "consentPendingSuffix": "Så snart det er ordnet, låser vi opp Shorts-fanen.",
+    "pausedTitle": "Shorts er satt på pause akkurat nå",
+    "pausedBody": "En forelder eller foresatt har trukket tilbake godkjenningen. Snakk med treneren din hvis du har spørsmål.",
+    "refresh": "Sjekk igjen",
+    "refreshing": "Sjekker..."
+  },
+  "v2": {
+    "heading": "Shorts 🎬",
+    "loadError": "Klarte ikke å hente Shorts. Sjekk tilkoblingen din.",
+    "retry": "Prøv igjen",
+    "emptyHeading": "Ingen Shorts ennå",
+    "emptySub": "Bli den første til å dele en Shorts med laget!",
+    "uploadButton": "Last opp Shorts",
+    "showMore": "Vis flere Shorts",
+    "showMoreError": "Klarte ikke å hente flere Shorts. Prøv igjen.",
+    "uploadLockedToast": "Venter fortsatt på godkjenning før du kan laste opp.",
+    "challengeBanner": "🎯 {{screenName}} utfordret deg! Sjekk ut Shorts-videoen.",
+    "consentRevokedToast": "Vi trenger fortsatt godkjenning før du kan laste opp. Vi oppdaterer siden for deg.",
+    "reportNotFoundToast": "Den videoen finnes ikke lenger.",
+    "reportAlreadyToast": "Du har allerede rapportert denne videoen.",
+    "reportRateLimitedToast": "Du har rapportert en del i det siste. Vent litt før du rapporterer igjen.",
+    "genericError": "Noe gikk galt. Prøv igjen.",
+    "deletedToast": "Videoen er slettet.",
+    "deleteNotFoundToast": "Videoen finnes ikke lenger.",
+    "blockedToast": "Du ser ikke lenger Shorts eller meldinger fra {{screenName}}."
+  },
+  "clipCard": {
+    "challengeChip": "🎯 Utfordrer {{screenName}}",
+    "report": "🚩 Rapporter",
+    "delete": "🗑️ Slett videoen"
+  },
+  "v9": {
+    "heading": "Hvorfor rapporterer du denne videoen?",
+    "reasonAppearsWithoutConsent": "Jeg er med i videoen og ville ikke være det",
+    "reasonBullying": "Mobbing",
+    "reasonInappropriateContent": "Upassende innhold",
+    "reasonNotTrainingRelated": "Har ikke noe med trening å gjøre",
+    "reasonOther": "Annet",
+    "noteLabel": "Vil du fortelle mer? (valgfritt)",
+    "notePlaceholder": "Valgfritt…",
+    "submit": "Send rapport",
+    "cancel": "Avbryt"
+  },
+  "v10": {
+    "heading": "Takk for at du sa ifra.",
+    "body": "Videoen er nå skjult for hele laget, inkludert deg selv. Ingen får vite at det var du som rapporterte.",
+    "bodySecondary": "En voksen får vite om dette, men vi kan ikke love nøyaktig når videoen blir vurdert på nytt.",
+    "followUp": "Vil du også slippe å se flere Shorts og meldinger fra den personen?",
+    "block": "Blokker {{screenName}}",
+    "noThanks": "Nei takk",
+    "done": "Ferdig"
+  },
+  "v11": {
+    "heading": "Slette denne Shorts-videoen?",
+    "body": "Videoen forsvinner permanent for hele laget — det kan ikke angres.",
+    "confirm": "Ja, slett videoen",
+    "cancel": "Avbryt"
+  },
+  "v4": {
+    "heading": "Velg eller spill inn en Shorts",
+    "sub": "Videoen kan være opptil {{maxSeconds}} sekunder lang.",
+    "record": "🎥 Spill inn",
+    "pickFromLibrary": "🖼️ Velg fra galleriet",
+    "cancel": "Avbryt",
+    "tooLong": "Videoen er for lang — maks {{maxSeconds}} sekunder. Prøv en annen!",
+    "wrongFormat": "Den filtypen fungerer ikke her. Prøv en video fra kameraet eller galleriet.",
+    "unreadable": "Klarte ikke å lese videoen. Prøv en annen.",
+    "permission": "Vi trenger tillatelsen din til dette. Prøv igjen, eller velg det andre alternativet."
+  },
+  "v5": {
+    "heading": "Bildetekst & utfordring",
+    "captionPlaceholder": "Legg til en bildetekst (valgfritt)…",
+    "challengeLabel": "Utfordre en lagkamerat? (valgfritt)",
+    "noTeammates": "Ingen lagkamerater å utfordre ennå.",
+    "taggedHelper": "{{screenName}} ser at du har utfordret dem neste gang de åpner Shorts.",
+    "upload": "Last opp",
+    "cancel": "Avbryt",
+    "captionRejected": "Bildeteksten kunne ikke lagres — den inneholdt ord som ikke fungerer her. Prøv å skrive den om! ✍️",
+    "rateLimited": "Du laster opp Shorts litt raskt akkurat nå. Vent litt, så går det bra igjen.",
+    "taggedPlayerGone": "Den spilleren er ikke lenger på laget. Velg noen andre, eller ingen.",
+    "genericError": "Noe gikk galt. Prøv igjen."
+  },
+  "v6": {
+    "heading": "Laster opp Shorts-videoen din…",
+    "sub": "Ikke forlat appen — det tar bare et lite øyeblikk.",
+    "retry": "Prøv igjen",
+    "cancel": "Avbryt",
+    "backToFeed": "Tilbake til strømmen",
+    "retryFailure": "Noe gikk galt med opplastingen. Vi prøver igjen fra starten.",
+    "giveUp": "Opplastingen lyktes ikke denne gangen. Sjekk tilkoblingen din, og prøv igjen."
+  },
+  "v7": {
+    "heading": "Shorts-videoen din er oppe! 🎉",
+    "sub": "Laget kan se den nå.",
+    "done": "Til strømmen"
+  }
+}

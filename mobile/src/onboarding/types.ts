@@ -1,13 +1,20 @@
+import type { PlayerLocale } from '../api/types';
+import { getDeviceDefaultLocale } from '../i18n/deviceLocale';
+
 // Screen-by-screen state machine for Part 1 of docs/design/phase1-flows.md
 // (O1-O6, plus O1a/O1b/O1c added by the 2026-07-09 self-service-team-
 // creation update). O7 is a home-screen state, not part of this flow (see
 // src/home/HomeScreen.tsx).
+// O0 (docs/adr/0014-multi-language-support.md Decision 2, Fas 4.3) — the
+// language picker, added ahead of O1 since every later screen's copy needs
+// to render in whatever the player just picked.
 // RA1/RA2 (docs/adr/0004-coach-auth-and-session-reissue.md's 2026-07-27
 // addendum) — the "Har du redan ett konto?" self-service session-reissue
 // entry point, reachable from O1. Not part of the O1-O6 numbering since
 // it's a parallel branch (an existing account regaining a session), not a
 // step in creating a new one.
 export type OnboardingStep =
+  | 'O0'
   | 'O1'
   | 'O1a'
   | 'O1b'
@@ -24,6 +31,11 @@ export type OnboardingStep =
  * memory only until O5's submit (per the contract, nothing is created
  * server-side before `POST /players`). */
 export interface OnboardingData {
+  /** Set at Screen O0 — starts as the device-guessed default
+   * (`i18n/deviceLocale.ts`), overwritten the moment the player taps a
+   * different row, submitted as-is on `POST /players`. See
+   * docs/adr/0014-multi-language-support.md Decision 2. */
+  locale: PlayerLocale;
   inviteCode: string;
   teamId: string | null;
   /** Join path: the existing team's name, from O1/O2's preview. Create
@@ -50,6 +62,9 @@ export interface OnboardingData {
 }
 
 export const INITIAL_ONBOARDING_DATA: OnboardingData = {
+  // Local-only device guess (see i18n/deviceLocale.ts) — Screen O0's
+  // starting selection, not yet a submitted choice.
+  locale: getDeviceDefaultLocale(),
   inviteCode: '',
   teamId: null,
   teamName: null,

@@ -19,6 +19,7 @@ import {
   setLastSeenBonusAwardedAt,
 } from './api/localFlags';
 import { ApiError } from './api/ApiError';
+import i18n from './i18n';
 import { colors } from './theme/colors';
 
 interface AppShellProps {
@@ -103,6 +104,14 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
       const me = await getMe();
       setTeamId(me.team.teamId);
       setPlayerId(me.player.id);
+      // ADR-0014 Decision 2 — the post-auth "server value is source of
+      // truth" flip. `ensureIdentity` is the one call every AppShell mount
+      // already makes, so this is the actual restore point for a
+      // returning player's saved locale (the device guess in
+      // `src/i18n/deviceLocale.ts` only matters pre-auth, at Screen O0).
+      // Fire-and-forget — a locale switch has no loading state of its own
+      // and shouldn't block the rest of this fetch.
+      void i18n.changeLanguage(me.player.locale);
       return { teamId: me.team.teamId, playerId: me.player.id };
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -288,6 +297,7 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
               teamId={teamId}
               viewerPlayerId={playerId}
               onOpened={() => setChatUnread(false)}
+              onGoToClipsTab={() => setActiveTab('clips')}
             />
           ) : (
             <View style={styles.centered}>

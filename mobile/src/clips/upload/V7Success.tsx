@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
@@ -15,11 +16,13 @@ interface V7SuccessProps {
  * whatever the server actually has, including the fresh presigned
  * `playbackUrl`. */
 export function V7Success({ onDone }: V7SuccessProps) {
+  const { t } = useTranslation('clips');
+
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Din Shorts är uppe! 🎉</Text>
-      <Text style={styles.sub}>Laget kan se det nu.</Text>
-      <PrimaryButton label="Till flödet" onPress={onDone} />
+      <Text style={styles.heading}>{t('v7.heading')}</Text>
+      <Text style={styles.sub}>{t('v7.sub')}</Text>
+      <PrimaryButton label={t('v7.done')} onPress={onDone} />
     </View>
   );
 }

@@ -1,0 +1,86 @@
+{
+  "ch0": {
+    "heading": "Slik fungerer lagchatten",
+    "bullet1": "Bare ditt eget lag ser det du skriver her.",
+    "bullet2": "Føles noe galt? Du kan rapportere en melding, eller blokkere en person så du slipper å se flere av meldingene deres.",
+    "bullet3": "Noen ord fungerer ikke her. Hvis en melding ikke lar seg sende, prøv å skrive den om.",
+    "dismiss": "OK, jeg skjønner!"
+  },
+  "ch1": {
+    "heading": "Lagchat 💬",
+    "blockedLink": "🚫 Blokkerte",
+    "loadError": "Klarte ikke å hente lagchatten. Sjekk tilkoblingen din.",
+    "retry": "Prøv igjen",
+    "emptyHeading": "Ingen meldinger ennå",
+    "emptySub": "Skriv den første meldingen til laget!",
+    "filterRejected": "Meldingen ble ikke sendt — den inneholdt ord som ikke fungerer her. Prøv å skrive den om! ✍️",
+    "sendRateLimited": "Du sender meldinger litt raskt akkurat nå. Vent litt, så går det bra igjen.",
+    "genericError": "Noe gikk galt. Prøv igjen.",
+    "clipGoneOnSend": "Klippet kunne ikke sendes — det finnes ikke lenger. Nå kan du sende resten selv.",
+    "messageNotFoundToast": "Den meldingen finnes ikke lenger.",
+    "alreadyReportedToast": "Du har allerede rapportert denne meldingen.",
+    "reportRateLimitedToast": "Du har rapportert en del i det siste. Vent litt før du rapporterer igjen.",
+    "clipNotFoundToast": "Den videoen finnes ikke lenger.",
+    "clipAlreadyReportedToast": "Du har allerede rapportert denne videoen.",
+    "clipReportRateLimitedToast": "Du har rapportert en del i det siste. Vent litt før du rapporterer igjen.",
+    "blockedToast": "Du ser ikke lenger meldinger eller klipp fra {{screenName}}."
+  },
+  "ch2": {
+    "excerpt": "Du rapporterer: «{{excerpt}}…»",
+    "heading": "Hvorfor rapporterer du denne meldingen?",
+    "reasonBullying": "Mobbing",
+    "reasonInappropriateLanguage": "Upassende språk",
+    "reasonSpam": "Spam",
+    "reasonOther": "Annet",
+    "noteLabel": "Vil du fortelle mer? (valgfritt)",
+    "notePlaceholder": "Valgfritt…",
+    "submit": "Send rapport",
+    "cancel": "Avbryt"
+  },
+  "ch3": {
+    "heading": "Takk for at du sa ifra.",
+    "body": "Vi har mottatt rapporten din. Du trenger ikke gjøre noe mer – og ingen får vite at det var du som rapporterte.",
+    "followUp": "Vil du også slippe å se flere meldinger fra den personen?",
+    "block": "Blokker {{screenName}}",
+    "noThanks": "Nei takk",
+    "done": "Ferdig"
+  },
+  "ch4": {
+    "body": "Hvis du blokkerer {{screenName}}, slutter du å se meldingene deres i lagchatten og Shorts-videoene deres i Shorts-strømmen. {{screenName}} får ikke vite at du har blokkert dem.",
+    "confirm": "Blokker {{screenName}}",
+    "cancel": "Avbryt"
+  },
+  "ch5": {
+    "heading": "Blokkerte lagkamerater",
+    "headingSub": "En blokkering gjelder både lagchatten og Shorts.",
+    "empty": "Du har ikke blokkert noen.",
+    "unblock": "Slutt å blokkere",
+    "back": "Tilbake",
+    "unblockedToast": "Du ser meldinger fra {{screenName}} igjen.",
+    "genericError": "Noe gikk galt. Prøv igjen."
+  },
+  "ch6": {
+    "heading": "Legg ved et klipp",
+    "loadError": "Klarte ikke å hente klipp. Sjekk tilkoblingen din.",
+    "retry": "Prøv igjen",
+    "emptyHeading": "Ingen klipp å legge ved ennå",
+    "emptySub": "Ingen på laget har lastet opp et klipp ennå. Gå til Klipp-fanen for å laste opp det første!",
+    "goToClips": "Gå til Klipp",
+    "showMore": "Vis flere klipp"
+  },
+  "composeBar": {
+    "lockedNote": "Venter på godkjenning før du kan sende meldinger. Du kan fortsatt lese det laget skriver.",
+    "placeholder": "Skriv noe til laget…",
+    "clipChipLabel": "Fra {{screenName}}"
+  },
+  "messageBubble": {
+    "reportMessage": "🚩 Rapporter meldingen",
+    "reportClip": "🚩 Rapporter klippet"
+  },
+  "clipEmbed": {
+    "attribution": "Klipp av {{screenName}}"
+  },
+  "clipUnavailable": {
+    "text": "🎬 Videoen er ikke lenger tilgjengelig."
+  }
+}

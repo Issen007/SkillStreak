@@ -1,4 +1,5 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { TeammateStatusRow } from '../components/TeammateStatusRow';
 import { SecondaryLink } from '../../components/SecondaryLink';
@@ -15,12 +16,14 @@ interface G1DTeammateStatusProps {
   onBack: () => void;
 }
 
-const EXCLUSION_CAPTIONS: Record<string, string> = {
-  joined_after_start: 'Gick med efter att målet redan startat',
-  consent_pending: 'Väntar på godkännande från förälder ⏳',
-  consent_revoked: 'Pausad ⏸️',
-  team_join_pending: 'Väntar på att bli godkänd i laget ⏳',
-};
+type ExclusionReason = NonNullable<PlayerGoalProgress['exclusionReason']>;
+
+const EXCLUSION_CAPTION_KEYS = {
+  joined_after_start: 'g1d.exclusion.joinedAfterStart',
+  consent_pending: 'g1d.exclusion.consentPending',
+  consent_revoked: 'g1d.exclusion.consentRevoked',
+  team_join_pending: 'g1d.exclusion.teamJoinPending',
+} as const satisfies Record<ExclusionReason, string>;
 
 /** Screen G1D — "Lagkompisarnas status", per docs/design/
  * phase2.10-per-player-goal-flows.md. A client-side view state, not a new
@@ -43,7 +46,8 @@ export function G1DTeammateStatus({
   targetUnit,
   onBack,
 }: G1DTeammateStatusProps) {
-  const unitLabel = targetUnitLabel(targetUnit);
+  const { t } = useTranslation('goal');
+  const unitLabel = targetUnitLabel(t, targetUnit);
   const done = players.filter((p) => p.eligible && p.goalMet);
   const inProgress = players.filter((p) => p.eligible && !p.goalMet);
   const excluded = players.filter((p) => !p.eligible);
@@ -51,13 +55,13 @@ export function G1DTeammateStatus({
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.headerBlock}>
-        <Text style={styles.heading}>Lagkompisarnas status</Text>
-        <Text style={styles.subHeading}>för &quot;{goalTitle}&quot;</Text>
+        <Text style={styles.heading}>{t('g1d.heading')}</Text>
+        <Text style={styles.subHeading}>{t('g1d.subHeading', { goalTitle })}</Text>
       </View>
 
       {done.length > 0 ? (
         <>
-          <Text style={styles.sectionLabel}>✅ Klara ({done.length})</Text>
+          <Text style={styles.sectionLabel}>{t('g1d.doneSectionLabel', { count: done.length })}</Text>
           <View style={styles.card}>
             {done.map((player) => (
               <TeammateStatusRow
@@ -73,7 +77,7 @@ export function G1DTeammateStatus({
 
       {inProgress.length > 0 ? (
         <>
-          <Text style={styles.sectionLabel}>⏳ Inte klara än ({inProgress.length})</Text>
+          <Text style={styles.sectionLabel}>{t('g1d.inProgressSectionLabel', { count: inProgress.length })}</Text>
           <View style={styles.card}>
             {inProgress.map((player) => (
               <TeammateStatusRow
@@ -92,7 +96,7 @@ export function G1DTeammateStatus({
 
       {excluded.length > 0 ? (
         <>
-          <Text style={styles.sectionLabel}>➖ Inte med denna vecka ({excluded.length})</Text>
+          <Text style={styles.sectionLabel}>{t('g1d.excludedSectionLabel', { count: excluded.length })}</Text>
           <View style={styles.card}>
             {excluded.map((player) => (
               <TeammateStatusRow
@@ -101,7 +105,9 @@ export function G1DTeammateStatus({
                 avatarId={player.avatarId}
                 variant="excluded"
                 exclusionCaption={
-                  player.exclusionReason ? EXCLUSION_CAPTIONS[player.exclusionReason] : null
+                  player.exclusionReason && EXCLUSION_CAPTION_KEYS[player.exclusionReason]
+                    ? t(EXCLUSION_CAPTION_KEYS[player.exclusionReason])
+                    : null
                 }
               />
             ))}
@@ -109,7 +115,7 @@ export function G1DTeammateStatus({
         </>
       ) : null}
 
-      <SecondaryLink label="Tillbaka" onPress={onBack} />
+      <SecondaryLink label={t('g1d.back')} onPress={onBack} />
     </ScrollView>
   );
 }

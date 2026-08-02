@@ -5,6 +5,7 @@ import {
   Index,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { PlayerLocale } from '../../common/locale/player-locale.enum';
 import { ParentalConsentStatus } from '../player-consent-status.enum';
 import { TeamJoinStatus } from '../team-join-status.enum';
 
@@ -136,6 +137,22 @@ export class Player {
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
+
+  // docs/adr/0014-multi-language-support.md Decision 1 (part a). Read by
+  // practically every player-facing flow (session bootstrap, every
+  // outbound lifecycle email) — the same broad-consumer profile as
+  // birthYear above, which is why this lives directly on Player rather
+  // than PlayerPrivateInfo. Not a location signal: "which of 8 languages"
+  // is a content-rendering choice, never "where is this device" — see
+  // CLAUDE.md's non-negotiable constraints and the ADR's Decision 5.
+  @Column({
+    name: 'locale',
+    type: 'enum',
+    enum: PlayerLocale,
+    enumName: 'player_locale_enum',
+    default: PlayerLocale.SV,
+  })
+  locale!: PlayerLocale;
 
   // No location field of any kind, per CLAUDE.md's non-negotiable
   // constraints — do not add one here.

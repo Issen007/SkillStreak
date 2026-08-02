@@ -1,0 +1,118 @@
+{
+  "o0": {
+    "heading": "Hvilket sprog vil du bruge?",
+    "sub": "Du kan skifte sprog senere, hvis du vil.",
+    "next": "Næste"
+  },
+  "o1": {
+    "heading": "Hvilket hold spiller du for?",
+    "sub": "Spørg din træner om holdets kode.",
+    "codePlaceholder": "F.eks. FALKEN24",
+    "findTeamButton": "Find mit hold",
+    "returningUserLink": "Har du allerede en konto?"
+  },
+  "o1a": {
+    "heading": "Vi fandt ikke noget hold med koden <code>{{inviteCode}}</code>",
+    "sub": "Ingen fare — vælg det, der passer på dig:",
+    "wrongCodeTitle": "Jeg skrev nok forkert",
+    "wrongCodeSub": "Prøv koden igen",
+    "createTeamTitle": "Vores hold har ikke en kode endnu",
+    "createTeamSub": "Opret et nyt hold med denne kode",
+    "helper": "Usikker? Spørg din træner, før du opretter et nyt hold."
+  },
+  "o1b": {
+    "codeChip": "Holdkode: {{inviteCode}}",
+    "changeCode": "Skift kode",
+    "heading": "Hvad skal jeres hold hedde?",
+    "sub": "Du bliver holdets første spiller — og kaptajn! Vælg et navn, resten af holdet kan være stolte af.",
+    "nameLabel": "Holdnavn",
+    "namePlaceholder": "F.eks. IBK Falken P13",
+    "helper": "Andre hold kan se navnet på ranglisten.",
+    "next": "Næste"
+  },
+  "o1c": {
+    "heading": "Opret {{teamName}}?",
+    "sub": "Holdkode: {{inviteCode}} — del den med holdkammerater, så de kan tilslutte sig senere.",
+    "tip": "Navnet og koden kan ikke ændres bagefter, så tjek at alt stemmer!",
+    "confirm": "Ja, opret holdet!",
+    "editName": "Nej, ret navnet"
+  },
+  "o2": {
+    "heading": "Tilslutter du dig {{teamName}}?",
+    "sub": "Hvis det stemmer, så lad os køre!",
+    "confirm": "Ja, det er mit hold!",
+    "reject": "Nej, prøv en anden kode"
+  },
+  "o3": {
+    "heading": "Vælg dit spillernavn",
+    "sub": "Det er navnet, dit hold ser — ikke dit rigtige navn, medmindre du vil.",
+    "nameLabel": "Spillernavn",
+    "namePlaceholder": "F.eks. FloorballStar15",
+    "avatarLabel": "Vælg en avatar",
+    "helper": "Der skal ikke noget billede til — vælg en figur, du kan lide.",
+    "next": "Næste"
+  },
+  "o4": {
+    "heading": "Hvilket år er du født?",
+    "sub": "Vi bruger det til at tilpasse udfordringer til din alder.",
+    "yearRangeError": "Angiv et år mellem {{minYear}} og {{maxYear}}.",
+    "yearLabel": "Fødselsår",
+    "yearPlaceholder": "F.eks. {{maxYear}}",
+    "next": "Næste"
+  },
+  "o5": {
+    "verifyHeading": "Bekræft din konto",
+    "consentHeading": "Vi spørger en voksen om lov",
+    "verifyBody1": "Før du kan begynde at logge træning, skal du bekræfte din e-mail eller dit mobilnummer.",
+    "consentBody1": "Før du kan begynde at logge træning, skal en forælder eller værge sige ja.",
+    "verifyBody2": "Vi sender et bekræftelseslink — du bekræfter med ét tryk.",
+    "consentBody2": "Vi sender dem et hurtigt spørgsmål — de godkender med ét tryk.",
+    "verifyContactLabel": "Din e-mail eller dit mobilnummer",
+    "consentContactLabel": "Forælders eller værges e-mail eller mobilnummer",
+    "contactPlaceholder": "f.eks. navn@eksempel.dk",
+    "verifyHelper": "Vi bruger det kun til at bekræfte din konto — intet andet.",
+    "consentHelper": "Vi bruger det kun til at spørge om lov — intet andet.",
+    "submit": "Send forespørgsel",
+    "coachNote": "Trænere: hjælp spilleren med at udfylde det, hvis de er usikre på oplysningerne."
+  },
+  "o6": {
+    "foundingIcon": "👑🎉",
+    "foundingHeading": "Tillykke, {{screenName}}! Du oprettede {{teamName}}!",
+    "foundingBody": "Du er holdets første spiller — og kaptajn! Så snart en forælder eller værge siger ja, kan du begynde at logge træning og invitere holdkammerater.",
+    "codeChip": "Holdkode: {{inviteCode}}",
+    "codeHelper": "Del den med dine holdkammerater!",
+    "joinedIcon": "✅👋",
+    "joinedHeading": "Klar, {{screenName}}!",
+    "joinedBody": "Du er med i {{teamName}}! Vi har sendt et spørgsmål til en forælder eller værge. Så snart de siger ja, kan du begynde at logge træning og tjene point til holdet.",
+    "doneButton": "Lad os køre"
+  },
+  "ra1": {
+    "heading": "Har du allerede en konto?",
+    "sub": "Angiv holdets kode og dit brugernavn, så sender vi en login-kode til din (eller din forælders) e-mail.",
+    "codePlaceholder": "Holdkode, f.eks. FALKEN24",
+    "namePlaceholder": "Dit brugernavn",
+    "submit": "Send kode",
+    "back": "Tilbage"
+  },
+  "ra2": {
+    "heading": "Tjek din indbakke",
+    "sub": "Hvis oplysningerne stemte, har vi sendt en kode til din (eller din forælders) e-mail. Angiv koden nedenfor for at logge ind igen.",
+    "codePlaceholder": "F.eks. H4K7QWXP",
+    "invalidCodeError": "Den kode virker ikke længere. Tjek, at du skrev den rigtigt, eller bed om en ny.",
+    "submit": "Log ind",
+    "retryLink": "Fik du ingen kode? Prøv igen"
+  },
+  "flow": {
+    "screenNameTaken": "Det navn er allerede optaget på holdet — prøv et andet!",
+    "teamNameRejected": "Navnet eller holdkoden indeholdt ord, der ikke virker her. Skriv navnet om, eller tryk på \"Skift kode\" ovenfor, hvis det er koden.",
+    "codeTakenConcurrently": "Åh nej — nogen nåede at oprette et hold med den kode lige før dig! Prøv en anden kode, så ordner vi resten med det samme.",
+    "inviteCodeNotFound": "Den holdkode virker ikke længere. Spørg din træner om en ny kode.",
+    "invalidParentContact": "De kontaktoplysninger ser ikke rigtige ud — tjek, at det er en rigtig e-mailadresse eller et telefonnummer.",
+    "invalidScreenName": "Det navn virker ikke helt rigtigt — prøv et andet!",
+    "invalidBirthYear": "Hmm, det år ser ikke rigtigt ud. Prøv igen.",
+    "genericValidationError": "Noget gik galt. Tjek oplysningerne, og prøv igen."
+  },
+  "shared": {
+    "genericError": "Noget gik galt. Tjek din forbindelse, og prøv igen."
+  }
+}

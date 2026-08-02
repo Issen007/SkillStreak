@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryButton } from '../../components/SecondaryButton';
@@ -31,6 +32,7 @@ export function ClipReportConfirmationSheet({
   onBlock,
   onDone,
 }: ClipReportConfirmationSheetProps) {
+  const { t } = useTranslation('clips');
   const [followUpDismissed, setFollowUpDismissed] = useState(false);
   const showBlockFollowUp =
     !followUpDismissed && (reason === 'appears_without_consent' || reason === 'bullying');
@@ -43,26 +45,22 @@ export function ClipReportConfirmationSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDone}>
       <Pressable style={styles.backdrop} onPress={onDone} />
       <View style={styles.sheet}>
-        <Text style={styles.heading}>Tack för att du sa till.</Text>
-        <Text style={styles.body}>
-          Videon är nu dold för hela laget, inklusive dig själv. Ingen får veta att det var du
-          som rapporterade.
-        </Text>
-        <Text style={styles.bodySecondary}>
-          En vuxen får reda på det här, men vi kan inte lova exakt när videon granskas igen.
-        </Text>
+        <Text style={styles.heading}>{t('v10.heading')}</Text>
+        <Text style={styles.body}>{t('v10.body')}</Text>
+        <Text style={styles.bodySecondary}>{t('v10.bodySecondary')}</Text>
 
         {showBlockFollowUp ? (
           <>
-            <Text style={styles.followUp}>
-              Vill du också slippa se fler Shorts och meddelanden från den personen?
-            </Text>
-            <SecondaryButton label={`Blockera ${reportedScreenName}`} onPress={onBlock} />
-            <SecondaryLink label="Nej tack" onPress={() => setFollowUpDismissed(true)} />
+            <Text style={styles.followUp}>{t('v10.followUp')}</Text>
+            <SecondaryButton
+              label={t('v10.block', { screenName: reportedScreenName })}
+              onPress={onBlock}
+            />
+            <SecondaryLink label={t('v10.noThanks')} onPress={() => setFollowUpDismissed(true)} />
           </>
         ) : null}
 
-        <PrimaryButton label="Klar" onPress={onDone} />
+        <PrimaryButton label={t('v10.done')} onPress={onDone} />
       </View>
     </Modal>
   );

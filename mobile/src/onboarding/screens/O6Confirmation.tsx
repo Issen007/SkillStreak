@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -38,41 +39,34 @@ export function O6Confirmation({
   // addendum) — both are checked so this reads correctly even if a future
   // response ever decoupled them.
   const isFoundingCaptain = teamCreated && isCaptain;
+  const { t } = useTranslation('onboarding');
 
   return (
     <ScreenContainer>
       <View style={styles.spacerTop} />
       {isFoundingCaptain ? (
         <>
-          <Text style={styles.icon}>👑🎉</Text>
+          <Text style={styles.icon}>{t('o6.foundingIcon')}</Text>
           <Text style={styles.heading}>
-            Grattis, {screenName}! Du skapade {teamName}!
+            {t('o6.foundingHeading', { screenName, teamName })}
           </Text>
-          <Text style={styles.body}>
-            Du är lagets första spelare — och kapten! Så fort en förälder
-            eller vårdnadshavare säger ja kan du börja logga träningar och
-            bjuda in lagkompisar.
-          </Text>
+          <Text style={styles.body}>{t('o6.foundingBody')}</Text>
           <View style={styles.codeChipWrap}>
-            <Text style={styles.codeChip}>Lagkod: {inviteCode}</Text>
+            <Text style={styles.codeChip}>{t('o6.codeChip', { inviteCode })}</Text>
           </View>
-          <Text style={styles.codeHelper}>Dela den med dina lagkompisar!</Text>
+          <Text style={styles.codeHelper}>{t('o6.codeHelper')}</Text>
         </>
       ) : (
         <>
-          <Text style={styles.icon}>✅👋</Text>
-          <Text style={styles.heading}>Klart, {screenName}!</Text>
-          <Text style={styles.body}>
-            Du är med i {teamName}! Vi har skickat en fråga till en förälder
-            eller vårdnadshavare. Så fort de säger ja kan du börja logga
-            träningar och tjäna poäng till laget.
-          </Text>
+          <Text style={styles.icon}>{t('o6.joinedIcon')}</Text>
+          <Text style={styles.heading}>{t('o6.joinedHeading', { screenName })}</Text>
+          <Text style={styles.body}>{t('o6.joinedBody', { teamName })}</Text>
         </>
       )}
 
       <View style={styles.spacer} />
 
-      <PrimaryButton label="Nu kör vi" onPress={onDone} />
+      <PrimaryButton label={t('o6.doneButton')} onPress={onDone} />
     </ScreenContainer>
   );
 }

@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -21,17 +22,18 @@ interface AppHeaderProps {
  * greeting (never the real name, per the "screen names in any player-facing
  * UI" rule). Otherwise purely presentational — no fetch, no state. */
 export function AppHeader({ screenName, avatarId, onAvatarPress }: AppHeaderProps) {
+  const { t } = useTranslation('home');
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
 
   return (
     <View style={styles.container}>
       <View>
         <Text style={styles.wordmark}>SkillStreak</Text>
-        <Text style={styles.workingTitle}>arbetstitel</Text>
+        <Text style={styles.workingTitle}>{t('appHeader.workingTitle')}</Text>
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Din profil"
+        accessibilityLabel={t('appHeader.profileAccessibilityLabel')}
         onPress={onAvatarPress}
         disabled={!onAvatarPress}
         style={({ pressed }) => [styles.avatarCircle, pressed && styles.avatarPressed]}
@@ -39,7 +41,17 @@ export function AppHeader({ screenName, avatarId, onAvatarPress }: AppHeaderProp
         <Text style={styles.avatarEmoji}>{emoji}</Text>
       </Pressable>
       <Text style={styles.greeting}>
-        Hej, <Text style={styles.greetingName}>{screenName}</Text>!
+        {/* Pilot t()/Trans wiring (docs/adr/0014-multi-language-support.md
+         * Decision 2's part-(a) pilot) — the `bold` tag in the `home`
+         * namespace's "greeting" key maps to this Text component by name,
+         * no wrapping element injected (no `parent` prop passed), so this
+         * stays valid React Native output. */}
+        <Trans
+          i18nKey="greeting"
+          ns="home"
+          values={{ screenName }}
+          components={{ bold: <Text style={styles.greetingName} /> }}
+        />
       </Text>
     </View>
   );

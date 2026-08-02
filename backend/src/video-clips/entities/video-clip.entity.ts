@@ -12,6 +12,19 @@ export enum VideoClipStatus {
   HIDDEN = 'hidden',
 }
 
+// docs/adr/0018-ai-video-content-tagging.md Decision 5 — tracks the
+// best-effort, non-blocking auto-tagging job's outcome only; never affects
+// playback, feed visibility, or any user-facing state. `not_processed` is
+// the default for every existing and newly-created row; a background job
+// (not built by this schema-only change) is expected to move a `published`
+// row through this once the classifier exists.
+export enum VideoClipTaggingStatus {
+  NOT_PROCESSED = 'not_processed',
+  TAGGED = 'tagged',
+  NO_CONFIDENT_TAGS = 'no_confident_tags',
+  FAILED = 'failed',
+}
+
 // docs/adr/0010-video-storage-and-serving.md — the highest child-safety-risk
 // entity in this app so far: a row never carries the video bytes themselves
 // (those live in MinIO, see ObjectStorageService), only the metadata needed
@@ -107,4 +120,19 @@ export class VideoClip {
   // instead, keyed off createdAt, not this column).
   @Column({ name: 'expires_at', type: 'timestamptz', nullable: true })
   expiresAt!: Date | null;
+
+  // docs/adr/0018-ai-video-content-tagging.md Decision 5 — internal-only,
+  // never exposed in any client-facing response/DTO (see VideoClipTag for
+  // the corresponding tag rows). Not indexed yet: no background sweep
+  // queries on this column exists in this schema-only change; add one
+  // (mirroring IDX_video_clip_status_expires_at's shape) alongside whatever
+  // job is built to consume it.
+  @Column({
+    name: 'tagging_status',
+    type: 'enum',
+    enum: VideoClipTaggingStatus,
+    enumName: 'video_clip_tagging_status_enum',
+    default: VideoClipTaggingStatus.NOT_PROCESSED,
+  })
+  taggingStatus!: VideoClipTaggingStatus;
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -26,6 +27,7 @@ export function O3NameAvatar({
   focusNameOnMount,
   onNext,
 }: O3NameAvatarProps) {
+  const { t } = useTranslation('onboarding');
   const [screenName, setScreenName] = useState(initialScreenName);
   const [avatarId, setAvatarId] = useState<string | null>(initialAvatarId);
   const [error, setError] = useState<string | null>(externalError ?? null);
@@ -45,27 +47,24 @@ export function O3NameAvatar({
   return (
     <ScreenContainer scroll>
       <View style={styles.spacerTop} />
-      <Text style={styles.heading}>Välj ditt spelarnamn</Text>
-      <Text style={styles.sub}>
-        Det här är namnet ditt lag ser — inte ditt riktiga namn om du inte
-        vill.
-      </Text>
+      <Text style={styles.heading}>{t('o3.heading')}</Text>
+      <Text style={styles.sub}>{t('o3.sub')}</Text>
 
       <TextField
         ref={inputRef}
-        label="Spelarnamn"
+        label={t('o3.nameLabel')}
         value={screenName}
         onChangeText={(text) => {
           setScreenName(text);
           if (error) setError(null);
         }}
-        placeholder="T.ex. FloorballStar15"
+        placeholder={t('o3.namePlaceholder')}
         autoCorrect={false}
         autoComplete="off"
         errorText={error ?? undefined}
       />
 
-      <Text style={styles.gridLabel}>Välj en avatar</Text>
+      <Text style={styles.gridLabel}>{t('o3.avatarLabel')}</Text>
       <View style={styles.grid}>
         {AVATAR_CATALOG.map((option) => {
           const selected = option.avatarId === avatarId;
@@ -82,12 +81,12 @@ export function O3NameAvatar({
           );
         })}
       </View>
-      <Text style={styles.helper}>Ingen bild behövs — välj en figur du gillar.</Text>
+      <Text style={styles.helper}>{t('o3.helper')}</Text>
 
       <View style={styles.spacer} />
 
       <PrimaryButton
-        label="Nästa"
+        label={t('o3.next')}
         disabled={!canProceed}
         onPress={() => {
           if (canProceed && avatarId) {

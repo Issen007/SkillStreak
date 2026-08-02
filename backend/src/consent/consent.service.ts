@@ -6,6 +6,7 @@ import {
   ConsentReminderRateLimitedException,
 } from '../common/errors/exceptions';
 import { isSelfVerificationAge } from '../common/age/self-verification-age.util';
+import { PlayerLocale } from '../common/locale/player-locale.enum';
 import { MailService } from '../mail/mail.service';
 import { buildConsentRequestEmail } from '../mail/templates/consent-request-email.template';
 import { buildSelfVerificationEmail } from '../mail/templates/self-verification-email.template';
@@ -25,11 +26,16 @@ export interface ConsentPreview {
   // ConsentController which page copy to render (first-person "verify
   // your own account" vs. third-person "does a parent approve").
   isSelfVerification: boolean;
+  // docs/adr/0014-multi-language-support.md Decision 3 — the consent web
+  // page takes the same locale as its corresponding email, resolved the
+  // same way (the Player row this consentToken already resolves to).
+  locale: PlayerLocale;
 }
 
 export interface ConsentApprovalResult {
   screenName: string;
   isSelfVerification: boolean;
+  locale: PlayerLocale;
 }
 
 export interface ConsentReminderResult {
@@ -67,6 +73,7 @@ export class ConsentService {
       ? {
           screenName: player.screenName,
           isSelfVerification: isSelfVerificationAge(player.birthYear),
+          locale: player.locale,
         }
       : null;
   }
@@ -100,7 +107,11 @@ export class ConsentService {
           : ConsentMethod.EMAIL_LINK,
       );
 
-      return { screenName: player.screenName, isSelfVerification };
+      return {
+        screenName: player.screenName,
+        isSelfVerification,
+        locale: player.locale,
+      };
     });
   }
 
@@ -171,6 +182,7 @@ export class ConsentService {
       targetPlayer.screenName,
       targetPlayer.teamId,
       targetPlayer.birthYear,
+      targetPlayer.locale,
       token,
     );
 
@@ -182,6 +194,7 @@ export class ConsentService {
     screenName: string,
     teamId: string,
     birthYear: number,
+    locale: PlayerLocale,
     consentToken: string,
   ): Promise<void> {
     // Best-effort, same posture as OnboardingService's initial send: a
@@ -207,11 +220,13 @@ export class ConsentService {
             screenName,
             teamName: team?.name ?? '',
             consentUrl,
+            locale,
           })
         : buildConsentRequestEmail({
             screenName,
             teamName: team?.name ?? '',
             consentUrl,
+            locale,
           });
       await this.mailService.sendMail({
         to: parentContact,

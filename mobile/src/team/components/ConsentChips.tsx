@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -14,21 +15,22 @@ interface ConsentChipsProps {
  * non-captain ever sees, and it's non-identifying"). A chip is omitted
  * entirely when its count is 0. */
 export function ConsentChips({ approvedCount, pendingCount, revokedCount }: ConsentChipsProps) {
+  const { t } = useTranslation('team');
   return (
     <View style={styles.row}>
       {approvedCount > 0 ? (
         <View style={[styles.chip, styles.approved]}>
-          <Text style={styles.chipText}>{approvedCount} godkända ✓</Text>
+          <Text style={styles.chipText}>{t('consentChips.approved', { count: approvedCount })}</Text>
         </View>
       ) : null}
       {pendingCount > 0 ? (
         <View style={[styles.chip, styles.pending]}>
-          <Text style={styles.chipText}>{pendingCount} väntar ⏳</Text>
+          <Text style={styles.chipText}>{t('consentChips.pending', { count: pendingCount })}</Text>
         </View>
       ) : null}
       {revokedCount > 0 ? (
         <View style={[styles.chip, styles.revoked]}>
-          <Text style={styles.chipText}>{revokedCount} pausade ⏸️</Text>
+          <Text style={styles.chipText}>{t('consentChips.revoked', { count: revokedCount })}</Text>
         </View>
       ) : null}
     </View>
