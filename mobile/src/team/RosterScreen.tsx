@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { RosterRow } from './components/RosterRow';
 import { ReminderActionSheet } from './components/ReminderActionSheet';
 import { Toast } from '../components/Toast';
+import { LoadingOrRetry } from '../components/LoadingOrRetry';
 import { SecondaryLink } from '../components/SecondaryLink';
 import { getTeamRoster, sendConsentReminder, triggerSessionReissue } from '../api/endpoints';
 import { ApiError } from '../api/ApiError';
@@ -99,21 +100,17 @@ export function RosterScreen({ teamId, onBack, onNotCaptain }: RosterScreenProps
   };
 
   if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.flame} size="large" />
-      </View>
-    );
+    return <LoadingOrRetry loading />;
   }
 
   if (loadError || !players) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>{loadError ?? t('k2.genericError')}</Text>
-        <Text style={styles.retryText} onPress={() => void fetchRoster()}>
-          {t('k2.retry')}
-        </Text>
-      </View>
+      <LoadingOrRetry
+        loading={false}
+        errorMessage={loadError ?? t('k2.genericError')}
+        retryLabel={t('k2.retry')}
+        onRetry={() => void fetchRoster()}
+      />
     );
   }
 
@@ -166,25 +163,5 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.ink,
     marginBottom: 8,
-  },
-  centered: {
-    flex: 1,
-    backgroundColor: colors.paper,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 24,
-  },
-  errorText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.ink,
-    textAlign: 'center',
-  },
-  retryText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-    color: colors.ink,
-    textDecorationLine: 'underline',
   },
 });

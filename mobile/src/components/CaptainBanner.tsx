@@ -17,12 +17,12 @@ interface CaptainBannerProps {
 
 /** Screen K5 — the one-time captaincy-change banner. Same fade-in/delay/
  * fade-out `Animated` sequence, layout, and tap-to-dismiss handling as
- * `CatchUpBanner` (a deliberate, accepted duplication — see
- * mobile/README.md's "Known duplication" note; not consolidated here to
- * avoid touching a second live celebration path without dedicated review).
- * Rendered at the AppShell level (not inside a single tab), same reasoning
- * as `CatchUpBanner`: this needs to show "at the top of whichever tab is
- * open," not just inside "Laget". */
+ * `Toast` (a deliberate, accepted duplication — this banner's two-line/
+ * variant-styled layout doesn't fit `Toast`'s single-message prop surface
+ * cleanly enough to be worth forcing; see mobile/README.md's "Known
+ * duplication" note). Rendered at the AppShell level (not inside a single
+ * tab), same reasoning as the Screen G3 catch-up `Toast`: this needs to
+ * show "at the top of whichever tab is open," not just inside "Laget". */
 export function CaptainBanner({ variant, onDismiss }: CaptainBannerProps) {
   const { t } = useTranslation('common');
   const opacity = useRef(new Animated.Value(0)).current;

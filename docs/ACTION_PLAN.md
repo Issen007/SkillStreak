@@ -2999,6 +2999,87 @@ across several future phases.
             Phase 1 review) — still an accepted gap, still tracked for
             Phase 2's coach dashboard.
 
+## Code cleanup pass (2026-08-02)
+
+From the project owner directly: "go through the code, optimizing the
+code, remove functions and code that is not in use or wast or duplicate."
+Backend and mobile run in parallel, both explicitly instructed to leave
+anything documented as intentionally dormant alone (backend's `coaches/`/
+`badges/`/disabled `session/` reissue/`Challenge.challengeId`; mobile's
+`GoalBonusTakeover`/`SuccessOverlay`, deliberately kept separate from the
+`Toast` consolidation below) — this is a hygiene pass, not a reopening of
+prior architectural decisions.
+
+- [x] **backend-developer**: full pass over `backend/src`, verified with
+      `ts-prune` for unused-export detection plus targeted greps, not
+      guessed at. No genuinely dead function/class/file found beyond the
+      four documented-dormant areas (confirmed those `ts-prune` hits were
+      false positives — loaded via TypeORM's module/migration system, not
+      direct imports). One real duplicate found and fixed, matching this
+      project's own established `isPostgresUniqueViolation`-extraction
+      precedent (Phase 2.5): an identical `escapeHtml()` and an identical
+      HTML page-wrapper (`function page(title, bodyHtml, locale?)`) were
+      independently reimplemented in four files
+      (`account-erasure/erasure-{cancel,confirm}-page.templates.ts`,
+      `profile/contact-change-cancel-page.templates.ts`,
+      `consent/consent-page.templates.ts`) — `escapeHtml` now reuses the
+      canonical copy already in `mail/templates/html-escape.util.ts`; the
+      page-wrapper is extracted into new
+      `common/html/transactional-page.util.ts`
+      (`renderTransactionalHtmlPage`). ~100 lines of duplicated markup
+      removed. Flagged, not silently decided: an identical `trimString`
+      DTO transform duplicated in 5 places, left alone initially due to an
+      adjacent-but-different project comment about *not* sharing per-DTO
+      numeric length constants — resolved by the orchestrating session
+      (confirmed the cited comment was about unrelated numeric constants,
+      not this parameterless transform) and extracted into new
+      `common/validation/trim-string.transform.ts`. Verified before and
+      after every change: `pnpm run build`/`lint` clean, 296/296 unit,
+      141/141 e2e, unchanged throughout, re-run independently by the
+      orchestrating session, not just reported by the implementing agent.
+- [x] **frontend-developer**: resolved all three items from
+      `mobile/README.md`'s "Known duplication / consolidation candidates"
+      backlog (tracked since Phase 2.5, deliberately deferred until now):
+      - `CatchUpBanner`/`Toast` — consolidated. `Toast` gained a
+        `variant?: 'default' | 'gold'` prop reproducing `CatchUpBanner`'s
+        exact look (background, `zIndex`, timing); `CatchUpBanner` deleted
+        after confirming zero remaining references.
+      - The identical loading-spinner/error-with-retry block hand-rolled
+        across `HomeScreen`/`TeamScreen`/`GoalScreen`/`RosterScreen`/
+        `ClipsScreen` — extracted into new `components/LoadingOrRetry.tsx`
+        (`fullScreen`/`style`/`spinnerColor` props reproduce each of the
+        (now six, `ClipsScreen` has three) call sites' exact prior
+        layout).
+      - `TeamPoolCard`/`GoalCard` progress-bar duplication — found to be
+        **already resolved by removal, not extraction**: `TeamPoolCard`'s
+        progress bar no longer exists at all (removed by ADR-0008 Decision
+        4's leaderboard rewrite, "no maximum left for a bar to
+        represent") — confirmed directly by reading the component, not
+        assumed from the stale README note. No premature
+        `useProgressBarWidth` hook built for `GoalCard`'s now-sole
+        remaining instance, per CLAUDE.md's anti-premature-abstraction
+        guidance; `mobile/README.md` updated to record this accurately.
+      Verified: `npx tsc --noEmit` and `npx expo-doctor` (18/18) both
+      clean before and after, re-run independently by the orchestrating
+      session. No test suite exists in `mobile/` to run.
+- [x] **code-critic**: full review of the combined backend+mobile diff.
+      **Zero findings** — every extraction verified byte-for-byte/
+      behaviorally equivalent to what it replaced (including the
+      `PlayerLocale.SV` default the three non-consent page templates
+      implicitly relied on), all five `LoadingOrRetry` call sites'
+      merged styles spot-checked against their pre-diff originals
+      (including `ClipsScreen`'s three differently-configured usages),
+      `Toast`'s `gold` variant confirmed to reproduce `CatchUpBanner`'s
+      exact rendered output including the `durationMs={3000}` override,
+      and the `TeamPoolCard` removal claim confirmed against the actual
+      component rather than taken on the README's word.
+
+Net: two new small shared utilities (`transactional-page.util.ts`,
+`trim-string.transform.ts`) and one new shared mobile component
+(`LoadingOrRetry.tsx`), ~100+ lines of duplicated backend markup/logic
+removed, one component (`CatchUpBanner`) removed entirely, zero behavior
+changes anywhere, full test/typecheck suites green throughout.
+
 ## Standing practice, every phase
 
 - Every PR that touches auth, media, or child data goes through

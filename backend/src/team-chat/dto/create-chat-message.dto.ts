@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { trimString } from '../../common/validation/trim-string.transform';
 
 const MAX_CONTENT_LENGTH = 500;
 
@@ -20,9 +21,7 @@ const MAX_CONTENT_LENGTH = 500;
 // (step 3), not here. `@MaxLength` stays a plain DTO-level check either way
 // (unchanged, "or content over the length cap").
 export class CreateChatMessageDto {
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
+  @Transform(trimString)
   @IsString()
   @MaxLength(MAX_CONTENT_LENGTH)
   content!: string;

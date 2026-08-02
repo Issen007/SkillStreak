@@ -20,35 +20,8 @@
 // would still fall through to `sv`, never a blank/broken page.
 
 import { PlayerLocale } from '../common/locale/player-locale.enum';
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function page(
-  title: string,
-  bodyHtml: string,
-  locale: PlayerLocale = PlayerLocale.SV,
-): string {
-  return `<!DOCTYPE html>
-<html lang="${locale}">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${title}</title>
-</head>
-<body style="margin:0;padding:0;background-color:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1B1B3A;">
-  <div style="max-width:480px;margin:48px auto;padding:32px;background-color:#FFFFFF;border-radius:16px;box-shadow:0 2px 12px rgba(27,27,58,0.08);">
-    ${bodyHtml}
-  </div>
-</body>
-</html>`;
-}
+import { escapeHtml } from '../mail/templates/html-escape.util';
+import { renderTransactionalHtmlPage as page } from '../common/html/transactional-page.util';
 
 interface ConsentConfirmCopy {
   title: (safeName: string) => string;

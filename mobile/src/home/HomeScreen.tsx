@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { AppHeader } from './components/AppHeader';
@@ -12,12 +12,12 @@ import { ActivitySheet } from './components/ActivitySheet';
 import { SuccessOverlay } from './components/SuccessOverlay';
 import { GoalBonusTakeover } from './components/GoalBonusTakeover';
 import { Toast } from '../components/Toast';
+import { LoadingOrRetry } from '../components/LoadingOrRetry';
 import { LeaderboardScreen } from '../leaderboard/LeaderboardScreen';
 import { getMe, postTrainingLog } from '../api/endpoints';
 import { ApiError, isConsentRequiredError } from '../api/ApiError';
 import { clearSessionToken } from '../api/authStorage';
 import { colors } from '../theme/colors';
-import { fonts } from '../theme/fonts';
 import type { ActivityType, PlayerMeResponse } from '../api/types';
 
 interface HomeScreenProps {
@@ -202,21 +202,17 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
   };
 
   if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.flame} size="large" />
-      </View>
-    );
+    return <LoadingOrRetry loading />;
   }
 
   if (loadError || !me) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>{loadError ?? t('shared.genericError')}</Text>
-        <Text style={styles.retryText} onPress={() => void fetchMe()}>
-          {t('shared.retry')}
-        </Text>
-      </View>
+      <LoadingOrRetry
+        loading={false}
+        errorMessage={loadError ?? t('shared.genericError')}
+        retryLabel={t('shared.retry')}
+        onRetry={() => void fetchMe()}
+      />
     );
   }
 
@@ -324,25 +320,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
     gap: 13,
     position: 'relative',
-  },
-  centered: {
-    flex: 1,
-    backgroundColor: colors.paper,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 24,
-  },
-  errorText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.ink,
-    textAlign: 'center',
-  },
-  retryText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-    color: colors.ink,
-    textDecorationLine: 'underline',
   },
 });

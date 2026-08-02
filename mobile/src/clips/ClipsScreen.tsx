@@ -21,6 +21,7 @@ import { UploadFlow } from './upload/UploadFlow';
 import { BlockSheet } from '../chat/components/BlockSheet';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Toast } from '../components/Toast';
+import { LoadingOrRetry } from '../components/LoadingOrRetry';
 import { blockChatPlayer, deleteClip, getClips, getMe, reportClip } from '../api/endpoints';
 import { ApiError } from '../api/ApiError';
 import {
@@ -350,9 +351,10 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
 
   if (hasSeenIntro === null) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator color={colors.flame} size="large" />
-      </View>
+      <LoadingOrRetry
+        loading
+        style={{ gap: 8, paddingHorizontal: 0, paddingTop: 60 }}
+      />
     );
   }
 
@@ -387,16 +389,16 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
             refreshing={manualRefreshing}
           />
         ) : clips === null ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={colors.flame} size="large" />
-          </View>
+          <LoadingOrRetry loading fullScreen={false} style={{ gap: 8, paddingTop: 60 }} />
         ) : loadError ? (
-          <View style={styles.centered}>
-            <Text style={styles.errorText}>{loadError}</Text>
-            <Text style={styles.retryText} onPress={() => void fetchInitial()}>
-              {t('v2.retry')}
-            </Text>
-          </View>
+          <LoadingOrRetry
+            loading={false}
+            fullScreen={false}
+            style={{ gap: 8, paddingTop: 60 }}
+            errorMessage={loadError}
+            retryLabel={t('v2.retry')}
+            onRetry={() => void fetchInitial()}
+          />
         ) : clips.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyHeading}>{t('v2.emptyHeading')}</Text>
@@ -508,24 +510,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.headingBold,
     fontSize: 20,
     color: colors.ink,
-  },
-  centered: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingTop: 60,
-  },
-  errorText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.ink,
-    textAlign: 'center',
-  },
-  retryText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-    color: colors.ink,
-    textDecorationLine: 'underline',
   },
   emptyState: {
     alignItems: 'center',

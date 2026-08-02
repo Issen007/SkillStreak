@@ -7,10 +7,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { PlayerLocale } from '../../common/locale/player-locale.enum';
-
-// Same trim-before-validate reasoning as create-player.dto.ts.
-const trimString = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
+import { trimString } from '../../common/validation/trim-string.transform';
 
 // A generous but bounded cap, same posture as this app's other free-text
 // profile fields (MAX_SCREEN_NAME_LENGTH etc. in create-player.dto.ts) —
