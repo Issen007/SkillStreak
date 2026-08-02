@@ -2610,6 +2610,93 @@ itself can be built: ADR-0018 Decision 5's two infra requirements
 model/vendor selection (explicitly not decided in the ADR), and the
 background job/queue that would actually populate this table.
 
+## Phase 5 — Usage analytics / product metrics ("Fas 5", item 1)
+
+From `docs/PROJECT.md`'s Fas 5, item 1: "Användningsanalys/produktmått...
+förstå hur riktiga lag faktiskt använder appen innan nästa stora satsning
+väljs." The project owner confirmed Fas 5's own stated precondition (a
+real public user base exists) is met, so this was green-lit to design now.
+Design-only so far; no schema or job exists yet.
+
+- [x] **architect**: `docs/adr/0020-usage-analytics-product-metrics.md`.
+      Scope: a fixed, allow-listed set of aggregate queries against data
+      already collected for the app's own gameplay purposes (onboarding/
+      consent funnel, streak-length histogram, activity recency, training-
+      type mix, weekly-goal completion rate, VM-Guld pool growth
+      distribution, clip/chat volume counts, badge-award mix) — explicitly
+      **not** a general-purpose event-tracking pipeline, a third-party
+      analytics SDK, or new client-side instrumentation. Self-hosted
+      aggregate Postgres queries recommended over a third-party platform
+      (Mixpanel/Amplitude/PostHog/Firebase), reapplying ADR-0010 Decision 1/
+      ADR-0018 Decision 2's sub-processor reasoning — rejected both for the
+      new-external-party question and because those platforms' per-user
+      event-stream shape is the opposite of this ADR's aggregate-only
+      granularity conclusion. Granularity: app-wide or team-size-bucketed
+      (`'1-2'`/`'3-5'`/`'6+'`, reusing ADR-0016's addendum bucketing
+      verbatim) only — never a named team row, never a per-player row —
+      explicitly excluding anything that would function as covert
+      individual monitoring of a specific child, named as a hard boundary
+      rather than left implicit. Delivery: an in-process `@nestjs/schedule`
+      job inside the existing API (same pattern as ADR-0010's retention
+      sweep), querying Postgres directly (never Redis, which holds no
+      audit-durable copy), emailing a periodic report to the project owner
+      via the existing `MailService`/SMTP relay — no new endpoint, no new
+      admin-authentication system (deliberately not rebuilt after Phase 2's
+      pivot removed it), no new Kubernetes primitive. An external-script
+      approach (the `tools/uptime-monitor`/`tools/local-release-poller`
+      pattern) was considered and rejected: those tools work specifically
+      because they poll public HTTP endpoints from outside the cluster,
+      while Postgres is deliberately `ClusterIP`-only per ADR-0010 — an
+      external script can't reach it without new, unwanted network
+      exposure. Consent/disclosure: no new consent gate or consent-copy
+      change required, argued (not assumed) from the aggregate/bucketed
+      output never resolving to an identifiable child — explicitly
+      conditional on the granularity constraint above holding, flagged so
+      a future loosening doesn't silently invalidate this conclusion too.
+      Cadence (default: monthly) and whether to eventually persist a
+      metrics-history table (default: no, recompute fresh each run) are
+      flagged as business-judgment calls with easy-to-revisit defaults, not
+      buried as settled engineering choices. Relationship to
+      `docs/BACKLOG.md`'s separate, much bigger "Admin control/monitoring
+      Web UI" idea stated explicitly: this ADR is standalone and
+      independently useful now, a plausible future input to that
+      dashboard's "usage statistics" tile if/when that's designed, but
+      neither presupposes nor blocks on it. Explicitly deferred, not
+      silently dropped: client-side funnel/event instrumentation,
+      `VideoClip` view/watch-count tracking (no such column exists today),
+      captain-transfer-frequency tracking (no source data exists — no
+      transfer-history table in this schema). **Blocking security-reviewer
+      sign-off required before backend-developer builds anything**, argued
+      from `docs/PROJECT.md`'s own explicit precondition for this item, the
+      BACKLOG admin-UI entry's identical demand for its own usage-
+      statistics piece, and this project's standing practice of gating any
+      new derived data about children (even aggregate) — scoped narrower
+      than ADR-0010/0018/0019's own reviews since this adds no media, no
+      consent gate, and no cross-team visibility path.
+- [x] **security-reviewer**: blocking pass, 2026-08-02 — not a clean
+      sign-off, one required fix. Decisions 1, 2, 4, 5, 6 confirmed sound.
+      **Decision 3's bucketing reuse from ADR-0016 didn't transfer as
+      cleanly as claimed**: the two ADRs bucket structurally different
+      things (a per-team displayed value vs. a cohort-aggregate
+      stratification key), and at this app's real current beta scale, the
+      team-size-bucketed metrics (adoption/consent funnel, weekly-goal
+      engagement) could degenerate to a bucket with only one or two teams
+      — no longer a genuine aggregate, exactly the "reliably surfaces one
+      child's data" case Decision 3's own residual paragraph already
+      named as unacceptable. **Fixed same day**: Decision 3 amended with a
+      minimum-population floor (recommend N ≥ 5 teams/bucket/period;
+      below that, fold into the app-wide number rather than report the
+      bucket) — additive, confirmed by the same review to fully close the
+      gap. Decision 7's "no new consent copy" conclusion (explicitly
+      conditioned on Decision 3 holding) is now confirmed sound
+      throughout, contingent on that floor actually being implemented
+      alongside the bucketed metrics, not deferred.
+- [ ] **backend-developer**: build the `usage-metrics/` module and
+      scheduled job against the ADR, including Decision 3's
+      minimum-population floor for the two team-size-bucketed metrics —
+      not optional, a real implementation requirement from the review
+      above, not just the original design.
+
 ## Phase 6 — Public Shorts feed, reactions & personal archive
 
 **Added 2026-07-27, from the project owner directly** (not yet designed —
@@ -2705,11 +2792,71 @@ Open questions for that design pass (not decided here):
   scoped here, but load-bearing on why this feed matters beyond inspiration
   alone.
 
-- [ ] **architect**: design the public-opt-in data model (a `visibility`
-      or `publishedAt` concept on `VideoClip`, or a separate join/publish
-      table — TBD), the archive/save data model, and the reaction data
-      model, resolving the open questions above. New ADR, not a Fas 3
-      addendum — this is new scope beyond what ADR-0010 signed off on.
+- [x] **architect**: designed the public-opt-in data model as a new,
+      standalone approval workflow layered on top of (never replacing) the
+      existing account-level `parentalConsentStatus` gate — a new
+      `ClipPublicationRequest` table (its own state machine:
+      `pending_review` → `approved`/`declined`, or `revoked`/`expired`),
+      not columns bolted onto `VideoClip`, mirroring `AccountErasureRequest`'s
+      own "legally-weighty state deserves its own table" precedent. →
+      `docs/adr/0019-public-shorts-feed.md`. Real, unprompted finding
+      surfaced along the way, same caliber as ADR-0018's false "no photos"
+      consent-copy bug: the existing consent-page copy, in all 8 locales,
+      makes an *unqualified* promise ("anything shared... is only visible
+      to their own team") that this feature would make false the moment it
+      ships — flagged as a required fix before/alongside shipping, not a
+      nice-to-have. Key decisions: publish approval reuses the existing
+      single `parent_contact` field (no new "child email"/multi-parent-
+      email fields — the candidate's login-recovery-credential double duty
+      explicitly deferred to Fas 4 point 2's own decision, not built here);
+      for the 13+ self-verification cohort (no parent on file by design),
+      the same review-and-approve-this-specific-clip email goes to the
+      player's own verified address — flagged explicitly as a judgment
+      call the project owner/a real legal read should confirm extends
+      cleanly from ADR-0002's Art. 8 self-consent reasoning, not decided
+      silently as purely technical; reuses ADR-0013 Decision 2's
+      contact-change-hijack-race fix verbatim (same vulnerability class, a
+      new consequential action resolving `parent_contact`). "Public"
+      scope: app-wide among authenticated SkillStreak players only, never
+      outside the app (no club/region concept exists to scope a narrower
+      circle without inventing infrastructure this phase doesn't have) —
+      decided deliberately, not by analogy to the four named reference
+      apps. Anonymization: a public clip strips `teamName` and never
+      resolves `taggedPlayerId`, deliberately stricter than the
+      leaderboard's existing cross-team `Team.name` exposure, since
+      binding a real child's video to a real-world team name is a bigger
+      de-anonymization risk than an aggregate score. Reactions are a
+      fixed, small vocabulary — no freeform public comments — a
+      deliberate scope-narrowing from the open question's own "reactions/
+      comments" framing, reasoned from security-reviewer's own stated
+      precondition for ADR-0007's keyword-filter posture ("small, closed,
+      real-world-known rosters") not holding for app-wide strangers.
+      Public reports auto-revoke *public* visibility only, never the
+      team-level `hidden` status ADR-0010 already has (new
+      `ClipReport.reportSource` column). Un-publishing is immediate and
+      unconditional, same self-determination posture as existing
+      self-delete. New `SavedClip` (bookmark) entity for saved-for-
+      inspiration — deliberately not a generic polymorphic bookmark table
+      (YAGNI, one bookmarkable type today); reads re-validate a clip's
+      current public status at fetch time, never trusting the stored
+      bookmark alone, the same never-trust-a-cached-grant bar ADR-0010
+      already set for clip playback. All three new tables
+      (`ClipPublicationRequest`, `ClipReaction`, `SavedClip`) cascade-
+      delete from `VideoClip`, so ADR-0013's existing account-erasure walk
+      needs **zero** new per-entity treatment — free cleanup, the same
+      property ADR-0018 already achieved for `VideoClipTag`. No new Redis
+      structure (same "boring, not this phase's scale" reasoning as
+      ADR-0008/0016). Explicitly not designed here, and explicitly not
+      contradicted: the BACKLOG points-tier formula change, and ADR-0018's
+      own deferral of tags becoming player-visible. **Blocking
+      security-reviewer sign-off required before ux-designer finalizes
+      screens or backend-developer builds anything against this** (per
+      the ADR's own Status section), with three items named for the
+      reviewer to scrutinize hardest: the new *unauthenticated*
+      video-preview-serving surface for the mailed parent-review link
+      (this app's first time serving real child video outside both team
+      membership and session auth), the consent-copy fix, and whether the
+      13+ self-approval judgment call is actually sound.
 - [ ] **ux-designer**: design the endless-scroll feed, reaction UX, and
       the Archive tab (team clips + owned clips + publish action),
       informed by but not copying Snapchat/TikTok/Instagram/YouTube's
