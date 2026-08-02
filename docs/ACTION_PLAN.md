@@ -1808,6 +1808,52 @@ treat `security-reviewer` involvement as blocking, not a final check.
 - [ ] **architect**: Helm chart — not done; current manifests are plain
       YAML per the project owner's explicit request, not a rejection of
       Helm, just not needed yet.
+- [x] **24/7 health/uptime monitoring — done 2026-08-02.** Was blocked on
+      production DNS/TLS actually being live; unblocked since 2026-07-31
+      (Phase 4.4). Scoped deliberately small per `docs/PROJECT.md`'s own
+      instruction for this item: "börja med en enkel schemalagd
+      hälsokontroll, inte den större 'AI-driven'-idén" — a script + user
+      systemd timer, not a dashboard. → `tools/uptime-monitor/`
+      (`check-health.sh`, `.service`/`.timer` units, `.env.example`,
+      README), same posture/pattern as `tools/local-release-poller/` in
+      the same directory: a standalone tool meant to run on `ubuntu01`,
+      not part of the product itself. Polls the three real production
+      hostnames (`api.skillstreak.xyz/health`, `skillstreak.xyz`,
+      `try.skillstreak.xyz` — deliberately not the internal test cluster,
+      which has no public DNS/TLS and isn't what this item was blocked
+      on) every 2 minutes, and emails only on a state *change*
+      (healthy→down or down→recovered), not on every tick, to avoid
+      spamming an inbox during a prolonged real outage. Reuses the
+      backend's existing `SMTP_HOST`/`SMTP_USER`/`SMTP_PASSWORD`/
+      `SMTP_FROM` env var names and Google Workspace relay
+      (`k8s/secret.yaml.example`/`configmap.yaml`) rather than inventing
+      a second mail account/naming convention; real credentials live in a
+      local, gitignored `.env`, never committed. If unconfigured, checks
+      still run and log to the systemd journal — only the email step is
+      skipped, so installing the timer is safe before wiring up SMTP.
+      **Verified live, not just written**: ran against the real
+      production endpoints (all three currently healthy), confirmed the
+      first-ever run correctly sends no alert (no "previous status" to
+      compare against yet — avoids a spurious alert on install), then
+      forced both a healthy→down and a down→recovered transition against
+      a deliberately broken URL and confirmed the alert path fires
+      exactly on the transition and not on repeated unchanged ticks, and
+      confirmed the state files persist correctly between runs. **Not
+      independently verified**: the actual SMTP send over a live network
+      round-trip (starttls/login/sendmail) — this sandbox has no real
+      mail credentials and a hand-rolled fake SMTP server wasn't a good
+      use of time given it's standard library `smtplib` usage matching
+      the backend's own already-proven mail pattern; worth a quick manual
+      confirmation (`systemctl --user start skillstreak-uptime.service`
+      after a real outage, or a deliberate temporary bad URL) the first
+      time this is actually installed on `ubuntu01`. Deliberately not
+      built, per the README's own "not built here" section: no
+      repeat-reminder during an ongoing outage, no Postgres/Redis/MinIO
+      connectivity check (the API's `/health` is liveness-only), no
+      dashboard. The bigger "control monitoring web UI" idea (stats,
+      errors, social campaigns, blog generation) stays a separate,
+      much larger, not-yet-designed item in `docs/BACKLOG.md` — this
+      tool is not a step toward that.
 - [x] **security-reviewer**: full production-hardening pass — done
       2026-07-30/31 as a live audit of the actual running cluster, not
       just the code. See Phase 4.4 below for the full findings/fixes list.
