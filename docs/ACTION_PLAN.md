@@ -3398,12 +3398,54 @@ specifically, explicitly not for players.
       static secrets). Updates `docs/adr/0022-admin-control-center.md`'s
       Status with an explicit addendum: Decision 2 superseded; Decisions
       1, 3-10 unchanged and unaffected.
-- [ ] **security-reviewer**: two passes, not one — Part A at the same
-      weight as ADR-0019 (a comparable new-adult-authority-over-a-specific-
-      child's-data question, argued from scratch); Part B at ADR-0022's
-      own full weight (replacing that ADR's entire authentication
-      mechanism). Neither part should be built before its pass, per this
-      ADR's own Status section.
+- [x] **security-reviewer**: two passes, completed 2026-08-03, not a
+      clean sign-off on either — see `docs/adr/0023-pt-role-and-staff-sso-
+      rbac.md`'s Status section for the full record. **Part B (ADR-0022's
+      own full weight)**: four findings. Most severe, CONFIRMED — removing
+      an email from `ADMIN_EMAILS` didn't revoke an already-issued admin
+      session, because Decision B1's original "re-derived at login" design
+      cited `token_version`'s per-request DB check (ADR-0004 Part 3)
+      backwards, as precedent for *accepting* staleness rather than for the
+      *immediate* revocation that mechanism actually gives players. Fixed:
+      `AdminAuthGuard` now does a real per-request `StaffAccount` lookup
+      (new `revoked_at` column, plus a live re-check of the account's email
+      against `ADMIN_EMAILS` for Google/Microsoft accounts) instead of
+      trusting the JWT's `role` claim, closing the gap the same way
+      `token_version` already does for players. Second, CONFIRMED — Apple's
+      OIDC omits the `email`/`name` claims on every login after the first,
+      so "re-derived from the live email claim on every login" has nothing
+      to check for an Apple session past its first login; fixed with a
+      named exception (Apple's `email` is persisted once and frozen, and
+      revoking an Apple-authenticated admin/PT goes through the new
+      `revoked_at` suspension column, not `ADMIN_EMAILS`, since a persisted
+      Apple relay-email isn't reliably editable there). Two smaller,
+      PLAUSIBLE findings, both fixed additively: no mention anywhere of
+      OAuth `state`/PKCE/nonce (now an explicit, named requirement on
+      Decision B6); Decision B5's bot-verification argument didn't tie back
+      to Part A's own zero-default-access design for a freshly-signed-up
+      PT (one sentence added connecting the two). **Part A (ADR-0019's
+      weight)**: three findings, none requiring a schema change. Medium,
+      most severe — a child joining a team *after* a PT is already linked
+      is exposed to that PT's team-aggregate view (screen name + consent
+      status) automatically, with no fresh consent action, contradicting
+      Decision A1 point 5's claim that "access silently expanding...
+      structurally cannot happen here"; true for the per-player
+      training-data tier, false as stated for the team-aggregate tier.
+      Resolved by decision, not a code change: accepted as intended for the
+      team-aggregate tier specifically (screen name + consent status only,
+      no worse than existing teammate-roster visibility), with Decision A1
+      point 5's overclaiming language corrected to scope explicitly to the
+      per-player tier, where it remains true without exception. Two Low
+      findings, both fixed as additive clarifications: the consent-status
+      read endpoint didn't restate the same active-`PtTeamLink` check its
+      sibling write endpoint has (added explicitly, closing a probe/
+      enumeration gap for PTs with zero active team links); the `BadgeAward`
+      allow-list justification could be misread as including `context`
+      (it never did) — wording tightened to state the exclusion of
+      `context`, including its freeform `note` subfield, explicitly. **Net:
+      backend-developer may build both parts as amended** — Part A only
+      once Part B's account mechanism exists, per this ADR's own
+      sequencing.
 - [ ] **ux-designer**: PT-side screens (team-link redemption, per-player
       consent requests, the read-only numbers view), the parent/self
       review-and-approve email + page, the player-facing "manage your PT

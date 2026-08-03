@@ -49,6 +49,90 @@ security-reviewer could in principle clear Part B before Part A if the
 project owner wants to sequence the work that way (Part B has no
 dependency on Part A being accepted); Part A cannot ship without Part B.
 
+**Security-reviewer pass — Part B, full ADR-0022 weight, 2026-08-03 — not a
+clean sign-off.** Decisions B3 (environment-parity/offline dev-session
+script), B4 (RBAC guard shape), B5 (no CAPTCHA), and B6 (OIDC client
+library choice) confirmed sound as written. Four findings:
+
+- **CONFIRMED, most severe**: removing an email from `ADMIN_EMAILS`
+  didn't revoke an already-issued admin session — Decision B1's original
+  "re-derived at login, bounded by session lifetime" language cited
+  `token_version` (ADR-0004 Part 3) backwards, as precedent for
+  *accepting* staleness, when that mechanism's actual point is a real
+  per-request DB check that gives *immediate* revocation. Given "admin =
+  access to everything" is the whole point of this role, and this project
+  has already built real immediate-revocation precedent for the
+  much-lower-stakes player case, this needed a real fix, not a softer
+  claim. **Fixed**: `AdminAuthGuard` now performs a per-request
+  `StaffAccount` lookup (checking `revoked_at IS NULL` and, for
+  Google/Microsoft accounts, re-comparing the account's current email
+  against the live `ADMIN_EMAILS` config) rather than trusting the JWT's
+  `role` claim or the stored `role` column — see the revised Decision
+  B1/B2 text below. `PtAuthGuard` does not need the equivalent check: a
+  freshly-provisioned `pt`-role account already carries zero ambient
+  authority by construction (Decision A1), so there is no "removed from an
+  allow-list but the session still grants everything" gap on that side to
+  close.
+- **CONFIRMED**: Apple's OIDC only ever includes the `email`/`name`
+  claims on a user's very first authorization with this app — every
+  subsequent Apple login omits both, with no way to fetch them later.
+  Decision B1's "re-derived from the live email claim on every login" had
+  no live email to check for any Apple login after the first. **Fixed**:
+  a named exception is added to Decision B1 — `StaffAccount.email` for an
+  Apple-authenticated account is persisted once, at first login, and
+  treated as authoritative thereafter (never "refreshed every login," the
+  Google/Microsoft behavior); `ADMIN_EMAILS` matching for an
+  Apple-authenticated account therefore only ever happens meaningfully
+  once, at account creation, and revoking an Apple-authenticated admin (or
+  suspending an Apple-authenticated PT for cause) goes through the new
+  `StaffAccount.revoked_at` column, not through editing `ADMIN_EMAILS`.
+- **PLAUSIBLE**: no mention anywhere of OAuth `state`/PKCE/nonce.
+  **Fixed**: added as an explicit, named requirement to Decision B6,
+  likely satisfied by `openid-client`'s own defaults but now stated
+  rather than assumed, with an explicit ask for backend-developer to
+  confirm it with a test.
+- **PLAUSIBLE, minor**: Decision B5's bot-verification argument didn't
+  explicitly tie "no form to protect" to Part A's own "PT defaults to
+  zero linked players/teams" design. **Fixed**: one sentence added to
+  Decision B5 connecting the two.
+
+Net: backend-developer may build Part B as amended.
+
+**Security-reviewer pass — Part A, ADR-0019 weight, 2026-08-03 — not a
+clean sign-off.** Decisions A2 (two-step link/consent chain), A3 (mailed
+review-and-approve mechanism, contact-change-hijack-race fix), A4
+(three-party revocation), and A6 (cross-team-reach argument) confirmed
+sound as written. Three findings:
+
+- **Medium, most severe in Part A**: a child joining a team *after* a PT
+  is already linked is exposed to that PT's team-aggregate view (screen
+  name + consent status) automatically, with no fresh consent action by
+  anyone — contradicting Decision A1 point 5's own claim that "access
+  silently expanding... structurally cannot happen here." That claim is
+  true for the per-player training-data tier but was false as stated for
+  the team-aggregate tier. **Decided explicitly**: accepted as the
+  intended design for the team-aggregate tier specifically (screen name +
+  consent status only, no worse than existing teammate-roster visibility,
+  and consistent with Decision A6's own already-accepted residual for the
+  same tier) — Decision A1 point 5's overclaiming language is corrected to
+  scope its "cannot happen" claim to the per-player training-data tier
+  only, where it remains true without exception.
+- **Low**: `GET /api/v1/pt/players/:playerId/consent-status` didn't
+  restate the same active-`PtTeamLink` authorization check its sibling
+  write endpoint (`POST .../consent-requests`) explicitly has, leaving a
+  PT with zero active team links able to probe/enumerate consent-status
+  for arbitrary player IDs app-wide. **Fixed**: the identical guard/check
+  added explicitly to this endpoint's spec.
+- **Low, wording only**: the PT data allow-list table's `BadgeAward`
+  justification could be misread as implying `context` (including its
+  freeform coach-authored `note` subfield, confirmed real in
+  `backend/src/badges/dto/badge-award-context.dto.ts`) is
+  included-but-safe, rather than excluded. **Fixed**: wording tightened to
+  state the exclusion explicitly — no design change.
+
+Net: backend-developer may build Part A as amended, once Part B's account
+mechanism exists per this ADR's own sequencing.
+
 ## Context
 
 Two verbatim requests from the project owner, across separate messages,
@@ -170,18 +254,73 @@ is a small, reviewable migration, not a schema redesign).
 ```
 StaffAccount
   id                     uuid, PK
-  role                   enum('admin', 'pt'), not null
+  role                   enum('admin', 'pt'), not null   -- a last-known,
+                                                            display-only
+                                                            snapshot,
+                                                            refreshed at
+                                                            login for
+                                                            Google/Microsoft
+                                                            (see the
+                                                            'refreshed every
+                                                            login' note on
+                                                            `email` below)
+                                                            or set once at
+                                                            first login for
+                                                            Apple — never the
+                                                            sole basis for an
+                                                            authorization
+                                                            decision, see the
+                                                            revised
+                                                            `AdminAuthGuard`
+                                                            text below
   auth_provider          enum('google', 'microsoft', 'apple'), not null
   auth_provider_subject  varchar, not null   -- the OIDC 'sub' claim, this
                                                -- provider's own stable
                                                -- identifier for the account
   email                  varchar, not null   -- from the verified ID token
-                                               -- 'email' claim at each login
-                                               -- (refreshed every login, see
-                                               -- below — never user-editable
-                                               -- in this app)
+                                               -- 'email' claim, refreshed at
+                                               -- every login for Google/
+                                               -- Microsoft; for Apple, set
+                                               -- once at first login only
+                                               -- and never refreshed again
+                                               -- (Apple omits the 'email'
+                                               -- claim on every login after
+                                               -- the first — see the named
+                                               -- exception below) — never
+                                               -- user-editable in this app
   display_name           varchar, nullable   -- from the ID token 'name'
                                                -- claim, refreshed each login
+                                               -- for Google/Microsoft, set
+                                               -- once for Apple, same
+                                               -- reasoning as `email`
+  revoked_at             timestamptz, nullable   -- explicit, manual staff-
+                                                    account suspension lever
+                                                    (added per
+                                                    security-reviewer's Part
+                                                    B pass, Finding 1/2 —
+                                                    see Status) — set
+                                                    directly (e.g. via
+                                                    Postgres access, the same
+                                                    "operator already has
+                                                    direct DB access" lever
+                                                    ADR-0020/0022 already
+                                                    rely on) to end a
+                                                    specific StaffAccount's
+                                                    every current and future
+                                                    session immediately,
+                                                    regardless of whether its
+                                                    email still matches
+                                                    `ADMIN_EMAILS` — the only
+                                                    reliable revocation lever
+                                                    for an
+                                                    Apple-authenticated
+                                                    account, whose persisted
+                                                    email may be frozen or
+                                                    may be an Apple
+                                                    "Hide My Email" relay
+                                                    address never
+                                                    meaningfully editable in
+                                                    `ADMIN_EMAILS`
   created_at              timestamptz, not null
   last_login_at           timestamptz, not null
   UNIQUE (auth_provider, auth_provider_subject)
@@ -229,15 +368,57 @@ construction, indistinguishable in capability from someone who never
 signed up at all, until Part A's own consent chain grants something
 specific.
 
-**Role is re-derived from `ADMIN_EMAILS` on every login, not fixed once at
-row creation.** If an email is added to (or removed from) `ADMIN_EMAILS`,
-the corresponding `StaffAccount.role` updates the next time that person
-logs in — this is a deliberate, bounded staleness (at most one session
-lifetime, Decision B2's 24-hour recommendation), the same "boring,
-accept bounded propagation delay over building revocation infrastructure"
-trade this codebase already made for `ADMIN_JWT_SECRET` rotation (ADR-0022
-Decision 2) and for `token_version` (ADR-0004 Part 3) — not a gap unique to
-this design.
+**Role is re-derived live, on every request, not merely at login — a
+correction to this ADR's original draft, folded in per security-reviewer's
+Part B pass (Finding 1, documented in full in Status).** The original
+draft claimed role staleness was bounded to "at most one session
+lifetime," reasoning by analogy to `token_version`'s per-request DB check
+(ADR-0004 Part 3) — but the analogy was backwards: `token_version`
+achieves *immediate* revocation precisely because `JwtAuthGuard` re-checks
+it on every request (verified directly in
+`backend/src/auth/jwt-auth.guard.ts`), not because staleness is an
+accepted trade. This ADR now does the same for admin authority
+specifically, the highest-stakes case ("admin = access to everything," per
+the project owner's own framing): **`AdminAuthGuard` never trusts the
+JWT's `role` claim or the `StaffAccount.role` column as authoritative** —
+on every request it (a) rejects immediately if `StaffAccount.revoked_at`
+is non-null, and (b) for Google/Microsoft-authenticated accounts,
+re-compares the account's current `email` against the **live**
+`ADMIN_EMAILS` config value (an in-memory `ConfigService` read, not a DB
+round trip — genuinely free) before granting admin authority for that
+request. Removing an email from `ADMIN_EMAILS` (plus the pod restart that
+value already requires to take effect, the same operational step every
+other `Secret` rotation in this app already requires) now revokes admin
+authority on the very next request across every outstanding session — no
+waiting for a session to expire or for the affected person to log in
+again. The `StaffAccount.role` column and the JWT's own `role` claim
+remain useful as a last-known/display value (e.g. "you are signed in as
+admin" in the admin UI), refreshed at login, but are never the basis for
+an authorization decision. See Decision B2's revised `StaffAuthGuard`/
+`AdminAuthGuard` text for the guard mechanics.
+
+**Apple is a named exception, not silently covered by the above (Finding
+2, documented in full in Status)**: Apple's OIDC only includes the
+`email`/`name` claims on a user's very first authorization with this app
+ever — every subsequent Apple login omits both entirely, with no way to
+fetch them later (a hard platform constraint, not a bug to route around).
+`StaffAccount.email` for an Apple-authenticated account is therefore set
+once, at first login, and treated as authoritative from then on — **not**
+"refreshed every login," unlike Google/Microsoft. Consequently,
+`ADMIN_EMAILS` matching for an Apple-authenticated `StaffAccount` only
+ever happens meaningfully once, at account creation (the first login is
+the only point a live email claim exists to check against the allow-list
+at all) — there is no meaningful "next login" re-check for this provider
+to rely on. The live per-request check above still runs for an Apple
+account (it compares the *persisted* email, not a fresh claim), but its
+reliability is bounded by how accurate and matchable that persisted email
+remains (Apple's own "Hide My Email" relay-address option can make it a
+non-human-readable string an operator can't confidently maintain in
+`ADMIN_EMAILS`). **For this reason, revoking an Apple-authenticated admin
+(or suspending an Apple-authenticated PT for cause) must go through
+`StaffAccount.revoked_at`, not through editing `ADMIN_EMAILS`** — editing
+the allow-list remains the correct, sufficient lever for Google/Microsoft
+accounts, but isn't guaranteed to be a meaningful action for an Apple one.
 
 ### Decision — B2: session mechanism — reuses ADR-0022 Decision 2's cookie reasoning verbatim, generalized to carry a role and an account ID
 
@@ -281,13 +462,31 @@ now a small multi-account, multi-role system, not "the one admin":
   (rename to `STAFF_COOKIE_SECURE` for consistency, same per-cluster
   `ConfigMap` value, same reasoning: `ubuntu01` has no TLS, so a
   `Secure`-flagged cookie would silently never be sent there).
-- **`StaffAuthGuard`** (renamed/generalized from `AdminAuthGuard`):
-  verifies the cookie's signature against `STAFF_JWT_SECRET` and expiry,
-  populates `request.staffAccountId`/`request.staffRole`. Still no
-  per-request DB lookup for signature/expiry validity (unchanged from
-  ADR-0022's reasoning) — a DB lookup only happens where a specific
-  endpoint actually needs to check a specific relationship row (Decision
-  A-series), not on every guarded request generically.
+- **`StaffAuthGuard`**: verifies the cookie's signature against
+  `STAFF_JWT_SECRET` and expiry only, and populates
+  `request.staffAccountId` and the token's original `role` claim (kept as
+  a hint only, see below) — still no per-request DB lookup at this base
+  layer, the identical cheap "signature + expiry only" shape ADR-0022
+  Decision 2 already established.
+- **`AdminAuthGuard` (Decision B4), specifically, adds one more step this
+  ADR's original draft omitted, required by security-reviewer's Part B
+  pass (Finding 1, see Status)**: a per-request `StaffAccount` lookup by
+  `staffAccountId`, checking `revoked_at IS NULL` and (for Google/
+  Microsoft accounts) re-comparing the row's current `email` against the
+  live `ADMIN_EMAILS` config before granting admin authority for that
+  request — see Decision B1's revised role-derivation text for the full
+  reasoning and the named Apple exception. This is a real, not cached,
+  per-request DB read, mirroring `JwtAuthGuard`'s `token_version` check
+  (ADR-0004 Part 3) rather than the "accept bounded staleness" trade the
+  original draft wrongly modeled this on — proportionate here because
+  admin traffic is low-volume, infrequent operator use, not the
+  high-volume player request path `token_version`'s own cost trade-off was
+  weighed against. **`PtAuthGuard` does not add this same per-request
+  lookup**: a `pt`-role session carries no ambient authority beyond
+  "may attempt to redeem a team-invite code or request per-player
+  consent," both already gated by their own live relationship checks
+  (Decisions A2-A5) — there is no equivalent "removed from an allow-list
+  but the session still grants everything" gap on that side to close.
 
 ### Decision — B3: environment-parity reckoning — full three-provider OAuth cannot be genuinely tested on `ubuntu01`; don't build a live bypass endpoint to compensate, use an offline dev-session-minting script instead
 
@@ -491,6 +690,15 @@ request alone, per the task's own instruction to decide, not assume**:
   originally asked about. Building a redundant local CAPTCHA in front of a
   flow that never collects the thing CAPTCHA protects (a spammable form)
   is defending against a threat that doesn't exist in this design's shape.
+  **Tied explicitly to Part A's own design, per security-reviewer's Part B
+  pass (Finding 4, see Status)**: even in the hypothetical worst case
+  where a bot did somehow acquire and drive a real Google/Microsoft/Apple
+  account through this flow, the resulting `StaffAccount` row is, by
+  Decision A1/B1's own explicit design, a `pt`-role account with **zero**
+  linked players or teams and zero standing capability to view anything —
+  there is no incremental harm on the other side of a successful bot
+  signup here, unlike a form that gates a real capability a bot
+  registration would then hold.
 - **The one real local surface — our own `/api/v1/staff-auth/:provider/
   callback` and `/login` (initiate) routes being hit directly with junk
   requests — is a plain volumetric/DoS concern, not a bot-signup
@@ -530,6 +738,24 @@ ADR-0004 Part 2's own preference for small, explicit code over framework
 machinery — not a hard block on Passport if backend-developer has a strong
 ecosystem-convention reason to prefer it; either is acceptable, this is a
 recommendation with reasoning, not a mandate.
+
+**Required, explicit, not left implicit — added per security-reviewer's
+Part B pass (Finding 3, see Status)**: whichever library implements the
+three OIDC integrations, the standard `state` (login-CSRF protection),
+PKCE (`code_verifier`/`code_challenge`), and `nonce`
+(authorization-code-injection/replay protection) parameters must be
+generated, held server-side tied to the pre-authentication request (e.g. a
+short-lived signed cookie or session value), and verified on callback, for
+all three providers — the standard defense against login-CSRF and
+authorization-code-injection on any OAuth/OIDC authorization-code flow.
+This is very likely satisfied automatically by `openid-client`'s own
+`authorizationUrl()`/`callback()` helpers when used as intended (the
+library is built around the standards-compliant flow, not a bare HTTP
+client), but the original draft never said so explicitly — backend-
+developer must confirm this during implementation (e.g. a test asserting
+a callback with a missing or mismatched `state`/`nonce` is rejected)
+rather than assume the library's defaults are wired in correctly by
+construction.
 
 **New `Secret` entries** (per-environment, following `k8s/secret.yaml.
 example`'s existing pattern exactly, one GitHub Actions secret per key):
@@ -607,12 +833,37 @@ along every axis that made the original design unacceptable:**
    structurally excludes chat, video, and every `PlayerPrivateInfo` field
    — the original design had no equivalent ceiling; a coach's roster view
    was headed toward full account visibility.
-5. **Cannot grow into more access without a fresh, explicit action for
-   each new relationship** — there is no "add another team" or "add
-   another player" button that doesn't re-run the same per-relationship
-   consent chain from scratch. The original design's core failure mode
-   (access silently expanding as more `TeamCoach` rows get added with no
-   per-child check) structurally cannot happen here.
+5. **Cannot grow into more per-player training-data access without a
+   fresh, explicit action for each new relationship** — there is no "add
+   another team" or "add another player" button that grants visibility
+   into a specific child's training history without re-running Decision
+   A3's per-relationship consent chain from scratch. The original design's
+   core failure mode (access silently expanding as more `TeamCoach` rows
+   get added with no per-child check) structurally cannot happen for
+   **that** tier.
+   **Correction, folded in per security-reviewer's Part A pass (Finding 5,
+   documented in full in Status)**: as originally written, this point
+   overclaimed — true for the per-player training-data tier, but not, as
+   stated, for the team-aggregate tier (screen name + PT-consent status).
+   A child who joins a team **after** that team already has an active
+   `PtTeamLink` becomes visible in that tier automatically, to that PT, the
+   moment they join — no captain action, no family action, no
+   acknowledgment of any kind by anyone. **Decided explicitly, not left
+   ambiguous**: this is accepted as the intended design for the
+   team-aggregate tier specifically — see Decision A5's team-aggregate
+   table and Decision A6's own residual for the full argument (screen name
+   plus a none/pending/approved consent-status flag is no more exposing
+   than what every existing teammate's own roster view already shows a new
+   joiner's teammates, and holding a new joiner back from it would defeat
+   the team-aggregate tier's stated purpose — letting a linked PT see who
+   exists to ask — for a marginal reduction in an already low-sensitivity
+   field). What genuinely **cannot** happen without a fresh, explicit,
+   per-child action, for any child regardless of when they joined their
+   team, is the **per-player training-data tier** — that consent chain
+   (Decision A3) always runs from scratch, for every player, with no
+   shortcut, no exception, and no effect from team roster changes. This
+   point's original blanket "structurally cannot happen here" language is
+   corrected to scope explicitly to that tier only.
 
 **Conclusion**: this is not the same unbounded thing Phase 2 rejected, but
 it is close enough in *kind* (a real, standing, potentially cross-team
@@ -834,6 +1085,16 @@ POST /api/v1/pt/players/:playerId/consent-requests
      posture ADR-0010's numeric caps already have.
 
 GET /api/v1/pt/players/:playerId/consent-status  -- PT-authenticated
+  (PtAuthGuard). **Requires the identical active-`PtTeamLink`-to-that-
+  player's-team check as the sibling write endpoint above — added
+  explicitly per security-reviewer's Part A pass (Finding 6, see Status)**,
+  since the original draft stated this guard only on
+  `POST .../consent-requests` and left this read endpoint's authorization
+  implicit. Without it, a `pt`-role account with zero active team links
+  could probe/enumerate consent-status for arbitrary player IDs app-wide
+  (learning `none`/`pending_review`/`approved` for any child, regardless of
+  any relationship to that child's team); refuses `403 no_active_team_link`
+  otherwise, identical to the write endpoint's own refusal.
 
 GET  /api/v1/pt-consent/:reviewCode        -- unauthenticated preview,
 POST /api/v1/pt-consent/:reviewCode/approve -- no side effects on GET,
@@ -922,7 +1183,7 @@ sees**:
 | `screenName` | Yes | Already visible via the team-aggregate tier above. |
 | `currentStreakCount`/`longestStreakCount`/`lastTrainedDate` | Yes | This is the literal "track their numbers" ask — the individual-streak data, never the team-pool numbers (already covered above and not per-child anyway). |
 | `TrainingLogEntry` history (`loggedAt`, `activityType`, `durationMinutes`) | Yes | Same reasoning — the actual training log a PT needs to do their job; no free-text field exists on this entity to leak anything beyond it. |
-| `BadgeAward` list (`badge.key`/`displayName`, `awardedAt`) | Yes | No PII on `Badge`/`BadgeAward` beyond the already-covered `player_id`/`context` (ADR-0002 addendum §3's own allow-list already excludes anything sensitive here). |
+| `BadgeAward` list — `badge.key`/`displayName`, `awardedAt`, **and nothing else from this entity** | Yes | The field list is deliberately just those three. Wording tightened per security-reviewer's Part A pass (Finding 7, see Status): **`BadgeAward.context` — including its freeform, coach-authored `note` subfield (`backend/src/badges/dto/badge-award-context.dto.ts`) — is explicitly excluded, not included-but-assumed-safe.** `context` can carry a coach's own freeform text about a specific award and has never been part of this allow-list; a PT's `GET` response includes only `badge.key`/`displayName`/`awardedAt`, full stop. |
 | `birthYear` | **Left open, not decided here** | Plausibly useful for age-appropriate session design (already a lower-sensitivity, operationally-reused field per ADR-0002's original reasoning), but not explicitly asked for by "track their numbers" — flagged for ux-designer/project-owner to confirm as a small, additive follow-up rather than included by default, matching this ADR's own "argue each field" discipline rather than including it because it's convenient. |
 | `PlayerPrivateInfo.real_name`/`parent_contact` | **Never** | CLAUDE.md's anonymization option exists specifically so a screen name can stand in for a real identity — a PT is exactly the kind of external party that option protects against, not an exception to it. |
 | `TeamChatMessage` (any) | **Never** | Named explicitly in the task; chat is a closed-team-bubble surface with its own moderation model (ADR-0007) that assumes only teammates and never any PT are present. |
@@ -1005,6 +1266,9 @@ prevent every possible inference"). Not eliminated further here because
 doing so (e.g. hiding the roster from a linked PT entirely) would defeat
 the team-level link's own stated purpose (letting a captain-invited PT see
 who to ask) for a marginal reduction in an already-low-sensitivity field.
+**This is the same residual Decision A1 point 5 is corrected to name
+explicitly, not a separate concession** — see the correction there
+(security-reviewer's Part A pass, Finding 5).
 
 ### Decision — A7: PT onboarding/account creation — folded entirely into Part B's `StaffAccount`, no separate account type
 
