@@ -61,6 +61,21 @@ Decision 10's two fixes are applied, and its TOTP recommendation should
 be resolved before those three specific endpoints ship, though it doesn't
 block starting on the rest.
 
+**Superseded, 2026-08-03 — Decision 2 only.** `docs/adr/0023-pt-role-and-staff-sso-rbac.md`
+replaces this ADR's Decision 2 (single hardcoded admin credential,
+password + bcrypt, no `AdminUser` table) with a multi-tenant SSO/RBAC
+mechanism (Google/Microsoft/Apple login, a new `StaffAccount` entity
+carrying `admin`/`pt` roles), per the project owner's direct instruction
+that admin/PT login "should [be] a multitenant RBAC function" relying
+entirely on federated SSO rather than a local password. **Decisions 1, 3,
+4, 5, 6, 7, 8, 9, and 10 below are unaffected and remain the design of
+record** — the usage-stats/error-log/bug-report/planning-docs pillars,
+their reachability posture, their schema, and their consent reasoning are
+all unchanged; only the login mechanism (Decision 2) and, per ADR-0023's
+own Decision B4, the new PT-only data path layered alongside (never
+inside) this ADR's existing aggregate-only floor, change. See ADR-0023 for
+the replacement design and its own required security-reviewer pass.
+
 ## Context
 
 The project owner, verbatim: *"Now let's build our backend control center

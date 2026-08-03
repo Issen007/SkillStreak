@@ -3278,6 +3278,150 @@ non-player-facing web surface with its own login.
 - [ ] **frontend-developer**: the mobile "Report a problem" screen, once
       ux-designer's flow is ready.
 
+## Phase 8 — PT (Personal Trainer) role, and staff SSO/RBAC superseding ADR-0022 Decision 2
+
+From the project owner directly, 2026-08-02/03, two related requests
+following straight out of the Phase 7 control-center work: (1) formal
+confirmation to start the architect-/security-review `docs/PROJECT.md`
+Fas 5 item 2 has required since it was first written ("Yes, formally start
+that review now"); (2) "For our OBS login, this should a multitenent RBAC
+function. Where our PT have their own login an can track their numbers,
+and for me as Admin should have access to everything" — plus two directly
+confirmed technical constraints: SSO-only (Google/Microsoft/Apple), no
+custom password or email-OTP MFA ("rely on their security and not create
+our own"), and human/bot verification wanted for PT/admin signup+login
+specifically, explicitly not for players.
+
+- [x] **architect**: `docs/adr/0023-pt-role-and-staff-sso-rbac.md`. Two
+      parts, designed together because Part A depends on Part B's account
+      mechanism, reviewed separately per Status.
+      **Part A (the PT role)**: argues explicitly whether a PT
+      reintroduces the exact "new class of standing adult authority over
+      specific children's data" shape Phase 2's pivot rejected — concludes
+      it's a bounded, different shape (zero write authority over any
+      player state ever; per-relationship not per-team-membership consent;
+      revocable by three independent parties; a fixed read-only allow-list;
+      no growth path that skips per-child consent), not the same unbounded
+      thing, but explicitly does not consider this settled without a real
+      review. Linking mechanism: a two-step chain — a captain-generated,
+      short-lived team-invite code (reusing the existing `invite_code`/
+      session-reissue-code pattern) creates a `PtTeamLink` that by itself
+      grants **zero** player data visibility (only team-aggregate numbers
+      and the roster's screen names + consent status); a specific child's
+      actual training data requires a **separate**, materially stronger
+      per-relationship consent gate (`PtPlayerConsent`), reusing ADR-0019's
+      mailed review-and-approve pattern (a parent, or the 13+
+      self-verification cohort's own inbox, must see a plain description
+      of exactly what would become visible and explicitly approve one
+      specific named PT) — argued explicitly as needed instead of reusing
+      the account-level `parentalConsentStatus` gate, since that gate's
+      existing copy never anticipated a third-party adult viewer. Reuses
+      ADR-0013/0019's contact-change-hijack-race fix verbatim. Data
+      allow-list (argued field by field, like ADR-0018's tag vocabulary/
+      ADR-0020's metric list): screen name, streak counts, training-log
+      history, badges — never real name/parent contact, never chat, never
+      video, never another PT's clients; `birthYear` explicitly left open,
+      not included by default. Revocability: the player themself
+      (in-app, self-service, no parent needed), the parent/self via a
+      non-expiring mailed revoke link, or the team via revoking the whole
+      `PtTeamLink` (cascading revoke of every consent under it) — three
+      independent, immediate, unconditional levers, mirroring ADR-0006/
+      0010/0013's existing self-determination posture. Cross-team reach:
+      argued compatible with CLAUDE.md's closed-team-bubble constraint's
+      spirit (which polices player-to-player visibility and defaults, not
+      an explicitly consented, per-child, single-named-adult relationship)
+      the same way ADR-0019 had to argue its own first cross-team crack,
+      a fortiori since a PT's audience is one vetted adult, not the whole
+      authenticated player base. Flags one open legal/business question,
+      not decided: whether Art. 8 self-consent extends to a 13+ player
+      self-approving a PT's visibility with no parent involved — the same
+      open question ADR-0019 already flagged for a different processing
+      purpose, recommending one real legal read covering both. Does not
+      design billing/payments, PT identity vetting beyond SSO, or the
+      video-verification points-tier idea — all named as out of scope,
+      matching how ADR-0022 treated the same PT angle as context-only.
+      **Part B (staff SSO/RBAC, superseding ADR-0022 Decision 2)**: a new
+      `StaffAccount` entity (deliberately not named `Coach`/`AdminUser`,
+      avoiding collision with the dormant `Coach`/`TeamCoach` entities)
+      holding `role` (`admin`/`pt`), provider + subject ID (never a raw
+      OAuth token at rest), email, display name. Admin membership is a
+      small `ADMIN_EMAILS` allow-list in `Secret`, re-checked on every
+      login (not just first login); PT membership is self-service via SSO,
+      defaulting to **zero** linked players/teams until Part A's consent
+      chain grants something specific — argued explicitly as the correct
+      default, not "first sign-up wins." Session: still an httpOnly/
+      `SameSite=Strict` cookie, reusing ADR-0022 Decision 2's own
+      XSS-vs-CSRF reasoning verbatim (not SSO-specific, not re-derived),
+      now signed with a renamed `STAFF_JWT_SECRET` and carrying
+      `{ staffAccountId, role }`. Catches a real environment-parity gap
+      rather than assuming it away: Google/Microsoft require HTTPS
+      redirect URIs (with only a `localhost` exception, not a LAN-IP
+      exception), and Apple requires a verified HTTPS domain with **no**
+      localhost/IP exception at all — so full three-provider OAuth cannot
+      be genuinely tested on the TLS-less, DNS-less `ubuntu01` cluster.
+      Decided explicitly, not assumed: don't build a network-reachable
+      dev-login-bypass endpoint to compensate (named as a real
+      auth-bypass-CVE-shaped risk this project has already been burned by
+      once, in ADR-0004's addendum); instead, test the OAuth handshake
+      itself via `docker-compose`/`localhost` plus a first careful
+      real-domain pass before PT signup opens, and use a small **offline**
+      CLI script (mirroring ADR-0004/0005's existing Coach/captain
+      seed-script precedent) to mint a valid dev session for testing
+      everything downstream of login on `ubuntu01` — no new deployed
+      network surface, gated by the same "already has `Secret` access"
+      bar every other credential-rotation action in this app already
+      requires. RBAC: two small, single-purpose guards
+      (`AdminAuthGuard`/`PtAuthGuard`), not a generic role framework,
+      mirroring ADR-0004 Part 2's own "boring over impressive" call for
+      coach-vs-player. Explicitly reconciles the two data paths so they
+      never get conflated: ADR-0022's `UsageMetricsService`
+      (admin-only, aggregate-only, unchanged, untouched by this ADR) is a
+      structurally separate service/table from Part A's new
+      per-relationship PT data path — admin's "access to everything"
+      means admin can also read any already-PT-consented relationship
+      (the same "already has direct Postgres access" argument ADR-0022
+      Decision 2 made for the admin account itself), never a backdoor
+      around Part A's own consent gate. Human/bot verification: recommends
+      building **nothing** new — there is no local password/signup form to
+      protect in the first place (100% delegated to the three providers'
+      own extensive bot/fraud defenses, the same "rely on their security"
+      reasoning the project owner already gave for the MFA question,
+      extended one step further); a plain per-IP rate limit on the OAuth
+      callback route is the actual, boring mitigation for the one real
+      local surface (volumetric abuse of that endpoint, not bot signup).
+      New dependency: recommends one generic OIDC client library
+      (`openid-client`) configured three times over three separate
+      Passport strategy packages, for one uniform code path across
+      providers of noticeably different maturity/quirks (flags Apple's
+      client "secret" as a periodically-regenerated signed JWT, a
+      genuinely different operational shape from Google/Microsoft's
+      static secrets). Updates `docs/adr/0022-admin-control-center.md`'s
+      Status with an explicit addendum: Decision 2 superseded; Decisions
+      1, 3-10 unchanged and unaffected.
+- [ ] **security-reviewer**: two passes, not one — Part A at the same
+      weight as ADR-0019 (a comparable new-adult-authority-over-a-specific-
+      child's-data question, argued from scratch); Part B at ADR-0022's
+      own full weight (replacing that ADR's entire authentication
+      mechanism). Neither part should be built before its pass, per this
+      ADR's own Status section.
+- [ ] **ux-designer**: PT-side screens (team-link redemption, per-player
+      consent requests, the read-only numbers view), the parent/self
+      review-and-approve email + page, the player-facing "manage your PT
+      relationships" screen, the captain-facing invite/revoke UI, and the
+      admin console's login screen changing from a password form to
+      "Sign in with Google/Microsoft/Apple" buttons.
+- [ ] **backend-developer**: `staff-auth/` and `pt/` modules end to end,
+      the three new tables' migrations, retiring the not-yet-built
+      `bcrypt`/`ADMIN_USERNAME`/`ADMIN_PASSWORD_HASH`/`ADMIN_JWT_SECRET`
+      pieces of Phase 7's own still-unchecked backend-developer step in
+      favor of this ADR's mechanism, and the offline dev-session-minting
+      script for `ubuntu01`.
+- [ ] **project owner**: registering three real OAuth applications and
+      their production redirect URIs, maintaining `ADMIN_EMAILS`, the
+      first real-domain SSO verification pass before PT signup opens, and
+      (if pursued) a real legal read on the two open Art. 8 self-approval
+      questions this ADR and ADR-0019 both flagged.
+
 ## Standing practice, every phase
 
 - Every PR that touches auth, media, or child data goes through
