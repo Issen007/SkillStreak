@@ -74,3 +74,10 @@ data:
   # framing for these two numbers.
   CLIP_RETENTION_DAYS: "90"
   CLIP_PENDING_UPLOAD_TTL_MINUTES: "60"
+  # docs/adr/0023-pt-role-and-staff-sso-rbac.md Part B — renamed from
+  # ADR-0022's (never-shipped) ADMIN_COOKIE_SECURE for consistency. "true"
+  # here matches this file's own real-TLS deployment; ubuntu01's own
+  # hand-applied ConfigMap (see k8s/README.md's "Internal test cluster"
+  # section) must set this "false" instead — that cluster has no live TLS
+  # at all, so a Secure-flagged cookie would silently never be sent there.
+  STAFF_COOKIE_SECURE: "true"

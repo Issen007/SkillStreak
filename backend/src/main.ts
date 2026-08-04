@@ -1,6 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { AppExceptionFilter } from './common/errors/http-exception.filter';
 
@@ -41,9 +42,15 @@ async function bootstrap() {
   // meaningful barrier to a non-browser client anyway, and CORS_ORIGIN is
   // scoped to this project's own known site origins, not a wildcard — so
   // there's no real security tradeoff here, only a functional one.
-  // No credentials mode (this app authenticates via a Bearer
-  // sessionToken, never cookies), so there's no cross-origin
-  // credential-leak risk to configure around either way.
+  // No credentials mode (every *player*-facing endpoint authenticates via
+  // a Bearer sessionToken, never a cookie), so there's no cross-origin
+  // credential-leak risk to configure around for that surface. The staff
+  // (admin/pt) `staff_session` cookie added by docs/adr/0023-pt-role-and-
+  // staff-sso-rbac.md Part B is deliberately NOT covered by this `enableCors`
+  // block at all — its own `SameSite=Strict` is the boundary for that
+  // surface (ADR-0022 Decision 2's XSS-vs-CSRF reasoning, reused verbatim),
+  // and it's meant for a same-origin admin/PT console page, not a
+  // cross-origin fetch client.
   const configService = app.get(ConfigService);
   const corsOrigin = configService.get<string>('CORS_ORIGIN');
   if (corsOrigin) {
@@ -53,6 +60,14 @@ async function bootstrap() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     });
   }
+
+  // Cookie parsing for the staff_session/staff_auth_pending cookies (ADR-
+  // 0023 Part B) — no secret passed to cookie-parser itself, since both
+  // cookie values are self-verifying signed JWTs (StaffSessionTokenService/
+  // PendingStaffAuthService), not cookie-parser's own signed-cookie
+  // feature. Every other route in this app remains Bearer-token-only and
+  // never reads req.cookies at all.
+  app.use(cookieParser());
 
   await app.listen(process.env.PORT ?? 3000);
 }

@@ -123,6 +123,72 @@ class EnvironmentVariables {
   @IsOptional()
   @IsNumberString()
   CLIP_PENDING_UPLOAD_TTL_MINUTES?: string;
+
+  // --- Fas 8 (staff SSO/RBAC — docs/adr/0023-pt-role-and-staff-sso-rbac.md
+  // Part B) -------------------------------------------------------------
+  // Signs/verifies the staff_session and staff_auth_pending cookies
+  // (StaffSessionTokenService/PendingStaffAuthService). Required, same
+  // posture as JWT_SECRET/PII_ENCRYPTION_KEY — unlike the OAuth client
+  // credentials below, this doesn't depend on a real OAuth application
+  // being registered anywhere first, so there's no reason to let it
+  // degrade.
+  @IsNotEmpty()
+  STAFF_JWT_SECRET!: string;
+
+  // Comma-separated admin email allow-list (Decision B1). Optional —
+  // degrades to "no one is admin yet", not a wildcard/first-sign-up
+  // default — since the real list is a project-owner decision made once
+  // real staff accounts exist.
+  @IsOptional()
+  ADMIN_EMAILS?: string;
+
+  // 'true' (default if unset) or 'false' — StaffAuthController reads this
+  // as a plain string, not @nestjs/config's boolean coercion, matching
+  // this file's existing convention for tri-state optional flags.
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  STAFF_COOKIE_SECURE?: string;
+
+  // OAuth client credentials, one pair per provider (Google/Microsoft) —
+  // all optional: the project owner still has to register each real OAuth
+  // application separately (docs/adr/0023-pt-role-and-staff-sso-rbac.md
+  // Decision B6), so the app must still boot cleanly before that happens.
+  // A login attempt for an unconfigured provider fails with a clear error
+  // at request time instead (see StaffOidcClientsService.requireEnv).
+  @IsOptional()
+  @IsNotEmpty()
+  GOOGLE_OAUTH_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  GOOGLE_OAUTH_CLIENT_SECRET?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  MICROSOFT_OAUTH_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  MICROSOFT_OAUTH_CLIENT_SECRET?: string;
+
+  // Apple's "client secret" is a JWT this app signs itself
+  // (StaffOidcClientsService.buildAppleClientSecret) from these four
+  // pieces, not a single static secret string — see Decision B6.
+  @IsOptional()
+  @IsNotEmpty()
+  APPLE_OAUTH_CLIENT_ID?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  APPLE_TEAM_ID?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  APPLE_KEY_ID?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  APPLE_PRIVATE_KEY?: string;
 }
 
 // Fails fast on boot rather than surfacing a confusing runtime error the

@@ -125,6 +125,86 @@ spec:
                 secretKeyRef:
                   name: skillstreak-secret
                   key: MINIO_CLIPS_SECRET_KEY
+            # docs/adr/0023-pt-role-and-staff-sso-rbac.md Part B — staff
+            # (admin/PT) SSO/RBAC. See k8s/secret.yaml.example for what
+            # each of these holds; STAFF_COOKIE_SECURE comes from the
+            # ConfigMap via envFrom above, not here (non-secret).
+            #
+            # STAFF_JWT_SECRET is required (env.validation.ts) — no
+            # `optional: true` here, same as JWT_SECRET/PII_ENCRYPTION_KEY
+            # above: a pod should fail fast and loudly (an
+            # "Invalid environment configuration" boot error) rather than
+            # silently boot with signing disabled. The five OAuth-credential
+            # keys and ADMIN_EMAILS below ARE `optional: true` deliberately
+            # — the project owner still has to register each real OAuth
+            # application separately, so the Secret genuinely won't have
+            # these keys yet on first deploy of this ADR's work, and
+            # without `optional: true` a *missing key* (not just an empty
+            # value) makes kubelet refuse to start the container at all
+            # (CreateContainerConfigError), unlike every other required key
+            # in this file. A login attempt for a provider left unset fails
+            # with a clear error at request time instead (see
+            # StaffOidcClientsService.requireEnv) — that's the intended
+            # degrade, not a boot-time crash.
+            - name: STAFF_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: STAFF_JWT_SECRET
+            - name: ADMIN_EMAILS
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: ADMIN_EMAILS
+                  optional: true
+            - name: GOOGLE_OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: GOOGLE_OAUTH_CLIENT_ID
+                  optional: true
+            - name: GOOGLE_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: GOOGLE_OAUTH_CLIENT_SECRET
+                  optional: true
+            - name: MICROSOFT_OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: MICROSOFT_OAUTH_CLIENT_ID
+                  optional: true
+            - name: MICROSOFT_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: MICROSOFT_OAUTH_CLIENT_SECRET
+                  optional: true
+            - name: APPLE_OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: APPLE_OAUTH_CLIENT_ID
+                  optional: true
+            - name: APPLE_TEAM_ID
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: APPLE_TEAM_ID
+                  optional: true
+            - name: APPLE_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: APPLE_KEY_ID
+                  optional: true
+            - name: APPLE_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: APPLE_PRIVATE_KEY
+                  optional: true
           readinessProbe:
             httpGet:
               path: /health

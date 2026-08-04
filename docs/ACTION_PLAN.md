@@ -3452,14 +3452,94 @@ specifically, explicitly not for players.
       relationships" screen, the captain-facing invite/revoke UI, and the
       admin console's login screen changing from a password form to
       "Sign in with Google/Microsoft/Apple" buttons.
-- [ ] **backend-developer**: `staff-auth/` and `pt/` modules end to end,
-      the three new tables' migrations, retiring the not-yet-built
-      `bcrypt`/`ADMIN_USERNAME`/`ADMIN_PASSWORD_HASH`/`ADMIN_JWT_SECRET`
-      pieces of Phase 7's own still-unchecked backend-developer step in
-      favor of this ADR's mechanism, and the offline dev-session-minting
-      script for `ubuntu01`.
+- [x] **backend-developer** (Part B only — 2026-08-03): `StaffAccount`
+      entity + migration (`role`/`auth_provider`/`auth_provider_subject`/
+      `email`/`display_name`/`revoked_at`/`created_at`/`last_login_at`,
+      unique on `(auth_provider, auth_provider_subject)`), the
+      `staff-auth/` module, and the two RBAC guards — exactly the three
+      things this ADR's own sequencing requires to exist before Part A (the
+      `pt/` module's team-linking/consent endpoints, `PtTeamLink`/
+      `PtPlayerConsent`) can be built, which is **not** part of this pass
+      and remains a separate follow-up task. `StaffAuthGuard` (base layer):
+      verifies the `staff_session` cookie's signature/expiry only, no
+      per-request DB lookup, populates `staffAccountId` + a `staffRole`
+      hint. `AdminAuthGuard`: built on top of `StaffAuthGuard`, exactly as
+      the amended ADR requires — a real per-request `StaffAccount` lookup,
+      rejecting on `revoked_at IS NOT NULL` and re-comparing the row's
+      current `email` against a live `ADMIN_EMAILS` `ConfigService` read
+      (never trusting the JWT's `role` claim or the `StaffAccount.role`
+      column). `PtAuthGuard`: cheap JWT-claim-only check, deliberately no
+      DB lookup, per the ADR's own "zero ambient authority by construction"
+      reasoning — exists and gates a role check, with no real endpoints to
+      protect yet (Part A isn't built). `staff-auth/` module: SSO login/
+      callback/logout for all three providers via `openid-client@5.7.1`
+      (the last version with a CommonJS build — this repo has no ESM
+      story, and v6+ dropped CJS entirely), one generic `StaffOidcClientsService`
+      parameterized per provider rather than three Passport strategies.
+      `state`/PKCE (`code_verifier`/`code_challenge`, S256)/`nonce` are
+      generated at `/login`, held in a short-lived (10-minute), signed,
+      httpOnly `staff_auth_pending` cookie (reusing the same
+      `STAFF_JWT_SECRET`-backed `JwtService`, not a second secret), and
+      verified on `/callback` — a dedicated, explicit state-match check
+      runs in `StaffAuthService` itself *before* ever calling into
+      `openid-client`, plus `openid-client`'s own `state`/`nonce`/
+      `code_verifier` checks passed through its `callback()` call; a test
+      (`staff-auth.service.spec.ts`) asserts a missing/mismatched state (or
+      wrong-provider callback) is rejected without ever reaching the OIDC
+      client, and that a library-level rejection (simulating a nonce
+      mismatch) is caught and surfaced generically. Apple's dynamic
+      "client secret" (a JWT this app signs itself from
+      `APPLE_TEAM_ID`/`APPLE_KEY_ID`/`APPLE_PRIVATE_KEY`) is minted fresh,
+      short-lived (5 minutes), per use rather than pre-generated and
+      stored — a deliberate implementation choice beyond what the ADR
+      strictly required, since it removes the "remember to regenerate
+      within 6 months" operational task the ADR names as a real (if small)
+      residual risk. Login sets `staff_session` (httpOnly/
+      `SameSite=Strict`/`Path=/api/v1`, 24h, signed with a new
+      `STAFF_JWT_SECRET`); logout is POST-only (mirrors ADR-0022 Decision
+      2's CSRF-safe pattern). `STAFF_COOKIE_SECURE` (renamed from the
+      never-shipped `ADMIN_COOKIE_SECURE`) added to `k8s/configmap.yaml`
+      (`"true"`, with an explicit comment that `ubuntu01`'s own
+      hand-applied ConfigMap must set `"false"`); `ADMIN_EMAILS` and all
+      three providers' OAuth client credentials added to
+      `k8s/secret.yaml.example` as placeholders (never real values — the
+      project owner still has to register each real OAuth application).
+      `k8s/api-deployment.yaml`'s new `secretKeyRef` entries mark every key
+      except `STAFF_JWT_SECRET` as `optional: true`, so a pod still boots
+      cleanly before those real applications exist (only a login attempt
+      for an unconfigured provider fails, not the whole app). Offline
+      dev-session-minting script: `backend/src/scripts/
+      mint-dev-staff-session.ts` (`pnpm run mint:dev-staff-session
+      <staffAccountId> <admin|pt>`), following `seed.ts`/`verify-smtp.ts`'s
+      existing pattern — no network-reachable HTTP counterpart added
+      anywhere, per Decision B3's explicit argument against a dev-login
+      bypass route. Retiring ADR-0022's original bcrypt/`ADMIN_USERNAME`/
+      `ADMIN_PASSWORD_HASH`/`ADMIN_JWT_SECRET` design: confirmed via grep
+      that none of it was ever actually implemented in code, so there was
+      nothing to remove — this SSO mechanism is simply the one and only
+      staff-auth mechanism built. 30 new focused unit tests (guards'
+      revocation/live-`ADMIN_EMAILS` re-check behavior, the state/nonce
+      rejection tests, Apple's frozen-email/short-lived-client-secret
+      behavior) + the existing 296, all passing (326/326); e2e suite
+      unaffected (141/141) — no live three-provider OAuth testing was
+      attempted anywhere, per Decision B3's own "don't attempt live OAuth
+      testing" call. **Flagged, not silently absorbed**: `STAFF_JWT_SECRET`
+      is a **required** env var (same posture as `JWT_SECRET`) — it must
+      be set as a real GitHub Actions secret (`gh secret set
+      STAFF_JWT_SECRET`) before this merges to `main`, or the next
+      production deploy crash-loops on boot with an "Invalid environment
+      configuration" error (the exact missing-live-Secret-key failure mode
+      already tracked as a recurring risk for this project). **Part A
+      (`PtTeamLink`/`PtPlayerConsent` tables, the `pt/` module's actual
+      team-linking/consent endpoints) is explicitly out of scope for this
+      pass and remains open** — this ADR's own sequencing required Part
+      B's account mechanism to exist first; Part A is unblocked to start
+      now.
 - [ ] **project owner**: registering three real OAuth applications and
-      their production redirect URIs, maintaining `ADMIN_EMAILS`, the
+      their production redirect URIs, maintaining `ADMIN_EMAILS`, setting
+      the new `STAFF_JWT_SECRET` GitHub Actions secret before the next
+      `prerelease` → `main` merge (see the backend-developer entry above —
+      this is required, not optional, for the api Pod to boot at all), the
       first real-domain SSO verification pass before PT signup opens, and
       (if pursued) a real legal read on the two open Art. 8 self-approval
       questions this ADR and ADR-0019 both flagged.

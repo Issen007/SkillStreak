@@ -594,6 +594,100 @@ export class ErasureRequestNotActiveException extends AppException {
   }
 }
 
+// --- Fas 8 (staff SSO/RBAC — docs/adr/0023-pt-role-and-staff-sso-rbac.md
+// Part B) ------------------------------------------------------------------
+
+export class StaffUnauthorizedException extends AppException {
+  constructor(message = 'Missing or invalid staff session.') {
+    // Distinct code from the player-facing UnauthorizedTokenException — a
+    // completely separate cookie/secret universe (STAFF_JWT_SECRET, never
+    // JWT_SECRET), per Decision B2.
+    super('staff_unauthorized', message, HttpStatus.UNAUTHORIZED);
+  }
+}
+
+export class StaffAccountRevokedException extends AppException {
+  constructor() {
+    // AdminAuthGuard's per-request revocation check (security-reviewer's
+    // Part B pass, Finding 1) — this StaffAccount's revoked_at is set, so
+    // no session for it (however fresh) ever grants admin authority again.
+    super(
+      'staff_account_revoked',
+      'This staff account has been revoked.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class StaffAccountNotAdminException extends AppException {
+  constructor() {
+    // Thrown whether the account's current role column says 'pt' *or* its
+    // current email simply isn't (or is no longer) on the live ADMIN_EMAILS
+    // allow-list — AdminAuthGuard never distinguishes which, since neither
+    // the role column nor the JWT's role claim is authoritative here (see
+    // that guard's own comment).
+    super(
+      'not_admin',
+      'This action requires admin authority.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class StaffAccountNotPtException extends AppException {
+  constructor() {
+    super(
+      'not_pt',
+      'This action requires a pt-role staff session.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class StaffOAuthPendingAuthInvalidException extends AppException {
+  constructor() {
+    // Covers a missing, expired, or signature-invalid staff_auth_pending
+    // cookie — deliberately generic, same posture as
+    // InvalidOrExpiredCodeException, doesn't distinguish which.
+    super(
+      'oauth_pending_auth_invalid',
+      'No valid pending sign-in attempt found for this callback; start the sign-in flow again.',
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+}
+
+export class StaffOAuthStateMismatchException extends AppException {
+  constructor() {
+    // ADR-0023 Decision B6 (security-reviewer's Part B pass, Finding 3) —
+    // the callback's `state` query parameter didn't match the value minted
+    // at login and held in the signed staff_auth_pending cookie. Also
+    // covers a callback for the wrong provider (e.g. a google callback
+    // presenting a pending-auth cookie minted for microsoft).
+    super(
+      'oauth_state_mismatch',
+      'OAuth state parameter did not match — start the sign-in flow again.',
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+}
+
+export class StaffOAuthCallbackRejectedException extends AppException {
+  constructor() {
+    // Wraps any rejection openid-client itself raises during the token
+    // exchange/ID-token validation — including a nonce mismatch, an
+    // expired/replayed authorization code, or a PKCE verifier mismatch
+    // (ADR-0023 Decision B6). Deliberately generic in the response (never
+    // echoes the library's own error text to the client), same posture as
+    // every other auth-boundary exception in this file.
+    super(
+      'oauth_callback_rejected',
+      'OAuth sign-in could not be completed — start the sign-in flow again.',
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+}
+
 // ADR-0013 Decision 4 — PlayersService.transferCaptaincy's new rejection:
 // a captain can no longer hand off onto a teammate who is themselves
 // already mid-erasure (requested or grace_period), closing the gap where

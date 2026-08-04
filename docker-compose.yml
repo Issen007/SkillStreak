@@ -47,6 +47,22 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET:-clips}
       CLIP_RETENTION_DAYS: ${CLIP_RETENTION_DAYS:-90}
       CLIP_PENDING_UPLOAD_TTL_MINUTES: ${CLIP_PENDING_UPLOAD_TTL_MINUTES:-60}
+      # docs/adr/0023-pt-role-and-staff-sso-rbac.md Part B. OAuth client
+      # credentials are deliberately left unset here (no real applications
+      # registered for local dev) — see backend/src/scripts/
+      # mint-dev-staff-session.ts for testing everything downstream of
+      # login without them.
+      STAFF_JWT_SECRET: ${STAFF_JWT_SECRET:-dev-only-change-me-too}
+      STAFF_COOKIE_SECURE: ${STAFF_COOKIE_SECURE:-false}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      MICROSOFT_OAUTH_CLIENT_ID: ${MICROSOFT_OAUTH_CLIENT_ID:-}
+      MICROSOFT_OAUTH_CLIENT_SECRET: ${MICROSOFT_OAUTH_CLIENT_SECRET:-}
+      APPLE_OAUTH_CLIENT_ID: ${APPLE_OAUTH_CLIENT_ID:-}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

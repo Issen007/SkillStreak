@@ -15,6 +15,7 @@ import { PlayerPrivateInfoModule } from './player-private-info/player-private-in
 import { PlayersModule } from './players/players.module';
 import { ProfileModule } from './profile/profile.module';
 import { SessionModule } from './session/session.module';
+import { StaffAuthModule } from './staff-auth/staff-auth.module';
 import { TeamChatModule } from './team-chat/team-chat.module';
 import { TeamPoolModule } from './team-pool/team-pool.module';
 import { TeamsModule } from './teams/teams.module';
@@ -93,6 +94,13 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     TeamChatModule,
     VideoClipsModule,
     AccountErasureModule,
+    // docs/adr/0023-pt-role-and-staff-sso-rbac.md Part B — staff (admin/pt)
+    // SSO login + the two RBAC guards. No admin/pt-facing endpoints are
+    // registered yet (ADR-0022's admin-console endpoints and Part A's
+    // pt/ module are both separate, not-yet-built follow-ups) — this
+    // module only exposes the account/session mechanism itself
+    // (/api/v1/staff-auth/*).
+    StaffAuthModule,
   ],
   providers: [
     {
