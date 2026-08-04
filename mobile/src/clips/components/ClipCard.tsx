@@ -189,7 +189,15 @@ const styles = StyleSheet.create({
   },
   videoArea: {
     marginHorizontal: 12,
-    height: 220,
+    // Clips are recorded portrait (9:16, per docs/design/phase3-flows.md) —
+    // a fixed height here (previously 220) left the box's shape mismatched
+    // against the source video on anything wider than a narrow phone
+    // screen, and contentFit="cover" then crops to fill that mismatched
+    // box. On web, where this card stretches to the full (often much
+    // wider) browser window with no max-width cap, the mismatch was large
+    // enough that only a thin horizontal sliver of the video was ever
+    // visible. aspectRatio keeps the box's shape correct at any width.
+    aspectRatio: 9 / 16,
     borderRadius: 14,
     backgroundColor: colors.ink,
     overflow: 'hidden',

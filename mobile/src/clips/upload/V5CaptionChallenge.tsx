@@ -194,7 +194,11 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   previewWrap: {
-    height: 200,
+    // Same fix as ClipCard.videoArea — a fixed height (previously 200)
+    // mismatches this recorded clip's real 9:16 portrait shape once the
+    // container isn't a narrow phone width (e.g. on web with no max-width
+    // cap), and contentFit="cover" then crops most of the frame away.
+    aspectRatio: 9 / 16,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: colors.ink,

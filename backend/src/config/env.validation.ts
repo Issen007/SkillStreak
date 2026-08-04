@@ -155,39 +155,42 @@ class EnvironmentVariables {
   // Decision B6), so the app must still boot cleanly before that happens.
   // A login attempt for an unconfigured provider fails with a clear error
   // at request time instead (see StaffOidcClientsService.requireEnv).
+  //
+  // Deliberately @IsOptional() alone, NOT stacked with @IsNotEmpty(): both
+  // docker-compose.yml's `${VAR:-}` interpolation and this app's own
+  // container runtimes can hand these to the process as a defined empty
+  // string rather than truly unset — and class-validator's @IsOptional()
+  // only skips validation for undefined/null, never for ''. Stacking
+  // @IsNotEmpty() on top used to fail boot on every empty-but-present
+  // value (confirmed live: the docker-compose smoke test's `api` container
+  // crash-looped on "Invalid environment configuration" for exactly this
+  // reason). requireEnv's own `if (!value)` check already treats ''
+  // exactly like undefined at request time, so nothing is lost here.
   @IsOptional()
-  @IsNotEmpty()
   GOOGLE_OAUTH_CLIENT_ID?: string;
 
   @IsOptional()
-  @IsNotEmpty()
   GOOGLE_OAUTH_CLIENT_SECRET?: string;
 
   @IsOptional()
-  @IsNotEmpty()
   MICROSOFT_OAUTH_CLIENT_ID?: string;
 
   @IsOptional()
-  @IsNotEmpty()
   MICROSOFT_OAUTH_CLIENT_SECRET?: string;
 
   // Apple's "client secret" is a JWT this app signs itself
   // (StaffOidcClientsService.buildAppleClientSecret) from these four
   // pieces, not a single static secret string — see Decision B6.
   @IsOptional()
-  @IsNotEmpty()
   APPLE_OAUTH_CLIENT_ID?: string;
 
   @IsOptional()
-  @IsNotEmpty()
   APPLE_TEAM_ID?: string;
 
   @IsOptional()
-  @IsNotEmpty()
   APPLE_KEY_ID?: string;
 
   @IsOptional()
-  @IsNotEmpty()
   APPLE_PRIVATE_KEY?: string;
 }
 
