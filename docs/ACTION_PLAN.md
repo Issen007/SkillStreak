@@ -2610,6 +2610,180 @@ itself can be built: ADR-0018 Decision 5's two infra requirements
 model/vendor selection (explicitly not decided in the ADR), and the
 background job/queue that would actually populate this table.
 
+## Phase 4.6 — Video-clip challenge notifications (ADR-0021)
+
+From the project owner directly, verbatim: "When we do a challenge of a
+video between teammates, it should pop up as a Team challenge and also be
+a text notice in the team chat." The underlying tag-a-teammate mechanism
+(`VideoClip.taggedPlayerId`) has existed since ADR-0010 but only ever
+drove a one-time, easy-to-miss client-local toast — this phase gives it a
+real, persisted, account-level notification path. Design-only so far; no
+schema or endpoint exists yet.
+
+- [x] **architect**: `docs/adr/0021-clip-challenge-notifications.md`.
+      Scope: **no new lifecycle entity** (rejected a heavier
+      issued→accepted→declined→responded state machine nobody asked for,
+      and which would have needed its own name to avoid colliding with the
+      existing `Challenge`/weekly-goal entity, per ADR-0005's own
+      anticipation of exactly this naming overlap) — instead, one new
+      nullable `VideoClip.challenge_acknowledged_at` column backs a real,
+      persistent "pending challenges for me" list (`GET .../clips/
+      challenges/pending`, `POST .../clips/:clipId/challenge-ack`),
+      recommended surfaced in the Laget (Team) tab, replacing today's
+      per-device `AsyncStorage`-based "seen" tracking
+      (`mobile/src/api/localFlags.ts`) — a real bug fix (lost on reinstall/
+      device switch), not just a smaller feature. Separately, team chat's
+      **first-ever system message**: two new `TeamChatMessage` columns
+      (`author_type` enum('player','system'), `system_event_type` enum,
+      a `BadgeAward.context`-style discriminated-union extension point) —
+      deliberately not overloading the existing nullable `sender_player_id`
+      (which already means something different post-ADR-0013: a real
+      player's message, anonymized after their own erasure). `content` is
+      a fixed, server-rendered template baked in once at the clip's
+      `completeUpload`/publish step (never at upload-url/pending_upload
+      time, mirroring ADR-0017's "must be published" rule for clip
+      references), using only the uploader's and tagged player's current
+      screen names — never freeform, never re-resolved live from the clip
+      afterward (a deliberate, argued departure from ADR-0017 Decision 2's
+      "no snapshot" precedent, since losing the clip would otherwise
+      silently erase the entire announcement's meaning, not just an
+      attachment). Explicitly walks through every existing chat invariant
+      the new message type bypasses and why: no `assertTeamMembership`
+      (never sent through the HTTP path — a direct repository write from
+      `VideoClipsModule`, avoiding a module cycle the same way
+      `PlayersModule`/`WeeklyGoalModule` already do per ADR-0013 Decision
+      4), no per-sender rate limit (volume already bounded by the existing
+      clip-upload cooldown), no keyword moderation (the only variables are
+      screen names already shown unmoderated everywhere else in the app),
+      report structurally rejected (no real reported player to email),
+      block structurally inert (`blocked_player_id` can never equal
+      `NULL`). Confirms, by reading the code directly, that today's
+      `taggedPlayerId` check only validates team membership, not the
+      tagged player's own consent/join status — no new consent gate on the
+      tagged player (being named is read/mention-shaped, the same
+      ungated category as roster/leaderboard visibility), but tightens the
+      check to require `teamJoinStatus === APPROVED`, closing a small
+      pre-existing gap this design's higher visibility surfaces. Walks the
+      erasure interaction against ADR-0013's existing per-entity table
+      (uploader-erased and tagged-player-erased cases) and confirms no new
+      entry/migration is needed there — both reuse existing cascades.
+      Recommends a **scoped, not full-weight** security-reviewer pass
+      (argued explicitly, same style as ADR-0020's own scoping): this adds
+      no new freeform-text path, no new report/block mechanism, no
+      cross-team exposure, and no new external party — but it is the first
+      exception to team chat's "every message has a real, authenticated
+      sender" invariant, which ADR-0007's original review scrutinized
+      carefully, so it doesn't get a free pass either.
+- [ ] **security-reviewer**: scoped pass, not yet done — confirm
+      `authorType`/`systemEventType` are genuinely unreachable from any
+      player-facing input, `content` is genuinely fixed-template-only in
+      the real implementation, the report/block "structural no" claims
+      hold against the actual code, the new `teamJoinStatus` tightening
+      doesn't regress anything, and the erasure-interaction claims hold
+      against the actual FK/migration state.
+- [ ] **ux-designer**: pending-challenges surface placement/visuals in the
+      Laget tab, the exact ack-trigger interaction (auto-on-view vs.
+      explicit dismiss), the system-message chat-bubble treatment
+      (visually distinct from an ordinary player message), and the exact
+      Swedish copy for the challenge-announcement template.
+- [ ] **backend-developer**: the two migrations, the two new endpoints,
+      the `completeUpload` transaction change (publish + system-message
+      insert together), the `VideoClipsModule` module-wiring fix, the
+      `teamJoinStatus` tightening on `taggedPlayerId`, the report-rejection
+      guard for system messages, and the contract-doc updates, once
+      security-reviewer signs off.
+- [ ] **frontend-developer**: the Team-tab pending-challenges badge/list,
+      removal of the old `AsyncStorage`-based seen-tracking
+      (`localFlags.ts`), and the new system-message bubble in
+      `ChatScreen.tsx`.
+
+## Phase 5 — Usage analytics / product metrics ("Fas 5", item 1)
+
+From `docs/PROJECT.md`'s Fas 5, item 1: "Användningsanalys/produktmått...
+förstå hur riktiga lag faktiskt använder appen innan nästa stora satsning
+väljs." The project owner confirmed Fas 5's own stated precondition (a
+real public user base exists) is met, so this was green-lit to design now.
+Design-only so far; no schema or job exists yet.
+
+- [x] **architect**: `docs/adr/0020-usage-analytics-product-metrics.md`.
+      Scope: a fixed, allow-listed set of aggregate queries against data
+      already collected for the app's own gameplay purposes (onboarding/
+      consent funnel, streak-length histogram, activity recency, training-
+      type mix, weekly-goal completion rate, VM-Guld pool growth
+      distribution, clip/chat volume counts, badge-award mix) — explicitly
+      **not** a general-purpose event-tracking pipeline, a third-party
+      analytics SDK, or new client-side instrumentation. Self-hosted
+      aggregate Postgres queries recommended over a third-party platform
+      (Mixpanel/Amplitude/PostHog/Firebase), reapplying ADR-0010 Decision 1/
+      ADR-0018 Decision 2's sub-processor reasoning — rejected both for the
+      new-external-party question and because those platforms' per-user
+      event-stream shape is the opposite of this ADR's aggregate-only
+      granularity conclusion. Granularity: app-wide or team-size-bucketed
+      (`'1-2'`/`'3-5'`/`'6+'`, reusing ADR-0016's addendum bucketing
+      verbatim) only — never a named team row, never a per-player row —
+      explicitly excluding anything that would function as covert
+      individual monitoring of a specific child, named as a hard boundary
+      rather than left implicit. Delivery: an in-process `@nestjs/schedule`
+      job inside the existing API (same pattern as ADR-0010's retention
+      sweep), querying Postgres directly (never Redis, which holds no
+      audit-durable copy), emailing a periodic report to the project owner
+      via the existing `MailService`/SMTP relay — no new endpoint, no new
+      admin-authentication system (deliberately not rebuilt after Phase 2's
+      pivot removed it), no new Kubernetes primitive. An external-script
+      approach (the `tools/uptime-monitor`/`tools/local-release-poller`
+      pattern) was considered and rejected: those tools work specifically
+      because they poll public HTTP endpoints from outside the cluster,
+      while Postgres is deliberately `ClusterIP`-only per ADR-0010 — an
+      external script can't reach it without new, unwanted network
+      exposure. Consent/disclosure: no new consent gate or consent-copy
+      change required, argued (not assumed) from the aggregate/bucketed
+      output never resolving to an identifiable child — explicitly
+      conditional on the granularity constraint above holding, flagged so
+      a future loosening doesn't silently invalidate this conclusion too.
+      Cadence (default: monthly) and whether to eventually persist a
+      metrics-history table (default: no, recompute fresh each run) are
+      flagged as business-judgment calls with easy-to-revisit defaults, not
+      buried as settled engineering choices. Relationship to
+      `docs/BACKLOG.md`'s separate, much bigger "Admin control/monitoring
+      Web UI" idea stated explicitly: this ADR is standalone and
+      independently useful now, a plausible future input to that
+      dashboard's "usage statistics" tile if/when that's designed, but
+      neither presupposes nor blocks on it. Explicitly deferred, not
+      silently dropped: client-side funnel/event instrumentation,
+      `VideoClip` view/watch-count tracking (no such column exists today),
+      captain-transfer-frequency tracking (no source data exists — no
+      transfer-history table in this schema). **Blocking security-reviewer
+      sign-off required before backend-developer builds anything**, argued
+      from `docs/PROJECT.md`'s own explicit precondition for this item, the
+      BACKLOG admin-UI entry's identical demand for its own usage-
+      statistics piece, and this project's standing practice of gating any
+      new derived data about children (even aggregate) — scoped narrower
+      than ADR-0010/0018/0019's own reviews since this adds no media, no
+      consent gate, and no cross-team visibility path.
+- [x] **security-reviewer**: blocking pass, 2026-08-02 — not a clean
+      sign-off, one required fix. Decisions 1, 2, 4, 5, 6 confirmed sound.
+      **Decision 3's bucketing reuse from ADR-0016 didn't transfer as
+      cleanly as claimed**: the two ADRs bucket structurally different
+      things (a per-team displayed value vs. a cohort-aggregate
+      stratification key), and at this app's real current beta scale, the
+      team-size-bucketed metrics (adoption/consent funnel, weekly-goal
+      engagement) could degenerate to a bucket with only one or two teams
+      — no longer a genuine aggregate, exactly the "reliably surfaces one
+      child's data" case Decision 3's own residual paragraph already
+      named as unacceptable. **Fixed same day**: Decision 3 amended with a
+      minimum-population floor (recommend N ≥ 5 teams/bucket/period;
+      below that, fold into the app-wide number rather than report the
+      bucket) — additive, confirmed by the same review to fully close the
+      gap. Decision 7's "no new consent copy" conclusion (explicitly
+      conditioned on Decision 3 holding) is now confirmed sound
+      throughout, contingent on that floor actually being implemented
+      alongside the bucketed metrics, not deferred.
+- [ ] **backend-developer**: build the `usage-metrics/` module and
+      scheduled job against the ADR, including Decision 3's
+      minimum-population floor for the two team-size-bucketed metrics —
+      not optional, a real implementation requirement from the review
+      above, not just the original design.
+
 ## Phase 6 — Public Shorts feed, reactions & personal archive
 
 **Added 2026-07-27, from the project owner directly** (not yet designed —
@@ -2705,11 +2879,71 @@ Open questions for that design pass (not decided here):
   scoped here, but load-bearing on why this feed matters beyond inspiration
   alone.
 
-- [ ] **architect**: design the public-opt-in data model (a `visibility`
-      or `publishedAt` concept on `VideoClip`, or a separate join/publish
-      table — TBD), the archive/save data model, and the reaction data
-      model, resolving the open questions above. New ADR, not a Fas 3
-      addendum — this is new scope beyond what ADR-0010 signed off on.
+- [x] **architect**: designed the public-opt-in data model as a new,
+      standalone approval workflow layered on top of (never replacing) the
+      existing account-level `parentalConsentStatus` gate — a new
+      `ClipPublicationRequest` table (its own state machine:
+      `pending_review` → `approved`/`declined`, or `revoked`/`expired`),
+      not columns bolted onto `VideoClip`, mirroring `AccountErasureRequest`'s
+      own "legally-weighty state deserves its own table" precedent. →
+      `docs/adr/0019-public-shorts-feed.md`. Real, unprompted finding
+      surfaced along the way, same caliber as ADR-0018's false "no photos"
+      consent-copy bug: the existing consent-page copy, in all 8 locales,
+      makes an *unqualified* promise ("anything shared... is only visible
+      to their own team") that this feature would make false the moment it
+      ships — flagged as a required fix before/alongside shipping, not a
+      nice-to-have. Key decisions: publish approval reuses the existing
+      single `parent_contact` field (no new "child email"/multi-parent-
+      email fields — the candidate's login-recovery-credential double duty
+      explicitly deferred to Fas 4 point 2's own decision, not built here);
+      for the 13+ self-verification cohort (no parent on file by design),
+      the same review-and-approve-this-specific-clip email goes to the
+      player's own verified address — flagged explicitly as a judgment
+      call the project owner/a real legal read should confirm extends
+      cleanly from ADR-0002's Art. 8 self-consent reasoning, not decided
+      silently as purely technical; reuses ADR-0013 Decision 2's
+      contact-change-hijack-race fix verbatim (same vulnerability class, a
+      new consequential action resolving `parent_contact`). "Public"
+      scope: app-wide among authenticated SkillStreak players only, never
+      outside the app (no club/region concept exists to scope a narrower
+      circle without inventing infrastructure this phase doesn't have) —
+      decided deliberately, not by analogy to the four named reference
+      apps. Anonymization: a public clip strips `teamName` and never
+      resolves `taggedPlayerId`, deliberately stricter than the
+      leaderboard's existing cross-team `Team.name` exposure, since
+      binding a real child's video to a real-world team name is a bigger
+      de-anonymization risk than an aggregate score. Reactions are a
+      fixed, small vocabulary — no freeform public comments — a
+      deliberate scope-narrowing from the open question's own "reactions/
+      comments" framing, reasoned from security-reviewer's own stated
+      precondition for ADR-0007's keyword-filter posture ("small, closed,
+      real-world-known rosters") not holding for app-wide strangers.
+      Public reports auto-revoke *public* visibility only, never the
+      team-level `hidden` status ADR-0010 already has (new
+      `ClipReport.reportSource` column). Un-publishing is immediate and
+      unconditional, same self-determination posture as existing
+      self-delete. New `SavedClip` (bookmark) entity for saved-for-
+      inspiration — deliberately not a generic polymorphic bookmark table
+      (YAGNI, one bookmarkable type today); reads re-validate a clip's
+      current public status at fetch time, never trusting the stored
+      bookmark alone, the same never-trust-a-cached-grant bar ADR-0010
+      already set for clip playback. All three new tables
+      (`ClipPublicationRequest`, `ClipReaction`, `SavedClip`) cascade-
+      delete from `VideoClip`, so ADR-0013's existing account-erasure walk
+      needs **zero** new per-entity treatment — free cleanup, the same
+      property ADR-0018 already achieved for `VideoClipTag`. No new Redis
+      structure (same "boring, not this phase's scale" reasoning as
+      ADR-0008/0016). Explicitly not designed here, and explicitly not
+      contradicted: the BACKLOG points-tier formula change, and ADR-0018's
+      own deferral of tags becoming player-visible. **Blocking
+      security-reviewer sign-off required before ux-designer finalizes
+      screens or backend-developer builds anything against this** (per
+      the ADR's own Status section), with three items named for the
+      reviewer to scrutinize hardest: the new *unauthenticated*
+      video-preview-serving surface for the mailed parent-review link
+      (this app's first time serving real child video outside both team
+      membership and session auth), the consent-copy fix, and whether the
+      13+ self-approval judgment call is actually sound.
 - [ ] **ux-designer**: design the endless-scroll feed, reaction UX, and
       the Archive tab (team clips + owned clips + publish action),
       informed by but not copying Snapchat/TikTok/Instagram/YouTube's
@@ -2764,6 +2998,643 @@ across several future phases.
       - [ ] 180-day JWT with no revocation/reissue (carried over from the
             Phase 1 review) — still an accepted gap, still tracked for
             Phase 2's coach dashboard.
+
+## Code cleanup pass (2026-08-02)
+
+From the project owner directly: "go through the code, optimizing the
+code, remove functions and code that is not in use or wast or duplicate."
+Backend and mobile run in parallel, both explicitly instructed to leave
+anything documented as intentionally dormant alone (backend's `coaches/`/
+`badges/`/disabled `session/` reissue/`Challenge.challengeId`; mobile's
+`GoalBonusTakeover`/`SuccessOverlay`, deliberately kept separate from the
+`Toast` consolidation below) — this is a hygiene pass, not a reopening of
+prior architectural decisions.
+
+- [x] **backend-developer**: full pass over `backend/src`, verified with
+      `ts-prune` for unused-export detection plus targeted greps, not
+      guessed at. No genuinely dead function/class/file found beyond the
+      four documented-dormant areas (confirmed those `ts-prune` hits were
+      false positives — loaded via TypeORM's module/migration system, not
+      direct imports). One real duplicate found and fixed, matching this
+      project's own established `isPostgresUniqueViolation`-extraction
+      precedent (Phase 2.5): an identical `escapeHtml()` and an identical
+      HTML page-wrapper (`function page(title, bodyHtml, locale?)`) were
+      independently reimplemented in four files
+      (`account-erasure/erasure-{cancel,confirm}-page.templates.ts`,
+      `profile/contact-change-cancel-page.templates.ts`,
+      `consent/consent-page.templates.ts`) — `escapeHtml` now reuses the
+      canonical copy already in `mail/templates/html-escape.util.ts`; the
+      page-wrapper is extracted into new
+      `common/html/transactional-page.util.ts`
+      (`renderTransactionalHtmlPage`). ~100 lines of duplicated markup
+      removed. Flagged, not silently decided: an identical `trimString`
+      DTO transform duplicated in 5 places, left alone initially due to an
+      adjacent-but-different project comment about *not* sharing per-DTO
+      numeric length constants — resolved by the orchestrating session
+      (confirmed the cited comment was about unrelated numeric constants,
+      not this parameterless transform) and extracted into new
+      `common/validation/trim-string.transform.ts`. Verified before and
+      after every change: `pnpm run build`/`lint` clean, 296/296 unit,
+      141/141 e2e, unchanged throughout, re-run independently by the
+      orchestrating session, not just reported by the implementing agent.
+- [x] **frontend-developer**: resolved all three items from
+      `mobile/README.md`'s "Known duplication / consolidation candidates"
+      backlog (tracked since Phase 2.5, deliberately deferred until now):
+      - `CatchUpBanner`/`Toast` — consolidated. `Toast` gained a
+        `variant?: 'default' | 'gold'` prop reproducing `CatchUpBanner`'s
+        exact look (background, `zIndex`, timing); `CatchUpBanner` deleted
+        after confirming zero remaining references.
+      - The identical loading-spinner/error-with-retry block hand-rolled
+        across `HomeScreen`/`TeamScreen`/`GoalScreen`/`RosterScreen`/
+        `ClipsScreen` — extracted into new `components/LoadingOrRetry.tsx`
+        (`fullScreen`/`style`/`spinnerColor` props reproduce each of the
+        (now six, `ClipsScreen` has three) call sites' exact prior
+        layout).
+      - `TeamPoolCard`/`GoalCard` progress-bar duplication — found to be
+        **already resolved by removal, not extraction**: `TeamPoolCard`'s
+        progress bar no longer exists at all (removed by ADR-0008 Decision
+        4's leaderboard rewrite, "no maximum left for a bar to
+        represent") — confirmed directly by reading the component, not
+        assumed from the stale README note. No premature
+        `useProgressBarWidth` hook built for `GoalCard`'s now-sole
+        remaining instance, per CLAUDE.md's anti-premature-abstraction
+        guidance; `mobile/README.md` updated to record this accurately.
+      Verified: `npx tsc --noEmit` and `npx expo-doctor` (18/18) both
+      clean before and after, re-run independently by the orchestrating
+      session. No test suite exists in `mobile/` to run.
+- [x] **code-critic**: full review of the combined backend+mobile diff.
+      **Zero findings** — every extraction verified byte-for-byte/
+      behaviorally equivalent to what it replaced (including the
+      `PlayerLocale.SV` default the three non-consent page templates
+      implicitly relied on), all five `LoadingOrRetry` call sites'
+      merged styles spot-checked against their pre-diff originals
+      (including `ClipsScreen`'s three differently-configured usages),
+      `Toast`'s `gold` variant confirmed to reproduce `CatchUpBanner`'s
+      exact rendered output including the `durationMs={3000}` override,
+      and the `TeamPoolCard` removal claim confirmed against the actual
+      component rather than taken on the README's word.
+
+Net: two new small shared utilities (`transactional-page.util.ts`,
+`trim-string.transform.ts`) and one new shared mobile component
+(`LoadingOrRetry.tsx`), ~100+ lines of duplicated backend markup/logic
+removed, one component (`CatchUpBanner`) removed entirely, zero behavior
+changes anywhere, full test/typecheck suites green throughout.
+
+## Phase 7 — Admin control center (ADR-0022)
+
+From the project owner directly, 2026-08-02: "our backend control center
+so we can see how many users, teams and see our users behavior, see
+issues and much more... static of all our data... also see patterns how
+people are using our app... static so we can in the future sale our
+Personal Traning functions and coche functions." Clarified directly before
+design started: "user behavior/patterns" means app-wide aggregate
+statistics only (never a named team/player — reuses ADR-0020 Decision 3's
+already-reviewed floor verbatim, not loosened); "see issues" means both
+application errors/failed jobs (never built before) and user-submitted bug
+reports (`docs/BACKLOG.md`'s raw, undesigned "report a problem" idea); the
+PT/coach-monetization angle is context for why this matters, not a feature
+to design now (`docs/PROJECT.md` Fas 5 item 2 needs its own dedicated
+architect/security pass first, unrelated to this ADR). This is the first
+ADR in this app's history to add an authenticated, browsable,
+non-player-facing web surface with its own login.
+
+- [x] **architect**: `docs/adr/0022-admin-control-center.md`. Scope:
+      exactly three data sources — an on-demand web view of ADR-0020's
+      already-approved usage-statistics query set; a new, durable,
+      queryable record of application errors/crashes/failed scheduled
+      jobs (this app has never had one — the existing `AppExceptionFilter`
+      only logs unhandled 5xx exceptions to ephemeral stdout today); and a
+      new user-submitted bug-report feature end to end. Explicitly
+      excludes infra/cluster health (a materially bigger,
+      Grafana/Prometheus-shaped tool the project owner's existing
+      `kubectl`/Postgres access already covers at this beta's scale — a
+      future ADR if that ever changes), social-media-campaign control and
+      blog generation (the other two pieces of `docs/BACKLOG.md`'s bigger
+      "Admin control/monitoring Web UI" idea, undesigned, unaffected), and
+      any piece of the PT/coach feature itself. Admin auth: a single
+      project-owner credential (`ADMIN_USERNAME`/`ADMIN_PASSWORD_HASH`,
+      bcrypt, new `Secret` entries — no `AdminUser` table, no multi-admin/
+      role system, no self-service reset since the only person who could
+      need one already holds direct `Secret`-rotation access), a separate
+      `ADMIN_JWT_SECRET` (never `JWT_SECRET`, mirroring ADR-0004 Part 2's
+      already-established "different secret, not a shared one" reasoning),
+      session delivered via an httpOnly/`SameSite=Strict` cookie
+      (a deliberate, explicitly-flagged divergence from every existing
+      bearer-token pattern in this app, argued from XSS being the real
+      threat model for a browser page with no legitimate reason for JS to
+      read the token) rather than a JSON-returned bearer token. Argues
+      explicitly why this doesn't reopen the risk category Phase 2's
+      pivot removed: no new person gains any access they don't already
+      have (the project owner already holds direct Postgres/`kubectl`
+      credentials), the account structurally cannot grow into a second
+      admin (no table, no invite flow), and the surface it gates is never
+      a per-child drill-down (usage stats) or is a bounded, voluntary,
+      single-incident exception (bug reports), not the original coach
+      dashboard's standing roster/challenge authority. Hosting: new routes
+      on the *existing* `api` Deployment/Service/HTTPRoute (`site/` is
+      confirmed, by direct investigation, to be purely static with zero
+      auth capability, ruled out as a host) — zero new Kubernetes
+      primitive. Reachability: authenticated and public, like the rest of
+      the API, not VPN/network-isolated — argued from the player API
+      already being public+authenticated for *more* sensitive data, and
+      from this ADR's own data-layer redactions (Decisions 5-7) already
+      bounding the residual risk, not network topology. Catches a real
+      environment-parity gap before it ships: the `prerelease`/`ubuntu01`
+      cluster has no TLS at all, so a `Secure`-flagged cookie would
+      silently break admin login there — fixed via a new
+      `ADMIN_COOKIE_SECURE` runtime config value read per-cluster's own
+      `ConfigMap`, reusing the existing backend runtime-config convention,
+      not a new mechanism. Usage stats: extends (not supersedes) ADR-0020
+      Decision 5 — both the existing scheduled email job and the new
+      `GET /api/v1/admin/usage-metrics` endpoint call one shared
+      `UsageMetricsService`, no duplicated query logic; the aggregate-only
+      floor is enforced structurally (no `teamId`/`playerId` field
+      anywhere in the service's method signatures or return types, not
+      just absent from the UI). Errors: reapplies ADR-0010/0018/0020's
+      self-hosted-vs-third-party framework (Sentry SaaS rejected as a new
+      sub-processor; self-hosted Sentry rejected as disproportionate
+      operational weight) to recommend extending the existing
+      `AppExceptionFilter` into a new `ErrorLogEntry` table with **no**
+      player/team column at all, plus an explicit redaction allow-list
+      (the Express route *template*, never the literal resolved path —
+      several existing routes carry a live bearer token as a path
+      parameter; never the request body/headers/`Authorization`; a
+      standing code-review convention against interpolating
+      `PlayerPrivateInfo` into exception messages). Bug reports: a new
+      `BugReport` entity (category enum + capped, HTML-escaped freeform
+      description + a fixed diagnostic allow-list — app version,
+      platform, OS version, screen, locale; explicitly never location,
+      device ID, IP, or an auto-attached action trail), submitted via the
+      existing player `JwtAuthGuard` (no new auth), erasure-cascaded
+      exactly like `ClipReport.reporter_player_id` already is. Argues
+      explicitly why a bug report's per-player identity doesn't violate
+      the usage-stats aggregate floor: it's a voluntary, single-incident,
+      self-initiated report, structurally unlike a passive behavioral
+      trail, and must never be joined into the usage-metrics pipeline.
+      Consent: no new copy for usage stats (unchanged from ADR-0020) or
+      errors (conditioned on the redaction allow-list holding); a short
+      disclosure-copy addition for bug reports (not a new gate), mirroring
+      ADR-0018 Decision 3's precedent. Explicitly states this supersedes
+      `docs/BACKLOG.md`'s "report a problem" entry's own prior "email, not
+      a console" conclusion, per the project owner's direct ask. **Full
+      ADR-0010/0018/0019-weight blocking security-reviewer pass required**
+      before backend-developer builds anything — not ADR-0020's lighter
+      scoped gate, since this is the first ADR to add admin auth, a second
+      token universe, and three new data-exposure surfaces at once.
+- [x] **architect (mid-review addition, same day)**: the project owner
+      added a fourth requirement before this ADR was finalized — "a full
+      list off issues, ideas, security issues and roadmap in this...
+      site." Covered in the same ADR's new Decision 10, not a separate
+      ADR. Scope: currently-open items only, hand-curated (never a raw
+      verbatim render of `docs/BACKLOG.md`/`docs/PROJECT.md`, never an
+      auto-extraction pipeline over freeform prose) — `ACTION_PLAN.md`'s
+      own open `- [ ]` items parsed directly from the already-tracked,
+      already-public file; a curated open subset of `PROJECT.md`; a
+      curated open subset of `BACKLOG.md`; and a new, hand-maintained
+      security-issues list consolidating findings currently scattered
+      across ADRs/this file. Read-only for v1 (no web-UI write-back to any
+      file — markdown stays the single source of truth). Content-sync:
+      confirmed via `git log`/`git ls-files` that `BACKLOG.md`/
+      `PROJECT.md` were deliberately untracked on 2026-07-26 specifically
+      because this repo is public and their content is business-sensitive
+      — explicitly **does not reverse that decision** (recommitting them
+      would immediately republish a week-plus of new planning content).
+      Instead reuses this project's own existing `k8s/secret.yaml`
+      pattern (gitignored real file + committed `.example` template,
+      applied by hand, never through public CI) for a new
+      `admin-planning-docs` `ConfigMap`, populated out-of-band by the
+      project owner on each cluster independently. The new
+      security-issues list gets the same gitignored/`ConfigMap` treatment
+      as `BACKLOG.md`/`PROJECT.md`, even though its individual facts are
+      already public in tracked ADRs — argued explicitly as a deliberate
+      "aggregation itself is a new risk" call, not an inconsistency.
+      Reachability: unlike Decisions 4/6/7's three pillars (low-sensitivity
+      by construction), this pillar's content has a materially higher
+      blast radius if the admin credential is compromised — requires a new
+      fresh-reauthentication ("step-up auth") check on top of the
+      ordinary session cookie, not just Decision 3's existing
+      public+authenticated posture unmodified. IP-allowlisting was
+      considered and not recommended as the primary control (the project
+      owner's real usage pattern has no stable source IPs to allowlist);
+      step-up re-auth achieves the same goal from anywhere, at a small,
+      one-time-per-session friction cost. No new schema, no new consent
+      question (none of this content is about an identifiable child).
+- [x] **security-reviewer**: full-weight blocking pass, 2026-08-02 — not a
+      clean sign-off. Decisions 1, 3, 4, 5, 8, 9 confirmed sound,
+      independently verified against the real codebase (route audits,
+      CORS config, `ThrottlerGuard` behavior, git history), not just
+      restated. Decision 2 confirmed sound with a wording fix (the
+      `SameSite=Strict` residual overstated its scope — `api`/`www`/
+      `try`.skillstreak.xyz share a registrable site, so a request from
+      `try.skillstreak.xyz` counts as same-site, not cross-site; the
+      practical exposure is bounded to a forced-logout, not data
+      exposure, since this app's CORS never sets `credentials: true`) and
+      an added authentication-vs-authorization framing note. Decision 6
+      confirmed accurate, plus a non-blocking implementation note
+      (`request.route` is `undefined` for unmatched routes — needs a
+      guard so the error filter doesn't itself crash on an ordinary 404).
+      **Two required fixes, both applied same day**: Decision 7's
+      escaping guarantee originally named only `description`, leaving
+      `app_version`/`os_version` (equally attacker-controllable via the
+      same authenticated endpoint — any player's account, not an
+      external attacker) unaddressed, and `screen` was typed as an
+      unconstrained `varchar` despite being described in prose as
+      "allow-listed" — fixed: every rendered `BugReport` field now
+      escaped identically, `screen` is now a genuine enum matching
+      `category`/`platform`/`locale`'s existing treatment. Decision 10
+      never stated the `admin-planning-docs` ConfigMap's mount path must
+      stay disjoint from any statically-served directory — a real gap
+      given this app's first-ever use of static file serving, since the
+      boring `/admin` static-server implementation this ADR itself
+      recommends would otherwise make the raw planning docs directly
+      downloadable, bypassing `AdminAuthGuard` and the step-up check
+      entirely — fixed as an explicit structural requirement. **One
+      strong recommendation, not blocking Decisions 1-9**: Decision 10's
+      step-up re-auth should use a real second factor (TOTP), not the
+      same password, since a compromised credential — the exact threat
+      Decision 10 says this pillar most needs protecting against — would
+      pass a same-password step-up check trivially. Net: backend-developer
+      may build the full ADR as amended.
+- [ ] **ux-designer**: the admin console's layout/visuals (statistics
+      dashboard, error-log list, bug-report triage queue, login screen,
+      the new roadmap/ideas/security-issues tabs, the inline password
+      re-entry prompt Decision 10's step-up auth needs) and the small
+      player-facing "Report a problem" entry point/form in the mobile app.
+- [ ] **backend-developer**: the three original data pipelines
+      (`UsageMetricsService` + its two consumers; `ErrorLogService` +
+      `AppExceptionFilter`/scheduled-job wiring + a retention sweep;
+      `BugReport` entity + submission/queue/triage endpoints), admin auth
+      end to end (`admin-auth/` module, `AdminAuthGuard`, the
+      `ADMIN_COOKIE_SECURE`/cookie wiring), the consent-page copy
+      addition, and (Decision 10) the fresh-reauthentication check, the
+      three new `planning/*` endpoints, the `ACTION_PLAN.md` checkbox
+      parser, and the `admin-planning-docs` `ConfigMap`/volume-mount
+      wiring plus its `.example` template — once security-reviewer signs
+      off.
+- [ ] **project owner**: curating the actual initial content of the three
+      planning views and refreshing the `admin-planning-docs` `ConfigMap`
+      after local edits (Decision 10) — only the project owner holds the
+      local, gitignored source files.
+- [ ] **frontend-developer**: the mobile "Report a problem" screen, once
+      ux-designer's flow is ready.
+
+## Phase 8 — PT (Personal Trainer) role, and staff SSO/RBAC superseding ADR-0022 Decision 2
+
+From the project owner directly, 2026-08-02/03, two related requests
+following straight out of the Phase 7 control-center work: (1) formal
+confirmation to start the architect-/security-review `docs/PROJECT.md`
+Fas 5 item 2 has required since it was first written ("Yes, formally start
+that review now"); (2) "For our OBS login, this should a multitenent RBAC
+function. Where our PT have their own login an can track their numbers,
+and for me as Admin should have access to everything" — plus two directly
+confirmed technical constraints: SSO-only (Google/Microsoft/Apple), no
+custom password or email-OTP MFA ("rely on their security and not create
+our own"), and human/bot verification wanted for PT/admin signup+login
+specifically, explicitly not for players.
+
+- [x] **architect**: `docs/adr/0023-pt-role-and-staff-sso-rbac.md`. Two
+      parts, designed together because Part A depends on Part B's account
+      mechanism, reviewed separately per Status.
+      **Part A (the PT role)**: argues explicitly whether a PT
+      reintroduces the exact "new class of standing adult authority over
+      specific children's data" shape Phase 2's pivot rejected — concludes
+      it's a bounded, different shape (zero write authority over any
+      player state ever; per-relationship not per-team-membership consent;
+      revocable by three independent parties; a fixed read-only allow-list;
+      no growth path that skips per-child consent), not the same unbounded
+      thing, but explicitly does not consider this settled without a real
+      review. Linking mechanism: a two-step chain — a captain-generated,
+      short-lived team-invite code (reusing the existing `invite_code`/
+      session-reissue-code pattern) creates a `PtTeamLink` that by itself
+      grants **zero** player data visibility (only team-aggregate numbers
+      and the roster's screen names + consent status); a specific child's
+      actual training data requires a **separate**, materially stronger
+      per-relationship consent gate (`PtPlayerConsent`), reusing ADR-0019's
+      mailed review-and-approve pattern (a parent, or the 13+
+      self-verification cohort's own inbox, must see a plain description
+      of exactly what would become visible and explicitly approve one
+      specific named PT) — argued explicitly as needed instead of reusing
+      the account-level `parentalConsentStatus` gate, since that gate's
+      existing copy never anticipated a third-party adult viewer. Reuses
+      ADR-0013/0019's contact-change-hijack-race fix verbatim. Data
+      allow-list (argued field by field, like ADR-0018's tag vocabulary/
+      ADR-0020's metric list): screen name, streak counts, training-log
+      history, badges — never real name/parent contact, never chat, never
+      video, never another PT's clients; `birthYear` explicitly left open,
+      not included by default. Revocability: the player themself
+      (in-app, self-service, no parent needed), the parent/self via a
+      non-expiring mailed revoke link, or the team via revoking the whole
+      `PtTeamLink` (cascading revoke of every consent under it) — three
+      independent, immediate, unconditional levers, mirroring ADR-0006/
+      0010/0013's existing self-determination posture. Cross-team reach:
+      argued compatible with CLAUDE.md's closed-team-bubble constraint's
+      spirit (which polices player-to-player visibility and defaults, not
+      an explicitly consented, per-child, single-named-adult relationship)
+      the same way ADR-0019 had to argue its own first cross-team crack,
+      a fortiori since a PT's audience is one vetted adult, not the whole
+      authenticated player base. Flags one open legal/business question,
+      not decided: whether Art. 8 self-consent extends to a 13+ player
+      self-approving a PT's visibility with no parent involved — the same
+      open question ADR-0019 already flagged for a different processing
+      purpose, recommending one real legal read covering both. Does not
+      design billing/payments, PT identity vetting beyond SSO, or the
+      video-verification points-tier idea — all named as out of scope,
+      matching how ADR-0022 treated the same PT angle as context-only.
+      **Part B (staff SSO/RBAC, superseding ADR-0022 Decision 2)**: a new
+      `StaffAccount` entity (deliberately not named `Coach`/`AdminUser`,
+      avoiding collision with the dormant `Coach`/`TeamCoach` entities)
+      holding `role` (`admin`/`pt`), provider + subject ID (never a raw
+      OAuth token at rest), email, display name. Admin membership is a
+      small `ADMIN_EMAILS` allow-list in `Secret`, re-checked on every
+      login (not just first login); PT membership is self-service via SSO,
+      defaulting to **zero** linked players/teams until Part A's consent
+      chain grants something specific — argued explicitly as the correct
+      default, not "first sign-up wins." Session: still an httpOnly/
+      `SameSite=Strict` cookie, reusing ADR-0022 Decision 2's own
+      XSS-vs-CSRF reasoning verbatim (not SSO-specific, not re-derived),
+      now signed with a renamed `STAFF_JWT_SECRET` and carrying
+      `{ staffAccountId, role }`. Catches a real environment-parity gap
+      rather than assuming it away: Google/Microsoft require HTTPS
+      redirect URIs (with only a `localhost` exception, not a LAN-IP
+      exception), and Apple requires a verified HTTPS domain with **no**
+      localhost/IP exception at all — so full three-provider OAuth cannot
+      be genuinely tested on the TLS-less, DNS-less `ubuntu01` cluster.
+      Decided explicitly, not assumed: don't build a network-reachable
+      dev-login-bypass endpoint to compensate (named as a real
+      auth-bypass-CVE-shaped risk this project has already been burned by
+      once, in ADR-0004's addendum); instead, test the OAuth handshake
+      itself via `docker-compose`/`localhost` plus a first careful
+      real-domain pass before PT signup opens, and use a small **offline**
+      CLI script (mirroring ADR-0004/0005's existing Coach/captain
+      seed-script precedent) to mint a valid dev session for testing
+      everything downstream of login on `ubuntu01` — no new deployed
+      network surface, gated by the same "already has `Secret` access"
+      bar every other credential-rotation action in this app already
+      requires. RBAC: two small, single-purpose guards
+      (`AdminAuthGuard`/`PtAuthGuard`), not a generic role framework,
+      mirroring ADR-0004 Part 2's own "boring over impressive" call for
+      coach-vs-player. Explicitly reconciles the two data paths so they
+      never get conflated: ADR-0022's `UsageMetricsService`
+      (admin-only, aggregate-only, unchanged, untouched by this ADR) is a
+      structurally separate service/table from Part A's new
+      per-relationship PT data path — admin's "access to everything"
+      means admin can also read any already-PT-consented relationship
+      (the same "already has direct Postgres access" argument ADR-0022
+      Decision 2 made for the admin account itself), never a backdoor
+      around Part A's own consent gate. Human/bot verification: recommends
+      building **nothing** new — there is no local password/signup form to
+      protect in the first place (100% delegated to the three providers'
+      own extensive bot/fraud defenses, the same "rely on their security"
+      reasoning the project owner already gave for the MFA question,
+      extended one step further); a plain per-IP rate limit on the OAuth
+      callback route is the actual, boring mitigation for the one real
+      local surface (volumetric abuse of that endpoint, not bot signup).
+      New dependency: recommends one generic OIDC client library
+      (`openid-client`) configured three times over three separate
+      Passport strategy packages, for one uniform code path across
+      providers of noticeably different maturity/quirks (flags Apple's
+      client "secret" as a periodically-regenerated signed JWT, a
+      genuinely different operational shape from Google/Microsoft's
+      static secrets). Updates `docs/adr/0022-admin-control-center.md`'s
+      Status with an explicit addendum: Decision 2 superseded; Decisions
+      1, 3-10 unchanged and unaffected.
+- [x] **security-reviewer**: two passes, completed 2026-08-03, not a
+      clean sign-off on either — see `docs/adr/0023-pt-role-and-staff-sso-
+      rbac.md`'s Status section for the full record. **Part B (ADR-0022's
+      own full weight)**: four findings. Most severe, CONFIRMED — removing
+      an email from `ADMIN_EMAILS` didn't revoke an already-issued admin
+      session, because Decision B1's original "re-derived at login" design
+      cited `token_version`'s per-request DB check (ADR-0004 Part 3)
+      backwards, as precedent for *accepting* staleness rather than for the
+      *immediate* revocation that mechanism actually gives players. Fixed:
+      `AdminAuthGuard` now does a real per-request `StaffAccount` lookup
+      (new `revoked_at` column, plus a live re-check of the account's email
+      against `ADMIN_EMAILS` for Google/Microsoft accounts) instead of
+      trusting the JWT's `role` claim, closing the gap the same way
+      `token_version` already does for players. Second, CONFIRMED — Apple's
+      OIDC omits the `email`/`name` claims on every login after the first,
+      so "re-derived from the live email claim on every login" has nothing
+      to check for an Apple session past its first login; fixed with a
+      named exception (Apple's `email` is persisted once and frozen, and
+      revoking an Apple-authenticated admin/PT goes through the new
+      `revoked_at` suspension column, not `ADMIN_EMAILS`, since a persisted
+      Apple relay-email isn't reliably editable there). Two smaller,
+      PLAUSIBLE findings, both fixed additively: no mention anywhere of
+      OAuth `state`/PKCE/nonce (now an explicit, named requirement on
+      Decision B6); Decision B5's bot-verification argument didn't tie back
+      to Part A's own zero-default-access design for a freshly-signed-up
+      PT (one sentence added connecting the two). **Part A (ADR-0019's
+      weight)**: three findings, none requiring a schema change. Medium,
+      most severe — a child joining a team *after* a PT is already linked
+      is exposed to that PT's team-aggregate view (screen name + consent
+      status) automatically, with no fresh consent action, contradicting
+      Decision A1 point 5's claim that "access silently expanding...
+      structurally cannot happen here"; true for the per-player
+      training-data tier, false as stated for the team-aggregate tier.
+      Resolved by decision, not a code change: accepted as intended for the
+      team-aggregate tier specifically (screen name + consent status only,
+      no worse than existing teammate-roster visibility), with Decision A1
+      point 5's overclaiming language corrected to scope explicitly to the
+      per-player tier, where it remains true without exception. Two Low
+      findings, both fixed as additive clarifications: the consent-status
+      read endpoint didn't restate the same active-`PtTeamLink` check its
+      sibling write endpoint has (added explicitly, closing a probe/
+      enumeration gap for PTs with zero active team links); the `BadgeAward`
+      allow-list justification could be misread as including `context`
+      (it never did) — wording tightened to state the exclusion of
+      `context`, including its freeform `note` subfield, explicitly. **Net:
+      backend-developer may build both parts as amended** — Part A only
+      once Part B's account mechanism exists, per this ADR's own
+      sequencing.
+- [ ] **ux-designer**: PT-side screens (team-link redemption, per-player
+      consent requests, the read-only numbers view), the parent/self
+      review-and-approve email + page, the player-facing "manage your PT
+      relationships" screen, the captain-facing invite/revoke UI, and the
+      admin console's login screen changing from a password form to
+      "Sign in with Google/Microsoft/Apple" buttons.
+- [x] **backend-developer** (Part B only — 2026-08-03): `StaffAccount`
+      entity + migration (`role`/`auth_provider`/`auth_provider_subject`/
+      `email`/`display_name`/`revoked_at`/`created_at`/`last_login_at`,
+      unique on `(auth_provider, auth_provider_subject)`), the
+      `staff-auth/` module, and the two RBAC guards — exactly the three
+      things this ADR's own sequencing requires to exist before Part A (the
+      `pt/` module's team-linking/consent endpoints, `PtTeamLink`/
+      `PtPlayerConsent`) can be built, which is **not** part of this pass
+      and remains a separate follow-up task. `StaffAuthGuard` (base layer):
+      verifies the `staff_session` cookie's signature/expiry only, no
+      per-request DB lookup, populates `staffAccountId` + a `staffRole`
+      hint. `AdminAuthGuard`: built on top of `StaffAuthGuard`, exactly as
+      the amended ADR requires — a real per-request `StaffAccount` lookup,
+      rejecting on `revoked_at IS NOT NULL` and re-comparing the row's
+      current `email` against a live `ADMIN_EMAILS` `ConfigService` read
+      (never trusting the JWT's `role` claim or the `StaffAccount.role`
+      column). `PtAuthGuard`: cheap JWT-claim-only check, deliberately no
+      DB lookup, per the ADR's own "zero ambient authority by construction"
+      reasoning — exists and gates a role check, with no real endpoints to
+      protect yet (Part A isn't built). `staff-auth/` module: SSO login/
+      callback/logout for all three providers via `openid-client@5.7.1`
+      (the last version with a CommonJS build — this repo has no ESM
+      story, and v6+ dropped CJS entirely), one generic `StaffOidcClientsService`
+      parameterized per provider rather than three Passport strategies.
+      `state`/PKCE (`code_verifier`/`code_challenge`, S256)/`nonce` are
+      generated at `/login`, held in a short-lived (10-minute), signed,
+      httpOnly `staff_auth_pending` cookie (reusing the same
+      `STAFF_JWT_SECRET`-backed `JwtService`, not a second secret), and
+      verified on `/callback` — a dedicated, explicit state-match check
+      runs in `StaffAuthService` itself *before* ever calling into
+      `openid-client`, plus `openid-client`'s own `state`/`nonce`/
+      `code_verifier` checks passed through its `callback()` call; a test
+      (`staff-auth.service.spec.ts`) asserts a missing/mismatched state (or
+      wrong-provider callback) is rejected without ever reaching the OIDC
+      client, and that a library-level rejection (simulating a nonce
+      mismatch) is caught and surfaced generically. Apple's dynamic
+      "client secret" (a JWT this app signs itself from
+      `APPLE_TEAM_ID`/`APPLE_KEY_ID`/`APPLE_PRIVATE_KEY`) is minted fresh,
+      short-lived (5 minutes), per use rather than pre-generated and
+      stored — a deliberate implementation choice beyond what the ADR
+      strictly required, since it removes the "remember to regenerate
+      within 6 months" operational task the ADR names as a real (if small)
+      residual risk. Login sets `staff_session` (httpOnly/
+      `SameSite=Strict`/`Path=/api/v1`, 24h, signed with a new
+      `STAFF_JWT_SECRET`); logout is POST-only (mirrors ADR-0022 Decision
+      2's CSRF-safe pattern). `STAFF_COOKIE_SECURE` (renamed from the
+      never-shipped `ADMIN_COOKIE_SECURE`) added to `k8s/configmap.yaml`
+      (`"true"`, with an explicit comment that `ubuntu01`'s own
+      hand-applied ConfigMap must set `"false"`); `ADMIN_EMAILS` and all
+      three providers' OAuth client credentials added to
+      `k8s/secret.yaml.example` as placeholders (never real values — the
+      project owner still has to register each real OAuth application).
+      `k8s/api-deployment.yaml`'s new `secretKeyRef` entries mark every key
+      except `STAFF_JWT_SECRET` as `optional: true`, so a pod still boots
+      cleanly before those real applications exist (only a login attempt
+      for an unconfigured provider fails, not the whole app). Offline
+      dev-session-minting script: `backend/src/scripts/
+      mint-dev-staff-session.ts` (`pnpm run mint:dev-staff-session
+      <staffAccountId> <admin|pt>`), following `seed.ts`/`verify-smtp.ts`'s
+      existing pattern — no network-reachable HTTP counterpart added
+      anywhere, per Decision B3's explicit argument against a dev-login
+      bypass route. Retiring ADR-0022's original bcrypt/`ADMIN_USERNAME`/
+      `ADMIN_PASSWORD_HASH`/`ADMIN_JWT_SECRET` design: confirmed via grep
+      that none of it was ever actually implemented in code, so there was
+      nothing to remove — this SSO mechanism is simply the one and only
+      staff-auth mechanism built. 30 new focused unit tests (guards'
+      revocation/live-`ADMIN_EMAILS` re-check behavior, the state/nonce
+      rejection tests, Apple's frozen-email/short-lived-client-secret
+      behavior) + the existing 296, all passing (326/326); e2e suite
+      unaffected (141/141) — no live three-provider OAuth testing was
+      attempted anywhere, per Decision B3's own "don't attempt live OAuth
+      testing" call. **Flagged, not silently absorbed**: `STAFF_JWT_SECRET`
+      is a **required** env var (same posture as `JWT_SECRET`) — it must
+      be set as a real GitHub Actions secret (`gh secret set
+      STAFF_JWT_SECRET`) before this merges to `main`, or the next
+      production deploy crash-loops on boot with an "Invalid environment
+      configuration" error (the exact missing-live-Secret-key failure mode
+      already tracked as a recurring risk for this project). **Part A
+      (`PtTeamLink`/`PtPlayerConsent` tables, the `pt/` module's actual
+      team-linking/consent endpoints) is explicitly out of scope for this
+      pass and remains open** — this ADR's own sequencing required Part
+      B's account mechanism to exist first; Part A is unblocked to start
+      now.
+- [x] **backend-developer** (Part A — 2026-08-04): the PT role's full
+      two-step consent chain and read-only data surface, built on Part B's
+      already-merged `staff-auth/` module. New `pt/` module: two new
+      tables/entities — `PtTeamLink` (`team_id`/`pt_staff_account_id` FKs
+      `ON DELETE CASCADE`, `invited_by_player_id` `ON DELETE SET NULL`,
+      partial unique index "one active link per (team, PT)") and
+      `PtPlayerConsent` (`pt_team_link_id`/`pt_staff_account_id`/`player_id`
+      all `ON DELETE CASCADE`, partial unique index "one active
+      (pending_review/approved) row per (PT, player)") — migration
+      `1786000000000-AddPtTeamLinkAndPlayerConsent.ts`. The not-yet-redeemed
+      team-invite code deliberately gets **no** third table — it's Redis
+      state (`RedisService.storePtTeamLinkInviteCode`/
+      `redeemPtTeamLinkInviteCode`, atomic `GETDEL`, 24h TTL), per the ADR's
+      own "New tables" list naming only the two above. Three services, kept
+      deliberately separate per the ADR's own "link vs. consent vs. data"
+      framing: `PtTeamLinksService` (captain-side invite generate/list/
+      revoke, reusing `PlayersService.assertIsCaptainOfTeam` verbatim — no
+      new captain guard — plus the PT's own invite-redemption; `revoke`
+      cascade-updates every `pending_review`/`approved` `PtPlayerConsent`
+      rooted under the revoked link to `status = 'revoked'`,
+      `revoked_reason = 'team_link_revoked'`, in one transaction);
+      `PtConsentService` (the per-player mailed review-and-approve chain —
+      reuses ADR-0013 Decision 2's contact-change-hijack-race fix verbatim,
+      one `getParentContact()` call snapshotted once, `hasPendingContact
+      Change` checked before any rate-limit budget is spent; burst cooldown
+      + daily cap + a global pending-request cap, all Redis-backed, mirror
+      the erasure-request rate-limit shape; three independent revocation
+      levers — player self-service (`POST /api/v1/players/me/pt-consents/
+      :id/revoke`), a non-expiring mailed `revoke_code` link (`GET/POST
+      /api/v1/pt-consent-revoke/:revokeCode`), and the team-link cascade
+      above); `PtDataService` (Decision A5's allow-list, structurally
+      enforced — every method takes an explicit, verified
+      `(ptStaffAccountId, teamId/playerId)` pair and re-checks the live
+      relationship itself, never a cached grant; the per-player view
+      returns exactly `screenName`/streak fields/`TrainingLogEntry` history/
+      `BadgeAward.key`+`displayName`+`awardedAt` — `context`, including its
+      freeform `note` subfield, is never read by this service at all, not
+      merely omitted from a response DTO). Endpoints: `POST/GET
+      /api/v1/teams/:teamId/pt-links{,/invite,/:id/revoke}` (captain,
+      `JwtAuthGuard`), `POST /api/v1/pt/team-links/redeem` + `GET
+      /api/v1/pt/team-links` (PT, `PtAuthGuard` — the team-aggregate roster
+      view), `POST /api/v1/pt/players/:playerId/consent-requests` + `GET
+      .../consent-status` + `GET /api/v1/pt/players/:playerId` (PT,
+      `PtAuthGuard`), `GET/POST /api/v1/pt-consent/:reviewCode{,/approve,
+      /decline}` + `GET/POST /api/v1/pt-consent-revoke/:revokeCode`
+      (unauthenticated mailed links, throttled, mirroring
+      `AccountErasureController`'s GET-preview/POST-action split exactly,
+      since ADR-0019 itself was never implemented in code to mirror
+      instead). **Security-reviewer's Part A Finding 6 fix, verified**:
+      `GET .../consent-status` calls the exact same `assertActiveTeamLink`
+      private helper as `POST .../consent-requests` — a dedicated test
+      confirms a PT with zero active team links gets `403
+      no_active_team_link` from the read endpoint too, not just the write
+      one. New mail templates (`pt-consent-request-email.template.ts`,
+      `pt-consent-approved-email.template.ts`) and landing pages
+      (`pt-consent-page.templates.ts`) — **sv/en only for v1, a deliberate,
+      named scope decision** (unlike this codebase's other mail templates,
+      which cover all 8 `PlayerLocale` values), flagged below as a small,
+      additive follow-up rather than silently shipped as complete. New
+      exceptions (`common/errors/exceptions.ts`, "Fas 8" section):
+      `PtInviteCodeInvalidException`, `PtTeamLinkAlreadyActiveException`,
+      `PtTeamLinkNotFoundException`, `PtNoActiveTeamLinkException`,
+      `PtConsentAlreadyActiveException`,
+      `PtConsentBlockedPendingContactChangeException`,
+      `PtConsentRateLimitedException`, `PtConsentPendingCapExceededException`,
+      `PtConsentNotApprovedException`, `PtPlayerConsentNotFoundException`.
+      25 new focused unit tests across three spec files
+      (`pt-team-links.service.spec.ts` — including a dedicated cascade-
+      revoke test asserting every consent under a revoked link actually
+      flips to `revoked`/`team_link_revoked`; `pt-consent.service.spec.ts`
+      — the full consent-chain ordering, the enumeration-guard fix, both
+      mailed-link levers, and the player self-service lever;
+      `pt-data.service.spec.ts` — the team-aggregate tier's live-roster
+      behavior, the per-player tier's consent gate, and an explicit
+      assertion that a returned badge has exactly three keys, `context`/
+      `note` never among them) + the existing 327, all passing (352/352);
+      e2e suite unaffected (141/141, no new e2e specs added — Part A has no
+      externally-registered OAuth dependency to make live-testing
+      infeasible the way Part B's did, but this pass scoped its new
+      coverage to focused unit tests per the task, not a new e2e file).
+      `pnpm run lint`/`pnpm run build` both clean. **Left open, not
+      silently decided**: `GET /api/v1/admin/pt/...` oversight routes
+      (Decision B4's "admin can read any already-consented PT relationship
+      too" argument) are not built by this pass — `PtDataService`'s methods
+      already take an explicit `ptStaffAccountId` parameter rather than an
+      implicit "current caller" assumption specifically so wiring an
+      `AdminAuthGuard`-gated route onto the same methods later is additive,
+      not a redesign; not built now because the task's own endpoint list
+      scoped this pass to Part A's PT/captain-facing surface only. Also
+      left open: the remaining 6 `PlayerLocale` translations for the two
+      new mail templates; a real captain-facing UI for the invite/revoke
+      flow (ux-designer territory, unchanged from the ADR's own hand-off).
+- [ ] **project owner**: registering three real OAuth applications and
+      their production redirect URIs, maintaining `ADMIN_EMAILS`, setting
+      the new `STAFF_JWT_SECRET` GitHub Actions secret before the next
+      `prerelease` → `main` merge (see the backend-developer entry above —
+      this is required, not optional, for the api Pod to boot at all), the
+      first real-domain SSO verification pass before PT signup opens, and
+      (if pursued) a real legal read on the two open Art. 8 self-approval
+      questions this ADR and ADR-0019 both flagged.
 
 ## Standing practice, every phase
 

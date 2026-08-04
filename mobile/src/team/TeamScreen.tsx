@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ConsentChips } from './components/ConsentChips';
@@ -13,6 +13,7 @@ import { LeaderboardScreen } from '../leaderboard/LeaderboardScreen';
 import { GoalCard } from '../goal/components/GoalCard';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Toast } from '../components/Toast';
+import { LoadingOrRetry } from '../components/LoadingOrRetry';
 import {
   approveTeamJoin,
   getPendingJoins,
@@ -181,21 +182,17 @@ export function TeamScreen({
   }
 
   if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.flame} size="large" />
-      </View>
-    );
+    return <LoadingOrRetry loading />;
   }
 
   if (loadError || !dashboard || !teammates) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>{loadError ?? t('k1.genericError')}</Text>
-        <Text style={styles.retryText} onPress={() => void fetchAll()}>
-          {t('k1.retry')}
-        </Text>
-      </View>
+      <LoadingOrRetry
+        loading={false}
+        errorMessage={loadError ?? t('k1.genericError')}
+        retryLabel={t('k1.retry')}
+        onRetry={() => void fetchAll()}
+      />
     );
   }
 
@@ -374,25 +371,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 13,
     color: colors.ink,
-  },
-  centered: {
-    flex: 1,
-    backgroundColor: colors.paper,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 24,
-  },
-  errorText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.ink,
-    textAlign: 'center',
-  },
-  retryText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-    color: colors.ink,
-    textDecorationLine: 'underline',
   },
 });

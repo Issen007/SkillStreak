@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { HomeScreen } from './home/HomeScreen';
 import { TeamScreen } from './team/TeamScreen';
@@ -7,7 +8,7 @@ import { GoalScreen } from './goal/GoalScreen';
 import { ChatScreen } from './chat/ChatScreen';
 import { ClipsScreen } from './clips/ClipsScreen';
 import { TabBar, TabKey } from './navigation/TabBar';
-import { CatchUpBanner } from './components/CatchUpBanner';
+import { Toast } from './components/Toast';
 import { CaptainBanner } from './components/CaptainBanner';
 import { getChatMessages, getClips, getMe, getTeamDashboard, getWeeklyGoal } from './api/endpoints';
 import {
@@ -52,8 +53,9 @@ type CaptainBannerState = { variant: 'promoted' | 'demoted' };
  * (Screen G2) locally, from the response it already has in hand — no
  * extra fetch. Every other teammate finds out passively: `checkForCatchUp`
  * below runs on every app open/foreground, and shows everyone (once each,
- * tracked per-device via `localFlags`) the smaller `CatchUpBanner` (Screen
- * G3) the first time it notices the goal now has a `bonusAwardedAt`.
+ * tracked per-device via `localFlags`) the smaller Screen G3 catch-up
+ * banner (a `Toast` in its 'gold' variant) the first time it notices the
+ * goal now has a `bonusAwardedAt`.
  * Without `suppressNextCatchUp`, the *triggering* player would see both:
  * G2 immediately (from their own response), then G3 on their very next
  * foreground check (since the goal now looks "newly bonused" to
@@ -71,6 +73,7 @@ type CaptainBannerState = { variant: 'promoted' | 'demoted' };
  * transfer, since that device already got its own toast directly from K4.
  */
 export function AppShell({ onSessionInvalid }: AppShellProps) {
+  const { t } = useTranslation('common');
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [teamId, setTeamId] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -348,8 +351,12 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
       </View>
 
       {catchUpBanner ? (
-        <CatchUpBanner
-          awardedPoints={catchUpBanner.awardedPoints}
+        <Toast
+          message={t('catchUpBanner.message', {
+            points: new Intl.NumberFormat(i18n.language).format(catchUpBanner.awardedPoints),
+          })}
+          durationMs={3000}
+          variant="gold"
           onDismiss={() => setCatchUpBanner(null)}
         />
       ) : captainBanner ? (

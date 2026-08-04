@@ -74,11 +74,15 @@ it" instructions (Docker backend, seeding, screenshots), see the
   `DangerButton` — this app's reserved destructive/red treatment, used
   exactly once so far for the Klipp tab's self-delete confirmation, since
   that's the first action in this app that's genuinely, unconditionally
-  irreversible), `TextField`, `ScreenContainer`, and the transient-overlay
-  components `Toast` and `CatchUpBanner`. (Two more transient overlays,
+  irreversible), `TextField`, `ScreenContainer`, `LoadingOrRetry` (the
+  shared loading-spinner/error-with-retry block every data-fetching
+  screen uses), and the transient-overlay component `Toast` (its `'gold'`
+  `variant` now also covers the former `CatchUpBanner`'s look, per the
+  "Known duplication" note below). (Two more transient overlays,
   `SuccessOverlay` and `GoalBonusTakeover`, live in `home/components/`
   instead since they're currently only ever used from `HomeScreen` — see
-  "Known duplication" below before adding a fifth one of these.)
+  "Known duplication" below before adding a second one of these outside
+  Home.)
 - **`theme/`** — `colors.ts`/`fonts.ts`, tokens from
   `docs/design/style-guide.md`. Treat that doc as the source of truth, not
   this file, if the two ever disagree.
@@ -183,38 +187,52 @@ phone" walkthrough. The mobile-specific pieces:
   the camera/picker/playback UI still needs a physical device or a
   macOS/Android host.
 
-## Known duplication / consolidation candidates (tracked, not yet acted on)
+## Known duplication / consolidation candidates
 
-Left as-is deliberately for now — see the Phase 2.5 pass in
-`docs/ACTION_PLAN.md` for the full reasoning:
+Three items tracked here since the Phase 2.5 pass (see
+`docs/ACTION_PLAN.md` for that pass's original reasoning) were resolved in
+a dedicated cleanup pass (2026-08-02); one item remains deliberately
+unresolved:
 
-- `CatchUpBanner` (`components/`) and `Toast` (`components/`) are close to
-  line-for-line identical (same fade-in/delay/fade-out `Animated`
-  sequence, same tap-to-dismiss handler, same layout) — they differ only
-  in background color, `zIndex`, duration, and message content. A real
-  consolidation candidate (e.g. a `variant`/`durationMs` prop on `Toast`),
-  just not done in this pass to avoid touching two live celebration paths
-  without a dedicated review. **Partially acted on in Fas 3**: Screen V3's
-  "you were challenged" banner (`clips/ClipsScreen.tsx`) reuses `Toast`
-  directly (passing `durationMs={3000}`) rather than adding a *third*
-  near-duplicate overlay — the consolidation this note already
-  recommended, just applied at the point a genuinely new near-duplicate
-  was about to be written, not as a standalone refactor of the two
-  existing ones.
-- `HomeScreen`, `TeamScreen`, `GoalScreen`, `RosterScreen`, and now
-  `ClipsScreen` each hand-roll the same loading-spinner / error-with-retry
-  block and the same three style objects (`centered`, `errorText`,
-  `retryText`) — `ClipsScreen` is the fifth copy this note already
-  predicted before Phase 3 shipped; still worth extracting into one shared
-  component/hook, more so now than before.
-- `TeamPoolCard` and `GoalCard` each re-implement the same
+- **Resolved**: `CatchUpBanner` (`components/`) and `Toast`
+  (`components/`) were close to line-for-line identical (same fade-in/
+  delay/fade-out `Animated` sequence, tap-to-dismiss handler, and layout,
+  differing only in background color, `zIndex`, duration, and message
+  content) — Fas 3 had already partly anticipated this by having Screen
+  V3's "you were challenged" banner reuse `Toast` directly rather than add
+  a third near-duplicate. `Toast` now takes a `variant?: 'default' |
+  'gold'` prop covering `CatchUpBanner`'s exact visual treatment;
+  `CatchUpBanner` itself is deleted, and its one call site (`AppShell`'s
+  Screen G3 catch-up banner) now renders `<Toast variant="gold"
+  durationMs={3000} ... />` with the message text/number-formatting moved
+  to the call site (`Toast` only ever took a plain `message` string).
+  `CaptainBanner` (`components/`) was deliberately left as its own
+  component, not folded in — its two-line/variant-styled layout doesn't
+  fit `Toast`'s single-message prop surface cleanly enough to be worth
+  forcing.
+- **Resolved**: `HomeScreen`, `TeamScreen`, `GoalScreen`, `RosterScreen`,
+  and `ClipsScreen` each hand-rolled the same loading-spinner/
+  error-with-retry block and the same three style objects (`centered`,
+  `errorText`, `retryText`). Extracted into `components/LoadingOrRetry.tsx`
+  — a `loading`/`errorMessage`/`retryLabel`/`onRetry` component with a
+  `spinnerColor` prop (Mål's card uses `colors.gold`, everything else the
+  default `colors.flame`) and a `fullScreen`/`style` override for Klipp's
+  three usages, one of which is embedded inline in a `ScrollView` rather
+  than filling the screen.
+- **Resolved by removal, not extraction**: this note used to flag
+  `TeamPoolCard` and `GoalCard` as each re-implementing the same
   "animate a progress-bar fill from `percentComplete`" `Animated.Value`
-  logic. Small (a dozen lines), but a shared `useProgressBarWidth` hook
-  would remove it if a third progress bar shows up.
-- `GoalBonusTakeover` (`home/components/`) and `SuccessOverlay`
-  (`home/components/`) were deliberately **not** folded into the
-  `Toast`/`CatchUpBanner` consolidation above — their animation shapes
-  (spring+scale takeover vs. banner-plus-floating-tag), timing, and
-  dismissal behavior differ enough that a forced shared primitive would
-  cost more (a prop surface trying to cover four unrelated shapes) than it
-  saves.
+  logic, worth a shared `useProgressBarWidth` hook if a third ever
+  appeared. `TeamPoolCard`'s percent-fill bar was since removed entirely
+  (ADR-0008 Decision 4 — Fas 2.7's leaderboard rewrite has no maximum for
+  a bar to represent), and no third progress bar has appeared elsewhere in
+  the app — so as of this cleanup pass there is exactly one implementation
+  left (`GoalCard`), and extracting a hook for a single call site would be
+  premature abstraction, not a duplication fix. Revisit if/when a second
+  progress bar actually shows up.
+- **Still deliberately unresolved**: `GoalBonusTakeover`
+  (`home/components/`) and `SuccessOverlay` (`home/components/`) are
+  **not** folded into `Toast` — their animation shapes (spring+scale
+  takeover vs. banner-plus-floating-tag), timing, and dismissal behavior
+  differ enough that a forced shared primitive would cost more (a prop
+  surface trying to cover three unrelated shapes) than it saves.

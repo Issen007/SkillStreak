@@ -10,15 +10,8 @@ import {
   Min,
 } from 'class-validator';
 import { PlayerLocale } from '../../common/locale/player-locale.enum';
+import { trimString } from '../../common/validation/trim-string.transform';
 import { IsEmailOrPhone } from './is-email-or-phone.validator';
-
-// class-validator's IsNotEmpty only rejects the exact empty string, not a
-// whitespace-only one — trim first (same pattern as
-// team-chat/dto/create-chat-message.dto.ts) so " " can't slip past
-// IsNotEmpty and the content-safety filter to become a permanently-persisted
-// blank Team.name/invite_code (teams have no rename/delete).
-const trimString = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
 
 // Sane birth-year range: oldest plausible active youth player vs. today.
 // Loose on purpose (this is a coarse sanity check, not age gating logic) —

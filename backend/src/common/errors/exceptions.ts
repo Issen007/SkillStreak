@@ -594,6 +594,100 @@ export class ErasureRequestNotActiveException extends AppException {
   }
 }
 
+// --- Fas 8 (staff SSO/RBAC — docs/adr/0023-pt-role-and-staff-sso-rbac.md
+// Part B) ------------------------------------------------------------------
+
+export class StaffUnauthorizedException extends AppException {
+  constructor(message = 'Missing or invalid staff session.') {
+    // Distinct code from the player-facing UnauthorizedTokenException — a
+    // completely separate cookie/secret universe (STAFF_JWT_SECRET, never
+    // JWT_SECRET), per Decision B2.
+    super('staff_unauthorized', message, HttpStatus.UNAUTHORIZED);
+  }
+}
+
+export class StaffAccountRevokedException extends AppException {
+  constructor() {
+    // AdminAuthGuard's per-request revocation check (security-reviewer's
+    // Part B pass, Finding 1) — this StaffAccount's revoked_at is set, so
+    // no session for it (however fresh) ever grants admin authority again.
+    super(
+      'staff_account_revoked',
+      'This staff account has been revoked.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class StaffAccountNotAdminException extends AppException {
+  constructor() {
+    // Thrown whether the account's current role column says 'pt' *or* its
+    // current email simply isn't (or is no longer) on the live ADMIN_EMAILS
+    // allow-list — AdminAuthGuard never distinguishes which, since neither
+    // the role column nor the JWT's role claim is authoritative here (see
+    // that guard's own comment).
+    super(
+      'not_admin',
+      'This action requires admin authority.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class StaffAccountNotPtException extends AppException {
+  constructor() {
+    super(
+      'not_pt',
+      'This action requires a pt-role staff session.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class StaffOAuthPendingAuthInvalidException extends AppException {
+  constructor() {
+    // Covers a missing, expired, or signature-invalid staff_auth_pending
+    // cookie — deliberately generic, same posture as
+    // InvalidOrExpiredCodeException, doesn't distinguish which.
+    super(
+      'oauth_pending_auth_invalid',
+      'No valid pending sign-in attempt found for this callback; start the sign-in flow again.',
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+}
+
+export class StaffOAuthStateMismatchException extends AppException {
+  constructor() {
+    // ADR-0023 Decision B6 (security-reviewer's Part B pass, Finding 3) —
+    // the callback's `state` query parameter didn't match the value minted
+    // at login and held in the signed staff_auth_pending cookie. Also
+    // covers a callback for the wrong provider (e.g. a google callback
+    // presenting a pending-auth cookie minted for microsoft).
+    super(
+      'oauth_state_mismatch',
+      'OAuth state parameter did not match — start the sign-in flow again.',
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+}
+
+export class StaffOAuthCallbackRejectedException extends AppException {
+  constructor() {
+    // Wraps any rejection openid-client itself raises during the token
+    // exchange/ID-token validation — including a nonce mismatch, an
+    // expired/replayed authorization code, or a PKCE verifier mismatch
+    // (ADR-0023 Decision B6). Deliberately generic in the response (never
+    // echoes the library's own error text to the client), same posture as
+    // every other auth-boundary exception in this file.
+    super(
+      'oauth_callback_rejected',
+      'OAuth sign-in could not be completed — start the sign-in flow again.',
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+}
+
 // ADR-0013 Decision 4 — PlayersService.transferCaptaincy's new rejection:
 // a captain can no longer hand off onto a teammate who is themselves
 // already mid-erasure (requested or grace_period), closing the gap where
@@ -604,6 +698,138 @@ export class CaptainTransferTargetMidErasureException extends AppException {
       'captain_transfer_target_mid_erasure',
       'newCaptainPlayerId has an active account-erasure request and cannot be made captain.',
       HttpStatus.CONFLICT,
+    );
+  }
+}
+
+// --- Fas 8 (PT role — docs/adr/0023-pt-role-and-staff-sso-rbac.md Part A,
+// Decisions A2-A5) --------------------------------------------------------
+
+export class PtInviteCodeInvalidException extends AppException {
+  constructor() {
+    // Deliberately generic, same posture as InviteCodeNotFoundException —
+    // covers "no such code", "expired", and "already redeemed" without
+    // distinguishing which.
+    super(
+      'pt_invite_code_invalid',
+      'This PT team-invite code is invalid, expired, or already used.',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+export class PtTeamLinkAlreadyActiveException extends AppException {
+  constructor() {
+    // Defensive backstop for idx_pt_team_link_one_active_per_team_pt —
+    // should be unreachable in the normal single-request flow, kept for
+    // the same reason ErasureAlreadyActiveException exists.
+    super(
+      'pt_team_link_already_active',
+      'This PT already has an active link to this team.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class PtTeamLinkNotFoundException extends AppException {
+  constructor() {
+    super(
+      'pt_team_link_not_found',
+      'No active PT team-link with this id was found for this team.',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+// docs/adr/0023 Decision A2/A3, Finding 6 (see the ADR's Status section) —
+// thrown by every PT-authenticated endpoint that requires an active
+// PtTeamLink to the target player's team: the consent-request write
+// endpoint AND (per the security-reviewer fix) the consent-status read
+// endpoint, identically. Without this on the read endpoint too, a `pt`-
+// role account with zero active team links could enumerate consent-status
+// for arbitrary player IDs app-wide.
+export class PtNoActiveTeamLinkException extends AppException {
+  constructor() {
+    super(
+      'no_active_team_link',
+      'This PT has no active team-link to the requested player’s team.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class PtConsentAlreadyActiveException extends AppException {
+  constructor() {
+    // Defensive backstop for idx_pt_player_consent_one_active_per_pt_player
+    // + the explicit dedupe check PtConsentService performs first.
+    super(
+      'pt_consent_already_active',
+      'A pending or approved consent request already exists for this PT/player pair.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class PtConsentBlockedPendingContactChangeException extends AppException {
+  constructor() {
+    // The exact contact-change-hijack-race fix from ADR-0013 Decision 2 /
+    // ADR-0019, reused verbatim for this new mailed-consent flow.
+    super(
+      'pt_consent_blocked_pending_contact_change',
+      'A contact-email change is pending for this player — try again once it resolves.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class PtConsentRateLimitedException extends AppException {
+  constructor() {
+    super(
+      'pt_consent_rate_limited',
+      'Too many consent requests from this PT account recently — try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+// docs/adr/0023 Decision A3's recommended additional guardrail: a global
+// cap on how many *pending* (not yet decided) consent requests one PT
+// account may have open at once — a compromised/bad-faith PT's
+// cross-team reach makes this a higher-leverage abuse surface than an
+// ordinary player's.
+export class PtConsentPendingCapExceededException extends AppException {
+  constructor() {
+    super(
+      'pt_consent_pending_cap_exceeded',
+      'This PT account already has the maximum number of pending consent requests open.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+export class PtConsentNotApprovedException extends AppException {
+  constructor() {
+    // Thrown by the per-player training-data allow-list read whenever no
+    // currently-`approved` PtPlayerConsent exists for this (pt, player)
+    // pair — re-checked live on every request (Decision A4), never a
+    // cached grant.
+    super(
+      'pt_consent_not_approved',
+      'No approved consent exists for this PT to view this player’s training data.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class PtPlayerConsentNotFoundException extends AppException {
+  constructor() {
+    // Deliberately generic — covers "no such id", "not owned by this
+    // player", and "already in a terminal state" without distinguishing
+    // which, same posture as InviteCodeNotFoundException.
+    super(
+      'pt_player_consent_not_found',
+      'No active PT consent with this id was found for this player.',
+      HttpStatus.NOT_FOUND,
     );
   }
 }

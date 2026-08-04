@@ -9,6 +9,7 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { SecondaryLink } from '../components/SecondaryLink';
 import { Toast } from '../components/Toast';
+import { LoadingOrRetry } from '../components/LoadingOrRetry';
 import { getWeeklyGoal, getWeeklyGoalHistory, patchWeeklyGoal } from '../api/endpoints';
 import { ApiError } from '../api/ApiError';
 import { colors } from '../theme/colors';
@@ -119,21 +120,17 @@ export function GoalScreen({ teamId, initialView = 'card' }: GoalScreenProps) {
   };
 
   if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.gold} size="large" />
-      </View>
-    );
+    return <LoadingOrRetry loading spinnerColor={colors.gold} />;
   }
 
   if (loadError || !data) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>{loadError ?? t('g1.genericError')}</Text>
-        <Text style={styles.retryText} onPress={() => void fetchGoal()}>
-          {t('g1.retry')}
-        </Text>
-      </View>
+      <LoadingOrRetry
+        loading={false}
+        errorMessage={loadError ?? t('g1.genericError')}
+        retryLabel={t('g1.retry')}
+        onRetry={() => void fetchGoal()}
+      />
     );
   }
 
@@ -378,25 +375,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 13,
     color: colors.textMuted,
-  },
-  centered: {
-    flex: 1,
-    backgroundColor: colors.paper,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 24,
-  },
-  errorText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.ink,
-    textAlign: 'center',
-  },
-  retryText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-    color: colors.ink,
-    textDecorationLine: 'underline',
   },
 });

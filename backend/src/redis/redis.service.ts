@@ -73,6 +73,26 @@ function erasureRequestDailyCapKey(playerId: string): string {
   return `erasure-request:${playerId}:daily-cap`;
 }
 
+// docs/adr/0023-pt-role-and-staff-sso-rbac.md Decision A2 — the
+// not-yet-redeemed PT team-invite code. Deliberately NOT a 4th new
+// Postgres table (the ADR's own "New tables" Consequences list names only
+// PtTeamLink/PtPlayerConsent) — this is exactly the "fast-moving, safe to
+// lose, single-use, short-TTL" state CLAUDE.md already assigns to Redis.
+// The stored value is the JSON-encoded { teamId, invitedByPlayerId } pair
+// needed to create the PtTeamLink row once a `pt`-role StaffAccount
+// redeems it.
+function ptTeamLinkInviteKey(code: string): string {
+  return `pt-team-link-invite:${code}`;
+}
+
+function ptConsentRequestCooldownKey(ptStaffAccountId: string): string {
+  return `pt-consent-request:${ptStaffAccountId}:cooldown`;
+}
+
+function ptConsentRequestDailyCapKey(ptStaffAccountId: string): string {
+  return `pt-consent-request:${ptStaffAccountId}:daily-cap`;
+}
+
 // docs/api/phase2-contract.md endpoint 3: "rate-limited per player" — a
 // per-IP @Throttle() (as used elsewhere in this codebase) doesn't express
 // that on its own, since a captain's IP isn't the thing being limited, the
@@ -172,6 +192,22 @@ const CLIP_REPORT_NOTIFY_COOLDOWN_SECONDS = 60 * 60 * 24;
 const ERASURE_REQUEST_COOLDOWN_SECONDS = 5 * 60;
 const ERASURE_REQUEST_DAILY_CAP_WINDOW_SECONDS = 60 * 60 * 24;
 const ERASURE_REQUEST_DAILY_CAP_MAX_PER_WINDOW = 3;
+
+// docs/adr/0023-pt-role-and-staff-sso-rbac.md Decision A2 — "short TTL,
+// e.g. 24 hours, single-use", the same shape as Team.invite_code/the
+// session-reissue code this ADR names as its direct precedent.
+const PT_TEAM_LINK_INVITE_TTL_SECONDS = 24 * 60 * 60;
+
+// docs/adr/0023-pt-role-and-staff-sso-rbac.md Decision A3 — "rate-limited
+// (burst + daily cap per PT, reusing RedisService's existing
+// tryClaim.../session-reissue-shaped pattern) — the realistic abuse
+// surface is a bad-faith or compromised PT account mass-requesting many
+// families' inboxes." Same two-layer shape/reasoning as
+// session-reissue/contact-change/erasure-request above, applied here
+// preemptively (named explicitly by the ADR) rather than found live.
+const PT_CONSENT_REQUEST_COOLDOWN_SECONDS = 5 * 60;
+const PT_CONSENT_REQUEST_DAILY_CAP_WINDOW_SECONDS = 60 * 60 * 24;
+const PT_CONSENT_REQUEST_DAILY_CAP_MAX_PER_WINDOW = 10;
 
 @Injectable()
 export class RedisService {
@@ -466,6 +502,82 @@ export class RedisService {
     windowSeconds: number = ERASURE_REQUEST_DAILY_CAP_WINDOW_SECONDS,
   ): Promise<boolean> {
     const key = erasureRequestDailyCapKey(playerId);
+    const count = await this.client.incr(key);
+    if (count === 1) {
+      await this.client.expire(key, windowSeconds);
+    }
+    return count <= maxPerWindow;
+  }
+
+  /**
+   * docs/adr/0023-pt-role-and-staff-sso-rbac.md Decision A2 — stores the
+   * not-yet-redeemed PT team-invite code's payload, 24h TTL, keyed by the
+   * code itself (already a high-entropy, single-use human code — see
+   * generateHumanCode). `NX` here is a defensive belt-and-braces check
+   * only (a fresh random code colliding with a still-live one is
+   * astronomically unlikely, same reasoning as every other
+   * generateHumanCode call site in this app); a collision fails loudly
+   * rather than silently overwriting someone else's still-valid invite.
+   */
+  async storePtTeamLinkInviteCode(
+    code: string,
+    payload: { teamId: string; invitedByPlayerId: string },
+    ttlSeconds: number = PT_TEAM_LINK_INVITE_TTL_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      ptTeamLinkInviteKey(code),
+      JSON.stringify(payload),
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
+  }
+
+  /**
+   * Atomic get-and-delete (Redis GETDEL, ioredis 5.11+/Redis 7+ — see
+   * docker-compose.yml/k8s/redis-deployment.yaml's `redis:7-alpine`) so a
+   * code can only ever be redeemed once, even under concurrent redemption
+   * attempts — no separate "check then delete" race window. Returns
+   * `null` for "no such code" and "already redeemed/expired" alike,
+   * deliberately not distinguished (same generic-error posture as every
+   * other mailed/shared-code lookup in this app).
+   */
+  async redeemPtTeamLinkInviteCode(
+    code: string,
+  ): Promise<{ teamId: string; invitedByPlayerId: string } | null> {
+    const raw = await this.client.getdel(ptTeamLinkInviteKey(code));
+    if (!raw) return null;
+    return JSON.parse(raw) as { teamId: string; invitedByPlayerId: string };
+  }
+
+  /** Same lock shape as tryClaimErasureRequestCooldown, for
+   * PtConsentService's consent-request endpoint (ADR-0023 Decision A3).
+   * Bounds burst rate only — see tryClaimPtConsentRequestDailyCap for
+   * sustained-volume protection. */
+  async tryClaimPtConsentRequestCooldown(
+    ptStaffAccountId: string,
+    ttlSeconds: number = PT_CONSENT_REQUEST_COOLDOWN_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      ptConsentRequestCooldownKey(ptStaffAccountId),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
+  }
+
+  /** Same fixed-window shape as tryClaimErasureRequestDailyCap — the burst
+   * cooldown above alone still allows a couple hundred forced-consent-
+   * request-email sends per day for one PT account. */
+  async tryClaimPtConsentRequestDailyCap(
+    ptStaffAccountId: string,
+    maxPerWindow: number = PT_CONSENT_REQUEST_DAILY_CAP_MAX_PER_WINDOW,
+    windowSeconds: number = PT_CONSENT_REQUEST_DAILY_CAP_WINDOW_SECONDS,
+  ): Promise<boolean> {
+    const key = ptConsentRequestDailyCapKey(ptStaffAccountId);
     const count = await this.client.incr(key);
     if (count === 1) {
       await this.client.expire(key, windowSeconds);

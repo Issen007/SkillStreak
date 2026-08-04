@@ -1,9 +1,7 @@
 import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { IsEmailOrPhone } from '../../onboarding/dto/is-email-or-phone.validator';
-
-const trimString = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
+import { trimString } from '../../common/validation/trim-string.transform';
 
 // Same bound as create-player.dto.ts's parentContact field.
 const MAX_CONTACT_LENGTH = 254;

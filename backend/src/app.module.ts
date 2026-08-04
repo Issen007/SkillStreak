@@ -14,7 +14,9 @@ import { OnboardingModule } from './onboarding/onboarding.module';
 import { PlayerPrivateInfoModule } from './player-private-info/player-private-info.module';
 import { PlayersModule } from './players/players.module';
 import { ProfileModule } from './profile/profile.module';
+import { PtModule } from './pt/pt.module';
 import { SessionModule } from './session/session.module';
+import { StaffAuthModule } from './staff-auth/staff-auth.module';
 import { TeamChatModule } from './team-chat/team-chat.module';
 import { TeamPoolModule } from './team-pool/team-pool.module';
 import { TeamsModule } from './teams/teams.module';
@@ -93,6 +95,18 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     TeamChatModule,
     VideoClipsModule,
     AccountErasureModule,
+    // docs/adr/0023-pt-role-and-staff-sso-rbac.md Part B — staff (admin/pt)
+    // SSO login + the two RBAC guards. ADR-0022's own admin-console
+    // endpoints are still a separate, not-yet-built follow-up — this
+    // module only exposes the account/session mechanism itself
+    // (/api/v1/staff-auth/*).
+    StaffAuthModule,
+    // docs/adr/0023-pt-role-and-staff-sso-rbac.md Part A — the PT role's
+    // two-step consent chain (PtTeamLink/PtPlayerConsent) and its
+    // read-only, allow-listed data surface (/api/v1/pt/*,
+    // /api/v1/teams/:teamId/pt-links/*, /api/v1/pt-consent*,
+    // /api/v1/players/me/pt-consents/*).
+    PtModule,
   ],
   providers: [
     {

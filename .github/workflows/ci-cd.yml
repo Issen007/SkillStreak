@@ -73,6 +73,13 @@ jobs:
       # doesn't decode to exactly 32 bytes, so a placeholder string like
       # JWT_SECRET's above won't work here.
       PII_ENCRYPTION_KEY: Y2ktb25seS10ZXN0LWtleS0zMi1ieXRlcy1sb25nISE=
+      # docs/adr/0023-pt-role-and-staff-sso-rbac.md Part B — required by
+      # env.validation.ts (same posture as JWT_SECRET above), but no OAuth
+      # client credentials are set here: no e2e test attempts a real
+      # provider round trip, per that ADR's own "don't attempt live
+      # three-provider OAuth testing" decision — see StaffAuthService's
+      # unit tests instead, which mock the OIDC client entirely.
+      STAFF_JWT_SECRET: ci-only-test-secret
       MINIO_ENDPOINT: http://localhost:9000
       MINIO_ACCESS_KEY: ci-minio-user
       MINIO_SECRET_KEY: ci-minio-password
@@ -294,6 +301,28 @@ jobs:
           MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
           MINIO_CLIPS_ACCESS_KEY: ${{ secrets.MINIO_CLIPS_ACCESS_KEY }}
           MINIO_CLIPS_SECRET_KEY: ${{ secrets.MINIO_CLIPS_SECRET_KEY }}
+          # docs/adr/0023-pt-role-and-staff-sso-rbac.md Part B.
+          # STAFF_JWT_SECRET is REQUIRED for the api Pod to boot at all
+          # (env.validation.ts) — this GitHub secret must be set (e.g.
+          # `gh secret set STAFF_JWT_SECRET`) before this merges to `main`,
+          # or the next production deploy will crash-loop on boot with an
+          # "Invalid environment configuration" error, the exact
+          # missing-live-Secret-key failure mode this project has hit
+          # before. The five OAuth-credential secrets below may stay unset
+          # until the project owner registers each real OAuth application
+          # (Decision B6) — k8s/api-deployment.yaml's `optional: true` on
+          # those specific keys means an empty value here is a safe,
+          # expected interim state, not a boot failure.
+          STAFF_JWT_SECRET: ${{ secrets.STAFF_JWT_SECRET }}
+          ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          MICROSOFT_OAUTH_CLIENT_ID: ${{ secrets.MICROSOFT_OAUTH_CLIENT_ID }}
+          MICROSOFT_OAUTH_CLIENT_SECRET: ${{ secrets.MICROSOFT_OAUTH_CLIENT_SECRET }}
+          APPLE_OAUTH_CLIENT_ID: ${{ secrets.APPLE_OAUTH_CLIENT_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
         run: |
           kubectl create secret generic skillstreak-secret \
             --namespace skillstreak \
@@ -306,6 +335,16 @@ jobs:
             --from-literal=MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
             --from-literal=MINIO_CLIPS_ACCESS_KEY="$MINIO_CLIPS_ACCESS_KEY" \
             --from-literal=MINIO_CLIPS_SECRET_KEY="$MINIO_CLIPS_SECRET_KEY" \
+            --from-literal=STAFF_JWT_SECRET="$STAFF_JWT_SECRET" \
+            --from-literal=ADMIN_EMAILS="$ADMIN_EMAILS" \
+            --from-literal=GOOGLE_OAUTH_CLIENT_ID="$GOOGLE_OAUTH_CLIENT_ID" \
+            --from-literal=GOOGLE_OAUTH_CLIENT_SECRET="$GOOGLE_OAUTH_CLIENT_SECRET" \
+            --from-literal=MICROSOFT_OAUTH_CLIENT_ID="$MICROSOFT_OAUTH_CLIENT_ID" \
+            --from-literal=MICROSOFT_OAUTH_CLIENT_SECRET="$MICROSOFT_OAUTH_CLIENT_SECRET" \
+            --from-literal=APPLE_OAUTH_CLIENT_ID="$APPLE_OAUTH_CLIENT_ID" \
+            --from-literal=APPLE_TEAM_ID="$APPLE_TEAM_ID" \
+            --from-literal=APPLE_KEY_ID="$APPLE_KEY_ID" \
+            --from-literal=APPLE_PRIVATE_KEY="$APPLE_PRIVATE_KEY" \
             --dry-run=client -o yaml > k8s/secret.yaml
 
       - name: Log in to GitHub Container Registry
