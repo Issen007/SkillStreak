@@ -3535,6 +3535,98 @@ specifically, explicitly not for players.
       pass and remains open** — this ADR's own sequencing required Part
       B's account mechanism to exist first; Part A is unblocked to start
       now.
+- [x] **backend-developer** (Part A — 2026-08-04): the PT role's full
+      two-step consent chain and read-only data surface, built on Part B's
+      already-merged `staff-auth/` module. New `pt/` module: two new
+      tables/entities — `PtTeamLink` (`team_id`/`pt_staff_account_id` FKs
+      `ON DELETE CASCADE`, `invited_by_player_id` `ON DELETE SET NULL`,
+      partial unique index "one active link per (team, PT)") and
+      `PtPlayerConsent` (`pt_team_link_id`/`pt_staff_account_id`/`player_id`
+      all `ON DELETE CASCADE`, partial unique index "one active
+      (pending_review/approved) row per (PT, player)") — migration
+      `1786000000000-AddPtTeamLinkAndPlayerConsent.ts`. The not-yet-redeemed
+      team-invite code deliberately gets **no** third table — it's Redis
+      state (`RedisService.storePtTeamLinkInviteCode`/
+      `redeemPtTeamLinkInviteCode`, atomic `GETDEL`, 24h TTL), per the ADR's
+      own "New tables" list naming only the two above. Three services, kept
+      deliberately separate per the ADR's own "link vs. consent vs. data"
+      framing: `PtTeamLinksService` (captain-side invite generate/list/
+      revoke, reusing `PlayersService.assertIsCaptainOfTeam` verbatim — no
+      new captain guard — plus the PT's own invite-redemption; `revoke`
+      cascade-updates every `pending_review`/`approved` `PtPlayerConsent`
+      rooted under the revoked link to `status = 'revoked'`,
+      `revoked_reason = 'team_link_revoked'`, in one transaction);
+      `PtConsentService` (the per-player mailed review-and-approve chain —
+      reuses ADR-0013 Decision 2's contact-change-hijack-race fix verbatim,
+      one `getParentContact()` call snapshotted once, `hasPendingContact
+      Change` checked before any rate-limit budget is spent; burst cooldown
+      + daily cap + a global pending-request cap, all Redis-backed, mirror
+      the erasure-request rate-limit shape; three independent revocation
+      levers — player self-service (`POST /api/v1/players/me/pt-consents/
+      :id/revoke`), a non-expiring mailed `revoke_code` link (`GET/POST
+      /api/v1/pt-consent-revoke/:revokeCode`), and the team-link cascade
+      above); `PtDataService` (Decision A5's allow-list, structurally
+      enforced — every method takes an explicit, verified
+      `(ptStaffAccountId, teamId/playerId)` pair and re-checks the live
+      relationship itself, never a cached grant; the per-player view
+      returns exactly `screenName`/streak fields/`TrainingLogEntry` history/
+      `BadgeAward.key`+`displayName`+`awardedAt` — `context`, including its
+      freeform `note` subfield, is never read by this service at all, not
+      merely omitted from a response DTO). Endpoints: `POST/GET
+      /api/v1/teams/:teamId/pt-links{,/invite,/:id/revoke}` (captain,
+      `JwtAuthGuard`), `POST /api/v1/pt/team-links/redeem` + `GET
+      /api/v1/pt/team-links` (PT, `PtAuthGuard` — the team-aggregate roster
+      view), `POST /api/v1/pt/players/:playerId/consent-requests` + `GET
+      .../consent-status` + `GET /api/v1/pt/players/:playerId` (PT,
+      `PtAuthGuard`), `GET/POST /api/v1/pt-consent/:reviewCode{,/approve,
+      /decline}` + `GET/POST /api/v1/pt-consent-revoke/:revokeCode`
+      (unauthenticated mailed links, throttled, mirroring
+      `AccountErasureController`'s GET-preview/POST-action split exactly,
+      since ADR-0019 itself was never implemented in code to mirror
+      instead). **Security-reviewer's Part A Finding 6 fix, verified**:
+      `GET .../consent-status` calls the exact same `assertActiveTeamLink`
+      private helper as `POST .../consent-requests` — a dedicated test
+      confirms a PT with zero active team links gets `403
+      no_active_team_link` from the read endpoint too, not just the write
+      one. New mail templates (`pt-consent-request-email.template.ts`,
+      `pt-consent-approved-email.template.ts`) and landing pages
+      (`pt-consent-page.templates.ts`) — **sv/en only for v1, a deliberate,
+      named scope decision** (unlike this codebase's other mail templates,
+      which cover all 8 `PlayerLocale` values), flagged below as a small,
+      additive follow-up rather than silently shipped as complete. New
+      exceptions (`common/errors/exceptions.ts`, "Fas 8" section):
+      `PtInviteCodeInvalidException`, `PtTeamLinkAlreadyActiveException`,
+      `PtTeamLinkNotFoundException`, `PtNoActiveTeamLinkException`,
+      `PtConsentAlreadyActiveException`,
+      `PtConsentBlockedPendingContactChangeException`,
+      `PtConsentRateLimitedException`, `PtConsentPendingCapExceededException`,
+      `PtConsentNotApprovedException`, `PtPlayerConsentNotFoundException`.
+      25 new focused unit tests across three spec files
+      (`pt-team-links.service.spec.ts` — including a dedicated cascade-
+      revoke test asserting every consent under a revoked link actually
+      flips to `revoked`/`team_link_revoked`; `pt-consent.service.spec.ts`
+      — the full consent-chain ordering, the enumeration-guard fix, both
+      mailed-link levers, and the player self-service lever;
+      `pt-data.service.spec.ts` — the team-aggregate tier's live-roster
+      behavior, the per-player tier's consent gate, and an explicit
+      assertion that a returned badge has exactly three keys, `context`/
+      `note` never among them) + the existing 327, all passing (352/352);
+      e2e suite unaffected (141/141, no new e2e specs added — Part A has no
+      externally-registered OAuth dependency to make live-testing
+      infeasible the way Part B's did, but this pass scoped its new
+      coverage to focused unit tests per the task, not a new e2e file).
+      `pnpm run lint`/`pnpm run build` both clean. **Left open, not
+      silently decided**: `GET /api/v1/admin/pt/...` oversight routes
+      (Decision B4's "admin can read any already-consented PT relationship
+      too" argument) are not built by this pass — `PtDataService`'s methods
+      already take an explicit `ptStaffAccountId` parameter rather than an
+      implicit "current caller" assumption specifically so wiring an
+      `AdminAuthGuard`-gated route onto the same methods later is additive,
+      not a redesign; not built now because the task's own endpoint list
+      scoped this pass to Part A's PT/captain-facing surface only. Also
+      left open: the remaining 6 `PlayerLocale` translations for the two
+      new mail templates; a real captain-facing UI for the invite/revoke
+      flow (ux-designer territory, unchanged from the ADR's own hand-off).
 - [ ] **project owner**: registering three real OAuth applications and
       their production redirect URIs, maintaining `ADMIN_EMAILS`, setting
       the new `STAFF_JWT_SECRET` GitHub Actions secret before the next

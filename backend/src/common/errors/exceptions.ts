@@ -701,3 +701,135 @@ export class CaptainTransferTargetMidErasureException extends AppException {
     );
   }
 }
+
+// --- Fas 8 (PT role — docs/adr/0023-pt-role-and-staff-sso-rbac.md Part A,
+// Decisions A2-A5) --------------------------------------------------------
+
+export class PtInviteCodeInvalidException extends AppException {
+  constructor() {
+    // Deliberately generic, same posture as InviteCodeNotFoundException —
+    // covers "no such code", "expired", and "already redeemed" without
+    // distinguishing which.
+    super(
+      'pt_invite_code_invalid',
+      'This PT team-invite code is invalid, expired, or already used.',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+export class PtTeamLinkAlreadyActiveException extends AppException {
+  constructor() {
+    // Defensive backstop for idx_pt_team_link_one_active_per_team_pt —
+    // should be unreachable in the normal single-request flow, kept for
+    // the same reason ErasureAlreadyActiveException exists.
+    super(
+      'pt_team_link_already_active',
+      'This PT already has an active link to this team.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class PtTeamLinkNotFoundException extends AppException {
+  constructor() {
+    super(
+      'pt_team_link_not_found',
+      'No active PT team-link with this id was found for this team.',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+// docs/adr/0023 Decision A2/A3, Finding 6 (see the ADR's Status section) —
+// thrown by every PT-authenticated endpoint that requires an active
+// PtTeamLink to the target player's team: the consent-request write
+// endpoint AND (per the security-reviewer fix) the consent-status read
+// endpoint, identically. Without this on the read endpoint too, a `pt`-
+// role account with zero active team links could enumerate consent-status
+// for arbitrary player IDs app-wide.
+export class PtNoActiveTeamLinkException extends AppException {
+  constructor() {
+    super(
+      'no_active_team_link',
+      'This PT has no active team-link to the requested player’s team.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class PtConsentAlreadyActiveException extends AppException {
+  constructor() {
+    // Defensive backstop for idx_pt_player_consent_one_active_per_pt_player
+    // + the explicit dedupe check PtConsentService performs first.
+    super(
+      'pt_consent_already_active',
+      'A pending or approved consent request already exists for this PT/player pair.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class PtConsentBlockedPendingContactChangeException extends AppException {
+  constructor() {
+    // The exact contact-change-hijack-race fix from ADR-0013 Decision 2 /
+    // ADR-0019, reused verbatim for this new mailed-consent flow.
+    super(
+      'pt_consent_blocked_pending_contact_change',
+      'A contact-email change is pending for this player — try again once it resolves.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+export class PtConsentRateLimitedException extends AppException {
+  constructor() {
+    super(
+      'pt_consent_rate_limited',
+      'Too many consent requests from this PT account recently — try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+// docs/adr/0023 Decision A3's recommended additional guardrail: a global
+// cap on how many *pending* (not yet decided) consent requests one PT
+// account may have open at once — a compromised/bad-faith PT's
+// cross-team reach makes this a higher-leverage abuse surface than an
+// ordinary player's.
+export class PtConsentPendingCapExceededException extends AppException {
+  constructor() {
+    super(
+      'pt_consent_pending_cap_exceeded',
+      'This PT account already has the maximum number of pending consent requests open.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+export class PtConsentNotApprovedException extends AppException {
+  constructor() {
+    // Thrown by the per-player training-data allow-list read whenever no
+    // currently-`approved` PtPlayerConsent exists for this (pt, player)
+    // pair — re-checked live on every request (Decision A4), never a
+    // cached grant.
+    super(
+      'pt_consent_not_approved',
+      'No approved consent exists for this PT to view this player’s training data.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class PtPlayerConsentNotFoundException extends AppException {
+  constructor() {
+    // Deliberately generic — covers "no such id", "not owned by this
+    // player", and "already in a terminal state" without distinguishing
+    // which, same posture as InviteCodeNotFoundException.
+    super(
+      'pt_player_consent_not_found',
+      'No active PT consent with this id was found for this player.',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
