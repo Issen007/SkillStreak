@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { AppHeader } from './components/AppHeader';
 import { ProfileScreen } from './ProfileScreen';
 import { StreakCard } from './components/StreakCard';
+import { StreakGapBanner } from './components/StreakGapBanner';
+import { StreakSaverCelebration } from './components/StreakSaverCelebration';
 import { TeamPoolCard } from './components/TeamPoolCard';
 import { WaitingCard } from './components/WaitingCard';
 import { TrainedButton } from './components/TrainedButton';
@@ -57,6 +59,14 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
 
   const [successMoment, setSuccessMoment] = useState<SuccessMoment | null>(null);
   const [goalBonusMoment, setGoalBonusMoment] = useState<{ awardedPoints: number } | null>(null);
+  // docs/design/streak-savers-ui.md §3 — the "streak saved!" celebration,
+  // triggered once from a training-log response's `streak.streakSaverSpent
+  // > 0`, inserted into the same mutually-exclusive overlay chain as
+  // `goalBonusMoment`/`successMoment` (goalBonus still wins outright, §3.1).
+  const [streakSaverMoment, setStreakSaverMoment] = useState<{
+    currentStreakCount: number;
+    bankedStreakSaverCount: number;
+  } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   // Screen LB1/LB2 (Fas 2.7) — a local view toggle to reach the full
   // leaderboard, same lightweight "no navigation library" pattern
@@ -143,6 +153,18 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
                 // Every log means "logged today" from here on, regardless
                 // of whether this particular log was the day's first.
                 alreadyLoggedToday: true,
+                // docs/design/streak-savers-ui.md §3.2 fix 1 — otherwise
+                // StreakCard's badge (§1) shows a stale count until the
+                // next full `me` fetch (app foreground), even though the
+                // updated number already came back on this response.
+                bankedStreakSaverCount: response.streak.bankedStreakSaverCount,
+                // docs/design/streak-savers-ui.md §3.2 fix 2 — a
+                // successful log by definition just resolved whatever gap
+                // existed, so this is always correct to null out here;
+                // without it StreakGapBanner (§2) would keep rendering
+                // with stale, now-resolved values after the very log that
+                // resolved them.
+                pendingStreakGap: null,
               },
               teamPool: {
                 ...prev.teamPool,
@@ -166,6 +188,14 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
         // update above regardless, so nothing further is needed for that.
         setGoalBonusMoment({ awardedPoints: response.goalBonus.awardedPoints });
         onGoalBonusTriggered?.();
+      } else if (response.streak.streakSaverSpent > 0) {
+        // docs/design/streak-savers-ui.md §3.1 — inserted second in the
+        // precedence chain, after goalBonus (still wins outright — kept
+        // as-is, see §3.1's own reasoning) and before H5/H6.
+        setStreakSaverMoment({
+          currentStreakCount: response.streak.currentStreakCount,
+          bankedStreakSaverCount: response.streak.bankedStreakSaverCount,
+        });
       } else if (response.streak.alreadyLoggedToday === false) {
         // This was the day's first log — State H5.
         setSuccessMoment({
@@ -253,6 +283,12 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
             awardedPoints={goalBonusMoment.awardedPoints}
             onDismiss={() => setGoalBonusMoment(null)}
           />
+        ) : streakSaverMoment ? (
+          <StreakSaverCelebration
+            currentStreakCount={streakSaverMoment.currentStreakCount}
+            bankedStreakSaverCount={streakSaverMoment.bankedStreakSaverCount}
+            onDismiss={() => setStreakSaverMoment(null)}
+          />
         ) : successMoment?.kind === 'first-log' ? (
           <SuccessOverlay
             bannerText={t('homeScreen.successBanner', { count: successMoment.streakCount })}
@@ -264,10 +300,20 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
         ) : null}
 
         {isApproved ? (
-          <StreakCard
-            currentStreakCount={me.streak.currentStreakCount}
-            alreadyLoggedToday={me.streak.alreadyLoggedToday}
-          />
+          <>
+            <StreakCard
+              currentStreakCount={me.streak.currentStreakCount}
+              alreadyLoggedToday={me.streak.alreadyLoggedToday}
+              bankedStreakSaverCount={me.streak.bankedStreakSaverCount}
+            />
+            {me.streak.pendingStreakGap ? (
+              <StreakGapBanner
+                missedDayCount={me.streak.pendingStreakGap.missedDayCount}
+                coverableWithBankedSavers={me.streak.pendingStreakGap.coverableWithBankedSavers}
+                longestStreakCount={me.streak.longestStreakCount}
+              />
+            ) : null}
+          </>
         ) : (
           <WaitingCard
             consentStatus={me.player.consentStatus}

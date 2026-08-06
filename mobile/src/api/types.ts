@@ -90,6 +90,14 @@ export interface TrainingLogResponse {
     currentStreakCount: number;
     longestStreakCount: number;
     alreadyLoggedToday: boolean;
+    // NEW (docs/adr/0024-streak-savers.md, docs/design/streak-savers-ui.md
+    // §0) — post-transaction banked-saver balance (0-4), and whether/how
+    // many banked savers this exact log just spent to bridge a gap.
+    // `streakSaverSpent` is deliberately singular here (the response field
+    // name), distinct from the backend-internal `streakSaversSpent`.
+    bankedStreakSaverCount: number;
+    streakSaverSpent: number;
+    streakSaverEarned: boolean;
   };
   // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed —
   // there's no fixed maximum anymore. Deliberately no `rank` here either
@@ -134,6 +142,19 @@ export interface PlayerMeResponse {
     // add a consumer, re-fetch `me` first rather than trusting this value.
     lastTrainedDate: string | null;
     alreadyLoggedToday: boolean;
+    // NEW (docs/adr/0024-streak-savers.md, docs/design/streak-savers-ui.md
+    // §0/§1) — current banked-saver balance (0-4), always present whenever
+    // `me` loads (drives StreakCard's badge, §1). `pendingStreakGap` is
+    // non-null for ANY open gap of 1+ missed days, whether or not it's
+    // actually coverable — `coverableWithBankedSavers` is what
+    // distinguishes the two cases (StreakGapBanner, §2); see §0's note
+    // that ADR-0024's own prose undersells this, confirmed against
+    // `PlayersController.getMe` directly.
+    bankedStreakSaverCount: number;
+    pendingStreakGap: {
+      missedDayCount: number;
+      coverableWithBankedSavers: boolean;
+    } | null;
   };
   // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed,
   // rank/teamCount added — see docs/api/phase2.7-contract.md. `rank`/

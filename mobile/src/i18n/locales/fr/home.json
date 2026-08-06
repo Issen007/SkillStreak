@@ -44,7 +44,30 @@
   "streakCard": {
     "loggedTodayChip": "Enregistré aujourd'hui ✓",
     "count": "{{count}} jours",
-    "label": "Ta série personnelle — continue comme ça !"
+    "label": "Ta série personnelle — continue comme ça !",
+    "saverBadgeA11y": "Tu as {{count}} jours sauvegardés. Ils protègent ta série si tu rates un jour d'entraînement.",
+    "saverBadgeA11yZero": "Tu n'as pas encore de jours sauvegardés. Entraîne-toi 7 jours de suite pour en obtenir un !"
+  },
+  "saverInfoSheet": {
+    "heading": "C'est quoi les jours sauvegardés ?",
+    "bodyHasSavers": "Tu as {{count}} jours sauvegardés. Si tu rates un jour d'entraînement, on utilise automatiquement un jour sauvegardé pour continuer ta série. Tu gagnes un nouveau jour sauvegardé tous les 7 jours d'entraînement d'affilée, jusqu'à 4 maximum.",
+    "bodyNoSavers": "Tu n'as pas encore de jours sauvegardés. Entraîne-toi 7 jours de suite pour obtenir le premier ! Il protège ta série si jamais tu rates un jour.",
+    "close": "Compris !"
+  },
+  "streakGapBanner": {
+    "coverable": {
+      "headline": "Ta série est protégée ! 🛡️",
+      "body": "Tu as raté {{missedDayCount}} jours, mais ce n'est pas grave — on utilise automatiquement {{missedDayCount}} jours sauvegardés pour continuer ta série. Enregistre ton entraînement aujourd'hui !"
+    },
+    "tooLarge": {
+      "headline": "C'est reparti pour un nouveau départ ! 🌱",
+      "body": "Ça fait un moment — pas de souci ! Enregistre ton entraînement aujourd'hui pour démarrer une nouvelle série. Ton record de {{longestStreakCount}} jours reste à toi pour toujours. 💪"
+    }
+  },
+  "streakSaverCelebration": {
+    "headline": "Ta série est sauvée !",
+    "sub": "Tu étais absent un moment, mais tes jours sauvegardés ont automatiquement couvert ça.",
+    "detail": "🔥 {{currentStreakCount}} jours d'affilée — {{bankedStreakSaverCount}} jours sauvegardés restants"
   },
   "teamPoolCard": {
     "title": "🥇 Tableau de l'Or des Mondiaux",

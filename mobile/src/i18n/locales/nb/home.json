@@ -44,7 +44,30 @@
   "streakCard": {
     "loggedTodayChip": "Logget i dag ✓",
     "count": "{{count}} dager",
-    "label": "Din personlige rekke — fortsett sånn!"
+    "label": "Din personlige rekke — fortsett sånn!",
+    "saverBadgeA11y": "Du har {{count}} sparte dager. De beskytter rekka di hvis du går glipp av en treningsdag.",
+    "saverBadgeA11yZero": "Du har ingen sparte dager ennå. Tren 7 dager på rad så får du en!"
+  },
+  "saverInfoSheet": {
+    "heading": "Hva er sparte dager?",
+    "bodyHasSavers": "Du har {{count}} sparte dager. Går du glipp av en treningsdag bruker vi automatisk en spart dag, så rekka di fortsetter. Du får en ny spart dag for hver 7. dag du trener på rad, opptil 4 stykker.",
+    "bodyNoSavers": "Du har ingen sparte dager ennå. Tren 7 dager på rad så får du den første! Den beskytter rekka di hvis du en gang går glipp av en dag.",
+    "close": "Greit!"
+  },
+  "streakGapBanner": {
+    "coverable": {
+      "headline": "Rekka di er beskyttet! 🛡️",
+      "body": "Du gikk glipp av {{missedDayCount}} dager, men det er greit — vi bruker {{missedDayCount}} sparte dager automatisk så rekka fortsetter. Logg treningen din i dag!"
+    },
+    "tooLarge": {
+      "headline": "På tide med en ny start! 🌱",
+      "body": "Det er en stund siden sist — helt greit! Logg treningen din i dag så starter en ny rekke. Rekorden din på {{longestStreakCount}} dager finnes for alltid. 💪"
+    }
+  },
+  "streakSaverCelebration": {
+    "headline": "Rekka di er reddet!",
+    "sub": "Du var borte en stund, men de sparte dagene dine dekket det automatisk.",
+    "detail": "🔥 {{currentStreakCount}} dager på rad — {{bankedStreakSaverCount}} sparte dager igjen"
   },
   "teamPoolCard": {
     "title": "🥇 VM-gull-tabellen",

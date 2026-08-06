@@ -63,4 +63,18 @@ export const colors = {
    * consent", a different concept). */
   tipBg: '#FFF8E8',
   tipBorder: '#FFE7A8',
+  /** A darker flame-family tone usable as *text* on white (e.g. the
+   * banked-saver badge's count) — distinct from `flame` itself, which
+   * stays fill-only per the contrast rule. Same role as `goldText`, for
+   * the individual-streak motif instead of the team one.
+   * (docs/design/streak-savers-ui.md §1) */
+  flameText: '#B84A1E',
+  /** "Fresh start" banner fill + border — the not-coverable branch of the
+   * pending-streak-gap banner (docs/design/streak-savers-ui.md §2.2).
+   * Deliberately its own calm, desaturated green-neutral — distinct from
+   * `success` (a saturated confirmation-only fill) and from
+   * `pendingBg`/`pausedBg` (a different meaning: waiting/blocked, not
+   * "nothing to wait for, just start again"). */
+  freshStartBg: '#F1F7F1',
+  freshStartBorder: '#CFE3CF',
 } as const;

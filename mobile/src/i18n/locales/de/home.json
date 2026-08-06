@@ -44,7 +44,30 @@
   "streakCard": {
     "loggedTodayChip": "Heute eingetragen ✓",
     "count": "{{count}} Tage",
-    "label": "Deine persönliche Serie — weiter so!"
+    "label": "Deine persönliche Serie — weiter so!",
+    "saverBadgeA11y": "Du hast {{count}} gesparte Tage. Sie schützen deine Serie, wenn du einen Trainingstag verpasst.",
+    "saverBadgeA11yZero": "Du hast noch keine gesparten Tage. Trainiere 7 Tage in Folge, um einen zu bekommen!"
+  },
+  "saverInfoSheet": {
+    "heading": "Was sind gesparte Tage?",
+    "bodyHasSavers": "Du hast {{count}} gesparte Tage. Verpasst du einen Trainingstag, nutzen wir automatisch einen gesparten Tag, damit deine Serie weitergeht. Du bekommst alle 7 Tage in Folge einen neuen gesparten Tag, bis zu 4 Stück.",
+    "bodyNoSavers": "Du hast noch keine gesparten Tage. Trainiere 7 Tage in Folge, um deinen ersten zu bekommen! Er schützt deine Serie, falls du mal einen Tag verpasst.",
+    "close": "Alles klar!"
+  },
+  "streakGapBanner": {
+    "coverable": {
+      "headline": "Deine Serie ist geschützt! 🛡️",
+      "body": "Du hast {{missedDayCount}} Tage verpasst, aber das ist okay — wir nutzen automatisch {{missedDayCount}} gesparte Tage, damit deine Serie weitergeht. Trag dein Training heute ein!"
+    },
+    "tooLarge": {
+      "headline": "Zeit für einen Neustart! 🌱",
+      "body": "Es ist eine Weile her — total okay! Trag dein Training heute ein, dann startet eine neue Serie. Dein Rekord von {{longestStreakCount}} Tagen bleibt dir für immer erhalten. 💪"
+    }
+  },
+  "streakSaverCelebration": {
+    "headline": "Deine Serie ist gerettet!",
+    "sub": "Du warst eine Weile weg, aber deine gesparten Tage haben das automatisch abgedeckt.",
+    "detail": "🔥 {{currentStreakCount}} Tage in Folge — {{bankedStreakSaverCount}} gesparte Tage übrig"
   },
   "teamPoolCard": {
     "title": "🥇 WM-Gold-Tabelle",

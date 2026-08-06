@@ -44,7 +44,30 @@
   "streakCard": {
     "loggedTodayChip": "Kirjattu tänään ✓",
     "count": "{{count}} päivää",
-    "label": "Oma putkesi — jatka samaan malliin!"
+    "label": "Oma putkesi — jatka samaan malliin!",
+    "saverBadgeA11y": "Sinulla on {{count}} säästettyä päivää. Ne suojaavat putkeasi, jos jäät väliin treenipäivän.",
+    "saverBadgeA11yZero": "Sinulla ei ole vielä säästettyjä päiviä. Treenaa 7 päivää putkeen niin saat yhden!"
+  },
+  "saverInfoSheet": {
+    "heading": "Mitä säästetyt päivät ovat?",
+    "bodyHasSavers": "Sinulla on {{count}} säästettyä päivää. Jos jäät väliin treenipäivän, käytämme automaattisesti yhden säästetyn päivän, jotta putkesi jatkuu. Saat uuden säästetyn päivän aina 7 peräkkäisen treenipäivän jälkeen, enintään 4 kappaletta.",
+    "bodyNoSavers": "Sinulla ei ole vielä säästettyjä päiviä. Treenaa 7 päivää putkeen niin saat ensimmäisen! Se suojaa putkeasi, jos jäät joskus väliin.",
+    "close": "Selvä!"
+  },
+  "streakGapBanner": {
+    "coverable": {
+      "headline": "Putkesi on suojattu! 🛡️",
+      "body": "Jäit väliin {{missedDayCount}} päivää, mutta se on ok — käytämme automaattisesti {{missedDayCount}} säästettyä päivää, jotta putki jatkuu. Kirjaa treenisi tänään!"
+    },
+    "tooLarge": {
+      "headline": "Aika uudelle alulle! 🌱",
+      "body": "Siitä on jo aikaa — ihan ok! Kirjaa treenisi tänään niin uusi putki alkaa. Ennätyksesi {{longestStreakCount}} päivää säilyy ikuisesti. 💪"
+    }
+  },
+  "streakSaverCelebration": {
+    "headline": "Putkesi on pelastettu!",
+    "sub": "Olit poissa hetken, mutta säästetyt päiväsi kattoivat sen automaattisesti.",
+    "detail": "🔥 {{currentStreakCount}} päivää putkeen — {{bankedStreakSaverCount}} säästettyä päivää jäljellä"
   },
   "teamPoolCard": {
     "title": "🥇 MM-kultataulukko",
