@@ -672,6 +672,24 @@ export class RedisService {
     };
   }
 
+  /**
+   * Deletes a scheduled `@Cron` job's non-blocking try-lock (see
+   * tryClaimScheduledJobRun/scheduledJobRunKey above), so the next
+   * tryClaimScheduledJobRun call for that job succeeds immediately instead
+   * of waiting out its TTL. Test-only in practice today —
+   * phase4.2-account-erasure.e2e-spec.ts's `beforeEach` calls this between
+   * `it()` blocks that call AccountErasureSweepService.sweep() directly and
+   * repeatedly within the same process/Redis connection, where the real
+   * SCHEDULED_JOB_LOCK_TTL_SECONDS (5 minutes) would otherwise make every
+   * sweep() after the first in that file silently no-op for the rest of the
+   * run. Deliberately a single key DEL, not a full flushdb, so it doesn't
+   * disturb other Redis state (rate limits, leaderboards, idempotency keys)
+   * the same test file's other assertions may depend on.
+   */
+  async deleteScheduledJobRunLock(jobName: string): Promise<void> {
+    await this.client.del(scheduledJobRunKey(jobName));
+  }
+
   async quit(): Promise<void> {
     await this.client.quit();
   }

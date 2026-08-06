@@ -12,6 +12,7 @@ import {
   AccountErasureStatus,
 } from '../src/account-erasure/entities/account-erasure-request.entity';
 import { PlayerTokenService } from '../src/auth/player-token.service';
+import { RedisService } from '../src/redis/redis.service';
 import {
   Challenge,
   ChallengeStatus,
@@ -54,6 +55,7 @@ describe('Fas 4 (ADR-0013): self-service GDPR account erasure (e2e)', () => {
   let dataSource: DataSource;
   let playerTokenService: PlayerTokenService;
   let sweepService: AccountErasureSweepService;
+  let redisService: RedisService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -74,10 +76,25 @@ describe('Fas 4 (ADR-0013): self-service GDPR account erasure (e2e)', () => {
     dataSource = app.get(DataSource);
     playerTokenService = app.get(PlayerTokenService);
     sweepService = app.get(AccountErasureSweepService);
+    redisService = app.get(RedisService);
   });
 
   afterAll(async () => {
     await app.close();
+  });
+
+  // sweepService.sweep() is called directly and repeatedly across this
+  // file's `it()` blocks, all within the same app instance/Redis
+  // connection — without this, AccountErasureSweepService's production
+  // cross-replica try-lock (ce84e0b) would let only the *first* sweep()
+  // call in this whole file actually run, since the lock's real TTL
+  // (5 minutes) far outlasts a single test and the global Redis flush only
+  // runs once for the entire e2e suite (see redis-flush.global-setup.js).
+  // Resetting just this one key (not a full flush) leaves other Redis
+  // state — rate-limit cooldowns, leaderboards — that other tests in this
+  // file may still depend on untouched.
+  beforeEach(async () => {
+    await redisService.deleteScheduledJobRunLock('account-erasure:sweep');
   });
 
   async function createTeamFixture() {

@@ -297,6 +297,9 @@ describe('Phase 1 API (e2e)', () => {
         currentStreakCount: 1,
         longestStreakCount: 1,
         alreadyLoggedToday: false,
+        bankedStreakSaverCount: 0,
+        streakSaverSpent: 0,
+        streakSaverEarned: false,
       });
       expect(first.teamPool.pointsTotal).toBe(15);
 
@@ -312,6 +315,9 @@ describe('Phase 1 API (e2e)', () => {
         currentStreakCount: 1,
         longestStreakCount: 1,
         alreadyLoggedToday: true,
+        bankedStreakSaverCount: 0,
+        streakSaverSpent: 0,
+        streakSaverEarned: false,
       });
       expect(second.teamPool.pointsTotal).toBe(35);
 
