@@ -21,6 +21,8 @@ import {
 import { ParentalConsentStatus } from './player-consent-status.enum';
 import { TeamJoinStatus } from './team-join-status.enum';
 import { Player } from './entities/player.entity';
+import { StreakSaverEvent } from './entities/streak-saver-event.entity';
+import { StreakSaverEventType } from './streak-saver-event-type.enum';
 
 const ACTIVE_ERASURE_STATUSES = [
   AccountErasureStatus.REQUESTED,
@@ -174,6 +176,21 @@ export class PlayersService {
     await this.playerRepository.update({ id: playerId }, { locale });
   }
 
+  /**
+   * Persists a streak transition — `TrainingLogsService.logTraining`'s own
+   * transaction, guarded by its existing `findByIdForUpdate` row lock (see
+   * that service's comment). `streakSaverEvents` is optional purely so
+   * this method's shape stays backward-compatible for any future caller
+   * that has nothing to report; `logTraining` always passes it, even when
+   * both counts are zero/false, since that's still a real (empty)
+   * transition, not an omission.
+   *
+   * docs/adr/0024-streak-savers.md Decision 4/5 — writes one `spent`
+   * `StreakSaverEvent` row per covered date (chronological order, so
+   * `bankedBalanceAfter` decreases one saver at a time and reads naturally
+   * as a history), then one `earned` row if a saver was earned this log.
+   * "One row per saver, not one row per resolution" per that Decision.
+   */
   async updateStreakFields(
     manager: EntityManager,
     playerId: string,
@@ -181,9 +198,47 @@ export class PlayersService {
       currentStreakCount: number;
       longestStreakCount: number;
       lastTrainedDate: string;
+      bankedStreakSaverCount: number;
+    },
+    streakSaverEvents?: {
+      trainingLogEntryId: string;
+      bankedStreakSaverCountBefore: number;
+      /** Chronological (oldest first) — one `spent` row written per date. */
+      coveredDates: string[];
+      streakSaverEarned: boolean;
     },
   ): Promise<void> {
     await manager.getRepository(Player).update({ id: playerId }, fields);
+
+    if (!streakSaverEvents) {
+      return;
+    }
+
+    const repository = manager.getRepository(StreakSaverEvent);
+    let runningBalance = streakSaverEvents.bankedStreakSaverCountBefore;
+    for (const coveredDate of streakSaverEvents.coveredDates) {
+      runningBalance -= 1;
+      await repository.save(
+        repository.create({
+          playerId,
+          eventType: StreakSaverEventType.SPENT,
+          bankedBalanceAfter: runningBalance,
+          coveredDate,
+          resolvedByTrainingLogEntryId: streakSaverEvents.trainingLogEntryId,
+        }),
+      );
+    }
+
+    if (streakSaverEvents.streakSaverEarned) {
+      await repository.save(
+        repository.create({
+          playerId,
+          eventType: StreakSaverEventType.EARNED,
+          bankedBalanceAfter: fields.bankedStreakSaverCount,
+          trainingLogEntryId: streakSaverEvents.trainingLogEntryId,
+        }),
+      );
+    }
   }
 
   /** All players on a team — backs the Phase 2 roster/dashboard endpoints

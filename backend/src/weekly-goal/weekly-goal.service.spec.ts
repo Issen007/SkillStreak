@@ -57,6 +57,7 @@ function makePlayer(id: string, overrides: Partial<Player> = {}): Player {
     currentStreakCount: 0,
     longestStreakCount: 0,
     lastTrainedDate: null,
+    bankedStreakSaverCount: 0,
     consentToken: null,
     consentTokenExpiresAt: null,
     isCaptain: false,

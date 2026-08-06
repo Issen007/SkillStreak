@@ -76,6 +76,253 @@ own Decision B4, the new PT-only data path layered alongside (never
 inside) this ADR's existing aggregate-only floor, change. See ADR-0023 for
 the replacement design and its own required security-reviewer pass.
 
+**Amended, 2026-08-05 — Decision 3 reaffirmed for this ADR's own four
+pillars; the PT surface (`docs/adr/0023-pt-role-and-staff-sso-rbac.md`
+Part A) addressed separately below — its hosting question answered, a
+concrete design specified, but its execution deliberately deferred, not
+decided by silence.** Raised directly by the project owner,
+`temp/NEXTSTEP.md` (2026-08-05, local/gitignored, not tracked in git):
+*"Our Admin should be it's own pod and not be using together with the rest
+of the infrastructure,"* plus a general infra-philosophy note, *"Our
+infrastructure should be dynamic and everything should be running in
+multiple pod infrastructure so it will be easy to scale."*
+`docs/BACKLOG.md`'s own "Admin console hosting" entry (2026-08-05) already
+named the direct conflict with this Decision and asked for an explicit
+architect ruling rather than either silently keeping or silently reversing
+it — this is that ruling.
+
+**Decision 3's own stated trigger — "if the api pod's own scaling/release
+story ever needs to diverge from the admin UI's" — is checked separately
+against the two different things NEXTSTEP.md's single word "Admin"
+actually names, because they have genuinely different answers:**
+
+1. **ADR-0022's own four pillars (usage stats, error/crash log,
+   bug-report queue, planning/roadmap views) — the trigger has not been
+   met, and there is no plausible path by which it will be.** This remains
+   exactly what it was designed as: a single-operator, low-frequency,
+   read-mostly internal tool. Nothing about PT's growth changes its
+   traffic shape, its consumer count, or its release cadence. **Reaffirmed
+   unconditionally, not just "for now" — these four pillars stay on the
+   existing `api` Deployment/Service/HTTPRoute, permanently, not
+   provisionally.**
+2. **The PT surface (`docs/adr/0023` Part A/B4's `/api/v1/pt/*`) is a
+   materially different, and materially closer, question** — argued below
+   on its own terms, not dismissed by analogy to (1) just because both
+   currently sit under the umbrella term "admin"/"staff."
+
+**Has PT's growing scope (video upload/ownership, visibility control,
+paid subscriptions, weekly missions — `docs/BACKLOG.md`'s "PT role
+write-capabilities" entry) actually crossed the trigger today? Argued, not
+assumed either way:**
+
+- **The traffic/consumer shape is starting to diverge for real, not
+  speculatively.** Unlike ADR-0022's own pillars, PT is a second, growing,
+  potentially-paying audience distinct from both the project owner and
+  from players — `docs/adr/0023` already treats it as a structurally
+  separate data path (`PtDataService`, its own tables, its own guard)
+  precisely because it isn't the same thing as admin. That is a real
+  difference in *kind*, not just degree, from ADR-0022's pillars.
+- **But the specific mechanism that would actually strain the shared `api`
+  pod — video bytes — doesn't run through it, and isn't expected to.**
+  `docs/adr/0010-video-storage-and-serving.md` Decision 1 already
+  established that clip upload/download is presigned-URL-mediated: bytes
+  flow client↔S3 directly, never proxied through the NestJS process.
+  Nothing in `docs/BACKLOG.md`'s PT-write-capabilities entry suggests PT
+  video would work any differently — reusing that exact, already-proven
+  pattern is the obvious, boring design once that feature is actually
+  specified. In that shape, the `api`/`pt-api` process itself only ever
+  signs URLs and writes metadata rows. **The single most obvious reason to
+  expect PT to need separate compute — heavy video bytes on the request
+  path — doesn't hold up, because the feature that would generate it
+  hasn't been designed yet, and the established pattern for this app's
+  existing video feature specifically avoids that load shape.**
+- **PT's actual, already-shipped traffic is read-only (Decision A5),
+  low-volume, and structurally rate-limited by its own consent chain**
+  (Decision A2/A3 — every new player visible to a PT requires a fresh
+  mailed approval, not a bulk import). There is no evidence today of PT
+  traffic contending with player traffic for the `api` pod's CPU, memory,
+  or event loop.
+- **The one genuinely new risk that *would* argue for isolation — PT's
+  future write path (video upload signing, subscription/webhook handling,
+  mission authoring) — is explicitly not designed yet.**
+  `docs/BACKLOG.md`'s own "PT role write-capabilities" entry states this
+  needs its own architect and security-reviewer pass before it's built at
+  all. Splitting a pod today to isolate a feature whose actual shape
+  (webhooks? background jobs? anything CPU-heavy?) isn't decided is
+  designing for a load profile that doesn't exist yet — the same "don't
+  design for load or scale the project doesn't have" mistake CLAUDE.md
+  already warns against, here aimed at a future feature instead of a
+  future user count.
+
+**Conclusion on the trigger: not met for what's actually built and
+reviewed today (Part A's read-only PT surface); plausibly about to be met
+by what's next (Part A's write-capability expansion) — but that
+expansion's own shape isn't decided yet, so isolating for it now would be
+premature, not prudent.**
+
+**Blast radius, argued against this app's actual current scale, not a
+worst case:**
+
+- **The concrete risk the project owner's request implicitly raises — an
+  expensive admin/PT query degrading player latency — is only partially
+  addressed by a pod split at all, worth stating precisely rather than
+  assuming a new Deployment fixes it outright.** `k8s/api-deployment.yaml`,
+  `k8s/postgres-deployment.yaml`, and `k8s/redis-deployment.yaml` are all
+  single-instance, shared by every pillar today. A second NestJS
+  **process** (a new Deployment) isolates event-loop/CPU/memory
+  contention inside the Node process itself — real, since Node is
+  single-threaded per process, and a synchronous heavy aggregation or a
+  runaway handler in one pillar can currently starve concurrent requests
+  in every other pillar sharing that process. It does **not** isolate
+  **Postgres** contention — `api` and a hypothetical `pt-api` would still
+  share the one Postgres Deployment, so an expensive query from either
+  still competes for the same DB connections/CPU/IO. A full fix for the
+  DB-side blast radius (a read replica, a separate least-privilege
+  connection pool with its own limits) is real, additional infrastructure
+  this project doesn't have and isn't asked for here — named as the actual
+  remaining gap a pod split alone does not close, not silently implied to
+  be solved by it.
+- **A bigger, already-known, already-documented reliability gap exists
+  today, independent of this question, and arguably deserves attention
+  first.** `k8s/api-deployment.yaml`'s own header comment records
+  `replicas: 1` as a direct, load-bearing constraint — concurrent replicas
+  running TypeORM migrations on boot previously stalled a real rollout —
+  meaning the **entire** `api` pod, player traffic included, already has
+  zero horizontal redundancy today, for a reason unrelated to admin/PT at
+  all. If "infrastructure should be dynamic... easy to scale" (the project
+  owner's own general framing) is the actual near-term goal, fixing that
+  migration-locking problem (moving `migration:run` into a separate
+  Job/init step, exactly as that comment already names as the
+  prerequisite) unlocks real `replicas: 2+` for the app **as a whole** — a
+  bigger, non-speculative, already-identified reliability win than
+  carving out a second, still-single-replica admin/PT pod that inherits
+  the identical constraint unless it's fixed too. **Recommended as the
+  higher-leverage next infrastructure step if reliability investment is
+  wanted now — not a substitute for this Decision's own question, named
+  because it's real and this one is still partly speculative.**
+
+**Cost of a full split (a new subdomain), argued concretely against this
+cluster's actual manifests, not in the abstract:**
+
+- `k8s/certificate.yaml`'s multi-SAN cert covers exactly four hostnames
+  today; adding a fifth is a small, real, few-line change
+  (`certificate.yaml`'s `dnsNames`, a new `gateway.yaml` HTTPS listener, a
+  new `httproute.yaml` rule) — genuinely cheap on its own. But it inherits
+  `docs/ACTION_PLAN.md`'s own documented, currently-unresolved
+  [cilium/cilium#44123](https://github.com/cilium/cilium/issues/44123)
+  workaround (a manual, per-hostname HTTP-01-challenge dance required "at
+  every cert renewal (~60–90 days)... tracked as an open item in
+  `docs/BACKLOG.md`, not designed [yet]") — a real, recurring, already
+  acknowledged operational cost this project is on record wanting to
+  *reduce*, not add a fifth hostname's worth of exposure to before that
+  upstream bug is actually resolved or permanently worked around.
+- **`ubuntu01` has no public DNS at all** (`CLAUDE.md`'s environment-parity
+  section; `k8s/README.md`'s own "Internal test cluster" section) — a new
+  subdomain has no equivalent there short of a `/etc/hosts` override or a
+  second environment-specific config mechanism, exactly what CLAUDE.md's
+  environment-parity section says not to invent. This is the identical
+  shape of gap `docs/adr/0023` Decision B3 already had to name honestly
+  for OAuth redirect URIs on this same cluster — a subdomain-based
+  admin/PT split would reopen that same class of problem for ordinary web
+  routing, not just OAuth.
+- **A new subdomain reopens exactly the CORS/cookie question
+  `docs/adr/0023` Decision B2 built same-origin routing specifically to
+  avoid.** If the new pod serves both its own frontend and its own API
+  under the new hostname (self-contained, mirroring how `api` does today),
+  same-origin still holds and CORS still isn't needed — but it is a
+  **new** origin, meaning the `staff_session` cookie (no `Domain`
+  attribute today, scoped to whichever literal host serves it) would need
+  either a fresh login on that new origin or an explicit
+  `Domain=.skillstreak.xyz` widening — a real, non-trivial security-posture
+  change from "scoped to exactly the host that issued it" to "valid across
+  every skillstreak.xyz subdomain," undoing part of the "cheap to scope
+  correctly" reasoning Decision B2 and this ADR's own Decision 2 both
+  already applied. Not fatal, but a real, avoidable cost against a design
+  that doesn't need to pay it.
+
+**Recommended design instead, specified now, built only once the PT
+write-capability expansion is itself designed and reviewed — a path-based
+split on the existing hostname, not a new subdomain:**
+
+- **Routing**: no new `Gateway` listener, no new TLS SAN, no new
+  subdomain. `k8s/httproute.yaml`'s existing `api-route` gains one
+  path-prefix rule ahead of its current catch-all: `PathPrefix
+  /api/v1/pt` → a new `pt-api` Service, falling through to the unchanged
+  `PathPrefix /` → `api` rule for everything else (player routes,
+  `/api/v1/admin/*`, and the shared `/api/v1/staff-auth/*` login/callback/
+  logout used by **both** roles — kept on `api`, since it's low-volume,
+  shared plumbing for both roles, not something worth duplicating into a
+  second pod). On `ubuntu01`, which routes by dedicated per-Service
+  metallb LoadBalancer IP rather than Gateway path-matching
+  (`k8s/README.md`'s "Internal test cluster" section — a real, existing,
+  already-accepted divergence in routing *mechanism* from production, not
+  a new one this design introduces), the equivalent is a third dedicated
+  LAN IP for `pt-api` (alongside the existing `192.168.55.71`/`.72`
+  convention for `api`/`site`), baked into that cluster's own
+  `internal-images` build the same way the other two already are — the
+  same build-time-per-environment mechanism CLAUDE.md's environment-parity
+  section already establishes, not a second one.
+- **New Kubernetes primitives, when built**: `k8s/pt-api-deployment.yaml`,
+  `k8s/pt-api-service.yaml` — the same container image/codebase as `api`
+  (one NestJS monorepo, not two apps), a second small bootstrap entrypoint
+  mounting only the `Pt*` module(s) instead of the whole `AppModule`,
+  avoiding any business-logic duplication between the two pods.
+  `AdminAuthGuard`'s "admin sees any PT relationship" capability
+  (`docs/adr/0023` Decision B4) still works unmodified: the same
+  `PtDataService`/`Pt*Module` is imported into **both** bootstrap
+  entrypoints — `api` exposes it under `/api/v1/admin/pt/*` behind
+  `AdminAuthGuard`, `pt-api` exposes the identical service under
+  `/api/v1/pt/*` behind `PtAuthGuard` — one shared module, two guards, two
+  Deployments, zero duplicated query logic, the same "boring, shared code,
+  two thin guards" instinct `docs/adr/0023` Decision B4 already used for
+  `AdminAuthGuard`/`PtAuthGuard` themselves.
+- **Cookie/session — unchanged, by design; the actual point of choosing
+  path-based over subdomain-based.** `docs/adr/0023` Decision B2's
+  `staff_session` cookie (`Path=/api/v1`, no `Domain` attribute,
+  `STAFF_COOKIE_SECURE` per-cluster) needs **zero** changes — the
+  browser/app sees one origin (`api.skillstreak.xyz` in production)
+  regardless of which backend Service the Gateway routes a given path to.
+  No CORS reconfiguration, no `SameSite`/registrable-site question
+  reopened beyond what `docs/adr/0023` Decision B2's existing
+  security-reviewed text already covers.
+- **`ubuntu01` residual, named rather than hidden**: because that cluster
+  routes by per-Service IP, not by shared-hostname path, a PT console
+  reached at `pt-api`'s own dedicated LAN IP there would be a genuinely
+  different origin from `api`'s LAN IP — unlike production, where both
+  stay same-origin. A narrow, low-stakes gap (an operator/PT test session
+  on `ubuntu01` needing a fresh login when moving between the admin and PT
+  surfaces there) — the same "no child ever touches this, only
+  project-owner/PT test accounts" framing `docs/adr/0023` Decision B3
+  already used to accept a comparable `ubuntu01`-only OAuth gap.
+- **Sequencing — the actual decision here, not an implementation detail.**
+  **Do not build any of the above now.** `docs/BACKLOG.md`'s "PT role
+  write-capabilities" entry already requires its own architect and
+  security-reviewer pass before that feature is designed at all — this
+  split's right trigger point is when that pass lands and actually
+  specifies something (subscription webhooks, background video
+  processing, or genuinely higher PT-side traffic) that the shared `api`
+  pod's release cadence or resource profile would actually need to diverge
+  for — a concrete, reviewable fact at that point, not a guess now.
+  Building the split before the workload that's supposed to justify it
+  exists would be exactly the premature complexity CLAUDE.md and this
+  project's own history (the standing "Helm chart — not needed yet" call)
+  already push back on elsewhere. This design is written down now
+  specifically so that decision doesn't have to be re-derived or
+  re-litigated when the trigger actually arrives — the point of an ADR
+  addendum, not a promise to build it today.
+
+**What does not change, restated explicitly**: this ADR's Decisions 1, 2,
+4–10 (all four admin pillars' scope, schema, and reachability posture) and
+`docs/adr/0023`'s Decisions A1–A6/B1–B6 (the SSO/RBAC mechanism, the PT
+consent chain, the data allow-list) are entirely unaffected by this
+addendum — this is a hosting/deployment-topology question only, resolved
+without touching any of that already-reviewed design. **Needs a
+security-reviewer pass only if/when the deferred `pt-api` split above is
+actually built** — reachability posture for the split pod would need the
+same "public + authenticated, not VPN-isolated" argument Decision 3
+already made re-confirmed for the new Service specifically, not assumed to
+carry over silently.
+
 ## Context
 
 The project owner, verbatim: *"Now let's build our backend control center

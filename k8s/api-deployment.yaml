@@ -7,16 +7,36 @@
 # this file, and prefer an immutable tag (git SHA or version) over `latest`
 # once that pipeline exists so rollouts are reproducible/reversible.
 #
-# KNOWN LIMITATION: backend/docker-entrypoint.sh runs TypeORM migrations on
-# every container start before the app boots (see docs/adr/0002-data-model.md
-# — schema changes go through migrations, never manual edits). That's fine
-# with docker-compose's single api container, but two concurrent replicas
-# running `migration:run` on the same rollout was exactly what stalled the
-# first real alpha deploy on the cluster (rollout stuck at "1 out of 2 new
-# replicas" until the progress deadline). replicas is 1 here as a direct
-# result of hitting that, not just a theoretical precaution — go back to 2
-# only once migrations are moved into a separate Job/init step with locking
-# (not solved in this cut).
+# RESOLVED — was a KNOWN LIMITATION: backend/docker-entrypoint.sh runs
+# TypeORM migrations on every container start before the app boots (see
+# docs/adr/0002-data-model.md — schema changes go through migrations,
+# never manual edits). Two concurrent replicas running `migration:run` on
+# the same rollout previously stalled the first real alpha deploy on the
+# cluster (rollout stuck at "1 out of 2 new replicas" until the progress
+# deadline, 2026-07-11) — replicas was pinned to 1 as a direct result of
+# hitting that, not just a theoretical precaution. Fixed by wrapping the
+# migration step in a Postgres session-level advisory lock
+# (backend/src/scripts/migrate-with-lock.ts, invoked from
+# docker-entrypoint.sh instead of calling the TypeORM CLI directly): only
+# one pod's migration attempt runs at a time, the rest block on the lock
+# and then find nothing new to apply. The three `@nestjs/schedule` `@Cron`
+# jobs (ClipRetentionService's two sweeps, AccountErasureSweepService's
+# sweep) got the equivalent fix for their own race — a non-blocking Redis
+# try-lock (RedisService.tryClaimScheduledJobRun) so only one replica runs
+# a given tick. replicas is back to 2 below.
+#
+# code-critic's review of this fix caught one more thing the migration-lock
+# change itself introduces: a losing pod on a cold two-pod start now blocks
+# inside pg_advisory_lock() for the *winner's entire migration duration*
+# before it even reaches its own trivial migration check and execs into the
+# app — a wait that structurally could not happen before (there was never a
+# second pod to queue behind). Without a startupProbe, that wait counted
+# against livenessProbe's own ~60s grace window below, so a slow migration
+# could get the losing pod killed by its own liveness check while it was
+# still innocently waiting on the lock. startupProbe fixes this the
+# standard Kubernetes way: liveness/readiness are not evaluated at all
+# until startupProbe first succeeds, so the lock-wait is fully covered by
+# its own generous window instead of racing the liveness one.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -25,7 +45,7 @@ metadata:
   labels:
     app: api
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: api
@@ -205,6 +225,15 @@ spec:
                   name: skillstreak-secret
                   key: APPLE_PRIVATE_KEY
                   optional: true
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            periodSeconds: 5
+            failureThreshold: 60 # 5 minutes — generous headroom for a
+            # losing pod to wait behind another pod's migration lock before
+            # this process even starts listening; see the Deployment-level
+            # comment above for why this exists.
           readinessProbe:
             httpGet:
               path: /health

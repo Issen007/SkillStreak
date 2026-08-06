@@ -247,14 +247,27 @@ them once) — just nothing application-facing uses them anymore.
   currently issues certs via `letsencrypt-staging` (untrusted by real
   browsers/clients) — see the warning at the top of this file for the
   cutover steps to `letsencrypt-prod` before this is used for real.
-- **Migration race with multiple api replicas.** `backend/docker-entrypoint.sh`
-  runs TypeORM migrations on every container start; with more than one
-  replica, a rolling restart can run `migration:run` from two pods at once —
-  this is exactly what stalled the first real alpha deploy (rollout stuck at
-  "1 out of 2 new replicas" until the progress deadline, on 2026-07-11).
-  `api-deployment.yaml` now runs `replicas: 1` as a direct fix for that, not
-  a precaution. Not properly solved (would need a separate Job/init-container
-  with locking) — go back to more than 1 replica only once that's built.
+- **Migration race with multiple api replicas — RESOLVED.**
+  `backend/docker-entrypoint.sh` runs TypeORM migrations on every container
+  start; with more than one replica, a rolling restart used to be able to run
+  `migration:run` from two pods at once — this is exactly what stalled the
+  first real alpha deploy (rollout stuck at "1 out of 2 new replicas" until
+  the progress deadline, on 2026-07-11), and why `api-deployment.yaml` was
+  pinned to `replicas: 1` for a while as a direct fix, not a precaution. Now
+  fixed properly: `docker-entrypoint.sh` runs migrations via
+  `dist/scripts/migrate-with-lock.js` (built from
+  `backend/src/scripts/migrate-with-lock.ts`), which wraps `migration:run` in
+  a Postgres session-level advisory lock (`pg_advisory_lock`/`pg_advisory_
+  unlock`, held on one dedicated connection for the whole lock -> migrate ->
+  unlock sequence) — only one pod's migration attempt runs at a time, the
+  rest block on the lock and then find nothing new to apply.
+  `api-deployment.yaml` is back to `replicas: 2`. The three in-process
+  `@nestjs/schedule` sweeps (`ClipRetentionService`'s two,
+  `AccountErasureSweepService`'s one) got the matching fix for their own
+  race — a non-blocking Redis try-lock
+  (`RedisService.tryClaimScheduledJobRun`), since a scheduled job that loses
+  the race should skip the tick entirely rather than block-and-retry like
+  the migration case.
 - **No HPA, NetworkPolicy, or multi-region setup** — intentionally out of
   scope for a small youth-sports app's first beta (that's Fas 4 territory,
   not this pass).

@@ -44,7 +44,30 @@
   "streakCard": {
     "loggedTodayChip": "Logged today ✓",
     "count": "{{count}} days",
-    "label": "Your personal streak — keep it up!"
+    "label": "Your personal streak — keep it up!",
+    "saverBadgeA11y": "You have {{count}} saved days. They protect your streak if you miss a training day.",
+    "saverBadgeA11yZero": "You don't have any saved days yet. Train 7 days in a row to earn one!"
+  },
+  "saverInfoSheet": {
+    "heading": "What are saved days?",
+    "bodyHasSavers": "You have {{count}} saved days. If you miss a training day, we automatically use one to keep your streak going. You earn a new saved day every 7 days you train in a row, up to 4.",
+    "bodyNoSavers": "You don't have any saved days yet. Train 7 days in a row to earn your first one! It protects your streak if you ever miss a day.",
+    "close": "Got it!"
+  },
+  "streakGapBanner": {
+    "coverable": {
+      "headline": "Your streak is protected! 🛡️",
+      "body": "You missed {{missedDayCount}} days, but that's okay — we're using {{missedDayCount}} saved days automatically so your streak continues. Log your training today!"
+    },
+    "tooLarge": {
+      "headline": "Time for a fresh start! 🌱",
+      "body": "It's been a while — totally okay! Log your training today to start a new streak. Your record of {{longestStreakCount}} days stays yours forever. 💪"
+    }
+  },
+  "streakSaverCelebration": {
+    "headline": "Your streak is saved!",
+    "sub": "You were away for a bit, but your saved days covered it automatically.",
+    "detail": "🔥 {{currentStreakCount}} days in a row — {{bankedStreakSaverCount}} saved days left"
   },
   "teamPoolCard": {
     "title": "🥇 World Championship Gold table",

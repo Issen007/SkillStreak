@@ -47,6 +47,13 @@
     "report": "🚩 Ilmoita",
     "delete": "🗑️ Poista video"
   },
+  "clipPlayerModal": {
+    "close": "Sulje",
+    "playError": "Videota ei voitu toistaa."
+  },
+  "clipGridCell": {
+    "a11yLabel": "Shorts käyttäjältä {{screenName}}, {{timeAgo}}"
+  },
   "v9": {
     "heading": "Miksi ilmoitat tästä videosta?",
     "reasonAppearsWithoutConsent": "Olen tässä videossa enkä halunnut olla",

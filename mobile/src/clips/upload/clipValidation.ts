@@ -13,8 +13,8 @@ export const ALLOWED_CLIP_MIME_TYPES: ClipMimeType[] = [
   'video/quicktime',
   'video/webm',
 ];
-export const CLIP_MAX_FILE_SIZE_BYTES = 25_000_000;
-export const CLIP_MAX_DURATION_SECONDS = 20;
+export const CLIP_MAX_FILE_SIZE_BYTES = 75_000_000;
+export const CLIP_MAX_DURATION_SECONDS = 60;
 
 const EXTENSION_MIME_MAP: Record<string, ClipMimeType> = {
   mp4: 'video/mp4',

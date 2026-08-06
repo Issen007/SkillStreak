@@ -44,7 +44,30 @@
   "streakCard": {
     "loggedTodayChip": "Logget i dag ✓",
     "count": "{{count}} dage",
-    "label": "Din personlige stime — bliv ved!"
+    "label": "Din personlige stime — bliv ved!",
+    "saverBadgeA11y": "Du har {{count}} sparede dage. De beskytter din stime, hvis du springer en træningsdag over.",
+    "saverBadgeA11yZero": "Du har ingen sparede dage endnu. Træn 7 dage i træk, så får du en!"
+  },
+  "saverInfoSheet": {
+    "heading": "Hvad er sparede dage?",
+    "bodyHasSavers": "Du har {{count}} sparede dage. Springer du en træningsdag over, bruger vi automatisk en sparet dag, så din stime fortsætter. Du får en ny sparet dag for hver 7. dag i træk du træner, op til 4 stykker.",
+    "bodyNoSavers": "Du har ingen sparede dage endnu. Træn 7 dage i træk, så får du din første! Den beskytter din stime, hvis du en dag springer over.",
+    "close": "Okay!"
+  },
+  "streakGapBanner": {
+    "coverable": {
+      "headline": "Din stime er beskyttet! 🛡️",
+      "body": "Du sprang {{missedDayCount}} dage over, men det er okay — vi bruger {{missedDayCount}} sparede dage automatisk, så stimen fortsætter. Log din træning i dag!"
+    },
+    "tooLarge": {
+      "headline": "Tid til en frisk start! 🌱",
+      "body": "Det er et stykke tid siden sidst — helt okay! Log din træning i dag, så starter en ny stime. Din rekord på {{longestStreakCount}} dage er der for altid. 💪"
+    }
+  },
+  "streakSaverCelebration": {
+    "headline": "Din stime er reddet!",
+    "sub": "Du var væk et stykke tid, men dine sparede dage dækkede det automatisk.",
+    "detail": "🔥 {{currentStreakCount}} dage i træk — {{bankedStreakSaverCount}} sparede dage tilbage"
   },
   "teamPoolCard": {
     "title": "🥇 VM-guld-tabellen",

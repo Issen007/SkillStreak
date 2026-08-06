@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -54,28 +54,46 @@ export function AppRoot() {
   const handleOnboardingComplete = useCallback(() => setStatus('home'), []);
   const handleSessionInvalid = useCallback(() => setStatus('onboarding'), []);
 
+  let body: ReactNode;
   if (status === 'checking-session') {
-    return (
+    body = (
       <View style={styles.centered}>
         <TestModeBanner />
         <ActivityIndicator color={colors.flame} size="large" />
       </View>
     );
-  }
-
-  if (status === 'onboarding') {
-    return (
+  } else if (status === 'onboarding') {
+    body = (
       <View style={styles.fill}>
         <TestModeBanner />
         <OnboardingFlow onComplete={handleOnboardingComplete} />
       </View>
     );
+  } else {
+    body = (
+      <View style={styles.fill}>
+        <TestModeBanner />
+        <AppShell onSessionInvalid={handleSessionInvalid} />
+      </View>
+    );
   }
 
+  // Web-only: every native/mobile screen and layout in this app is
+  // designed for a phone-width viewport (docs/design/style-guide.md) —
+  // letting it stretch to a full, uncapped desktop browser window doesn't
+  // just crop video (see ClipCard's own fix), it's the wrong frame for
+  // every screen. Cap to a generous phone-plus width, centered, with the
+  // brand's own `ink` fill as the surrounding backdrop rather than plain
+  // white — mirrors how other mobile-first web apps (chat/social) frame
+  // themselves on desktop instead of going edge-to-edge. Native is
+  // completely unaffected: `Platform.OS === 'web'` gates both extra
+  // styles, so this is a no-op there.
+  if (Platform.OS !== 'web') {
+    return body;
+  }
   return (
-    <View style={styles.fill}>
-      <TestModeBanner />
-      <AppShell onSessionInvalid={handleSessionInvalid} />
+    <View style={styles.webBackdrop}>
+      <View style={styles.webColumn}>{body}</View>
     </View>
   );
 }
@@ -89,6 +107,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  webBackdrop: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: colors.ink,
+  },
+  webColumn: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 480,
   },
   testBanner: {
     backgroundColor: '#FFB800',

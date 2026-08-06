@@ -3,6 +3,7 @@ import { AccountErasureSweepService } from './account-erasure-sweep.service';
 function buildService(overrides: {
   accountErasureService?: Record<string, jest.Mock>;
   playersService?: Record<string, jest.Mock>;
+  redisService?: Record<string, jest.Mock>;
 }) {
   const accountErasureService = {
     findDueRows: jest.fn().mockResolvedValue([]),
@@ -14,13 +15,20 @@ function buildService(overrides: {
     listByTeam: jest.fn().mockResolvedValue([]),
     ...overrides.playersService,
   };
+  const redisService = {
+    // Wins the scheduled-job-run claim by default — see the dedicated
+    // "skips when another replica already claimed this run" test below.
+    tryClaimScheduledJobRun: jest.fn().mockResolvedValue(true),
+    ...overrides.redisService,
+  };
 
   const service = new AccountErasureSweepService(
     accountErasureService as never,
     playersService as never,
+    redisService as never,
   );
 
-  return { service, accountErasureService, playersService };
+  return { service, accountErasureService, playersService, redisService };
 }
 
 // docs/adr/0013-account-erasure.md Decision 5/8 — the security-reviewer's
@@ -178,5 +186,40 @@ describe('AccountErasureSweepService.sweep', () => {
       'team-b',
       [teamBRow],
     );
+  });
+
+  // k8s/README.md's now-resolved "Scheduled-job races" note — with 2+ api
+  // replicas, only the one that wins the Redis try-lock should run.
+  it("skips entirely when another replica already claimed this run's lock", async () => {
+    const { service, accountErasureService, redisService } = buildService({
+      redisService: {
+        tryClaimScheduledJobRun: jest.fn().mockResolvedValue(false),
+      },
+    });
+
+    await service.sweep();
+
+    expect(redisService.tryClaimScheduledJobRun).toHaveBeenCalledWith(
+      'account-erasure:sweep',
+      expect.any(Number),
+    );
+    expect(accountErasureService.findDueRows).not.toHaveBeenCalled();
+  });
+
+  // code-critic's review of the replicas:2 fix — a rejected run-lock check
+  // (e.g. Redis briefly unreachable) must degrade the same as "lost the
+  // claim" (skip this tick), not crash the whole sweep.
+  it('skips this tick, without throwing, if the Redis run-lock check itself fails', async () => {
+    const { service, accountErasureService } = buildService({
+      redisService: {
+        tryClaimScheduledJobRun: jest
+          .fn()
+          .mockRejectedValue(new Error('redis unreachable')),
+      },
+    });
+
+    await expect(service.sweep()).resolves.toBeUndefined();
+
+    expect(accountErasureService.findDueRows).not.toHaveBeenCalled();
   });
 });

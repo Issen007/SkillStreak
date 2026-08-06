@@ -47,6 +47,13 @@
     "report": "🚩 Melden",
     "delete": "🗑️ Video löschen"
   },
+  "clipPlayerModal": {
+    "close": "Schließen",
+    "playError": "Das Video konnte nicht abgespielt werden."
+  },
+  "clipGridCell": {
+    "a11yLabel": "Shorts von {{screenName}}, {{timeAgo}}"
+  },
   "v9": {
     "heading": "Warum meldest du dieses Video?",
     "reasonAppearsWithoutConsent": "Ich bin in diesem Video zu sehen und wollte das nicht",

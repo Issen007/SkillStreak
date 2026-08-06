@@ -44,7 +44,30 @@
   "streakCard": {
     "loggedTodayChip": "Loggat idag ✓",
     "count": "{{count}} dagar",
-    "label": "Din personliga streak — fortsätt så!"
+    "label": "Din personliga streak — fortsätt så!",
+    "saverBadgeA11y": "Du har {{count}} sparade dagar. De skyddar din streak om du missar en träningsdag.",
+    "saverBadgeA11yZero": "Du har inga sparade dagar än. Träna 7 dagar i rad så får du en!"
+  },
+  "saverInfoSheet": {
+    "heading": "Vad är sparade dagar?",
+    "bodyHasSavers": "Du har {{count}} sparade dagar. Missar du en träningsdag använder vi automatiskt en sparad dag så din streak fortsätter. Du får en ny sparad dag för varje 7 dagar du tränar i rad, upp till 4 stycken.",
+    "bodyNoSavers": "Du har inga sparade dagar än. Träna 7 dagar i rad så får du din första! Den skyddar din streak om du någon gång missar en dag.",
+    "close": "Okej!"
+  },
+  "streakGapBanner": {
+    "coverable": {
+      "headline": "Din streak är skyddad! 🛡️",
+      "body": "Du missade {{missedDayCount}} dagar, men det är okej — vi använder {{missedDayCount}} sparade dagar automatiskt så streaken fortsätter. Logga din träning idag!"
+    },
+    "tooLarge": {
+      "headline": "Dags för en nystart! 🌱",
+      "body": "Det var ett tag sedan sist — helt okej! Logga din träning idag så börjar en ny streak. Ditt rekord på {{longestStreakCount}} dagar finns kvar för alltid. 💪"
+    }
+  },
+  "streakSaverCelebration": {
+    "headline": "Din streak är räddad!",
+    "sub": "Du var borta ett tag, men dina sparade dagar täckte det automatiskt.",
+    "detail": "🔥 {{currentStreakCount}} dagar i rad — {{bankedStreakSaverCount}} sparade dagar kvar"
   },
   "teamPoolCard": {
     "title": "🥇 VM-Guld-tabellen",

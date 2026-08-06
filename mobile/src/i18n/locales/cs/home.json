@@ -44,7 +44,30 @@
   "streakCard": {
     "loggedTodayChip": "Dnes zapsáno ✓",
     "count": "{{count}} dní",
-    "label": "Tvoje osobní série — jen tak dál!"
+    "label": "Tvoje osobní série — jen tak dál!",
+    "saverBadgeA11y": "Máš {{count}} ušetřených dní. Chrání tvoji sérii, pokud vynecháš tréninkový den.",
+    "saverBadgeA11yZero": "Zatím nemáš žádné ušetřené dny. Trénuj 7 dní v řadě a jeden získáš!"
+  },
+  "saverInfoSheet": {
+    "heading": "Co jsou ušetřené dny?",
+    "bodyHasSavers": "Máš {{count}} ušetřených dní. Pokud vynecháš tréninkový den, automaticky použijeme jeden ušetřený den, aby tvoje série pokračovala. Nový ušetřený den získáš za každých 7 dní tréninku v řadě, maximálně 4.",
+    "bodyNoSavers": "Zatím nemáš žádné ušetřené dny. Trénuj 7 dní v řadě a získáš první! Ochrání tvoji sérii, kdybys jednou den vynechal.",
+    "close": "Dobře!"
+  },
+  "streakGapBanner": {
+    "coverable": {
+      "headline": "Tvoje série je chráněná! 🛡️",
+      "body": "Vynechal jsi {{missedDayCount}} dní, ale to je v pořádku — automaticky použijeme {{missedDayCount}} ušetřených dní, aby série pokračovala. Zapiš si dnešní trénink!"
+    },
+    "tooLarge": {
+      "headline": "Čas na nový start! 🌱",
+      "body": "Je to už chvíli — v pohodě! Zapiš si dnešní trénink a začne nová série. Tvůj rekord {{longestStreakCount}} dní zůstane navždy tvůj. 💪"
+    }
+  },
+  "streakSaverCelebration": {
+    "headline": "Tvoje série je zachráněná!",
+    "sub": "Byl jsi chvíli pryč, ale tvoje ušetřené dny to automaticky pokryly.",
+    "detail": "🔥 {{currentStreakCount}} dní v řadě — zbývá {{bankedStreakSaverCount}} ušetřených dní"
   },
   "teamPoolCard": {
     "title": "🥇 Zlatá tabulka MS",

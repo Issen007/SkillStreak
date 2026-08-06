@@ -93,6 +93,20 @@ function ptConsentRequestDailyCapKey(ptStaffAccountId: string): string {
   return `pt-consent-request:${ptStaffAccountId}:daily-cap`;
 }
 
+// k8s/README.md's now-resolved "Migration race with multiple api
+// replicas" note — once the API runs 2+ replicas, every `@Cron`-decorated
+// scheduled job (ClipRetentionService's two sweeps,
+// AccountErasureSweepService's sweep) would otherwise fire redundantly on
+// every replica on the same tick. Unlike the migration-run case (a
+// blocking Postgres advisory lock — see
+// backend/src/scripts/migrate-with-lock.ts), a scheduled job just needs a
+// non-blocking try-lock: whichever replica's `@nestjs/schedule` timer
+// fires first claims this key, everyone else skips the tick entirely
+// rather than waiting to run redundantly right after.
+function scheduledJobRunKey(jobName: string): string {
+  return `scheduled-job-run:${jobName}`;
+}
+
 // docs/api/phase2-contract.md endpoint 3: "rate-limited per player" — a
 // per-IP @Throttle() (as used elsewhere in this codebase) doesn't express
 // that on its own, since a captain's IP isn't the thing being limited, the
@@ -583,6 +597,35 @@ export class RedisService {
       await this.client.expire(key, windowSeconds);
     }
     return count <= maxPerWindow;
+  }
+
+  /**
+   * Non-blocking try-lock for a cross-pod `@Cron` tick (see
+   * scheduledJobRunKey's comment above) — the same `SET key value EX
+   * ttlSeconds NX` shape as every other tryClaim.../storePtTeamLinkInviteCode
+   * call in this file, just generic over an arbitrary `jobName` instead of
+   * a per-entity id. Returns `true` if THIS call won the claim (i.e. this
+   * replica should run the job this tick), `false` if another replica
+   * already claimed it — the caller should skip the run entirely, not wait
+   * or retry, since the job that "lost" the race has nothing useful left
+   * to do once the winner runs it. `ttlSeconds` should comfortably outlast
+   * how long the job could plausibly take (so a slow run never gets
+   * duplicated by the next tick) while staying short enough that a pod
+   * crashing mid-run doesn't wedge the *next* tick's claim for long — see
+   * each call site for the specific value chosen and why.
+   */
+  async tryClaimScheduledJobRun(
+    jobName: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      scheduledJobRunKey(jobName),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
   }
 
   /**
