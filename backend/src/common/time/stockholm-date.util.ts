@@ -33,3 +33,28 @@ export function previousDateString(dateString: string): string {
   asUtcMidnight.setUTCDate(asUtcMidnight.getUTCDate() - 1);
   return asUtcMidnight.toISOString().slice(0, 10);
 }
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * The number of full calendar days strictly *between* two 'YYYY-MM-DD'
+ * dates — 0 if `endDate` is exactly the day after `startDate` (no day
+ * missed), 1 if exactly one day was skipped, etc. Added for
+ * docs/adr/0024-streak-savers.md Decision 5's gap-size check
+ * (`computeStreakUpdate` in streak.util.ts).
+ *
+ * Deliberately O(1) millisecond arithmetic rather than a day-by-day loop —
+ * this is called from `GET /players/me`'s read-only preview (this app's
+ * hottest endpoint, per that ADR), so it must stay cheap even for a player
+ * who has been gone for a very long time.
+ */
+export function daysBetweenExclusive(
+  startDate: string,
+  endDate: string,
+): number {
+  const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+  const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+  const start = Date.UTC(startYear, startMonth - 1, startDay);
+  const end = Date.UTC(endYear, endMonth - 1, endDay);
+  return Math.round((end - start) / MS_PER_DAY) - 1;
+}

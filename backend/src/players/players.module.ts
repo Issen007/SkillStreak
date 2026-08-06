@@ -5,6 +5,7 @@ import { TeamPoolModule } from '../team-pool/team-pool.module';
 import { TeamsModule } from '../teams/teams.module';
 import { AccountErasureRequest } from '../account-erasure/entities/account-erasure-request.entity';
 import { Player } from './entities/player.entity';
+import { StreakSaverEvent } from './entities/streak-saver-event.entity';
 import { PlayersController } from './players.controller';
 import { PlayersService } from './players.service';
 
@@ -23,7 +24,11 @@ import { PlayersService } from './players.service';
 // TrainingLogsModule.
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Player, AccountErasureRequest]),
+    // StreakSaverEvent (docs/adr/0024-streak-savers.md Decision 4) is
+    // registered directly here for the same reason AccountErasureRequest
+    // is — it's only ever written from PlayersService.updateStreakFields,
+    // never via its own owning module.
+    TypeOrmModule.forFeature([Player, AccountErasureRequest, StreakSaverEvent]),
     AuthModule,
     TeamsModule,
     TeamPoolModule,

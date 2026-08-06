@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { computeStreakUpdate } from '../common/streak/streak.util';
+import {
+  computeStreakUpdate,
+  streakSaverCoveredDates,
+} from '../common/streak/streak.util';
 import {
   ConsentRequiredException,
   TeamJoinApprovalRequiredException,
@@ -24,6 +27,10 @@ export interface TrainingLogResponse {
     currentStreakCount: number;
     longestStreakCount: number;
     alreadyLoggedToday: boolean;
+    // docs/adr/0024-streak-savers.md API sketch — additive.
+    bankedStreakSaverCount: number; // post-transaction balance
+    streakSaverSpent: number; // 0 normally; >0 = the "streak saved!" moment
+    streakSaverEarned: boolean;
   };
   // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed;
   // rank is deliberately NOT added here (unlike the dashboard/GET
@@ -86,6 +93,7 @@ export class TrainingLogsService {
             currentStreakCount: lockedPlayer.currentStreakCount,
             longestStreakCount: lockedPlayer.longestStreakCount,
             lastTrainedDate: lockedPlayer.lastTrainedDate,
+            bankedStreakSaverCount: lockedPlayer.bankedStreakSaverCount,
           },
           today,
         );
@@ -104,14 +112,30 @@ export class TrainingLogsService {
 
         // Streak fields only change on the first log of a new day — a repeat
         // same-day log still contributes to the team pool below, but leaves
-        // Player.current_streak_count/longest_streak_count/last_trained_date
-        // untouched, per the contract's same-day-logging rule.
+        // Player.current_streak_count/longest_streak_count/last_trained_date/
+        // banked_streak_saver_count untouched, per the contract's
+        // same-day-logging rule (docs/adr/0024-streak-savers.md Decision 5:
+        // no saver is spent or earned on a same-day repeat either).
         if (!streakUpdate.alreadyLoggedToday) {
-          await this.playersService.updateStreakFields(manager, playerId, {
-            currentStreakCount: streakUpdate.currentStreakCount,
-            longestStreakCount: streakUpdate.longestStreakCount,
-            lastTrainedDate: streakUpdate.lastTrainedDate as string,
-          });
+          await this.playersService.updateStreakFields(
+            manager,
+            playerId,
+            {
+              currentStreakCount: streakUpdate.currentStreakCount,
+              longestStreakCount: streakUpdate.longestStreakCount,
+              lastTrainedDate: streakUpdate.lastTrainedDate as string,
+              bankedStreakSaverCount: streakUpdate.bankedStreakSaverCount,
+            },
+            {
+              trainingLogEntryId: trainingLog.id,
+              bankedStreakSaverCountBefore: lockedPlayer.bankedStreakSaverCount,
+              coveredDates: streakSaverCoveredDates(
+                today,
+                streakUpdate.streakSaversSpent,
+              ),
+              streakSaverEarned: streakUpdate.streakSaverEarned,
+            },
+          );
         }
 
         const pot = await this.teamPoolService.getActivePotForTeam(
@@ -166,6 +190,9 @@ export class TrainingLogsService {
         currentStreakCount: streakUpdate.currentStreakCount,
         longestStreakCount: streakUpdate.longestStreakCount,
         alreadyLoggedToday: streakUpdate.alreadyLoggedToday,
+        bankedStreakSaverCount: streakUpdate.bankedStreakSaverCount,
+        streakSaverSpent: streakUpdate.streakSaversSpent,
+        streakSaverEarned: streakUpdate.streakSaverEarned,
       },
       teamPool: {
         pointsTotal: updatedPot.pointsTotal,

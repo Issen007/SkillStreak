@@ -3,9 +3,14 @@ import { CurrentPlayerId } from '../auth/current-player-id.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TeamPoolService } from '../team-pool/team-pool.service';
 import { TeamsService } from '../teams/teams.service';
-import { stockholmDateString } from '../common/time/stockholm-date.util';
+import {
+  daysBetweenExclusive,
+  previousDateString,
+  stockholmDateString,
+} from '../common/time/stockholm-date.util';
 import { isSelfVerificationAge } from '../common/age/self-verification-age.util';
 import { PlayerLocale } from '../common/locale/player-locale.enum';
+import { computeStreakUpdate } from '../common/streak/streak.util';
 import { PlayersService } from './players.service';
 
 interface PlayerMeResponse {
@@ -40,6 +45,17 @@ interface PlayerMeResponse {
     longestStreakCount: number;
     lastTrainedDate: string | null;
     alreadyLoggedToday: boolean;
+    // docs/adr/0024-streak-savers.md API sketch — additive, both read-only
+    // previews (Decision 5): bankedStreakSaverCount is the raw stored
+    // balance (same "straight from Postgres" posture as every other field
+    // in this block); pendingStreakGap is derived by re-running the same
+    // pure computeStreakUpdate function used at write time against the
+    // live stored state, then discarded — nothing here is ever persisted.
+    bankedStreakSaverCount: number;
+    pendingStreakGap: {
+      missedDayCount: number;
+      coverableWithBankedSavers: boolean;
+    } | null;
   };
   // Fas 2.7 (ADR-0008 Decision 4): goalThreshold/percentComplete removed,
   // rank/teamCount added — see TeamPoolService.getRankAndTeamCountOrThrow.
@@ -101,6 +117,42 @@ export class PlayersController {
     // is a write-path accelerator for other consumers, not read here.
     const alreadyLoggedToday = player.lastTrainedDate === today;
 
+    // docs/adr/0024-streak-savers.md Decision 5 — a read-only preview, NOT
+    // a mutation: no transaction, no row lock, no write, on this app's
+    // hottest read endpoint. Re-runs the exact same pure computeStreakUpdate
+    // function the write path uses (TrainingLogsService.logTraining),
+    // against the already-fetched `player` row above, and discards
+    // everything about its result except whether a currently-open gap
+    // would be bridged by the banked balance — the actually-stored streak
+    // fields (above) remain this response's source of truth throughout.
+    const yesterday = previousDateString(today);
+    const hasOpenGap =
+      !alreadyLoggedToday &&
+      player.lastTrainedDate !== null &&
+      player.lastTrainedDate !== yesterday;
+    let pendingStreakGap: {
+      missedDayCount: number;
+      coverableWithBankedSavers: boolean;
+    } | null = null;
+    if (hasOpenGap) {
+      const preview = computeStreakUpdate(
+        {
+          currentStreakCount: player.currentStreakCount,
+          longestStreakCount: player.longestStreakCount,
+          lastTrainedDate: player.lastTrainedDate,
+          bankedStreakSaverCount: player.bankedStreakSaverCount,
+        },
+        today,
+      );
+      pendingStreakGap = {
+        missedDayCount: daysBetweenExclusive(
+          player.lastTrainedDate as string,
+          today,
+        ),
+        coverableWithBankedSavers: preview.streakSaversSpent > 0,
+      };
+    }
+
     return {
       player: {
         id: player.id,
@@ -120,6 +172,8 @@ export class PlayersController {
         longestStreakCount: player.longestStreakCount,
         lastTrainedDate: player.lastTrainedDate,
         alreadyLoggedToday,
+        bankedStreakSaverCount: player.bankedStreakSaverCount,
+        pendingStreakGap,
       },
       teamPool: {
         seasonId: season.id,

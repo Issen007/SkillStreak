@@ -705,3 +705,88 @@ to confirm their own status.
   immediately loses access to every other captain-gated action on their
   next call (the flag is re-checked per-request, not cached) — see
   ADR-0006's Consequences for the exact concern.
+
+---
+
+## Addendum — 2026-08-06: streak savers
+
+Per [`docs/adr/0024-streak-savers.md`](../adr/0024-streak-savers.md) (read
+first — this assumes its design). Purely additive to the two Phase 1
+endpoints below; nothing above is superseded, and no new endpoint is
+required for v1.
+
+### `POST /api/v1/training-logs` — `streak` block gains three fields
+
+Computed inside the same transaction as the existing streak/pool logic
+(ADR-0024 Decision 5), same "one more step in the same transaction" pattern
+`goalBonus` already established above:
+
+```ts
+{
+  trainingLogId: string;
+  loggedAt: string;
+  streak: {
+    currentStreakCount: number;      // unchanged
+    longestStreakCount: number;      // unchanged
+    alreadyLoggedToday: boolean;     // unchanged
+    bankedStreakSaverCount: number;  // NEW — post-transaction balance
+    streakSaverSpent: number;        // NEW — 0 normally; >0 = the "streak saved!" moment (Decision 3.2)
+    streakSaverEarned: boolean;      // NEW
+  };
+  teamPool: { pointsTotal: number };  // unchanged
+  goalBonus: { awardedPoints: number } | null; // unchanged
+}
+```
+
+`streakSaverSpent > 0` means this exact log just bridged a previously-open
+gap (fires at most once per gap, the same "definitive, not repeatable"
+shape `goalBonus` already has) — the frontend's one-time celebratory toast
+trigger. `streakSaverEarned` is `true` only on a fresh 7-day streak
+milestone that actually increased the bank (never `true` if the bank was
+already at its cap — that's a silent no-op per Decision 1, not an error).
+
+### `GET /api/v1/players/me` — `streak` block gains two fields
+
+A **live, non-persisted preview** (ADR-0024 Decision 5) — computed
+read-only against the already-fetched `Player` row, no transaction, no row
+lock, no write, on every call (this contract's "hottest read endpoint"):
+
+```ts
+{
+  streak: {
+    currentStreakCount: number;   // unchanged
+    longestStreakCount: number;   // unchanged
+    lastTrainedDate: string | null; // unchanged
+    alreadyLoggedToday: boolean;  // unchanged
+    bankedStreakSaverCount: number; // NEW — always present, the raw stored balance
+    pendingStreakGap: {            // NEW — null unless a gap currently exists
+      missedDayCount: number;
+      coverableWithBankedSavers: boolean;
+    } | null;
+  };
+  // team/teamPool blocks unchanged
+}
+```
+
+`pendingStreakGap` is `null` whenever `lastTrainedDate` is `null`, today,
+or yesterday (no gap open). Otherwise it reports the size of the open gap
+and whether the currently-banked balance would bridge it if the player logs
+training right now — the UI's "streak saved" banner
+(Decision 3.1) shows only when `coverableWithBankedSavers` is `true`;
+`missedDayCount` is still reported even when it's `false`, matching the
+existing "the home screen just shows the last known state until the next
+log" behavior this app already has for a plain (non-saver) missed day.
+
+### Implementer notes
+
+- **backend-developer:** both fields above are computed by the exact same
+  pure `computeStreakUpdate` function
+  (`backend/src/common/streak/streak.util.ts`) used at write time — the
+  read path must never duplicate its cap/gap logic, and must never persist
+  anything it computes (ADR-0024 Decision 5's core constraint).
+- **frontend-developer:** the persistent gap banner (`pendingStreakGap`,
+  when `coverableWithBankedSavers` is `true`) and the one-time "streak
+  saved!" toast (`streak.streakSaverSpent > 0` on the next
+  `POST /training-logs` response) are two distinct UI moments — see
+  ADR-0024 Decision 3 for exact copy direction (ux-designer's call, not
+  decided here). No push notification is sent for either.

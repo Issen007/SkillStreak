@@ -73,6 +73,15 @@ export class Player {
   @Column({ name: 'last_trained_date', type: 'date', nullable: true })
   lastTrainedDate!: string | null;
 
+  // docs/adr/0024-streak-savers.md Decision 1/4 — the durable banked-saver
+  // balance, capped at MAX_BANKED_STREAK_SAVERS
+  // (backend/src/common/streak/streak.util.ts) by computeStreakUpdate, not
+  // by a DB constraint. `StreakSaverEvent` (see that entity) is the
+  // append-only audit trail behind this counter, same relationship as
+  // TrainingLogEntry behind currentStreakCount/longestStreakCount above.
+  @Column({ name: 'banked_streak_saver_count', type: 'integer', default: 0 })
+  bankedStreakSaverCount!: number;
+
   // Bearer-secret for the parental-consent approval link
   // (docs/api/phase1-contract.md step 6 / the new ConsentModule) — a 256-bit
   // token from crypto.randomBytes(32).toString('hex'), single-use (cleared

@@ -11,6 +11,7 @@ import {
 } from '../common/errors/exceptions';
 import { AccountErasureStatus } from '../account-erasure/entities/account-erasure-request.entity';
 import { ParentalConsentStatus } from './player-consent-status.enum';
+import { StreakSaverEventType } from './streak-saver-event-type.enum';
 import { PlayersService } from './players.service';
 
 // Mirrors weekly-goal.service.spec.ts's "fake manager whose getRepository
@@ -715,5 +716,158 @@ describe('PlayersService.findAutoFallbackCaptainCandidate', () => {
         manager as never,
       ),
     ).resolves.toBeNull();
+  });
+});
+
+// docs/adr/0024-streak-savers.md Decision 4/5 — code-critic's review of the
+// initial implementation flagged this as the one non-pure, easy-to-get-wrong
+// piece of new logic (the running-balance-per-row loop) with zero test
+// coverage; these tests close that gap.
+describe('PlayersService.updateStreakFields', () => {
+  const playerId = 'player-1';
+  const trainingLogEntryId = 'log-1';
+
+  function buildService() {
+    const playerRepository = { update: jest.fn().mockResolvedValue(undefined) };
+    const streakSaverEventRepository = {
+      create: jest.fn((entity: Record<string, unknown>) => entity),
+      save: jest.fn((entity: unknown) => Promise.resolve(entity)),
+    };
+    const manager = {
+      getRepository: jest.fn((entity: { name: string }) =>
+        entity.name === 'StreakSaverEvent'
+          ? streakSaverEventRepository
+          : playerRepository,
+      ),
+    } as unknown as EntityManager;
+
+    const service = new PlayersService(
+      undefined as never,
+      undefined as never,
+      undefined as never,
+    );
+
+    return { service, manager, playerRepository, streakSaverEventRepository };
+  }
+
+  const fields = {
+    currentStreakCount: 5,
+    longestStreakCount: 5,
+    lastTrainedDate: '2026-08-06',
+    bankedStreakSaverCount: 1,
+  };
+
+  it('always updates the Player row, even with no streakSaverEvents argument', async () => {
+    const { service, manager, playerRepository, streakSaverEventRepository } =
+      buildService();
+
+    await service.updateStreakFields(manager, playerId, fields);
+
+    expect(playerRepository.update).toHaveBeenCalledWith(
+      { id: playerId },
+      fields,
+    );
+    expect(streakSaverEventRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('writes one SPENT row per covered date, chronological, with a running (not shared) bankedBalanceAfter per row', async () => {
+    const { service, manager, streakSaverEventRepository } = buildService();
+
+    await service.updateStreakFields(manager, playerId, fields, {
+      trainingLogEntryId,
+      bankedStreakSaverCountBefore: 3,
+      coveredDates: ['2026-08-03', '2026-08-04', '2026-08-05'],
+      streakSaverEarned: false,
+    });
+
+    expect(streakSaverEventRepository.save).toHaveBeenCalledTimes(3);
+    const savedRows = streakSaverEventRepository.save.mock.calls.map(
+      ([entity]: [Record<string, unknown>]) => entity,
+    );
+    expect(savedRows).toEqual([
+      expect.objectContaining({
+        eventType: StreakSaverEventType.SPENT,
+        coveredDate: '2026-08-03',
+        bankedBalanceAfter: 2,
+        resolvedByTrainingLogEntryId: trainingLogEntryId,
+      }),
+      expect.objectContaining({
+        eventType: StreakSaverEventType.SPENT,
+        coveredDate: '2026-08-04',
+        bankedBalanceAfter: 1,
+        resolvedByTrainingLogEntryId: trainingLogEntryId,
+      }),
+      expect.objectContaining({
+        eventType: StreakSaverEventType.SPENT,
+        coveredDate: '2026-08-05',
+        bankedBalanceAfter: 0,
+        resolvedByTrainingLogEntryId: trainingLogEntryId,
+      }),
+    ]);
+    // Not the post-transaction balance repeated on every row — each row
+    // reflects its own point in the spend sequence.
+    expect(new Set(savedRows.map((row) => row.bankedBalanceAfter)).size).toBe(
+      3,
+    );
+  });
+
+  it('writes an EARNED row, keyed off the post-transition bankedStreakSaverCount, when streakSaverEarned is true', async () => {
+    const { service, manager, streakSaverEventRepository } = buildService();
+
+    await service.updateStreakFields(manager, playerId, fields, {
+      trainingLogEntryId,
+      bankedStreakSaverCountBefore: 0,
+      coveredDates: [],
+      streakSaverEarned: true,
+    });
+
+    expect(streakSaverEventRepository.save).toHaveBeenCalledTimes(1);
+    expect(streakSaverEventRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: StreakSaverEventType.EARNED,
+        bankedBalanceAfter: fields.bankedStreakSaverCount,
+        trainingLogEntryId,
+      }),
+    );
+  });
+
+  it('writes no EARNED row when streakSaverEarned is false — the "earning past the cap is a no-op" rule', async () => {
+    const { service, manager, streakSaverEventRepository } = buildService();
+
+    await service.updateStreakFields(manager, playerId, fields, {
+      trainingLogEntryId,
+      bankedStreakSaverCountBefore: 4,
+      coveredDates: [],
+      streakSaverEarned: false,
+    });
+
+    expect(streakSaverEventRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('writes both SPENT and EARNED rows in one call — a gap-bridging log that also happens to hit a fresh 7-day milestone', async () => {
+    const { service, manager, streakSaverEventRepository } = buildService();
+
+    await service.updateStreakFields(manager, playerId, fields, {
+      trainingLogEntryId,
+      bankedStreakSaverCountBefore: 2,
+      coveredDates: ['2026-08-05'],
+      streakSaverEarned: true,
+    });
+
+    expect(streakSaverEventRepository.save).toHaveBeenCalledTimes(2);
+    const [[spentRow], [earnedRow]] = streakSaverEventRepository.save.mock
+      .calls as [[Record<string, unknown>], [Record<string, unknown>]];
+    expect(spentRow).toEqual(
+      expect.objectContaining({
+        eventType: StreakSaverEventType.SPENT,
+        bankedBalanceAfter: 1,
+      }),
+    );
+    expect(earnedRow).toEqual(
+      expect.objectContaining({
+        eventType: StreakSaverEventType.EARNED,
+        bankedBalanceAfter: fields.bankedStreakSaverCount,
+      }),
+    );
   });
 });
