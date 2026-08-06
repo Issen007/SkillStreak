@@ -47,6 +47,13 @@
     "report": "🚩 Report",
     "delete": "🗑️ Delete video"
   },
+  "clipPlayerModal": {
+    "close": "Close",
+    "playError": "Couldn't play the video."
+  },
+  "clipGridCell": {
+    "a11yLabel": "Shorts from {{screenName}}, {{timeAgo}}"
+  },
   "v9": {
     "heading": "Why are you reporting this video?",
     "reasonAppearsWithoutConsent": "I'm in this video and didn't want to be",

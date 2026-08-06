@@ -47,6 +47,13 @@
     "report": "🚩 Rapportera",
     "delete": "🗑️ Ta bort videon"
   },
+  "clipPlayerModal": {
+    "close": "Stäng",
+    "playError": "Kunde inte spela videon."
+  },
+  "clipGridCell": {
+    "a11yLabel": "Shorts från {{screenName}}, {{timeAgo}}"
+  },
   "v9": {
     "heading": "Varför rapporterar du den här videon?",
     "reasonAppearsWithoutConsent": "Jag är med i videon och ville inte vara det",

@@ -47,6 +47,13 @@
     "report": "🚩 Anmeld",
     "delete": "🗑️ Slet videoen"
   },
+  "clipPlayerModal": {
+    "close": "Luk",
+    "playError": "Kunne ikke afspille videoen."
+  },
+  "clipGridCell": {
+    "a11yLabel": "Shorts fra {{screenName}}, {{timeAgo}}"
+  },
   "v9": {
     "heading": "Hvorfor anmelder du denne video?",
     "reasonAppearsWithoutConsent": "Jeg er med i videoen og ville ikke være det",

@@ -47,6 +47,13 @@
     "report": "🚩 Nahlásit",
     "delete": "🗑️ Smazat video"
   },
+  "clipPlayerModal": {
+    "close": "Zavřít",
+    "playError": "Video se nepodařilo přehrát."
+  },
+  "clipGridCell": {
+    "a11yLabel": "Shorts od uživatele {{screenName}}, {{timeAgo}}"
+  },
   "v9": {
     "heading": "Proč nahlašuješ tohle video?",
     "reasonAppearsWithoutConsent": "Jsem v tomhle videu a nechtěl/a jsem v něm být",

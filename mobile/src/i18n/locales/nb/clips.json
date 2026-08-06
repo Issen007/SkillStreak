@@ -47,6 +47,13 @@
     "report": "🚩 Rapporter",
     "delete": "🗑️ Slett videoen"
   },
+  "clipPlayerModal": {
+    "close": "Lukk",
+    "playError": "Kunne ikke spille av videoen."
+  },
+  "clipGridCell": {
+    "a11yLabel": "Shorts fra {{screenName}}, {{timeAgo}}"
+  },
   "v9": {
     "heading": "Hvorfor rapporterer du denne videoen?",
     "reasonAppearsWithoutConsent": "Jeg er med i videoen og ville ikke være det",

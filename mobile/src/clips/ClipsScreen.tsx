@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   AppState,
   Pressable,
   RefreshControl,
@@ -13,7 +12,8 @@ import { useTranslation } from 'react-i18next';
 
 import { ClipIntroCard } from './components/ClipIntroCard';
 import { ClipsWaitingCard } from './components/ClipsWaitingCard';
-import { ClipCard } from './components/ClipCard';
+import { ClipGrid } from './components/ClipGrid';
+import { ClipPlayerModal } from './components/ClipPlayerModal';
 import { ClipReportSheet } from './components/ClipReportSheet';
 import { ClipReportConfirmationSheet } from './components/ClipReportConfirmationSheet';
 import { ClipDeleteSheet } from './components/ClipDeleteSheet';
@@ -88,6 +88,13 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
   const [hasMore, setHasMore] = useState(false);
 
   const [revealedClipId, setRevealedClipId] = useState<string | null>(null);
+  // Screen V2 (revised)'s grid+modal split (docs/design/clip-library-grid.md
+  // §2) — `null` = closed, same convention `reportTarget`/`deleteTarget`/
+  // `blockTarget` below already use. Set on grid-cell tap, cleared on the
+  // modal's close *and* on a successful report/delete/block of this same
+  // clip, so the modal never lingers open on a clip that's already gone
+  // from the grid behind it.
+  const [activeClip, setActiveClip] = useState<ClipFeedItem | null>(null);
   const [reportTarget, setReportTarget] = useState<ClipFeedItem | null>(null);
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportConfirmation, setReportConfirmation] = useState<ReportConfirmationState | null>(null);
@@ -258,10 +265,17 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
         uploaderAvatarId: reportTarget.uploaderAvatarId,
       });
       setReportTarget(null);
+      // Modal (if this report was filed from it, per the grid+modal
+      // rework) closes on a successful report — the clip it was showing no
+      // longer exists in the grid behind it either.
+      setActiveClip((prev) => (prev?.clipId === reportTarget.clipId ? null : prev));
     } catch (err) {
       if (err instanceof ApiError && err.code === 'clip_not_found') {
         setToastMessage(t('v2.reportNotFoundToast'));
         setReportTarget(null);
+        // The clip is already gone — same as the success path above, don't
+        // leave the modal open on it.
+        setActiveClip((prev) => (prev?.clipId === reportTarget.clipId ? null : prev));
         void fetchInitial();
       } else if (err instanceof ApiError && err.code === 'clip_already_reported_by_you') {
         setToastMessage(t('v2.reportAlreadyToast'));
@@ -285,10 +299,16 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       setClips((prev) => prev?.filter((c) => c.clipId !== deleteTarget.clipId) ?? prev);
       setToastMessage(t('v2.deletedToast'));
       setDeleteTarget(null);
+      // Same as the report path above — the modal closes on a successful
+      // delete of the clip it was showing.
+      setActiveClip((prev) => (prev?.clipId === deleteTarget.clipId ? null : prev));
     } catch (err) {
       if (err instanceof ApiError && err.code === 'clip_not_found') {
         setToastMessage(t('v2.deleteNotFoundToast'));
         setDeleteTarget(null);
+        // The clip is already gone — same as the success path above, don't
+        // leave the modal open on it.
+        setActiveClip((prev) => (prev?.clipId === deleteTarget.clipId ? null : prev));
         void fetchInitial();
       } else {
         setToastMessage(t('v2.genericError'));
@@ -311,6 +331,11 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       // TeamChatBlock decision) — filter this uploader's clips out of the
       // local list immediately, not just on the next fetch.
       setClips((prev) => prev?.filter((c) => c.uploaderPlayerId !== target.playerId) ?? prev);
+      // If the modal happened to be open on a clip from the just-blocked
+      // uploader (reached via its own "tap avatar" -> CH4 path), it's
+      // gone from the grid behind it now too — same guard as the
+      // report/delete paths above.
+      setActiveClip((prev) => (prev?.uploaderPlayerId === target.playerId ? null : prev));
       setToastMessage(t('v2.blockedToast', { screenName: target.screenName }));
     } catch {
       setToastMessage(t('v2.genericError'));
@@ -406,37 +431,13 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
             <PrimaryButton label={t('v2.uploadButton')} onPress={handleTapFab} />
           </View>
         ) : (
-          <View style={styles.list}>
-            {clips.map((clip) => {
-              const isOwn = clip.uploaderPlayerId === viewerPlayerId;
-              return (
-                <ClipCard
-                  key={clip.clipId}
-                  clip={clip}
-                  isOwn={isOwn}
-                  revealed={revealedClipId === clip.clipId}
-                  onTapAvatar={isOwn ? undefined : () => handleTapAvatar(clip)}
-                  onTapMeta={() => handleTapMeta(clip.clipId)}
-                  onTapReport={() => handleTapReport(clip)}
-                  onTapDelete={() => handleTapDelete(clip)}
-                />
-              );
-            })}
-            {hasMore ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void handleShowMore()}
-                disabled={loadingMore}
-                style={styles.showMoreButton}
-              >
-                {loadingMore ? (
-                  <ActivityIndicator color={colors.ink} />
-                ) : (
-                  <Text style={styles.showMoreText}>{t('v2.showMore')}</Text>
-                )}
-              </Pressable>
-            ) : null}
-          </View>
+          <ClipGrid
+            clips={clips}
+            hasMore={hasMore}
+            loadingMore={loadingMore}
+            onPressClip={setActiveClip}
+            onShowMore={() => void handleShowMore()}
+          />
         )}
       </ScrollView>
 
@@ -447,6 +448,27 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       >
         <Text style={styles.fabIcon}>{locked ? '🔒' : '+'}</Text>
       </Pressable>
+
+      <ClipPlayerModal
+        clip={activeClip}
+        isOwn={activeClip?.uploaderPlayerId === viewerPlayerId}
+        revealed={activeClip !== null && revealedClipId === activeClip.clipId}
+        onTapAvatar={
+          activeClip && activeClip.uploaderPlayerId !== viewerPlayerId
+            ? () => handleTapAvatar(activeClip)
+            : undefined
+        }
+        onTapMeta={() => {
+          if (activeClip) handleTapMeta(activeClip.clipId);
+        }}
+        onTapReport={() => {
+          if (activeClip) handleTapReport(activeClip);
+        }}
+        onTapDelete={() => {
+          if (activeClip) handleTapDelete(activeClip);
+        }}
+        onClose={() => setActiveClip(null)}
+      />
 
       <ClipReportSheet
         visible={reportTarget !== null}
@@ -528,19 +550,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     marginBottom: 6,
-  },
-  list: {
-    gap: 14,
-  },
-  showMoreButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  showMoreText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 13.5,
-    color: colors.ink,
-    textDecorationLine: 'underline',
   },
   fab: {
     position: 'absolute',

@@ -47,6 +47,13 @@
     "report": "🚩 Signaler",
     "delete": "🗑️ Supprimer la vidéo"
   },
+  "clipPlayerModal": {
+    "close": "Fermer",
+    "playError": "Impossible de lire la vidéo."
+  },
+  "clipGridCell": {
+    "a11yLabel": "Shorts de {{screenName}}, {{timeAgo}}"
+  },
   "v9": {
     "heading": "Pourquoi signales-tu cette vidéo ?",
     "reasonAppearsWithoutConsent": "J'apparais dans cette vidéo et je ne voulais pas y être",
