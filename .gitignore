@@ -1,6 +1,6 @@
 # Temporary files
 temp/
-
+docs/internal/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -171,12 +171,6 @@ k8s/secret.yaml
 # retroactively remove what's already in git history/on GitHub. Making the
 # repo private is the only real fix for the already-public content; ask
 # before doing that, it's a bigger call than this file.
-docs/BACKLOG.md
-docs/PROJECT.md
-docs/FUTURE_IDEAS.md
-docs/ACTION_PLAN.md
-docs/MANUAL_CHANGES.md
-docs/LAUNCH_CHECKLIST.md
 .venv
 env/
 venv/
