@@ -12,14 +12,27 @@ function buildService(overrides: { configValue?: string } = {}) {
   const objectStorageService = {
     deleteObjectIfExists: jest.fn().mockResolvedValue(undefined),
   };
+  const redisService = {
+    // Wins the scheduled-job-run claim by default — most tests exercise
+    // the sweep logic itself, not the cross-pod lock (see the dedicated
+    // "skips when another replica already claimed this run" tests below).
+    tryClaimScheduledJobRun: jest.fn().mockResolvedValue(true),
+  };
 
   const service = new ClipRetentionService(
     configService as never,
     videoClipRepository as never,
     objectStorageService as never,
+    redisService as never,
   );
 
-  return { service, configService, videoClipRepository, objectStorageService };
+  return {
+    service,
+    configService,
+    videoClipRepository,
+    objectStorageService,
+    redisService,
+  };
 }
 
 describe('ClipRetentionService.sweepExpiredPublishedClips', () => {
@@ -73,6 +86,35 @@ describe('ClipRetentionService.sweepExpiredPublishedClips', () => {
     expect(objectStorageService.deleteObjectIfExists).not.toHaveBeenCalled();
     expect(videoClipRepository.delete).not.toHaveBeenCalled();
   });
+
+  // k8s/README.md's now-resolved "Scheduled-job races" note — with 2+ api
+  // replicas, only the one that wins the Redis try-lock should run.
+  it("skips entirely when another replica already claimed this run's lock", async () => {
+    const { service, videoClipRepository, redisService } = buildService();
+    redisService.tryClaimScheduledJobRun.mockResolvedValue(false);
+
+    await service.sweepExpiredPublishedClips();
+
+    expect(redisService.tryClaimScheduledJobRun).toHaveBeenCalledWith(
+      'clip-retention:published',
+      expect.any(Number),
+    );
+    expect(videoClipRepository.find).not.toHaveBeenCalled();
+  });
+
+  // code-critic's review of the replicas:2 fix — a rejected run-lock check
+  // (e.g. Redis briefly unreachable) must degrade the same as "lost the
+  // claim" (skip this tick), not crash the whole sweep.
+  it('skips this tick, without throwing, if the Redis run-lock check itself fails', async () => {
+    const { service, videoClipRepository, redisService } = buildService();
+    redisService.tryClaimScheduledJobRun.mockRejectedValue(
+      new Error('redis unreachable'),
+    );
+
+    await expect(service.sweepExpiredPublishedClips()).resolves.toBeUndefined();
+
+    expect(videoClipRepository.find).not.toHaveBeenCalled();
+  });
 });
 
 describe('ClipRetentionService.sweepAbandonedPendingUploads', () => {
@@ -117,5 +159,18 @@ describe('ClipRetentionService.sweepAbandonedPendingUploads', () => {
     const cutoffMs = cutoff.getTime();
     expect(cutoffMs).toBeGreaterThanOrEqual(before - 120 * 60_000 - 1000);
     expect(cutoffMs).toBeLessThanOrEqual(after - 120 * 60_000 + 1000);
+  });
+
+  it("skips entirely when another replica already claimed this run's lock", async () => {
+    const { service, videoClipRepository, redisService } = buildService();
+    redisService.tryClaimScheduledJobRun.mockResolvedValue(false);
+
+    await service.sweepAbandonedPendingUploads();
+
+    expect(redisService.tryClaimScheduledJobRun).toHaveBeenCalledWith(
+      'clip-retention:pending-upload',
+      expect.any(Number),
+    );
+    expect(videoClipRepository.find).not.toHaveBeenCalled();
   });
 });

@@ -21,7 +21,17 @@ if [ -z "$DATABASE_URL" ] && [ -n "$POSTGRES_USER" ] && [ -n "$POSTGRES_PASSWORD
   " "$POSTGRES_USER" "$POSTGRES_PASSWORD" "${POSTGRES_HOST:-postgres}" "${POSTGRES_PORT:-5432}" "$POSTGRES_DB")
 fi
 
-echo "Running database migrations..."
-node ./node_modules/typeorm/cli.js -d dist/database/data-source.js migration:run
+# Wrapped in a Postgres session-level advisory lock (dist/scripts/
+# migrate-with-lock.js, compiled from backend/src/scripts/
+# migrate-with-lock.ts) rather than calling the TypeORM CLI directly here —
+# with 2+ concurrently-starting api replicas, two pods used to race
+# `migration:run` against each other and stall the rollout (see
+# k8s/README.md's "Migration race with multiple api replicas" note for the
+# incident, now resolved). Only one pod's migration attempt actually runs
+# at a time; the rest block on the lock, then find nothing new to apply.
+# Exits with the migration CLI's own exit code — `set -e` above stops this
+# script (and thus the container) if that's non-zero.
+echo "Running database migrations (behind a Postgres advisory lock)..."
+node dist/scripts/migrate-with-lock.js
 
 exec "$@"

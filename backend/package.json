@@ -21,7 +21,7 @@
     "migration:generate": "pnpm run typeorm migration:generate",
     "migration:run": "pnpm run typeorm migration:run",
     "migration:revert": "pnpm run typeorm migration:revert",
-    "migration:run:prod": "node ./node_modules/typeorm/cli.js -d dist/database/data-source.js migration:run",
+    "migration:run:prod": "node dist/scripts/migrate-with-lock.js",
     "seed": "ts-node -r tsconfig-paths/register src/scripts/seed.ts",
     "redis:rebuild": "ts-node -r tsconfig-paths/register src/scripts/rebuild-redis-cache.ts",
     "verify:smtp": "ts-node -r tsconfig-paths/register src/scripts/verify-smtp.ts",
