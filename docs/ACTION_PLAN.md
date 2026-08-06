@@ -3277,6 +3277,37 @@ non-player-facing web surface with its own login.
       local, gitignored source files.
 - [ ] **frontend-developer**: the mobile "Report a problem" screen, once
       ux-designer's flow is ready.
+- [x] **architect (addendum, 2026-08-05)**: `docs/adr/0022-admin-control-
+      center.md` Decision 3's Status section amended, resolving
+      `docs/BACKLOG.md`'s "Admin console hosting" conflict
+      (`temp/NEXTSTEP.md`'s "Admin should be it's own pod" ask, plus a
+      general "everything should run in multiple pod infrastructure"
+      philosophy note). Splits the question in two, since NEXTSTEP.md's
+      "Admin" actually names two different things: **reaffirms Decision 3
+      unconditionally for this ADR's own four pillars** (usage stats,
+      error/crash log, bug reports, planning/roadmap views) — still a
+      single-operator, low-frequency tool with no plausible scaling/release
+      divergence, ever. **Treats the PT surface (Phase 8/ADR-0023)
+      separately**: concludes Decision 3's own stated split-trigger
+      ("api pod's own scaling/release story needs to diverge") hasn't been
+      crossed yet for PT's already-reviewed, read-only Part A — video bytes
+      bypass the `api` pod entirely via presigned URLs (ADR-0010 Decision
+      1), and PT traffic stays low-volume and consent-gated — but is
+      plausibly about to be crossed by PT's not-yet-designed
+      write-capability expansion (`docs/BACKLOG.md`'s "PT role
+      write-capabilities" entry: video upload/ownership, subscriptions,
+      weekly missions). Specifies, but explicitly defers building, a
+      **path-based split** (a new `pt-api` Deployment/Service routed via a
+      new `HTTPRoute` path-prefix rule on the *existing*
+      `api.skillstreak.xyz` hostname/cert — no new subdomain, no new TLS
+      SAN, no CORS or `staff_session`-cookie-`Domain` change) as the design
+      to build once that write-capability ADR actually lands and names a
+      concrete driver — not before. Also names a bigger, already-documented,
+      non-speculative reliability gap (`api-deployment.yaml`'s `replicas: 1`
+      migration-locking constraint, affecting the whole app, not just
+      admin/PT) as the higher-leverage infrastructure step if "easier to
+      scale" is the actual near-term goal. No security-reviewer pass needed
+      now — deferred to whenever the `pt-api` split is actually built.
 
 ## Phase 8 — PT (Personal Trainer) role, and staff SSO/RBAC superseding ADR-0022 Decision 2
 

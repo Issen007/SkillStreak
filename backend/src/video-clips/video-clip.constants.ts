@@ -15,13 +15,19 @@ export const ALLOWED_CLIP_MIME_TYPES = [
 
 export type ClipMimeType = (typeof ALLOWED_CLIP_MIME_TYPES)[number];
 
-// ~25MB, generous for a ~20s clip at reasonable mobile-capture quality
-// (ADR-0010 Decision 3's recommendation).
-export const CLIP_MAX_FILE_SIZE_BYTES = 25_000_000;
+// ~75MB — raised from the original ~25MB (2026-08-04, project owner
+// request) to stay proportional to CLIP_MAX_DURATION_SECONDS's own 20s->60s
+// increase at the same reasonable-mobile-capture-quality bitrate ADR-0010
+// Decision 3 originally sized this against (~10 Mbps); leaving this
+// unchanged while tripling the duration cap would have made the longer
+// limit unusable in practice (real recordings would blow the size cap long
+// before hitting 60s).
+export const CLIP_MAX_FILE_SIZE_BYTES = 75_000_000;
 
-// Matches the pitch's "15-sekundersklipp" plus a small buffer (ADR-0010
-// Decision 3's recommendation).
-export const CLIP_MAX_DURATION_SECONDS = 20;
+// Raised from 20s to 60s (2026-08-04, project owner request) — originally
+// matched the pitch's "15-sekundersklipp" plus a small buffer (ADR-0010
+// Decision 3's recommendation); no longer tied to that original framing.
+export const CLIP_MAX_DURATION_SECONDS = 60;
 
 export const CLIP_CAPTION_MAX_LENGTH = 140;
 export const CLIP_REPORT_NOTE_MAX_LENGTH = 140;
