@@ -77,6 +77,9 @@
     "reportMessage": "🚩 Ilmoita viestistä",
     "reportClip": "🚩 Ilmoita klipistä"
   },
+  "systemMessage": {
+    "a11yPrefix": "Automaattinen joukkueviesti: {{content}}"
+  },
   "clipEmbed": {
     "attribution": "Klippi käyttäjältä {{screenName}}"
   },

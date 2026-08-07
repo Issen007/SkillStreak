@@ -77,4 +77,16 @@ export const colors = {
    * "nothing to wait for, just start again"). */
   freshStartBg: '#F1F7F1',
   freshStartBorder: '#CFE3CF',
+  /** System-message bubble fill + border (docs/design/
+   * clip-challenge-notifications-ui.md §3) — the chat-history announcement
+   * for a video-clip challenge, the app's first-ever system-authored
+   * message. Deliberately its own token, not reused from `tipBg`/
+   * `goldRowTint` (both a different meaning: an onboarding tip / "this is
+   * my team's row"), following this file's own established "new token per
+   * new meaning" convention. A warm, pale gold-neutral — ties loosely to
+   * the team-wide "something happened" register without being the
+   * saturated `gold` fill, which style-guide.md reserves for the team pool
+   * specifically. */
+  systemMessageBg: '#FFF3DC',
+  systemMessageBorder: '#FFD27A',
 } as const;

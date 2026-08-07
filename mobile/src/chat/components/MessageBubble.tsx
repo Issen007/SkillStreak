@@ -73,16 +73,41 @@ export function MessageBubble({
   const emoji = AVATAR_CATALOG.find((a) => a.avatarId === message.senderAvatarId)?.emoji ?? '🙂';
   const timestamp = formatChatTimestamp(message.createdAt);
 
+  // ADR-0021 Decision 2 — checked *before* any `isOwn` branching below:
+  // `isOwn` (`senderPlayerId === viewerPlayerId`) is `false` for a system
+  // row (its sender is `null` from creation), so without this the
+  // announcement would silently fall through to the ordinary left-aligned
+  // white "teammate message" treatment, which is exactly what Decision 2/3
+  // rule out.
+  const isSystem = message.authorType === 'system';
+
   const clip = message.clip;
   const clipUploaderIsViewer = clip !== null && clip.uploaderPlayerId === viewerPlayerId;
-  const canReportMessage = !isOwn;
+  // The client-side mirror of the backend's binding report-rejection guard
+  // (ADR-0021 Decision 3 / the security-reviewer addendum's finding 1) —
+  // belt-and-suspenders: the server 400s a report against a system row
+  // regardless, but the UI should never *offer* an action guaranteed to
+  // fail. Reporting the attached *clip* is unaffected (it has a real
+  // uploader) and keeps working exactly as on any other message.
+  const canReportMessage = !isOwn && !isSystem;
   const canReportClip = clip !== null && !clipUploaderIsViewer;
   const canReportSomething = canReportMessage || canReportClip;
   const showAttribution = clip !== null && clip.uploaderPlayerId !== message.senderPlayerId;
 
   return (
-    <View style={[styles.row, isOwn ? styles.rowMine : styles.rowTheirs]}>
-      {!isOwn ? (
+    <View
+      style={[
+        styles.row,
+        isSystem ? styles.rowSystem : isOwn ? styles.rowMine : styles.rowTheirs,
+      ]}
+    >
+      {/* No avatar/sender-name row on a system message, and no "SYSTEM"
+          label replacing it: the templated sentence already names both
+          players in plain language, so a label on top of that would be
+          noise. The centered layout + distinct fill carry the "not a
+          person" reading visually; the accessibilityLabel below carries it
+          for a screen reader, which can't infer it from layout. */}
+      {!isOwn && !isSystem ? (
         <Pressable onPress={onTapSender} accessibilityRole="button" style={styles.senderRow}>
           <Text style={styles.senderEmoji}>{emoji}</Text>
           <Text style={styles.senderName}>{message.senderScreenName}</Text>
@@ -92,9 +117,17 @@ export function MessageBubble({
       <Pressable
         onPress={canReportSomething ? onTapBody : undefined}
         accessibilityRole={canReportSomething ? 'button' : undefined}
-        style={[styles.bubble, isOwn ? styles.bubbleMine : styles.bubbleTheirs]}
+        accessibilityLabel={
+          isSystem ? t('systemMessage.a11yPrefix', { content: message.content }) : undefined
+        }
+        style={[
+          styles.bubble,
+          isSystem ? styles.bubbleSystem : isOwn ? styles.bubbleMine : styles.bubbleTheirs,
+        ]}
       >
-        {message.content ? <Text style={styles.content}>{message.content}</Text> : null}
+        {message.content ? (
+          <Text style={[styles.content, isSystem && styles.contentSystem]}>{message.content}</Text>
+        ) : null}
 
         {clip ? (
           <ClipEmbed
@@ -143,6 +176,15 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     alignItems: 'flex-start',
   },
+  /** ADR-0021 Decision 2's announcement row — centered, not edge-aligned:
+   * a system message isn't "from" either side of the conversation. Wider
+   * than the 82% both edge-anchored variants get, since it has no
+   * conversational partner to leave room for. */
+  rowSystem: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    maxWidth: '92%',
+  },
   senderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -175,11 +217,23 @@ const styles = StyleSheet.create({
     borderColor: colors.pausedBorder,
     borderTopRightRadius: 4,
   },
+  bubbleSystem: {
+    backgroundColor: colors.systemMessageBg,
+    borderWidth: 1,
+    borderColor: colors.systemMessageBorder,
+    // Symmetric — no asymmetric "speech-bubble tail" corner the way
+    // bubbleMine/bubbleTheirs have, since this bubble isn't pointing at
+    // anyone.
+    borderRadius: 14,
+  },
   content: {
     fontFamily: fonts.body,
     fontSize: 13,
     color: colors.ink,
     lineHeight: 18,
+  },
+  contentSystem: {
+    textAlign: 'center',
   },
   time: {
     fontFamily: fonts.body,

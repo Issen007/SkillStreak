@@ -5,6 +5,7 @@ import type {
   CancelErasureResponse,
   CaptainTransferRequest,
   CaptainTransferResponse,
+  ChallengeAckResponse,
   ChatMessagesResponse,
   ClipsResponse,
   CompleteClipUploadResponse,
@@ -23,6 +24,7 @@ import type {
   GoalHistoryResponse,
   InvitePreviewResponse,
   LeaderboardResponse,
+  PendingChallengesResponse,
   PendingJoinsResponse,
   PlayerMeResponse,
   PlayerProfileResponse,
@@ -505,5 +507,36 @@ export function reportClip(
   return apiClient.request<ReportClipResponse>(
     `/teams/${encodeURIComponent(teamId)}/clips/${encodeURIComponent(clipId)}/report`,
     { method: 'POST', body, auth: true },
+  );
+}
+
+// --- Fas 4.6 additions, per docs/adr/0021-clip-challenge-notifications.md --
+// Decision 1's two new clip-challenge endpoints, backing Laget's
+// "Utmaningar till dig" section (docs/design/clip-challenge-notifications-ui.md
+// §1). Both are team-scoped and auth-required, same shape as the five clip
+// endpoints above.
+
+/** GET /teams/:teamId/clips/challenges/pending — auth required, and gated
+ * exactly like `getClips` (`403` for a not-yet-consent/join-approved
+ * requester). Every player, not captain-gated. Unacknowledged, published,
+ * tagged-at-me clips only; no pagination (bounded by team size). */
+export function getPendingClipChallenges(teamId: string): Promise<PendingChallengesResponse> {
+  return apiClient.request<PendingChallengesResponse>(
+    `/teams/${encodeURIComponent(teamId)}/clips/challenges/pending`,
+    { auth: true },
+  );
+}
+
+/** POST /teams/:teamId/clips/:clipId/challenge-ack — tagged-player-only
+ * (`403 not_your_challenge`), idempotent: re-acking an already-acked
+ * challenge is a `200` no-op, so both the "watch" and the "Redan sett"
+ * trigger can fire it freely without coordinating. */
+export function ackClipChallenge(
+  teamId: string,
+  clipId: string,
+): Promise<ChallengeAckResponse> {
+  return apiClient.request<ChallengeAckResponse>(
+    `/teams/${encodeURIComponent(teamId)}/clips/${encodeURIComponent(clipId)}/challenge-ack`,
+    { method: 'POST', auth: true },
   );
 }

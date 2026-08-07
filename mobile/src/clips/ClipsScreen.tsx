@@ -26,10 +26,8 @@ import { blockChatPlayer, deleteClip, getClips, getMe, reportClip } from '../api
 import { ApiError } from '../api/ApiError';
 import {
   addCachedChatBlock,
-  addSeenChallengeClipId,
   getClipLastViewedAt,
   getHasSeenClipIntro,
-  getSeenChallengeClipIds,
   setClipLastViewedAt,
   setHasSeenClipIntro,
 } from '../api/localFlags';
@@ -104,7 +102,6 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
   const [blockSubmitting, setBlockSubmitting] = useState(false);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [challengeBanner, setChallengeBanner] = useState<string | null>(null);
   const [view, setView] = useState<'feed' | 'upload'>('feed');
 
   const hasOpenedRef = useRef(false);
@@ -134,28 +131,16 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
     void fetchConsentStatus();
   }, [fetchConsentStatus]);
 
-  const checkForChallengeBanner = useCallback(
-    async (feedClips: ClipFeedItem[]) => {
-      const seen = await getSeenChallengeClipIds(teamId);
-      const newlyChallenged = feedClips.find(
-        (clip) => clip.taggedPlayerId === viewerPlayerId && !seen.includes(clip.clipId),
-      );
-      if (!newlyChallenged) return;
-      // Persisted immediately on first *display*, not dismissal — same
-      // "a killed app doesn't re-show it" rule K5/G3 already established.
-      await addSeenChallengeClipId(teamId, newlyChallenged.clipId);
-      setChallengeBanner(t('v2.challengeBanner', { screenName: newlyChallenged.uploaderScreenName }));
-    },
-    [teamId, viewerPlayerId, t],
-  );
-
+  // Screen V3's one-time "you were challenged" toast used to be triggered
+  // from here — removed in Fas 4.6, superseded (not duplicated) by the
+  // Laget tab's persistent, server-backed pending-challenges section per
+  // docs/adr/0021-clip-challenge-notifications.md Decision 1.
   const fetchInitial = useCallback(async () => {
     try {
       const response = await getClips(teamId, { limit: FEED_PAGE_SIZE });
       setClips(response.clips);
       setHasMore(response.clips.length === FEED_PAGE_SIZE);
       setLoadError(null);
-      void checkForChallengeBanner(response.clips);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'consent_required') {
         setConsentStatus((prev) => prev ?? 'pending');
@@ -167,7 +152,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       setManualRefreshing(false);
       hasLoadedOnceRef.current = true;
     }
-  }, [teamId, checkForChallengeBanner, t]);
+  }, [teamId, t]);
 
   useEffect(() => {
     if (hasSeenIntro === true) void fetchInitial();
@@ -503,14 +488,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
         onClose={() => setBlockTarget(null)}
       />
 
-      {challengeBanner ? (
-        // Screen V3 — reuses the existing `Toast` component verbatim (per
-        // mobile/README.md's own "known duplication" note, this is exactly
-        // the kind of near-duplicate overlay this project already flagged
-        // as worth consolidating rather than reinventing a fifth one for
-        // Fas 3) rather than a new bespoke banner component.
-        <Toast message={challengeBanner} durationMs={3000} onDismiss={() => setChallengeBanner(null)} />
-      ) : toastMessage ? (
+      {toastMessage ? (
         <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
       ) : null}
     </View>

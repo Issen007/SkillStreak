@@ -4,6 +4,7 @@
     "loadError": "Kunne ikke hente holdet. Tjek din forbindelse.",
     "genericError": "Noget gik galt.",
     "retry": "Prøv igen",
+    "pendingChallengesHeading": "🎯 Udfordringer til dig ({{count}})",
     "pendingSectionLabel": "Venter på godkendelse",
     "teammatesSectionLabel": "Spillere på holdet",
     "inviteCodeLabel": "Holdkode",
@@ -17,6 +18,8 @@
     "approveErrorToast": "Kunne ikke godkende lige nu. Prøv igen.",
     "rejectSuccessToast": "{{screenName}} blev afvist.",
     "rejectErrorToast": "Kunne ikke afvise lige nu. Prøv igen.",
+    "challengeAckedToast": "Udfordringen fra {{screenName}} er markeret som set.",
+    "challengeAckErrorToast": "Kunne ikke markere udfordringen som set. Prøv igen.",
     "captainTransferredToast": "Anførerskabet er overdraget til {{newCaptainScreenName}}. 👑",
     "linkCopiedToast": "Link kopieret!"
   },
@@ -60,6 +63,17 @@
   "pendingJoinRow": {
     "reject": "Afvis",
     "approve": "Godkend"
+  },
+  "challengeRow": {
+    "title": "{{screenName}} udfordrede dig!",
+    "watchCta": "Se →",
+    "dismissCta": "Allerede set",
+    "a11yLabel": "Udfordring fra {{screenName}}. Tryk for at se."
+  },
+  "challengeClipModal": {
+    "heading": "{{screenName}} udfordrede dig! 🎯",
+    "close": "Luk",
+    "playError": "Kunne ikke afspille videoen."
   },
   "reminderActionSheet": {
     "sendReminder": "Send påmindelse til forælder",

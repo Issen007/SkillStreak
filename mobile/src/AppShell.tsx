@@ -10,7 +10,14 @@ import { ClipsScreen } from './clips/ClipsScreen';
 import { TabBar, TabKey } from './navigation/TabBar';
 import { Toast } from './components/Toast';
 import { CaptainBanner } from './components/CaptainBanner';
-import { getChatMessages, getClips, getMe, getTeamDashboard, getWeeklyGoal } from './api/endpoints';
+import {
+  getChatMessages,
+  getClips,
+  getMe,
+  getPendingClipChallenges,
+  getTeamDashboard,
+  getWeeklyGoal,
+} from './api/endpoints';
 import {
   getChatLastViewedAt,
   getClipLastViewedAt,
@@ -87,6 +94,7 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
   const [captainBanner, setCaptainBanner] = useState<CaptainBannerState | null>(null);
   const [chatUnread, setChatUnread] = useState(false);
   const [clipsUnread, setClipsUnread] = useState(false);
+  const [teamChallengesPending, setTeamChallengesPending] = useState(false);
 
   // Set right before a G2 takeover's own weekly-goal re-check (see
   // `handleGoalBonusTriggered`) so the *triggering* player's own device
@@ -230,6 +238,21 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
     }
   }, []);
 
+  // Fas 4.6's "Laget" tab dot (docs/design/clip-challenge-notifications-ui.md
+  // §1.3/§1.4) — an independent check so the dot is visible *before* the
+  // tab is ever opened. Unlike the two unread dots above there's no local
+  // "last viewed" bookkeeping: "pending" is a real, durable, per-account
+  // server state (ADR-0021 Decision 1), cleared only by an explicit ack.
+  const checkForPendingChallenges = useCallback(async (resolvedTeamId: string) => {
+    try {
+      const response = await getPendingClipChallenges(resolvedTeamId);
+      setTeamChallengesPending(response.challenges.length > 0);
+    } catch {
+      // Non-critical — same posture as the other foreground checks above
+      // (a not-yet-consent/join-approved player just 403s here).
+    }
+  }, []);
+
   const runForegroundChecks = useCallback(async () => {
     const identity = await ensureIdentity();
     if (!identity) return;
@@ -238,8 +261,16 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
       checkForCaptainBanner(identity.teamId),
       checkForUnreadChat(identity.teamId),
       checkForUnreadClips(identity.teamId),
+      checkForPendingChallenges(identity.teamId),
     ]);
-  }, [ensureIdentity, checkForCatchUp, checkForCaptainBanner, checkForUnreadChat, checkForUnreadClips]);
+  }, [
+    ensureIdentity,
+    checkForCatchUp,
+    checkForCaptainBanner,
+    checkForUnreadChat,
+    checkForUnreadClips,
+    checkForPendingChallenges,
+  ]);
 
   useEffect(() => {
     hasRunOnce.current = true;
@@ -341,6 +372,7 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
               onManageGoal={handleNavigateToGoalTab}
               onSeeGoalDetail={handleSeeGoalDetail}
               onCaptainTransferred={handleCaptainTransferred}
+              onChallengesChanged={setTeamChallengesPending}
             />
           ) : (
             <View style={styles.centered}>
@@ -369,6 +401,7 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
         goalTabDot={catchUpBanner !== null}
         chatTabDot={chatUnread}
         clipsTabDot={clipsUnread}
+        teamTabDot={teamChallengesPending}
       />
     </View>
   );

@@ -77,6 +77,9 @@
     "reportMessage": "🚩 Signaler le message",
     "reportClip": "🚩 Signaler le clip"
   },
+  "systemMessage": {
+    "a11yPrefix": "Message automatique de l'équipe : {{content}}"
+  },
   "clipEmbed": {
     "attribution": "Clip de {{screenName}}"
   },

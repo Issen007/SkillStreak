@@ -77,6 +77,9 @@
     "reportMessage": "🚩 Nahlásit zprávu",
     "reportClip": "🚩 Nahlásit klip"
   },
+  "systemMessage": {
+    "a11yPrefix": "Automatická týmová zpráva: {{content}}"
+  },
   "clipEmbed": {
     "attribution": "Klip od uživatele {{screenName}}"
   },

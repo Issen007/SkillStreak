@@ -4,6 +4,7 @@
     "loadError": "Impossible de charger l'équipe. Vérifie ta connexion.",
     "genericError": "Une erreur s'est produite.",
     "retry": "Réessayer",
+    "pendingChallengesHeading": "🎯 Défis pour toi ({{count}})",
     "pendingSectionLabel": "En attente d'approbation",
     "teammatesSectionLabel": "Joueurs de l'équipe",
     "inviteCodeLabel": "Code d'équipe",
@@ -17,6 +18,8 @@
     "approveErrorToast": "Impossible d'approuver pour le moment. Réessaie.",
     "rejectSuccessToast": "{{screenName}} a été refusé(e).",
     "rejectErrorToast": "Impossible de refuser pour le moment. Réessaie.",
+    "challengeAckedToast": "Le défi de {{screenName}} est marqué comme vu.",
+    "challengeAckErrorToast": "Impossible de marquer le défi comme vu. Réessaie.",
     "captainTransferredToast": "Le brassard de capitaine a été transmis à {{newCaptainScreenName}}. 👑",
     "linkCopiedToast": "Lien copié !"
   },
@@ -60,6 +63,17 @@
   "pendingJoinRow": {
     "reject": "Refuser",
     "approve": "Approuver"
+  },
+  "challengeRow": {
+    "title": "{{screenName}} t'a lancé un défi !",
+    "watchCta": "Regarder →",
+    "dismissCta": "Déjà vu",
+    "a11yLabel": "Défi de {{screenName}}. Touche pour regarder."
+  },
+  "challengeClipModal": {
+    "heading": "{{screenName}} t'a lancé un défi ! 🎯",
+    "close": "Fermer",
+    "playError": "Impossible de lire la vidéo."
   },
   "reminderActionSheet": {
     "sendReminder": "Envoyer un rappel au parent",

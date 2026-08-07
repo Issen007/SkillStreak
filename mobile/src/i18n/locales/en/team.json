@@ -4,6 +4,7 @@
     "loadError": "Couldn't load the team. Check your connection.",
     "genericError": "Something went wrong.",
     "retry": "Try again",
+    "pendingChallengesHeading": "🎯 Challenges for you ({{count}})",
     "pendingSectionLabel": "Waiting for approval",
     "teammatesSectionLabel": "Players on the team",
     "inviteCodeLabel": "Team code",
@@ -17,6 +18,8 @@
     "approveErrorToast": "Couldn't approve right now. Try again.",
     "rejectSuccessToast": "{{screenName}} was declined.",
     "rejectErrorToast": "Couldn't decline right now. Try again.",
+    "challengeAckedToast": "The challenge from {{screenName}} is marked as seen.",
+    "challengeAckErrorToast": "Couldn't mark the challenge as seen. Try again.",
     "captainTransferredToast": "The captaincy has been handed over to {{newCaptainScreenName}}. 👑",
     "linkCopiedToast": "Link copied!"
   },
@@ -60,6 +63,17 @@
   "pendingJoinRow": {
     "reject": "Decline",
     "approve": "Approve"
+  },
+  "challengeRow": {
+    "title": "{{screenName}} challenged you!",
+    "watchCta": "Watch →",
+    "dismissCta": "Already seen",
+    "a11yLabel": "Challenge from {{screenName}}. Tap to watch."
+  },
+  "challengeClipModal": {
+    "heading": "{{screenName}} challenged you! 🎯",
+    "close": "Close",
+    "playError": "Couldn't play the video."
   },
   "reminderActionSheet": {
     "sendReminder": "Send reminder to parent",

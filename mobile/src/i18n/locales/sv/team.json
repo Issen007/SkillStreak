@@ -4,6 +4,7 @@
     "loadError": "Kunde inte hämta laget. Kolla din uppkoppling.",
     "genericError": "Något gick fel.",
     "retry": "Försök igen",
+    "pendingChallengesHeading": "🎯 Utmaningar till dig ({{count}})",
     "pendingSectionLabel": "Väntar på godkännande",
     "teammatesSectionLabel": "Spelare i laget",
     "inviteCodeLabel": "Lagkod",
@@ -17,6 +18,8 @@
     "approveErrorToast": "Kunde inte godkänna just nu. Testa igen.",
     "rejectSuccessToast": "{{screenName}} nekades.",
     "rejectErrorToast": "Kunde inte neka just nu. Testa igen.",
+    "challengeAckedToast": "Utmaningen från {{screenName}} är markerad som sedd.",
+    "challengeAckErrorToast": "Kunde inte markera utmaningen som sedd. Testa igen.",
     "captainTransferredToast": "Kaptensskapet är överlämnat till {{newCaptainScreenName}}. 👑",
     "linkCopiedToast": "Länk kopierad!"
   },
@@ -60,6 +63,17 @@
   "pendingJoinRow": {
     "reject": "Neka",
     "approve": "Godkänn"
+  },
+  "challengeRow": {
+    "title": "{{screenName}} utmanade dig!",
+    "watchCta": "Titta →",
+    "dismissCta": "Redan sett",
+    "a11yLabel": "Utmaning från {{screenName}}. Tryck för att titta."
+  },
+  "challengeClipModal": {
+    "heading": "{{screenName}} utmanade dig! 🎯",
+    "close": "Stäng",
+    "playError": "Kunde inte spela videon."
   },
   "reminderActionSheet": {
     "sendReminder": "Skicka påminnelse till förälder",
