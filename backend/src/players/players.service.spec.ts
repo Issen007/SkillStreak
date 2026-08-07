@@ -12,6 +12,7 @@ import {
 import { AccountErasureStatus } from '../account-erasure/entities/account-erasure-request.entity';
 import { ParentalConsentStatus } from './player-consent-status.enum';
 import { StreakSaverEventType } from './streak-saver-event-type.enum';
+import { TeamJoinStatus } from './team-join-status.enum';
 import { PlayersService } from './players.service';
 
 // Mirrors weekly-goal.service.spec.ts's "fake manager whose getRepository
@@ -576,12 +577,14 @@ describe('PlayersService.listTeammates', () => {
         screenName: 'FloorballStar15',
         avatarId: 'fox',
         isCaptain: true,
+        teamJoinStatus: TeamJoinStatus.APPROVED,
       },
       {
         id: 'player-2',
         screenName: 'Other',
         avatarId: 'wolf',
         isCaptain: false,
+        teamJoinStatus: TeamJoinStatus.APPROVED,
       },
     ] as never);
 
@@ -604,6 +607,112 @@ describe('PlayersService.listTeammates', () => {
     expect(JSON.stringify(result)).not.toMatch(
       /consentStatus|lastTrainedDate|realName/i,
     );
+  });
+
+  // code-critic finding, 2026-08-06 pre-merge pass on
+  // docs/adr/0021-clip-challenge-notifications.md — an earlier version of
+  // this method filtered `teamJoinStatus === APPROVED` unconditionally,
+  // silently narrowing every consumer of this shared method (including the
+  // ADR-0013 GDPR account-erasure successor picker, which was never in
+  // scope for ADR-0021 and whose own backend validity check,
+  // isSuccessorStillValid, has never required an APPROVED join). The
+  // default (no `options`, or `options.approvedOnly` falsy) must stay
+  // exactly the pre-ADR-0021 unfiltered behavior.
+  it('includes a still-PENDING teammate by default (options omitted) — the pre-ADR-0021 behavior every non-video-clip caller still relies on', async () => {
+    const teamId = 'team-1';
+    const requesterId = 'player-1';
+
+    const service = new PlayersService(
+      undefined as never,
+      undefined as never,
+      undefined as never,
+    );
+    jest.spyOn(service, 'assertTeamMembership').mockResolvedValue({
+      id: requesterId,
+      teamId,
+    } as never);
+    jest.spyOn(service, 'listByTeam').mockResolvedValue([
+      {
+        id: 'player-1',
+        screenName: 'FloorballStar15',
+        avatarId: 'fox',
+        isCaptain: true,
+        teamJoinStatus: TeamJoinStatus.APPROVED,
+      },
+      {
+        id: 'player-2',
+        screenName: 'StillPending',
+        avatarId: 'wolf',
+        isCaptain: false,
+        teamJoinStatus: TeamJoinStatus.PENDING,
+      },
+    ] as never);
+
+    const result = await service.listTeammates(teamId, requesterId);
+
+    expect(result).toEqual([
+      {
+        playerId: 'player-1',
+        screenName: 'FloorballStar15',
+        avatarId: 'fox',
+        isCaptain: true,
+      },
+      {
+        playerId: 'player-2',
+        screenName: 'StillPending',
+        avatarId: 'wolf',
+        isCaptain: false,
+      },
+    ]);
+  });
+
+  // docs/adr/0021-clip-challenge-notifications.md's 2026-08-06
+  // security-reviewer addendum, finding 2 — the opt-in-only resolution: a
+  // caller that explicitly passes `{ approvedOnly: true }` (the video-clip
+  // tag picker's own endpoint call, once wired) gets a still-PENDING
+  // teammate excluded; no other caller is affected by this option existing.
+  it('excludes a teammate whose teamJoinStatus is not APPROVED only when the caller explicitly opts in via approvedOnly: true', async () => {
+    const teamId = 'team-1';
+    const requesterId = 'player-1';
+
+    const service = new PlayersService(
+      undefined as never,
+      undefined as never,
+      undefined as never,
+    );
+    jest.spyOn(service, 'assertTeamMembership').mockResolvedValue({
+      id: requesterId,
+      teamId,
+    } as never);
+    jest.spyOn(service, 'listByTeam').mockResolvedValue([
+      {
+        id: 'player-1',
+        screenName: 'FloorballStar15',
+        avatarId: 'fox',
+        isCaptain: true,
+        teamJoinStatus: TeamJoinStatus.APPROVED,
+      },
+      {
+        id: 'player-2',
+        screenName: 'StillPending',
+        avatarId: 'wolf',
+        isCaptain: false,
+        teamJoinStatus: TeamJoinStatus.PENDING,
+      },
+    ] as never);
+
+    const result = await service.listTeammates(teamId, requesterId, {
+      approvedOnly: true,
+    });
+
+    expect(result).toEqual([
+      {
+        playerId: 'player-1',
+        screenName: 'FloorballStar15',
+        avatarId: 'fox',
+        isCaptain: true,
+      },
+    ]);
   });
 });
 

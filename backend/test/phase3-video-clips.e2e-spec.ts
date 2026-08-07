@@ -18,6 +18,11 @@ import { Player } from '../src/players/entities/player.entity';
 import { PlayerPrivateInfo } from '../src/player-private-info/entities/player-private-info.entity';
 import { Team } from '../src/teams/entities/team.entity';
 import {
+  ChatMessageAuthorType,
+  SystemChatEventType,
+  TeamChatMessage,
+} from '../src/team-chat/entities/team-chat-message.entity';
+import {
   ClipReport,
   ClipReportReason,
 } from '../src/video-clips/entities/clip-report.entity';
@@ -59,6 +64,21 @@ interface ClipFeedItemBody {
   playbackUrl: string;
   createdAt: string;
   reportedByMe: boolean;
+}
+
+interface PendingChallengeBody {
+  clipId: string;
+  uploaderPlayerId: string;
+  uploaderScreenName: string;
+  uploaderAvatarId: string;
+  caption: string | null;
+  playbackUrl: string;
+  createdAt: string;
+}
+
+interface ChallengeAckBody {
+  clipId: string;
+  acknowledged: true;
 }
 
 async function ffmpegAvailable(): Promise<boolean> {
@@ -336,6 +356,43 @@ describe('Fas 3: video clips & the team feed (e2e)', () => {
       );
     });
 
+    // docs/adr/0021-clip-challenge-notifications.md Decision 3 / the
+    // 2026-08-06 security-reviewer addendum finding 2 — a same-team but
+    // still-PENDING (not yet captain-approved) teammate can no longer be
+    // tagged, closing the pre-existing gap this feature's new visibility
+    // made worth ruling out.
+    it('rejects a taggedPlayerId that is on the same team but not yet teamJoinStatus APPROVED with a 400 mentioning taggedPlayerId', async () => {
+      const teamId = await createTeam();
+      const { sessionToken } = await createPlayer(teamId);
+      const pendingPlayer = await dataSource.getRepository(Player).save(
+        dataSource.getRepository(Player).create({
+          teamId,
+          screenName: `Clip${randomUUID().slice(0, 8)}`,
+          avatarId: 'fox',
+          birthYear: 2013,
+          parentalConsentStatus: ParentalConsentStatus.APPROVED,
+          teamJoinStatus: TeamJoinStatus.PENDING,
+        }),
+      );
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/clips/upload-url`)
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({
+          mimeType: 'video/mp4',
+          fileSizeBytes: 1000,
+          durationSeconds: 10,
+          taggedPlayerId: pendingPlayer.id,
+        })
+        .expect(400);
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'validation_error',
+      );
+      expect((response.body as ApiErrorBody).error.message).toMatch(
+        /taggedPlayerId/,
+      );
+    });
+
     it('rejects a caption containing a banned word with 422 caption_rejected_by_filter, and never persists the clip', async () => {
       const teamId = await createTeam();
       const { sessionToken } = await createPlayer(teamId);
@@ -495,7 +552,14 @@ describe('Fas 3: video clips & the team feed (e2e)', () => {
       }
       const teamId = await createTeam();
       const { sessionToken, playerId } = await createPlayer(teamId);
-      const { playerId: taggedId } = await createPlayer(teamId);
+      const { playerId: taggedId, sessionToken: taggedToken } =
+        await createPlayer(teamId);
+      const uploaderRow = await dataSource
+        .getRepository(Player)
+        .findOneOrFail({ where: { id: playerId } });
+      const taggedRow = await dataSource
+        .getRepository(Player)
+        .findOneOrFail({ where: { id: taggedId } });
 
       const clipBytes = await generateSyntheticClip();
       const tagsBeforeUpload = await readFormatTags(clipBytes);
@@ -549,8 +613,232 @@ describe('Fas 3: video clips & the team feed (e2e)', () => {
       expect(tagsAfter.location).toBeUndefined();
       expect(tagsAfter.title).toBeUndefined();
 
-      void playerId;
+      // docs/adr/0021-clip-challenge-notifications.md Decision 2 — the
+      // system chat message, inserted in the same transaction as the
+      // publish-status flip that just ran above, against a real Postgres
+      // transaction (not a mocked EntityManager).
+      const systemMessages = await dataSource
+        .getRepository(TeamChatMessage)
+        .find({ where: { teamId, authorType: ChatMessageAuthorType.SYSTEM } });
+      expect(systemMessages).toHaveLength(1);
+      expect(systemMessages[0]).toMatchObject({
+        senderPlayerId: null,
+        authorType: ChatMessageAuthorType.SYSTEM,
+        systemEventType: SystemChatEventType.CLIP_CHALLENGE_ISSUED,
+        clipId,
+        content: `🎯 ${uploaderRow.screenName} utmanade ${taggedRow.screenName} med en video!`,
+      });
+
+      // docs/adr/0021-clip-challenge-notifications.md Decision 1 — the
+      // tagged player's own pending-challenges list + ack, exercised
+      // end-to-end against the same just-published clip.
+      const pendingResponse = await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/clips/challenges/pending`)
+        .set('Authorization', `Bearer ${taggedToken}`)
+        .expect(200);
+      expect(
+        (pendingResponse.body as { challenges: PendingChallengeBody[] })
+          .challenges,
+      ).toEqual([
+        expect.objectContaining({
+          clipId,
+          uploaderPlayerId: playerId,
+          uploaderScreenName: uploaderRow.screenName,
+          caption: 'Zorro-fint #47!',
+        }),
+      ]);
+
+      const ackResponse = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/clips/${clipId}/challenge-ack`)
+        .set('Authorization', `Bearer ${taggedToken}`)
+        .expect(200);
+      expect(ackResponse.body as ChallengeAckBody).toEqual({
+        clipId,
+        acknowledged: true,
+      });
+
+      const pendingAfterAck = await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/clips/challenges/pending`)
+        .set('Authorization', `Bearer ${taggedToken}`)
+        .expect(200);
+      expect(
+        (pendingAfterAck.body as { challenges: PendingChallengeBody[] })
+          .challenges,
+      ).toEqual([]);
+
+      // Idempotent — a second ack is a 200 no-op, not an error.
+      const secondAck = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/clips/${clipId}/challenge-ack`)
+        .set('Authorization', `Bearer ${taggedToken}`)
+        .expect(200);
+      expect(secondAck.body as ChallengeAckBody).toEqual({
+        clipId,
+        acknowledged: true,
+      });
     }, 30_000);
+  });
+
+  // docs/adr/0021-clip-challenge-notifications.md Decision 1 — using
+  // createPublishedClip's direct-insert fixture (not the real upload
+  // pipeline, mirroring this suite's own existing posture for feed/report/
+  // delete) since neither endpoint here reprocesses the video.
+  describe('GET /clips/challenges/pending', () => {
+    it('rejects a non-approved viewer with 403 consent_required, same as the feed GET', async () => {
+      const teamId = await createTeam();
+      const { sessionToken } = await createPlayer(
+        teamId,
+        ParentalConsentStatus.PENDING,
+      );
+
+      const response = await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/clips/challenges/pending`)
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .expect(403);
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'consent_required',
+      );
+    });
+
+    it('only returns published, unacknowledged clips tagging this viewer — not clips tagging someone else, not un-published clips, and not already-acked clips', async () => {
+      const teamId = await createTeam();
+      const { playerId: uploaderId } = await createPlayer(teamId);
+      const { playerId: viewerId, sessionToken: viewerToken } =
+        await createPlayer(teamId);
+      const { playerId: otherTaggedId } = await createPlayer(teamId);
+
+      const mine = await createPublishedClip(teamId, uploaderId, {
+        taggedPlayerId: viewerId,
+      });
+      await createPublishedClip(teamId, uploaderId, {
+        taggedPlayerId: otherTaggedId,
+      });
+      const alreadyAcked = await createPublishedClip(teamId, uploaderId, {
+        taggedPlayerId: viewerId,
+      });
+      await dataSource
+        .getRepository(VideoClip)
+        .update(
+          { id: alreadyAcked.id },
+          { challengeAcknowledgedAt: new Date() },
+        );
+      const notYetPublished = await createPublishedClip(teamId, uploaderId, {
+        taggedPlayerId: viewerId,
+      });
+      await dataSource
+        .getRepository(VideoClip)
+        .update(
+          { id: notYetPublished.id },
+          { status: VideoClipStatus.PENDING_UPLOAD },
+        );
+
+      const response = await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/clips/challenges/pending`)
+        .set('Authorization', `Bearer ${viewerToken}`)
+        .expect(200);
+      const challenges = (
+        response.body as { challenges: PendingChallengeBody[] }
+      ).challenges;
+
+      expect(challenges).toEqual([
+        expect.objectContaining({
+          clipId: mine.id,
+          uploaderPlayerId: uploaderId,
+        }),
+      ]);
+    });
+  });
+
+  describe('POST /clips/:clipId/challenge-ack', () => {
+    it('rejects a nonexistent (or cross-team) clip with 404 clip_not_found', async () => {
+      const teamId = await createTeam();
+      const { sessionToken } = await createPlayer(teamId);
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/clips/${randomUUID()}/challenge-ack`)
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .expect(404);
+      expect((response.body as ApiErrorBody).error.code).toBe('clip_not_found');
+    });
+
+    // code-critic finding, 2026-08-06 pre-merge pass — consistent with
+    // GET .../clips/challenges/pending, which never surfaces a
+    // not-yet-published clip either.
+    it('rejects a not-yet-published (pending_upload) clip with 404 clip_not_found, even for the correctly-tagged player', async () => {
+      const teamId = await createTeam();
+      const { playerId: uploaderId } = await createPlayer(teamId);
+      const { playerId: taggedId, sessionToken: taggedToken } =
+        await createPlayer(teamId);
+      const clip = await createPublishedClip(teamId, uploaderId, {
+        taggedPlayerId: taggedId,
+      });
+      await dataSource
+        .getRepository(VideoClip)
+        .update({ id: clip.id }, { status: VideoClipStatus.PENDING_UPLOAD });
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/clips/${clip.id}/challenge-ack`)
+        .set('Authorization', `Bearer ${taggedToken}`)
+        .expect(404);
+      expect((response.body as ApiErrorBody).error.code).toBe('clip_not_found');
+    });
+
+    it('rejects with 403 not_your_challenge when the requester is not the taggedPlayerId', async () => {
+      const teamId = await createTeam();
+      const { playerId: uploaderId } = await createPlayer(teamId);
+      const { playerId: taggedId } = await createPlayer(teamId);
+      const { sessionToken: bystanderToken } = await createPlayer(teamId);
+      const clip = await createPublishedClip(teamId, uploaderId, {
+        taggedPlayerId: taggedId,
+      });
+
+      const response = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/clips/${clip.id}/challenge-ack`)
+        .set('Authorization', `Bearer ${bystanderToken}`)
+        .expect(403);
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'not_your_challenge',
+      );
+    });
+
+    it('is idempotent — a second ack of an already-acked challenge is a 200 no-op, not an error', async () => {
+      const teamId = await createTeam();
+      const { playerId: uploaderId } = await createPlayer(teamId);
+      const { playerId: taggedId, sessionToken: taggedToken } =
+        await createPlayer(teamId);
+      const clip = await createPublishedClip(teamId, uploaderId, {
+        taggedPlayerId: taggedId,
+      });
+
+      const first = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/clips/${clip.id}/challenge-ack`)
+        .set('Authorization', `Bearer ${taggedToken}`)
+        .expect(200);
+      expect(first.body as ChallengeAckBody).toEqual({
+        clipId: clip.id,
+        acknowledged: true,
+      });
+
+      const row = await dataSource
+        .getRepository(VideoClip)
+        .findOneOrFail({ where: { id: clip.id } });
+      expect(row.challengeAcknowledgedAt).not.toBeNull();
+
+      const second = await request(app.getHttpServer())
+        .post(`/api/v1/teams/${teamId}/clips/${clip.id}/challenge-ack`)
+        .set('Authorization', `Bearer ${taggedToken}`)
+        .expect(200);
+      expect(second.body as ChallengeAckBody).toEqual({
+        clipId: clip.id,
+        acknowledged: true,
+      });
+      // Same timestamp — the second call did not re-write the row.
+      const rowAfterSecondAck = await dataSource
+        .getRepository(VideoClip)
+        .findOneOrFail({ where: { id: clip.id } });
+      expect(rowAfterSecondAck.challengeAcknowledgedAt?.getTime()).toBe(
+        row.challengeAcknowledgedAt?.getTime(),
+      );
+    });
   });
 
   describe('GET /clips — combined status/block filtering', () => {

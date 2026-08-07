@@ -14,6 +14,7 @@ import {
   ChatSendRateLimitedException,
   ClipNotFoundException,
   ConsentRequiredException,
+  SystemMessageNotReportableException,
   TeamJoinApprovalRequiredException,
   TeamMismatchException,
 } from '../common/errors/exceptions';
@@ -43,7 +44,9 @@ import { DEFAULT_CHAT_MESSAGE_LIMIT } from './dto/list-chat-messages-query.dto';
 import { ReportChatMessageDto } from './dto/report-chat-message.dto';
 import { TeamChatBlock } from './entities/team-chat-block.entity';
 import {
+  ChatMessageAuthorType,
   ChatMessageStatus,
+  SystemChatEventType,
   TeamChatMessage,
 } from './entities/team-chat-message.entity';
 import {
@@ -96,6 +99,14 @@ export interface ChatMessageResponse {
   senderPlayerId: string;
   senderScreenName: string;
   senderAvatarId: string;
+  // docs/adr/0021-clip-challenge-notifications.md Decision 2 — always
+  // 'player'/null here: this response is only ever produced by
+  // postMessage's HTTP path, which never writes a 'system' row (see
+  // ChatMessageAuthorType's own comment). Present for shape-parity with
+  // ChatMessageListItem, not because a system message could ever reach
+  // this response.
+  authorType: ChatMessageAuthorType;
+  systemEventType: SystemChatEventType | null;
   content: string;
   // Always populated when a clipId was sent and accepted (it was just
   // validated as `published` one query earlier in the same request); null
@@ -111,10 +122,22 @@ export interface ChatMessageListItem {
   // player's messages are anonymized in place (sender_player_id set null,
   // content overwritten with a fixed placeholder), never hard-deleted, to
   // preserve the flat feed's continuity. All three sender fields are null
-  // together, never independently.
+  // together, never independently. Also null for a `authorType: 'system'`
+  // row (ADR-0021 Decision 2) — a *different* reason for the same null
+  // shape; the client must check `authorType` first to tell the two apart
+  // (see MessageBubble.tsx's isSystem-before-isOwn ordering note in the
+  // design doc), never infer "erased" from a bare null sender alone.
   senderPlayerId: string | null;
   senderScreenName: string | null;
   senderAvatarId: string | null;
+  // docs/adr/0021-clip-challenge-notifications.md Decision 2 — the real
+  // discriminator. 'system' + systemEventType populated means: NULL
+  // sender from creation, fixed-template content, no report affordance
+  // (TeamChatService.reportMessage's SystemMessageNotReportableException
+  // guard). 'player' + a null senderPlayerId still means exactly what
+  // ADR-0013 Decision 6 already established.
+  authorType: ChatMessageAuthorType;
+  systemEventType: SystemChatEventType | null;
   content: string;
   // Null whenever: the message never had a clipId; the referenced clip is
   // gone (self-deleted/expired); the referenced clip is hidden; or the
@@ -292,6 +315,9 @@ export class TeamChatService {
       senderPlayerId: requesterId,
       senderScreenName: player.screenName,
       senderAvatarId: player.avatarId,
+      // Always 'player'/null here — see ChatMessageResponse's own comment.
+      authorType: ChatMessageAuthorType.PLAYER,
+      systemEventType: null,
       content: message.content,
       clip: clip ? await this.buildClipEmbed(clip) : null,
       createdAt: message.createdAt.toISOString(),
@@ -402,17 +428,22 @@ export class TeamChatService {
           playerById,
         );
 
-        // docs/adr/0013-account-erasure.md Decision 6 — a message whose
-        // sender has since erased their account has sender_player_id = null
-        // (set in the same transaction that deletes their Player row), by
-        // construction never a *dangling* reference to a since-deleted
-        // player id. Rendered as an anonymized entry, not an error.
+        // docs/adr/0013-account-erasure.md Decision 6 / docs/adr/0021-
+        // clip-challenge-notifications.md Decision 2 — a null senderPlayerId
+        // means one of two *disambiguated-by-authorType* things: a real
+        // player whose account has since been erased (ADR-0013), or a
+        // system-authored row that never had a sender at all (ADR-0021).
+        // Both render the same "no sender chrome" shape here — the client
+        // tells them apart via `authorType`, never by inferring from the
+        // bare null alone (see ChatMessageListItem's own comment).
         if (message.senderPlayerId === null) {
           return {
             id: message.id,
             senderPlayerId: null,
             senderScreenName: null,
             senderAvatarId: null,
+            authorType: message.authorType,
+            systemEventType: message.systemEventType,
             content: message.content,
             clip,
             createdAt: message.createdAt.toISOString(),
@@ -436,6 +467,8 @@ export class TeamChatService {
           id: message.id,
           senderPlayerId: message.senderPlayerId,
           senderScreenName: sender.screenName,
+          authorType: message.authorType,
+          systemEventType: message.systemEventType,
           senderAvatarId: sender.avatarId,
           content: message.content,
           clip,
@@ -543,6 +576,20 @@ export class TeamChatService {
     });
     if (!message) {
       throw new ChatMessageNotFoundException();
+    }
+
+    // docs/adr/0021-clip-challenge-notifications.md's 2026-08-06
+    // security-reviewer addendum, finding 1 (binding, not optional): unlike
+    // block (structurally inert against a system message for free —
+    // blocked_player_id is NOT NULL, so it can never equal a system row's
+    // always-NULL senderPlayerId), report has no equivalent free pass. A
+    // system-authored row has no real sender to report — accepting a
+    // report here would create a TeamChatMessageReport with no meaningful
+    // target, worse than not accepting it at all. Checked before the
+    // already-reported/cooldown checks below, since this is a structural
+    // rejection, not a stale-state one.
+    if (message.authorType === ChatMessageAuthorType.SYSTEM) {
+      throw new SystemMessageNotReportableException();
     }
 
     const existingReport = await this.reportRepository.findOne({

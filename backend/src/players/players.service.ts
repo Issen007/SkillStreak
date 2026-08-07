@@ -506,19 +506,48 @@ export class PlayersService {
    * narrower than listByTeam's captain-only consumers (roster): only
    * playerId/screenName/avatarId/isCaptain, per the contract's "nothing
    * else" — no consentStatus/lastTrainedDate here.
+   *
+   * `options.approvedOnly` (default `false`, today's unfiltered behavior)
+   * — an opt-in `teamJoinStatus === APPROVED` filter, NOT a global default.
+   * This method backs at least three independent pickers with three
+   * independent questions about a still-`PENDING` (not yet captain-
+   * approved) joiner: the video-clip "tag a teammate to challenge them"
+   * picker (`V5CaptionChallenge.tsx`, ADR-0021), the ADR-0006 captain-
+   * transfer target picker, and the ADR-0013 GDPR account-erasure
+   * successor picker (`ErasureSuccessorScreen.tsx`) — whose own backend
+   * validity check, `isSuccessorStillValid`
+   * (`account-erasure/successor-validation.util.ts`), has never required
+   * `teamJoinStatus === APPROVED` and isn't being changed by ADR-0021 at
+   * all. Filtering this method's *default* output would have silently
+   * narrowed all three at once for a decision that was only ever reasoned
+   * about for the first (code-critic finding, 2026-08-06 pre-merge pass —
+   * an earlier version of this method did exactly that, caught before
+   * merge). Only a caller that explicitly opts in via `approvedOnly: true`
+   * gets the narrower list; every other caller (including the two above)
+   * keeps exactly its pre-ADR-0021 behavior. `GET .../teammates`
+   * (`weekly-goal.controller.ts`) exposes this as an optional
+   * `?approvedOnly=true` query param — see `docs/api/phase2-contract.md`
+   * endpoint 10's 2026-08-06 revision for the read-side contract.
    */
   async listTeammates(
     teamId: string,
     requesterId: string,
+    options: { approvedOnly?: boolean } = {},
   ): Promise<TeammateEntry[]> {
     await this.assertTeamMembership(requesterId, teamId);
     const players = await this.listByTeam(teamId);
-    return players.map((player) => ({
-      playerId: player.id,
-      screenName: player.screenName,
-      avatarId: player.avatarId,
-      isCaptain: player.isCaptain,
-    }));
+    return players
+      .filter(
+        (player) =>
+          !options.approvedOnly ||
+          player.teamJoinStatus === TeamJoinStatus.APPROVED,
+      )
+      .map((player) => ({
+        playerId: player.id,
+        screenName: player.screenName,
+        avatarId: player.avatarId,
+        isCaptain: player.isCaptain,
+      }));
   }
 
   /**

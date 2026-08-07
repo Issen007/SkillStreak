@@ -8,6 +8,7 @@ import { PlayerPrivateInfoModule } from '../player-private-info/player-private-i
 import { PlayersModule } from '../players/players.module';
 import { RedisModule } from '../redis/redis.module';
 import { TeamChatBlock } from '../team-chat/entities/team-chat-block.entity';
+import { TeamChatMessage } from '../team-chat/entities/team-chat-message.entity';
 import { TeamCoach } from '../teams/entities/team-coach.entity';
 import { TeamsModule } from '../teams/teams.module';
 import { ClipRetentionService } from './clip-retention.service';
@@ -33,12 +34,21 @@ import { VideoProcessingService } from './video-processing.service';
 // themselves are registered the same way, for the identical narrow purpose
 // (reading a team's on-file coach email for the report-notification path) —
 // nothing about coach login/auth is reactivated by this.
+//
+// TeamChatMessage is registered the same way, for
+// docs/adr/0021-clip-challenge-notifications.md Decision 2's "Module
+// wiring": TeamChatModule already imports VideoClipsModule (ADR-0017), so
+// the reverse (VideoClipsModule importing TeamChatModule) would cycle.
+// VideoClipsService writes a system chat message as a direct repository
+// insert inside completeUpload's own transaction, never through
+// TeamChatService.postMessage.
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       VideoClip,
       ClipReport,
       TeamChatBlock,
+      TeamChatMessage,
       TeamCoach,
       Coach,
     ]),

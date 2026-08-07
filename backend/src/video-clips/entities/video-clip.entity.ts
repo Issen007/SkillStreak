@@ -135,4 +135,22 @@ export class VideoClip {
     default: VideoClipTaggingStatus.NOT_PROCESSED,
   })
   taggingStatus!: VideoClipTaggingStatus;
+
+  // docs/adr/0021-clip-challenge-notifications.md Decision 1 — the "tag a
+  // teammate to challenge them" video-clip feature's own acknowledgement
+  // state. DISTINCT from the `Challenge` entity (src/challenges/), which is
+  // ADR-0005's weekly team goal ("veckans mål") — that ADR explicitly
+  // anticipated this exact naming overlap and this column is the resolution
+  // it predicted; don't merge the two concepts. NULL means "still a pending
+  // challenge for taggedPlayerId," set exactly once (by the tagged player,
+  // via POST .../clips/:clipId/challenge-ack) and only ever meaningful when
+  // taggedPlayerId IS NOT NULL AND status = 'published' — the same
+  // "meaningless outside its one real context" shape as
+  // Challenge.goalBonusAwardedAt.
+  @Column({
+    name: 'challenge_acknowledged_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  challengeAcknowledgedAt!: Date | null;
 }

@@ -13,7 +13,9 @@ import { Player } from '../src/players/entities/player.entity';
 import { PlayerPrivateInfo } from '../src/player-private-info/entities/player-private-info.entity';
 import { Team } from '../src/teams/entities/team.entity';
 import {
+  ChatMessageAuthorType,
   ChatMessageStatus,
+  SystemChatEventType,
   TeamChatMessage,
 } from '../src/team-chat/entities/team-chat-message.entity';
 import {
@@ -150,6 +152,29 @@ describe('Fas 2.6b: team chat (e2e)', () => {
         caption: overrides.caption ?? 'Zorro-fint #47!',
         status: VideoClipStatus.PUBLISHED,
         expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      }),
+    );
+  }
+
+  /** docs/adr/0021-clip-challenge-notifications.md Decision 2 — a
+   * direct-insert fixture for a system-authored row, mirroring
+   * createPublishedClip's own "direct insert, no real pipeline needed"
+   * posture: the real writer (VideoClipsService.completeUpload's
+   * transaction) is exercised end-to-end in
+   * phase3-video-clips.e2e-spec.ts's ffmpeg-gated real-pipeline test; this
+   * suite only needs *a* system row to exist to exercise the
+   * report-rejection guard and the read-side authorType/systemEventType
+   * shape. */
+  async function createSystemChatMessage(teamId: string, content: string) {
+    return dataSource.getRepository(TeamChatMessage).save(
+      dataSource.getRepository(TeamChatMessage).create({
+        teamId,
+        senderPlayerId: null,
+        authorType: ChatMessageAuthorType.SYSTEM,
+        systemEventType: SystemChatEventType.CLIP_CHALLENGE_ISSUED,
+        content,
+        clipId: null,
+        status: ChatMessageStatus.VISIBLE,
       }),
     );
   }
@@ -385,6 +410,41 @@ describe('Fas 2.6b: team chat (e2e)', () => {
       ).messages.find((m) => m.id === messageId);
       expect(bystanderEntry?.reportedByMe).toBe(false);
     });
+
+    // docs/adr/0021-clip-challenge-notifications.md Decision 2 — a system
+    // row surfaces authorType/systemEventType and no sender chrome, so the
+    // client can disambiguate it from an ordinary (or erased-sender)
+    // player message per ChatMessageListItem's own contract.
+    it('surfaces a system-authored message with authorType/systemEventType and no sender chrome, end-to-end through GET', async () => {
+      const teamId = await createTeam();
+      const { sessionToken } = await createPlayer(teamId);
+      const systemMessage = await createSystemChatMessage(
+        teamId,
+        '🎯 Anna utmanade Karl med en video!',
+      );
+
+      const listResponse = await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/chat/messages`)
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .expect(200);
+      const messages = (
+        listResponse.body as {
+          messages: (ChatMessageListItemBody & {
+            authorType: string;
+            systemEventType: string | null;
+          })[];
+        }
+      ).messages;
+      const entry = messages.find((m) => m.id === systemMessage.id);
+
+      expect(entry).toMatchObject({
+        senderPlayerId: null,
+        senderScreenName: null,
+        authorType: 'system',
+        systemEventType: 'clip_challenge_issued',
+        content: '🎯 Anna utmanade Karl med en video!',
+      });
+    });
   });
 
   describe('POST /chat/messages/:messageId/report', () => {
@@ -399,6 +459,31 @@ describe('Fas 2.6b: team chat (e2e)', () => {
         .expect(404);
       expect((response.body as ApiErrorBody).error.code).toBe(
         'chat_message_not_found',
+      );
+    });
+
+    // docs/adr/0021-clip-challenge-notifications.md's 2026-08-06
+    // security-reviewer addendum, finding 1 — the single most important
+    // test in this feature: a report against a system-authored row must be
+    // rejected server-side, end-to-end through the real HTTP path, not
+    // just at the service-unit level.
+    it('rejects a report against a system-authored chat message with 400 cannot_report_system_message, and never persists a report row', async () => {
+      const teamId = await createTeam();
+      const { sessionToken } = await createPlayer(teamId);
+      const systemMessage = await createSystemChatMessage(
+        teamId,
+        '🎯 Anna utmanade Karl med en video!',
+      );
+
+      const response = await request(app.getHttpServer())
+        .post(
+          `/api/v1/teams/${teamId}/chat/messages/${systemMessage.id}/report`,
+        )
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({ reason: 'other' })
+        .expect(400);
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'cannot_report_system_message',
       );
     });
 

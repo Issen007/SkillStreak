@@ -680,6 +680,31 @@ this endpoint's entire purpose is "who's on my team and who's captain,"
 nothing more. Use endpoint 2 (`GET .../roster`, still captain-gated) for
 consent/last-trained detail.
 
+**Revised 2026-08-06 (`docs/adr/0021-clip-challenge-notifications.md`'s
+2026-08-06 security-reviewer addendum, finding 2), then corrected the same
+day (code-critic pre-merge pass):** an optional `?approvedOnly=true` query
+param narrows the returned list to `teamJoinStatus === 'approved'` only —
+**opt-in, defaulting to today's unfiltered behavior, not a global filter.**
+An earlier version of this revision filtered the response unconditionally;
+that was wrong and has been reverted, because this one endpoint backs
+**three** independent pickers, each with its own independent answer to
+"should a still-PENDING (not yet captain-approved) joiner be offered":
+- the mobile "tag a teammate to challenge them" picker
+  (`docs/api/phase3-contract.md` endpoint 1's `taggedPlayerId`, which
+  independently and unconditionally rejects a PENDING id server-side
+  regardless of what this endpoint returns) — the only one of the three
+  ADR-0021 actually reasoned about, and the one expected to pass
+  `approvedOnly=true` once its mobile call site is updated (a
+  frontend-developer follow-up, not wired by this endpoint's own change);
+- the ADR-0006 captain-transfer target picker — unaffected, keeps its
+  pre-ADR-0021 behavior (a still-PENDING joiner still appears);
+- the ADR-0013 GDPR account-erasure successor picker
+  (`ErasureSuccessorScreen.tsx`) — also unaffected and **out of scope for
+  ADR-0021 entirely**; its own backend validity check
+  (`isSuccessorStillValid`) has never required an approved team join, and
+  nothing about that should change as a side effect of an unrelated
+  video-clip feature.
+
 ### Endpoint 2 (`GET .../roster`) response — additive field
 
 Each entry in the existing captain-gated roster response gains `isCaptain:

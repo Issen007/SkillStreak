@@ -348,6 +348,47 @@ describe('Fas 2.6a: captain transfer + teammates (e2e)', () => {
         .expect(403);
       expect((response.body as ApiErrorBody).error.code).toBe('team_mismatch');
     });
+
+    // code-critic finding, 2026-08-06 pre-merge pass on
+    // docs/adr/0021-clip-challenge-notifications.md — this endpoint backs
+    // more than just the video-clip tag picker (also the captain-transfer
+    // target picker exercised by this file, and the GDPR erasure successor
+    // picker), so a still-PENDING teammate must remain visible by default;
+    // only an explicit `?approvedOnly=true` may narrow it.
+    it('includes a still-PENDING teammate by default, and excludes them only when ?approvedOnly=true is passed', async () => {
+      const { teamId } = await createTeamFixture();
+      const { sessionToken: memberToken } = await createTeamMember(teamId);
+      const pendingPlayer = await dataSource.getRepository(Player).save(
+        dataSource.getRepository(Player).create({
+          teamId,
+          screenName: `Pending${randomUUID().slice(0, 6)}`,
+          avatarId: 'wolf',
+          birthYear: 2013,
+          parentalConsentStatus: ParentalConsentStatus.APPROVED,
+          teamJoinStatus: TeamJoinStatus.PENDING,
+        }),
+      );
+
+      const defaultResponse = await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/teammates`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+      expect(
+        (defaultResponse.body as TeammatesBody).teammates.map(
+          (t) => t.playerId,
+        ),
+      ).toContain(pendingPlayer.id);
+
+      const approvedOnlyResponse = await request(app.getHttpServer())
+        .get(`/api/v1/teams/${teamId}/teammates?approvedOnly=true`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+      expect(
+        (approvedOnlyResponse.body as TeammatesBody).teammates.map(
+          (t) => t.playerId,
+        ),
+      ).not.toContain(pendingPlayer.id);
+    });
   });
 
   describe('GET /roster — additive isCaptain field (ADR-0006 Decision 2)', () => {

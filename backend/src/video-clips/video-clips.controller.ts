@@ -16,10 +16,12 @@ import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 import { ListClipsQueryDto } from './dto/list-clips-query.dto';
 import { ReportClipDto } from './dto/report-clip.dto';
 import {
+  ChallengeAckResponse,
   ClipFeedItem,
   CompleteUploadResponse,
   CreateUploadUrlResponse,
   DeleteClipResponse,
+  PendingChallengeItem,
   ReportClipResponse,
   VideoClipsService,
 } from './video-clips.service';
@@ -68,6 +70,36 @@ export class VideoClipsController {
       query.limit,
     );
     return { clips };
+  }
+
+  // docs/adr/0021-clip-challenge-notifications.md Decision 1 — declared
+  // before the `:clipId`-prefixed routes below purely for readability
+  // (Nest/Express route matching has no ambiguity here regardless of
+  // order: no other GET route in this controller shares this literal
+  // path, and the two `:clipId/...` POST routes below are a different
+  // HTTP method/path shape entirely).
+  @UseGuards(JwtAuthGuard)
+  @Get('challenges/pending')
+  async listPendingChallenges(
+    @Param('teamId') teamId: string,
+    @CurrentPlayerId() playerId: string,
+  ): Promise<{ challenges: PendingChallengeItem[] }> {
+    const challenges = await this.videoClipsService.listPendingChallenges(
+      teamId,
+      playerId,
+    );
+    return { challenges };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':clipId/challenge-ack')
+  @HttpCode(HttpStatus.OK)
+  async ackChallenge(
+    @Param('teamId') teamId: string,
+    @Param('clipId') clipId: string,
+    @CurrentPlayerId() playerId: string,
+  ): Promise<ChallengeAckResponse> {
+    return this.videoClipsService.ackChallenge(teamId, playerId, clipId);
   }
 
   @UseGuards(JwtAuthGuard)

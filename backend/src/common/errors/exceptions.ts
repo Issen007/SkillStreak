@@ -833,3 +833,34 @@ export class PtPlayerConsentNotFoundException extends AppException {
     );
   }
 }
+
+// --- Fas 4.6 (video-clip challenge notifications —
+// docs/adr/0021-clip-challenge-notifications.md) -----------------------------
+
+export class NotYourChallengeException extends AppException {
+  constructor() {
+    // Mirrors NotYourClipException's shape/naming for uploader-only
+    // actions, extended to the tagged-player-only ack (ADR-0021 Decision
+    // 1's "GET/POST .../clips/challenges/..." endpoints).
+    super(
+      'not_your_challenge',
+      'Only the tagged player can acknowledge this challenge.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class SystemMessageNotReportableException extends AppException {
+  constructor() {
+    // ADR-0021's 2026-08-06 security-reviewer addendum, finding 1 (binding,
+    // not optional): a system-authored chat message has no real sender to
+    // report — block is inert against it for free (blocked_player_id is
+    // NOT NULL), but report has no equivalent structural safety, so this
+    // guard exists to close that gap explicitly.
+    super(
+      'cannot_report_system_message',
+      'System-authored chat messages cannot be reported — there is no real sender to report.',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}

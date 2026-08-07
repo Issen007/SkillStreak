@@ -32,6 +32,15 @@ despite this doc already describing it correctly. Fixed in
 `VideoClipsService.completeUpload`; no request/response shape changed. See
 `docs/ACTION_PLAN.md`'s Phase 3 code-critic entry for the full finding.
 
+**Revised 2026-08-06 per [`docs/adr/0021-clip-challenge-notifications.md`](../adr/0021-clip-challenge-notifications.md)**:
+adds two new endpoints (6, 7 below) for the "pending challenges for me"
+surface; endpoint 1's `taggedPlayerId` validation gains a `teamJoinStatus
+=== APPROVED` requirement (Decision 3); and endpoint 2 (`complete`) gains a
+new side effect — inserting a system chat message, in the same DB
+transaction as the publish-status flip, when the clip carries a
+`taggedPlayerId`. See that ADR in full, including its own 2026-08-06
+security-reviewer addendum, before touching any of this.
+
 ## Conventions
 
 - Base path: `/api/v1` (unchanged).
@@ -106,7 +115,20 @@ Errors:
 - `403 consent_required`.
 - `400` validation — `mimeType` not in the allow-list, `fileSizeBytes`/
   `durationSeconds` over the hard cap, `caption` over length, `taggedPlayerId`
-  not a teammate.
+  not a teammate **or not yet `teamJoinStatus === 'approved'`**
+  (docs/adr/0021-clip-challenge-notifications.md Decision 3, added
+  2026-08-06 — closes a pre-existing gap where a still-PENDING, not yet
+  captain-approved joiner could be tagged; the response message still
+  contains the substring `"taggedPlayerId"`, which is what the mobile
+  tag-picker's existing catch actually keys off today). `GET .../teammates`
+  (`docs/api/phase2-contract.md` endpoint 10) gained an **opt-in**
+  `?approvedOnly=true` query param the same day, but its *default* stays
+  unfiltered — a code-critic pre-merge finding caught an earlier version of
+  this change that filtered that endpoint's default response, which would
+  have silently narrowed two other, unrelated pickers (ADR-0006
+  captain-transfer, ADR-0013 GDPR erasure successor) that share the same
+  backend method. See `PlayersService.listTeammates`'s own comment for the
+  full reasoning.
 - `422 caption_rejected_by_filter` — same `ChatModerationCheck` used for
   chat/team-name, applied to `caption`.
 - `429 clip_upload_rate_limited`.
@@ -140,6 +162,22 @@ mandatory, step 3 is optional/backend-developer's call):
 
 Only after steps 1-2 succeed does the server set `status: 'published'`,
 `expiresAt = now() + retentionWindow` (ADR-0010 Decision 5).
+
+**Side effect, added 2026-08-06 (docs/adr/0021-clip-challenge-notifications.md
+Decision 2) — a system chat message when `taggedPlayerId` is set.** When
+(and only when) this clip carries a `taggedPlayerId`, the status-flip
+above and an insert into `team_chat_message` happen together, in one DB
+transaction (both succeed or neither does). The inserted row has
+`senderPlayerId: null`, `authorType: 'system'`, `systemEventType:
+'clip_challenge_issued'`, `clipId` set to this clip, and a fixed,
+server-rendered Swedish `content` string (`🎯 {uploaderScreenName}
+utmanade {taggedScreenName} med en video!`, both screen names resolved
+**once, at this exact moment**, never re-resolved later) — see
+`docs/api/phase2.6b-contract.md`'s 2026-08-06 revision for the read-side
+shape this produces. Not sent through `POST .../chat/messages` — this is
+a direct repository write from `VideoClipsService`, so none of that
+endpoint's rate-limit/moderation/DTO stack applies here (there is no
+request, no requester, nothing to authenticate).
 
 Response `200`:
 ```json
@@ -300,6 +338,72 @@ implementing, not just this shape):**
   (a backend-developer script/manual DB action). There is no endpoint in
   this contract for it, deliberately.
 
+### 6. `GET /api/v1/teams/:teamId/clips/challenges/pending`
+
+Added 2026-08-06 (`docs/adr/0021-clip-challenge-notifications.md` Decision
+1). Player auth + `team_mismatch` check + **consent gate** + **team-join
+approval gate** — identical requester-side gates to endpoint 3 (`GET
+.../clips`, the feed), applied to the requester (the viewer/tagged player),
+not a new pattern.
+
+Response `200`:
+```json
+{
+  "challenges": [
+    {
+      "clipId": "uuid",
+      "uploaderPlayerId": "uuid",
+      "uploaderScreenName": "FloorballStar15",
+      "uploaderAvatarId": "fox",
+      "caption": "Zorro-fint #47!",
+      "playbackUrl": "https://minio.internal/clips/...(presigned GET, freshly minted this request)...",
+      "createdAt": "2026-08-01T18:07:00Z"
+    }
+  ]
+}
+```
+
+- `WHERE tagged_player_id = requesterId AND status = 'published' AND
+  challenge_acknowledged_at IS NULL`, scoped to `:teamId` — backed by the
+  `IDX_video_clip_pending_challenge` partial index.
+- No pagination (team sizes are small, same standing capacity assumption
+  as every other small-list endpoint in this app).
+- No `taggedPlayerId`/`taggedScreenName` (always the requester themselves,
+  by construction of the query) and no `reportedByMe` (not designed for
+  this surface — see `docs/design/clip-challenge-notifications-ui.md` §5's
+  scope-cut note on why the client's dedicated challenge-clip modal omits
+  report).
+
+Errors:
+- `403 consent_required` / `403 team_join_approval_required` — same
+  semantics as endpoint 3.
+
+### 7. `POST /api/v1/teams/:teamId/clips/:clipId/challenge-ack`
+
+Added 2026-08-06 (`docs/adr/0021-clip-challenge-notifications.md` Decision
+1). Player auth + `team_mismatch` check. Tagged-player-only — `403
+not_your_challenge` if `requesterId !== clip.taggedPlayerId`. **Idempotent**
+— acking an already-acked challenge is a `200` no-op, not an error (same
+idiom as `POST .../chat/blocks`'s idempotent block), since this is a
+personal "I've seen it" state, not a one-time resource.
+
+Request: none (empty body).
+
+Response `200`:
+```json
+{ "clipId": "uuid", "acknowledged": true }
+```
+
+Sets `challenge_acknowledged_at = now()` on the clip, exactly once (a
+repeat call leaves the original timestamp untouched, not just the same
+response). Exact client trigger (auto-fired on opening the clip vs. an
+explicit dismiss) is a UX interaction-layer choice, not fixed here — see
+`docs/design/clip-challenge-notifications-ui.md` §2.
+
+Errors:
+- `404 clip_not_found` — no such `clipId` on this team.
+- `403 not_your_challenge`.
+
 ---
 
 ## Notes for implementers
@@ -396,3 +500,30 @@ implementing, not just this shape):**
   3) and the report/auto-hide/rate-limit logic (endpoint 5) are the two
   places worth the most scrutiny, same posture as the chat contract's
   equivalent note.
+- **backend-developer (2026-08-06, ADR-0021):** `VideoClipsModule` gains a
+  direct `TypeOrmModule.forFeature([TeamChatMessage])` registration purely
+  to insert the system chat message from `completeUpload`'s own
+  transaction — not by importing `TeamChatModule` (which already imports
+  `VideoClipsModule`, so the reverse would cycle). See ADR-0021 Decision 2's
+  "Module wiring" and `PlayersModule`'s equivalent `AccountErasureRequest`/
+  `StreakSaverEvent` registrations for the established precedent.
+- **backend-developer (2026-08-06, ADR-0021; corrected same day,
+  code-critic pre-merge pass):** `PlayersService.listTeammates`
+  (`GET .../teammates`, `docs/api/phase2-contract.md` endpoint 10) gained
+  an **opt-in** `approvedOnly` option/query param — its *default* stays
+  unfiltered. The ADR's security-reviewer addendum finding 2 only ever
+  reasoned about the video-clip tag picker; `listTeammates` also backs the
+  ADR-0006 captain-transfer target picker and the ADR-0013 GDPR
+  account-erasure successor picker, neither of which this ADR is entitled
+  to silently narrow. Filtering happens *only* when a caller explicitly
+  requests `approvedOnly: true` — the video-clip tag picker's own future
+  call site (a frontend-developer follow-up, not wired here); every other
+  caller today keeps exactly its pre-ADR-0021 behavior. Don't re-introduce
+  a global filter here without re-auditing every consumer of this method
+  first — see `PlayersService.listTeammates`'s own comment.
+- **security-reviewer (2026-08-06):** the scoped confirmation pass this
+  revision is built against is recorded in ADR-0021's own Status section
+  addendum — its two binding findings (the system-message report-rejection
+  guard, and the `teamJoinStatus` tightening's tag-picker coordination) are
+  both reflected in this contract's endpoint 1 error list and endpoints 6/7
+  above.
