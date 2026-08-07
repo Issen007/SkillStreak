@@ -453,14 +453,30 @@ def classify_and_act(outcome: CycleOutcome) -> str:
 
 
 def sleep_with_heartbeat(seconds: int, reason: str) -> None:
+    """Sleep in short slices so Ctrl-C / the STOP file are honored promptly.
+
+    Confirmed as a real bug during this tool's own manual testing
+    (2026-08-07): the original version slept in 60-second chunks, relying
+    on `time.sleep()` being interrupted early when SIGINT arrives. Python
+    3.5+'s PEP 475 auto-retries an interrupted syscall for the REMAINING
+    duration as long as the registered signal handler returns normally
+    (ours does — it just logs and sets a flag, doesn't raise) — so the
+    60-second `time.sleep()` call was silently restarting itself instead
+    of returning early, meaning Ctrl-C did nothing until the current
+    60-second slice happened to finish on its own. A real terminal test
+    needed ~14 Ctrl-C presses before giving up and using Ctrl-Z instead.
+    One-second slices bound the worst-case reaction latency to roughly a
+    couple of seconds regardless of this auto-retry behavior, at the cost
+    of one cheap `stop_requested()` check per second while sleeping.
+    """
     wake_at = datetime.now() + timedelta(seconds=seconds)
     log(f"Sleeping {seconds // 60} min ({reason}) — next check around "
         f"{wake_at.strftime('%Y-%m-%d %H:%M:%S')} local time.")
     remaining = seconds
-    chunk = 60
+    slice_seconds = 1
     while remaining > 0 and not stop_requested():
-        time.sleep(min(chunk, remaining))
-        remaining -= chunk
+        time.sleep(min(slice_seconds, remaining))
+        remaining -= slice_seconds
 
 
 def main() -> int:
