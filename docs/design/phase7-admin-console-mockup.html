@@ -1,0 +1,770 @@
+<title>SkillStreak — Fas 7: Admin control center</title>
+<style>
+  :root {
+    --chrome-bg: #F1EFEA;
+    --chrome-bg-alt: #E8E4DC;
+    --chrome-text: #1B1B3A;
+    --chrome-text-muted: #6B6B85;
+    --chrome-line: #D8D4CA;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --chrome-bg: #16151C; --chrome-bg-alt: #1E1D26; --chrome-text: #F1EFEA;
+      --chrome-text-muted: #9A97AC; --chrome-line: #322F3C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --chrome-bg: #16151C; --chrome-bg-alt: #1E1D26; --chrome-text: #F1EFEA;
+    --chrome-text-muted: #9A97AC; --chrome-line: #322F3C;
+  }
+  :root[data-theme="light"] {
+    --chrome-bg: #F1EFEA; --chrome-bg-alt: #E8E4DC; --chrome-text: #1B1B3A;
+    --chrome-text-muted: #6B6B85; --chrome-line: #D8D4CA;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0; min-height: 100vh;
+    background: var(--chrome-bg); color: var(--chrome-text);
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 30px; padding: 40px 20px 64px;
+  }
+
+  .chrome-heading { text-align: center; max-width: 860px; margin-bottom: 4px; }
+  .chrome-eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--chrome-text-muted); margin: 0 0 6px;
+  }
+  .chrome-title {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 26px; margin: 0 0 8px; text-wrap: balance;
+  }
+  .chrome-sub { font-size: 14px; color: var(--chrome-text-muted); margin: 0; line-height: 1.55; }
+
+  .frame-block { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .frame-label {
+    font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif;
+    font-size: 14px; text-align: center; max-width: 900px; color: var(--chrome-text);
+  }
+  .frame-label small { display: block; font-weight: 400; font-size: 11.5px; color: var(--chrome-text-muted); margin-top: 4px; line-height: 1.5; }
+
+  .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 30px; max-width: 1700px; }
+
+  /* ---------- desktop browser frame ---------- */
+  .browser {
+    width: 980px; max-width: 100%;
+    border-radius: 12px; background: #2A2833;
+    padding: 0; overflow: hidden; flex-shrink: 0;
+    box-shadow: 0 24px 48px -18px rgba(0,0,0,0.45);
+  }
+  .browser.narrow { width: 520px; }
+  .browser-bar {
+    height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px;
+    background: #2A2833;
+  }
+  .dot3 { display: flex; gap: 6px; }
+  .dot3 i { width: 10px; height: 10px; border-radius: 50%; background: #55525f; display: block; }
+  .urlbar {
+    flex: 1; height: 20px; border-radius: 5px; background: #191822; color: #A9A6B8;
+    font-size: 10.5px; display: flex; align-items: center; padding: 0 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  /* ---------- console app (light, dense, NOT the kid register) ---------- */
+  .app {
+    background: #FAFAF7; color: #1B1B3A;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px; line-height: 1.45;
+    display: flex; flex-direction: column; min-height: 560px;
+  }
+  .app-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px; background: #fff; border-bottom: 1px solid #E3DED2;
+  }
+  .wordmark { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 15px; }
+  .env {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    border-radius: 4px; padding: 2px 6px; background: #1B1B3A; color: #fff;
+  }
+  .env.test { background: #EDEAE2; color: #6B6B85; border: 1px solid #D8D4CA; }
+  .header-spacer { flex: 1; }
+  .who { font-size: 11.5px; color: #6B6B85; }
+  .app-body { display: flex; flex: 1; }
+  .nav {
+    width: 168px; flex-shrink: 0; background: #fff; border-right: 1px solid #E3DED2;
+    padding: 8px 0; display: flex; flex-direction: column; gap: 1px;
+  }
+  .nav a {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 12px; font-size: 12.5px; color: #1B1B3A; text-decoration: none;
+    border-left: 3px solid transparent;
+  }
+  .nav a.on { background: #F3F1EB; border-left-color: #1B1B3A; font-weight: 700; }
+  .nav .count {
+    margin-left: auto; font-size: 10px; font-weight: 700; color: #fff; background: #4C4A63;
+    border-radius: 9px; padding: 1px 6px;
+  }
+  .nav .lock { margin-left: auto; font-size: 11px; color: #6B6B85; }
+  .main { flex: 1; padding: 14px 16px 20px; overflow: hidden; }
+
+  h2.page { font-size: 16px; margin: 0 0 2px; }
+  .meta { font-size: 11px; color: #6B6B85; margin: 0 0 10px; line-height: 1.5; }
+  .btn-s {
+    font-size: 11.5px; border: 1px solid #C9C4B8; background: #fff; color: #1B1B3A;
+    border-radius: 6px; padding: 4px 10px; cursor: default;
+  }
+  .btn-s.pri { background: #1B1B3A; color: #fff; border-color: #1B1B3A; }
+
+  .kpis { display: flex; gap: 10px; margin-bottom: 14px; }
+  .kpi {
+    flex: 1; background: #fff; border: 1px solid #E3DED2; border-radius: 8px; padding: 9px 11px;
+  }
+  .kpi .n { font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+  .kpi .l { font-size: 10.5px; color: #6B6B85; margin-top: 1px; }
+  .kpi .f { font-size: 10.5px; color: #4C4A63; margin-top: 2px; }
+
+  .sect { border-top: 1px solid #E3DED2; padding: 11px 0 4px; }
+  .sect h3 { font-size: 12.5px; margin: 0 0 7px; }
+  .note {
+    font-size: 10.5px; color: #6B6B85; line-height: 1.5; margin: 7px 0 0;
+    padding-left: 14px; position: relative;
+  }
+  .note::before { content: "ⓘ"; position: absolute; left: 0; }
+
+  /* stacked proportion bar */
+  .stack { display: flex; height: 13px; border-radius: 3px; overflow: hidden; margin-bottom: 3px; }
+  .stack i { display: block; height: 100%; }
+  .legend { font-size: 10.5px; color: #4C4A63; }
+
+  /* horizontal bar charts */
+  .bars { display: grid; grid-template-columns: 54px 1fr; gap: 3px 8px; align-items: center; }
+  .bars .lab { font-size: 10.5px; color: #4C4A63; text-align: right; font-variant-numeric: tabular-nums; }
+  .bars .bar { display: flex; align-items: center; gap: 6px; }
+  .bars .bar i { display: block; height: 11px; border-radius: 2px; background: #4C4A63; }
+  .bars .bar span { font-size: 10.5px; color: #4C4A63; font-variant-numeric: tabular-nums; }
+  .bars.flame .bar i { background: #FF6B35; }
+  .bars.gold .bar i { background: #FFB800; }
+  .two-col { display: flex; gap: 22px; }
+  .two-col > div { flex: 1; }
+  .col-title { font-size: 10.5px; color: #6B6B85; margin-bottom: 4px; }
+
+  /* weekly column bars */
+  .weeks { display: flex; align-items: flex-end; gap: 5px; height: 54px; }
+  .weeks i { width: 20px; background: #4C4A63; border-radius: 2px 2px 0 0; display: block; }
+  .weeks i.partial {
+    background: repeating-linear-gradient(45deg, #9A97AC 0 3px, #EDEBE4 3px 6px);
+    border: 1px solid #9A97AC;
+  }
+
+  /* tables */
+  table.t { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.t caption { text-align: left; font-size: 10.5px; color: #6B6B85; padding-bottom: 4px; }
+  table.t th {
+    text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+    color: #6B6B85; font-weight: 700; border-bottom: 1px solid #E3DED2; padding: 4px 8px 4px 0;
+  }
+  table.t td { padding: 5px 8px 5px 0; border-bottom: 1px solid #EFEBE2; vertical-align: top; }
+  table.t td.num { font-variant-numeric: tabular-nums; }
+  table.t tr.withheld td {
+    color: #9A97AC;
+    background: repeating-linear-gradient(45deg, #F5F3EE 0 5px, #FAFAF7 5px 10px);
+  }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+  .hatch-chip {
+    display: inline-block; width: 9px; height: 9px; vertical-align: -1px; margin-right: 4px;
+    background: repeating-linear-gradient(45deg, #9A97AC 0 3px, #EDEBE4 3px 6px);
+    border: 1px solid #9A97AC; border-radius: 2px;
+  }
+  .panel-withheld {
+    border: 1px solid #D8D4CA; border-radius: 8px; padding: 9px 11px; font-size: 11.5px;
+    color: #6B6B85;
+    background: repeating-linear-gradient(45deg, #F5F3EE 0 5px, #FAFAF7 5px 10px);
+  }
+  .footer-note {
+    margin-top: 14px; border-top: 1px solid #E3DED2; padding-top: 9px;
+    font-size: 10.5px; color: #6B6B85; line-height: 1.5;
+  }
+
+  /* bug report two-pane */
+  .panes { display: flex; gap: 0; border: 1px solid #E3DED2; border-radius: 8px; overflow: hidden; background: #fff; }
+  .pane-l { width: 260px; flex-shrink: 0; border-right: 1px solid #E3DED2; }
+  .pane-r { flex: 1; padding: 11px 13px; }
+  .chips { display: flex; gap: 6px; margin-bottom: 9px; }
+  .chip {
+    font-size: 11px; border: 1px solid #C9C4B8; border-radius: 999px; padding: 3px 10px; background: #fff;
+  }
+  .chip.on { background: #1B1B3A; color: #fff; border-color: #1B1B3A; font-weight: 700; }
+  .br-row { padding: 8px 11px; border-bottom: 1px solid #EFEBE2; }
+  .br-row.sel { background: #F3F1EB; border-left: 3px solid #1B1B3A; padding-left: 8px; }
+  .br-row .d { font-size: 10.5px; color: #6B6B85; font-variant-numeric: tabular-nums; }
+  .br-row .c { font-size: 12px; font-weight: 700; }
+  .br-row .m { font-size: 10.5px; color: #6B6B85; }
+  .kv { display: grid; grid-template-columns: 78px 1fr; gap: 3px 8px; font-size: 11.5px; }
+  .kv .k { color: #6B6B85; font-size: 10.5px; padding-top: 1px; }
+  .box { border: 1px solid #E3DED2; border-radius: 7px; padding: 8px 10px; margin: 9px 0 3px; }
+  .box .bt { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #6B6B85; font-weight: 700; margin-bottom: 5px; }
+  .verbatim {
+    border: 1px dashed #C9C4B8; border-radius: 7px; padding: 8px 10px;
+    font-size: 12px; color: #1B1B3A; background: #FCFBF7; white-space: pre-wrap;
+  }
+  .warnchip {
+    font-size: 9.5px; color: #6B6B85; border: 1px solid #D8D4CA; border-radius: 4px;
+    padding: 0 4px; margin-left: 5px;
+  }
+  .seg { display: inline-flex; border: 1px solid #C9C4B8; border-radius: 6px; overflow: hidden; }
+  .seg span { font-size: 11px; padding: 3px 10px; border-right: 1px solid #E3DED2; background: #fff; }
+  .seg span:last-child { border-right: none; }
+  .seg span.on { background: #1B1B3A; color: #fff; font-weight: 700; }
+  .saved { font-size: 11px; color: #3DAA6B; margin-left: 8px; font-weight: 700; }
+  .guard { font-size: 10.5px; color: #6B6B85; margin-top: 7px; line-height: 1.5; }
+
+  /* planning */
+  .banner {
+    border: 1px solid #E3DED2; border-radius: 8px; background: #fff;
+    padding: 9px 11px; font-size: 11px; color: #4C4A63; line-height: 1.55; margin-bottom: 11px;
+  }
+  .tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+  .tab { font-size: 12px; padding: 5px 12px; border: 1px solid #E3DED2; border-radius: 7px 7px 0 0; background: #fff; color: #6B6B85; }
+  .tab.on { color: #1B1B3A; font-weight: 700; border-bottom-color: #fff; }
+  .srcbox { border: 1px solid #E3DED2; border-radius: 8px; background: #fff; padding: 9px 11px; margin-bottom: 10px; }
+  .srchead { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .srchead .n { font-size: 11.5px; font-weight: 700; }
+  /* Neutral shape label only — never a trust badge. All four planning
+     sources arrive on the same ConfigMap at the same trust level
+     (ADR-0022 Decision 10, amended 2026-08-07). */
+  .badge { font-size: 9.5px; border-radius: 4px; padding: 1px 6px; border: 1px solid #9A97AC; color: #6B6B85; }
+  .item { font-size: 11.5px; color: #1B1B3A; padding: 2px 0 2px 16px; position: relative; }
+  .item::before { content: "☐"; position: absolute; left: 0; color: #6B6B85; }
+  .grp { font-size: 10.5px; color: #6B6B85; margin: 6px 0 2px; font-weight: 700; }
+
+  /* modal */
+  .modal-wrap { position: relative; }
+  .dim { position: absolute; inset: 0; background: rgba(27,27,58,0.42); z-index: 5; }
+  .modal {
+    position: absolute; z-index: 6; left: 50%; top: 46%; transform: translate(-50%,-50%);
+    width: 360px; background: #FAFAF7; border: 1px solid #C9C4B8; border-radius: 10px;
+    padding: 14px 15px 15px; box-shadow: 0 18px 40px -12px rgba(0,0,0,.5);
+  }
+  .modal h4 { margin: 0 0 6px; font-size: 14px; }
+  .modal p { margin: 0 0 10px; font-size: 11.5px; color: #4C4A63; line-height: 1.55; }
+  .flabel { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #6B6B85; font-weight: 700; }
+  .finput {
+    height: 30px; border: 1px solid #C9C4B8; border-radius: 6px; background: #fff;
+    margin: 3px 0 8px; display: flex; align-items: center; padding: 0 8px; font-size: 12px; color: #6B6B85;
+  }
+  .finput.focus { border-color: #1B1B3A; box-shadow: 0 0 0 2px rgba(27,27,58,.18); }
+  .err {
+    border: 1px solid #C1432F; border-radius: 6px; padding: 5px 8px; font-size: 11px;
+    color: #C1432F; background: #FDF3F1; margin-bottom: 9px;
+  }
+  .modal-actions { display: flex; justify-content: space-between; }
+
+  /* login */
+  .login-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 26px 0 22px; gap: 12px; }
+  .login-card { width: 300px; background: #fff; border: 1px solid #E3DED2; border-radius: 10px; padding: 14px 15px 16px; }
+  .login-foot { font-size: 10.5px; color: #6B6B85; max-width: 330px; text-align: center; line-height: 1.5; }
+  .btn-wide { display: block; width: 100%; text-align: center; background: #1B1B3A; color: #fff; border-radius: 6px; padding: 7px; font-size: 12.5px; font-weight: 700; }
+
+  /* ---- phone frame (kid-facing register, unchanged from the app) ---- */
+  .phone {
+    width: 300px; height: 650px; border-radius: 38px; background: #0d0c14; padding: 11px;
+    box-shadow: 0 24px 48px -18px rgba(0,0,0,0.45); position: relative; flex-shrink: 0;
+  }
+  .screen {
+    width: 100%; height: 100%; border-radius: 28px; background: #FAFAF7; overflow: hidden;
+    display: flex; flex-direction: column; position: relative;
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif; color: #1B1B3A;
+  }
+  .notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 96px; height: 20px; background: #0d0c14; border-radius: 0 0 14px 14px; z-index: 5; }
+  .statusbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px 3px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .pcontent { flex: 1; overflow: hidden; padding: 6px 18px 14px; display: flex; flex-direction: column; gap: 7px; }
+  .page-heading { font-family: 'Baloo 2', 'Segoe UI Rounded', system-ui, sans-serif; font-size: 19px; margin: 6px 0 0; }
+  .sub { font-size: 12.5px; color: #6B6B85; line-height: 1.5; margin: 0; }
+  .flab { font-size: 10px; font-weight: 700; color: #6B6B85; text-transform: uppercase; letter-spacing: .4px; }
+  .radios { background: #fff; border: 1px solid #E3DED2; border-radius: 14px; padding: 4px 0; }
+  .radio-row { display: flex; align-items: center; gap: 9px; padding: 5px 12px; font-size: 11.5px; }
+  .radio { width: 15px; height: 15px; border-radius: 50%; border: 2px solid #6B6B85; flex-shrink: 0; }
+  .radio.on { border-color: #FF6B35; background: radial-gradient(#FF6B35 0 40%, transparent 42%); }
+  .pchips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .pchip { font-size: 10.5px; border: 1.5px solid #E3DED2; background: #fff; border-radius: 999px; padding: 3px 9px; }
+  .pchip.on { border-color: #FF6B35; background: #FFEFE7; font-weight: 700; }
+  .ta { background: #fff; border: 1px solid #E3DED2; border-radius: 14px; padding: 8px 11px; font-size: 11.5px; color: #9A97AC; min-height: 40px; }
+  .counter { font-size: 10px; color: #6B6B85; text-align: right; }
+  .tip-row { background: #FFF8E8; border: 1px solid #FFE7A8; border-radius: 14px; padding: 9px 11px; font-size: 10.5px; line-height: 1.45; color: #47455C; display: flex; flex-direction: column; gap: 5px; }
+  .tip-title { font-weight: 700; font-size: 11.5px; }
+  .btn { border-radius: 14px; padding: 12px 14px; text-align: center; font-weight: 700; font-size: 13.5px; }
+  .btn-primary { background: #FF6B35; color: #fff; }
+  .btn-text { color: #6B6B85; padding-top: 4px; text-align: center; font-size: 13px; font-weight: 700; }
+</style>
+
+<div class="chrome-heading">
+  <p class="chrome-eyebrow">Design mockup — companion to phase7-admin-console-flows.md</p>
+  <h1 class="chrome-title">Fas 7: Admin control center + "Rapportera ett problem"</h1>
+  <p class="chrome-sub">Five representative views, not a full redraw of every state — see the flow doc for
+  Trigger / API / states / copy per surface. Note the deliberate register split: the console is dense,
+  quiet and desktop-shaped; the phone screen keeps the app's own kid-facing language unchanged.</p>
+</div>
+
+<!-- ============ AD1 — statistics dashboard ============ -->
+<div class="frame-block">
+  <div class="frame-label">AD1 — Statistics dashboard
+    <small>Landing view after sign-in. This is §4.4 <b>state B</b>: only the buckets that actually
+    survived the floor are listed, plus <b>one</b> hatched "one or more buckets are not shown" notice.
+    Deliberately <i>not</i> a per-bucket withheld placeholder row — the service returns a single
+    report-wide <span class="mono">foldedIntoAppWide</span> boolean, so the UI cannot tell an absent
+    bucket that was withheld from one that simply held no teams, and must not claim either. Nothing on
+    this page is clickable except Refresh — a clickable statistic would imply a per-team/per-player
+    drill-down that does not and must not exist.</small>
+  </div>
+  <div class="browser">
+    <div class="browser-bar"><span class="dot3"><i></i><i></i><i></i></span>
+      <span class="urlbar">https://api.skillstreak.xyz/admin#statistics</span></div>
+    <div class="app">
+      <div class="app-header">
+        <span class="wordmark">SkillStreak Admin</span>
+        <span class="env">Production</span>
+        <span class="header-spacer"></span>
+        <span class="who">Signed in as admin</span>
+        <span class="btn-s">Sign out</span>
+      </div>
+      <div class="app-body">
+        <nav class="nav">
+          <a class="on" href="#">Statistics</a>
+          <a href="#">Errors</a>
+          <a href="#">Bug reports <span class="count">7</span></a>
+          <a href="#">Planning <span class="lock">🔒</span></a>
+        </nav>
+        <div class="main">
+          <h2 class="page">Statistics</h2>
+          <p class="meta">Generated 2026-08-07 06:12 · trailing 30 days · 2026-07-08 → 2026-08-07 ·
+            times in Europe/Stockholm · recomputed on every load, nothing is stored
+            &nbsp;<span class="btn-s">Refresh</span></p>
+
+          <div class="kpis">
+            <div class="kpi"><div class="n">142</div><div class="l">total accounts</div></div>
+            <div class="kpi"><div class="n">58%</div><div class="l">trained in the last 7 days</div><div class="f">82 of 142</div></div>
+            <div class="kpi"><div class="n">74%</div><div class="l">trained in the last 30 days</div><div class="f">105 of 142</div></div>
+            <div class="kpi"><div class="n">11</div><div class="l">active team pots</div></div>
+          </div>
+
+          <div class="sect">
+            <h3>1 · Adoption &amp; consent funnel</h3>
+            <div style="display:flex;gap:22px">
+              <div style="flex:1">
+                <div class="col-title">Parental consent — 142 players</div>
+                <div class="stack">
+                  <i style="width:68%;background:#4C4A63"></i><i style="width:20%;background:#8C8AA0"></i>
+                  <i style="width:10%;background:#C6C3D2"></i><i style="width:2%;background:#C1432F"></i>
+                </div>
+                <div class="legend">approved 96 · pending 28 · not_requested 15 · revoked 3</div>
+              </div>
+              <div style="flex:1">
+                <div class="col-title">Team join — 142 players</div>
+                <div class="stack">
+                  <i style="width:77%;background:#4C4A63"></i><i style="width:19%;background:#8C8AA0"></i>
+                  <i style="width:4%;background:#C1432F"></i>
+                </div>
+                <div class="legend">approved 110 · pending 27 · rejected 5</div>
+              </div>
+            </div>
+            <p class="meta" style="margin:8px 0 6px">Logged at least one session ever: <b>88 of 142 (62%)</b></p>
+
+            <table class="t">
+              <caption>By team size — means across each bucket's teams.
+                Only buckets that hold teams and clear the 5-team minimum are listed.</caption>
+              <tr><th>Bucket</th><th>Teams</th><th>Mean players/team</th><th>Mean consent approved</th><th>Mean have trained</th></tr>
+              <tr><td>3–5</td><td class="num">7</td><td class="num">4.1</td><td class="num">71%</td><td class="num">55%</td></tr>
+              <tr><td>6+</td><td class="num">9</td><td class="num">8.6</td><td class="num">79%</td><td class="num">66%</td></tr>
+              <tr class="withheld"><td colspan="5"><span class="hatch-chip"></span>One or more team-size
+                buckets are not shown.</td></tr>
+            </table>
+            <p class="note">A bucket is withheld when it holds fewer than 5 teams, or when showing it
+              would let a withheld bucket be worked out by subtraction. Those teams are still counted in
+              the app-wide figures above. <b>Which</b> bucket was withheld is not shown — the service
+              returns one report-wide <span class="mono">foldedIntoAppWide</span> boolean, not per-bucket
+              suppression info, so an unlisted bucket may equally well have held no teams. Means are per
+              team (each team counts once) — they do not add up to the totals above.</p>
+          </div>
+
+          <div class="sect">
+            <h3>2 · Individual streak health</h3>
+            <div class="two-col">
+              <div>
+                <div class="col-title">Current streak (days)</div>
+                <div class="bars flame">
+                  <span class="lab">0</span><span class="bar"><i style="width:112px"></i><span>41</span></span>
+                  <span class="lab">1–3</span><span class="bar"><i style="width:66px"></i><span>24</span></span>
+                  <span class="lab">4–7</span><span class="bar"><i style="width:49px"></i><span>18</span></span>
+                  <span class="lab">8–14</span><span class="bar"><i style="width:74px"></i><span>27</span></span>
+                  <span class="lab">15–30</span><span class="bar"><i style="width:57px"></i><span>21</span></span>
+                  <span class="lab">31+</span><span class="bar"><i style="width:30px"></i><span>11</span></span>
+                </div>
+              </div>
+              <div>
+                <div class="col-title">Longest streak ever (days)</div>
+                <div class="bars flame">
+                  <span class="lab">0</span><span class="bar"><i style="width:33px"></i><span>12</span></span>
+                  <span class="lab">1–3</span><span class="bar"><i style="width:57px"></i><span>21</span></span>
+                  <span class="lab">4–7</span><span class="bar"><i style="width:74px"></i><span>27</span></span>
+                  <span class="lab">8–14</span><span class="bar"><i style="width:104px"></i><span>38</span></span>
+                  <span class="lab">15–30</span><span class="bar"><i style="width:41px"></i><span>15</span></span>
+                  <span class="lab">31+</span><span class="bar"><i style="width:25px"></i><span>9</span></span>
+                </div>
+              </div>
+            </div>
+            <p class="note">Two separate histograms, not one comparison — "how many are on a streak now"
+              and "how far has anyone ever got" are different questions. Bars use <b>flame</b>, the
+              individual-streak motif; the team pool below uses <b>gold</b>. That one style-guide rule
+              survives the move to a dashboard.</p>
+          </div>
+
+          <div class="sect">
+            <h3>3 · Training-type mix (30 days)</h3>
+            <div class="bars">
+              <span class="lab">drill</span><span class="bar"><i style="width:206px"></i><span>412 (44%)</span></span>
+              <span class="lab">fitness</span><span class="bar"><i style="width:134px"></i><span>268 (29%)</span></span>
+              <span class="lab">running</span><span class="bar"><i style="width:80px"></i><span>161 (17%)</span></span>
+              <span class="lab">other</span><span class="bar"><i style="width:46px"></i><span>92 (10%)</span></span>
+            </div>
+          </div>
+
+          <div class="sect">
+            <h3>4 · Weekly-goal engagement</h3>
+            <p class="meta" style="margin:0 0 7px">Concluded in window <b>34</b> · met <b>19 (56%)</b> ·
+              cancelled <b>6</b> (excluded from the rate)</p>
+            <div class="panel-withheld"><span class="hatch-chip"></span>No team-size breakdown this period.
+              No bucket reached the 5-team minimum, so every team is counted in the app-wide figures above only.</div>
+            <p class="note">"Met" means every eligible roster member individually reached the target
+              (ADR-0015), not a captain marking the goal complete. Cancelled goals are excluded from the
+              rate, not counted as failures.</p>
+          </div>
+
+          <div class="sect">
+            <h3>5 · Team pool (VM-Guld) growth</h3>
+            <p class="meta" style="margin:0 0 6px">Median <b>385 points/week</b> across 11 active pots</p>
+            <div class="bars gold">
+              <span class="lab">0</span><span class="bar"><i style="width:14px"></i><span>1</span></span>
+              <span class="lab">1–99</span><span class="bar"><i style="width:28px"></i><span>2</span></span>
+              <span class="lab">100–499</span><span class="bar"><i style="width:70px"></i><span>5</span></span>
+              <span class="lab">500–1499</span><span class="bar"><i style="width:28px"></i><span>2</span></span>
+              <span class="lab">1500+</span><span class="bar"><i style="width:14px"></i><span>1</span></span>
+            </div>
+            <p class="note">Lifetime average since each season started, not points earned inside this
+              window — no points history is stored.</p>
+          </div>
+
+          <div class="sect">
+            <h3>6 · Social features — volume only</h3>
+            <div class="two-col">
+              <div>
+                <div class="col-title">Clip uploads / week</div>
+                <div class="weeks">
+                  <i class="partial" style="height:12px"></i><i style="height:22px"></i><i style="height:31px"></i>
+                  <i style="height:44px"></i><i style="height:26px"></i><i class="partial" style="height:9px"></i>
+                </div>
+              </div>
+              <div>
+                <div class="col-title">Chat messages / week</div>
+                <div class="weeks">
+                  <i class="partial" style="height:14px"></i><i style="height:30px"></i><i style="height:39px"></i>
+                  <i style="height:37px"></i><i style="height:50px"></i><i class="partial" style="height:11px"></i>
+                </div>
+              </div>
+            </div>
+            <p class="note"><span class="hatch-chip"></span>= partial week. Counts only — never which clip,
+              never who posted, never message content. Hatched bars cover only part of the window (the
+              first and last always do), so their lower counts are windowing, not a real dip. Bars, not a
+              line: a line would draw a smooth "drop" at both ends that is pure windowing.</p>
+          </div>
+
+          <div class="sect">
+            <h3>7 · Badge mix (30 days)</h3>
+            <div class="bars">
+              <span class="lab">streak_7</span><span class="bar"><i style="width:126px"></i><span>63</span></span>
+              <span class="lab">best_effort</span><span class="bar"><i style="width:82px"></i><span>41</span></span>
+              <span class="lab">most_creative</span><span class="bar"><i style="width:54px"></i><span>27</span></span>
+              <span class="lab">goal_bonus</span><span class="bar"><i style="width:28px"></i><span>14</span></span>
+            </div>
+          </div>
+
+          <p class="footer-note">Every figure on this page is app-wide or team-size-bucketed. There is no
+            per-team or per-player view, here or anywhere in this console's statistics.
+            (ADR-0020 Decision 3 / ADR-0022 Decision 5)</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AD3 — bug report triage ============ -->
+<div class="frame-block">
+  <div class="frame-label">AD3 — Bug-report triage queue
+    <small>The one place in this console that shows an individual child — deliberately, per Decision 7,
+    and deliberately not a drill-down: no reporter column in the list, no filter/search by player, no
+    "other reports by this player" link. <b>All five</b> attacker-controllable strings —
+    <b>description</b>, <b>app version</b>, <b>OS version</b>, and the reporter's <b>screen name</b> and
+    <b>team name</b>, neither of which has any charset validation in the backend — get a visible
+    "verbatim / untrusted" treatment so an accidental <span class="mono">innerHTML</span> regression
+    looks wrong. The rule is "every string a user typed", not an enumerated list.</small>
+  </div>
+  <div class="browser">
+    <div class="browser-bar"><span class="dot3"><i></i><i></i><i></i></span>
+      <span class="urlbar">https://api.skillstreak.xyz/admin#bug-reports</span></div>
+    <div class="app" style="min-height:430px">
+      <div class="app-header">
+        <span class="wordmark">SkillStreak Admin</span>
+        <span class="env">Production</span>
+        <span class="header-spacer"></span>
+        <span class="who">Signed in as admin</span>
+        <span class="btn-s">Sign out</span>
+      </div>
+      <div class="app-body">
+        <nav class="nav">
+          <a href="#">Statistics</a>
+          <a href="#">Errors</a>
+          <a class="on" href="#">Bug reports <span class="count">7</span></a>
+          <a href="#">Planning <span class="lock">🔒</span></a>
+        </nav>
+        <div class="main">
+          <h2 class="page">Bug reports</h2>
+          <div class="chips" style="margin-top:8px">
+            <span class="chip on">Open 7</span><span class="chip">Triaged 3</span>
+            <span class="chip">Closed</span><span class="chip">All</span>
+            <span style="margin-left:auto;font-size:10.5px;color:#6B6B85;align-self:center">newest first</span>
+          </div>
+          <div class="panes">
+            <div class="pane-l">
+              <div class="br-row sel">
+                <div class="d">08-07 14:02</div>
+                <div class="c">Upload failed</div>
+                <div class="m">iOS · 1.4.2 · Shorts (clips)</div>
+              </div>
+              <div class="br-row">
+                <div class="d">08-07 09:31</div>
+                <div class="c">Missing or wrong data</div>
+                <div class="m">Android · 1.4.1 · Goal</div>
+              </div>
+              <div class="br-row">
+                <div class="d">08-06 17:55</div>
+                <div class="c">Crash</div>
+                <div class="m">iOS · 1.4.2 · Home</div>
+              </div>
+              <div class="br-row">
+                <div class="d">08-06 08:12</div>
+                <div class="c">Couldn't sign in</div>
+                <div class="m">Android · 1.3.9 · Sign-up</div>
+              </div>
+              <div style="padding:8px 11px;display:flex;justify-content:space-between">
+                <span class="btn-s">← Newer</span><span class="btn-s">Older →</span>
+              </div>
+            </div>
+            <div class="pane-r">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">
+                <div style="font-size:12.5px;font-weight:700">Report · 2026-08-07 14:02</div>
+                <span class="header-spacer"></span>
+                <span style="font-size:10.5px;color:#6B6B85">Status</span>
+                <span class="seg"><span class="on">Open</span><span>Triaged</span><span>Closed</span></span>
+                <span class="saved">✓ Saved</span>
+              </div>
+
+              <div class="box">
+                <div class="bt">What &amp; where</div>
+                <div class="kv">
+                  <div class="k">Category</div><div>Upload failed</div>
+                  <div class="k">Screen</div><div>Shorts (clips)</div>
+                  <div class="k">Platform</div><div>iOS</div>
+                  <div class="k">App</div><div><span class="mono">1.4.2</span><span class="warnchip">⚠ verbatim</span></div>
+                  <div class="k">OS</div><div><span class="mono">iOS 17.5.1</span><span class="warnchip">⚠ verbatim</span></div>
+                  <div class="k">Locale</div><div>sv</div>
+                </div>
+              </div>
+
+              <div class="bt" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6B6B85;font-weight:700;margin:11px 0 5px">Reporter's own words</div>
+              <div class="verbatim">jag tryckte på ladda upp och sen bara snurra snurra o inget hände :(</div>
+              <div class="guard">Untrusted text, shown escaped as plain text.</div>
+
+              <div class="box">
+                <div class="bt">Reporter</div>
+                <div class="kv">
+                  <div class="k">Screen name</div>
+                  <div>FloorballStar15<span class="warnchip">⚠ verbatim</span></div>
+                  <div class="k">Team</div>
+                  <div>Lokstallet P13<span class="warnchip">⚠ verbatim</span></div>
+                </div>
+              </div>
+              <div class="guard">Screen name and team name are user-supplied and have no charset
+                validation anywhere in the backend — escaped and marked verbatim like every other
+                untrusted string in this view, not rendered plainly because they look like identity.</div>
+              <div class="guard">This console cannot list a player's other reports, search by player, or
+                open a player. By design.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AD4 + AD5 — planning behind the step-up prompt ============ -->
+<div class="frame-block">
+  <div class="frame-label">AD4 + AD5 — Planning pillar, gated by the step-up re-auth prompt
+    <small>The modal opens <b>over the pillar the operator is already in</b> — tabs still visible behind
+    it, nothing unmounted, the pending request replayed on success so "Security issues" lands on Security
+    issues. A wrong password errors <i>inside</i> the modal and leaves the ordinary session intact; an
+    expired session instead unmounts the whole console back to the login screen. The two roadmap sources
+    stay two separate groups — but labelled by <i>shape</i>, not trust: since ADR-0022 Decision 10's
+    2026-08-07 amendment all four planning sources arrive on the same hand-applied ConfigMap at one
+    trust level, stated once in the banner instead of four times in badges.</small>
+  </div>
+  <div class="browser modal-wrap">
+    <div class="browser-bar"><span class="dot3"><i></i><i></i><i></i></span>
+      <span class="urlbar">https://api.skillstreak.xyz/admin#planning/roadmap</span></div>
+    <div class="app" style="min-height:400px">
+      <div class="app-header">
+        <span class="wordmark">SkillStreak Admin</span>
+        <span class="env">Production</span>
+        <span class="header-spacer"></span>
+        <span class="who">Signed in as admin</span>
+        <span class="btn-s">Sign out</span>
+      </div>
+      <div class="app-body">
+        <nav class="nav">
+          <a href="#">Statistics</a>
+          <a href="#">Errors</a>
+          <a href="#">Bug reports <span class="count">7</span></a>
+          <a class="on" href="#">Planning <span class="lock">🔒</span></a>
+        </nav>
+        <div class="main">
+          <h2 class="page">Planning</h2>
+          <div class="tabs" style="margin-top:9px">
+            <span class="tab on">Roadmap</span><span class="tab">Ideas</span><span class="tab">Security issues</span>
+          </div>
+          <div class="banner">
+            <b>Read-only.</b> Currently-open items only — closed and superseded items are not shown here.
+            All four lists come from the hand-applied
+            <span class="mono">admin-planning-docs</span> ConfigMap — internal, never in the public repo.
+            The markdown files on the project owner's machine stay the source of truth; edit there and
+            re-apply the ConfigMap.<br>
+            Content last synced: 2026-08-02 (5 days ago)
+          </div>
+          <div class="srcbox">
+            <div class="srchead"><span class="n">From ACTION_PLAN.md</span>
+              <span class="badge">phase checklist · open</span></div>
+            <div class="grp">Next Up</div>
+            <div class="item">Turn on branch protection for main and prerelease</div>
+            <div class="item">Resolve the cilium#44123 cert-renewal workaround</div>
+            <div class="item">Wire the monthly usage report's SMTP recipient per cluster</div>
+          </div>
+          <div class="srcbox">
+            <div class="srchead"><span class="n">From PROJECT.md</span>
+              <span class="badge">business priorities · open</span></div>
+            <div class="item">Fas 5 · 2 — PT/Tränare-roll (needs its own architect + security pass
+              before design starts)</div>
+            <div class="item">Fas 5 · 4 — namnbeslut för appen</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dim"></div>
+    <div class="modal">
+      <h4>🔒 Confirm it's you</h4>
+      <p>This section shows internal planning notes and unfixed security gaps. Re-enter your password to
+        open it.</p>
+      <div class="flabel">Signed in as</div>
+      <div style="font-size:12px;margin:2px 0 9px">admin</div>
+      <div class="flabel">Password</div>
+      <div class="finput focus">••••••••</div>
+      <div class="err">⚠ Wrong password.</div>
+      <div class="modal-actions">
+        <span class="btn-s">Cancel</span><span class="btn-s pri">Confirm</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AD0 + BR2 ============ -->
+<div class="row">
+  <div class="frame-block">
+    <div class="frame-label">AD0 — Login
+      <small>One generic error for both wrong username and wrong password. The credential UI sits in its
+      own card body so ADR-0023's SSO swap replaces one block, not the page.</small>
+    </div>
+    <div class="browser narrow">
+      <div class="browser-bar"><span class="dot3"><i></i><i></i><i></i></span>
+        <span class="urlbar">https://api.skillstreak.xyz/admin</span></div>
+      <div class="app" style="min-height:400px">
+        <div class="login-wrap">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="wordmark" style="font-size:17px">SkillStreak Admin</span>
+            <span class="env test">Internal test</span>
+          </div>
+          <div class="login-card">
+            <div style="font-size:13.5px;font-weight:700;margin-bottom:9px">Sign in</div>
+            <div class="banner" style="margin-bottom:10px;padding:7px 9px">Your session expired. Sign in to continue.</div>
+            <div class="flabel">Username</div>
+            <div class="finput">admin</div>
+            <div class="flabel">Password</div>
+            <div class="finput focus">••••••</div>
+            <div class="err">⚠ Wrong username or password.</div>
+            <span class="btn-wide">Sign in</span>
+          </div>
+          <div class="login-foot">Internal tool. Aggregate statistics only — no per-player or per-team
+            data is available here.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="frame-block">
+    <div class="frame-label">BR2 — "Rapportera ett problem" (mobil)
+      <small>Reached from Profile, below "Logga ut". <b>Var i appen hände det?</b> is a picker, not an
+      auto-captured value — the form is only reachable from Home, so auto-capture would always say
+      "home". The disclosure names what is <i>never</i> sent, above the button, in words a parent can
+      read.</small>
+    </div>
+    <div class="phone"><div class="notch"></div><div class="screen">
+      <div class="statusbar"><span>9:41</span><span>▮▮▮ ᯤ 84%</span></div>
+      <div class="pcontent">
+        <h2 class="page-heading">Något som inte funkar?</h2>
+        <p class="sub">Berätta vad som hände så fixar vi det.</p>
+
+        <div class="flab">Vad hände?</div>
+        <div class="radios">
+          <div class="radio-row"><span class="radio"></span>Appen kraschade eller frös</div>
+          <div class="radio-row"><span class="radio on"></span>Något saknas eller visas fel</div>
+          <div class="radio-row"><span class="radio"></span>Jag kunde inte logga in</div>
+          <div class="radio-row"><span class="radio"></span>Ett klipp gick inte att ladda upp</div>
+          <div class="radio-row"><span class="radio"></span>Något annat</div>
+        </div>
+
+        <div class="flab">Var i appen hände det?</div>
+        <div class="pchips">
+          <span class="pchip">Hem</span><span class="pchip">Chatt</span>
+          <span class="pchip">Klipp</span><span class="pchip">Ladda upp klipp</span>
+          <span class="pchip on">Mål</span><span class="pchip">Laget</span>
+          <span class="pchip">VM-Guld-tabellen</span><span class="pchip">Din profil</span>
+          <span class="pchip">När jag skapade kontot</span>
+          <span class="pchip">Vet inte / något annat</span>
+        </div>
+
+        <div class="flab">Vill du berätta mer? (frivilligt)</div>
+        <div class="ta">T.ex. "Jag tryckte på Jag har tränat och då hände inget."</div>
+        <div class="counter">0/500 tecken</div>
+
+        <div class="tip-row">
+          <span class="tip-title">💡 Det här skickar vi med</span>
+          <span>Ditt skärmnamn och ditt lag, vilken version av appen du har, vilken sorts telefon och
+            vilket språk appen är på — plus det du valt och skrivit här ovanför.</span>
+          <span>Vi skickar aldrig var du är, vilken telefon det är, din IP-adress eller vad du gjort i
+            appen tidigare.</span>
+          <span>Det går bara till oss som bygger appen — aldrig till någon annan i laget.</span>
+        </div>
+
+        <div class="btn btn-primary">Skicka</div>
+        <div class="btn-text">Avbryt</div>
+      </div>
+    </div></div>
+  </div>
+</div>
