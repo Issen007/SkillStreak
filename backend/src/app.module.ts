@@ -21,6 +21,7 @@ import { TeamChatModule } from './team-chat/team-chat.module';
 import { TeamPoolModule } from './team-pool/team-pool.module';
 import { TeamsModule } from './teams/teams.module';
 import { TrainingLogsModule } from './training-logs/training-logs.module';
+import { UsageMetricsModule } from './usage-metrics/usage-metrics.module';
 import { VideoClipsModule } from './video-clips/video-clips.module';
 import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
 
@@ -107,6 +108,12 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     // /api/v1/teams/:teamId/pt-links/*, /api/v1/pt-consent*,
     // /api/v1/players/me/pt-consents/*).
     PtModule,
+    // docs/adr/0020-usage-analytics-product-metrics.md — Fas 5 item 1: a
+    // scheduled, in-process job (ScheduleModule.forRoot above already
+    // registers the mechanism) that emails the project owner an aggregate
+    // usage report. No controller, no endpoint, no exports — see that
+    // module's own docstring.
+    UsageMetricsModule,
   ],
   providers: [
     {

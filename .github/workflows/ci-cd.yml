@@ -323,6 +323,14 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
           APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+          # Fas 5 (docs/adr/0020-usage-analytics-product-metrics.md
+          # Decision 5) — the monthly aggregate usage report's recipient.
+          # Safe to leave unset: k8s/api-deployment.yaml marks this key
+          # `optional: true` and the job no-ops with a log line until it has
+          # a real address, so an unset GitHub secret (which arrives here as
+          # an empty string) is an expected interim state, not a boot
+          # failure.
+          USAGE_REPORT_RECIPIENT_EMAIL: ${{ secrets.USAGE_REPORT_RECIPIENT_EMAIL }}
         run: |
           kubectl create secret generic skillstreak-secret \
             --namespace skillstreak \
@@ -345,6 +353,7 @@ jobs:
             --from-literal=APPLE_TEAM_ID="$APPLE_TEAM_ID" \
             --from-literal=APPLE_KEY_ID="$APPLE_KEY_ID" \
             --from-literal=APPLE_PRIVATE_KEY="$APPLE_PRIVATE_KEY" \
+            --from-literal=USAGE_REPORT_RECIPIENT_EMAIL="$USAGE_REPORT_RECIPIENT_EMAIL" \
             --dry-run=client -o yaml > k8s/secret.yaml
 
       - name: Log in to GitHub Container Registry

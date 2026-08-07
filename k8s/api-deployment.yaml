@@ -225,6 +225,22 @@ spec:
                   name: skillstreak-secret
                   key: APPLE_PRIVATE_KEY
                   optional: true
+            # Fas 5 (docs/adr/0020-usage-analytics-product-metrics.md
+            # Decision 5) — who the monthly aggregate usage report is
+            # emailed to. `optional: true` for the same reason as
+            # ADMIN_EMAILS above: the key genuinely may not exist in the
+            # live Secret yet, and a missing key (not just an empty value)
+            # would otherwise stop kubelet starting the container at all
+            # (CreateContainerConfigError). Unset means the scheduled job
+            # no-ops with a log line — the intended degrade, not a boot
+            # failure. USAGE_REPORT_CRON/USAGE_REPORT_MIN_TEAMS_PER_BUCKET
+            # come from the ConfigMap via envFrom above (non-secret).
+            - name: USAGE_REPORT_RECIPIENT_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: USAGE_REPORT_RECIPIENT_EMAIL
+                  optional: true
           startupProbe:
             httpGet:
               path: /health

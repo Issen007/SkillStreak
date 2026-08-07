@@ -192,6 +192,40 @@ class EnvironmentVariables {
 
   @IsOptional()
   APPLE_PRIVATE_KEY?: string;
+
+  // --- Fas 5 (usage analytics — docs/adr/0020-usage-analytics-product-
+  // metrics.md) ---------------------------------------------------------
+  // All three are @IsOptional() ALONE, deliberately not stacked with
+  // @IsNotEmpty()/@IsNumberString(), for the reason this file's OAuth block
+  // above already documents and env.validation.spec.ts pins down: a k8s
+  // Secret key created from an unset GitHub Actions secret, and
+  // docker-compose's `${VAR:-}` interpolation, both hand the process a
+  // defined EMPTY STRING rather than an absent value — and class-validator's
+  // @IsOptional() only skips undefined/null. Every consumer below treats ''
+  // exactly like unset, so nothing is lost by validating loosely here, and
+  // an optional reporting knob must never be able to crash-loop the API on
+  // boot.
+  //
+  // Where the report is emailed (Decision 5). Unset/empty = the scheduled
+  // job no-ops with a log line, the same graceful degrade MailService
+  // already has when SMTP is unconfigured.
+  @IsOptional()
+  USAGE_REPORT_RECIPIENT_EMAIL?: string;
+
+  // Cadence (Decision 6) — a cron expression, default monthly. Read from
+  // process.env at import time rather than through ConfigService (see
+  // usage-metrics/usage-report-cron.util.ts for why), and a malformed value
+  // falls back to the default instead of failing.
+  @IsOptional()
+  USAGE_REPORT_CRON?: string;
+
+  // Decision 3's security-reviewer-required minimum-population floor: the
+  // fewest TEAMS a team-size bucket may contain before it's reported as its
+  // own bucket instead of being folded into the app-wide number. Default 5;
+  // clamped to a hard minimum in code so a mis-set value can't disable the
+  // protection outright.
+  @IsOptional()
+  USAGE_REPORT_MIN_TEAMS_PER_BUCKET?: string;
 }
 
 // Fails fast on boot rather than surfacing a confusing runtime error the

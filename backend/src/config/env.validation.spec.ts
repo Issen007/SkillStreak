@@ -50,6 +50,23 @@ describe('validateEnv', () => {
     expect(() => validateEnv(baseRequiredEnv())).not.toThrow();
   });
 
+  // Same trap, same fix, for Fas 5's usage-report knobs
+  // (docs/adr/0020-usage-analytics-product-metrics.md): docker-compose.yml
+  // passes USAGE_REPORT_RECIPIENT_EMAIL as `${VAR:-}` and CI creates the
+  // matching k8s Secret key from a GitHub secret the project owner may
+  // never set — both arrive as ''. An optional reporting knob must never be
+  // able to crash-loop the API on boot.
+  it('boots cleanly with every usage-report variable set to an empty string', () => {
+    expect(() =>
+      validateEnv({
+        ...baseRequiredEnv(),
+        USAGE_REPORT_RECIPIENT_EMAIL: '',
+        USAGE_REPORT_CRON: '',
+        USAGE_REPORT_MIN_TEAMS_PER_BUCKET: '',
+      }),
+    ).not.toThrow();
+  });
+
   it('still fails fast when a genuinely required variable is missing', () => {
     const config: Partial<Record<string, string>> = baseRequiredEnv();
     delete config.DATABASE_URL;

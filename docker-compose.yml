@@ -63,6 +63,13 @@ services:
       APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
       APPLE_KEY_ID: ${APPLE_KEY_ID:-}
       APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+      # docs/adr/0020-usage-analytics-product-metrics.md (Fas 5) — the
+      # scheduled aggregate-usage-report job. Unset recipient (the default
+      # here) means the job no-ops with a log line, so a local stack never
+      # tries to email anyone.
+      USAGE_REPORT_RECIPIENT_EMAIL: ${USAGE_REPORT_RECIPIENT_EMAIL:-}
+      USAGE_REPORT_CRON: ${USAGE_REPORT_CRON:-0 6 1 * *}
+      USAGE_REPORT_MIN_TEAMS_PER_BUCKET: ${USAGE_REPORT_MIN_TEAMS_PER_BUCKET:-5}
     depends_on:
       postgres:
         condition: service_healthy
