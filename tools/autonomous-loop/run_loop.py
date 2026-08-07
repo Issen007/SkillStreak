@@ -33,6 +33,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # ---------------------------------------------------------------------------
 # Config — edit these or override via CLI flags (see --help)
@@ -42,6 +43,13 @@ REPO_DIR = Path(__file__).resolve().parents[2]  # .../SkillStreak
 BRANCH = "prerelease"
 LOG_FILE = Path(__file__).resolve().parent / "loop.log"
 STOP_FILE = Path(__file__).resolve().parent / "STOP"
+# Raw stream-json saved per cycle — added after this tool's own supervised
+# test run (2026-08-07) hit a real usage limit that the classifier missed;
+# without the raw transcript, diagnosing exactly which event carried the
+# limit message required re-reading log.log's already-summarized output
+# and guessing. One file per cycle, kept indefinitely (small; text) —
+# delete old ones by hand if this directory grows large.
+TRANSCRIPTS_DIR = Path(__file__).resolve().parent / "transcripts"
 
 CLAUDE_BIN = "claude"
 # "auto" = the same classifier-backed Auto Mode this repo's interactive
@@ -64,22 +72,42 @@ STATUS_MARKER_RE = re.compile(
     re.MULTILINE,
 )
 
+# Confirmed against a real hit during this tool's own supervised test run
+# (2026-08-07): the actual CLI message was "You've hit your session limit
+# · resets 5:10pm (Europe/Stockholm)" — note "session limit" (not "usage
+# limit"), and "resets 5:10pm" with NO "at" between "resets" and the time.
+# The original keyword/regex pair here missed that message entirely and
+# let a real rate limit fall through to the generic error path instead of
+# sleeping until reset. Keep this list broad — a false positive here just
+# costs one extra sleep-and-recheck cycle; a false negative burns retries
+# against a wall that won't move until the real reset time.
 RATE_LIMIT_KEYWORDS = (
     "usage limit",
+    "session limit",
     "rate limit",
     "rate_limit",
     "limit reached",
+    "hit your",  # "You've hit your {session,usage,weekly} limit"
     "quota",
-    "resets at",
     "try again later",
     "weekly limit",
 )
 
-# A rough "resets at HH:MM" / "resets at 2pm" / ISO-timestamp catcher —
-# best-effort only. If this can't find a time, we fall back to polling
-# every RATE_LIMIT_POLL_SECONDS instead of guessing wrong and oversleeping.
+# Matches "resets 5:10pm", "resets at 5:10pm", "resets
+# 2026-08-07T17:10:00+02:00" — "at"/"in" are optional since the real
+# message omits it. Captures an optional trailing "(Zone/Name)" IANA
+# timezone separately so we can interpret the wall-clock time correctly
+# instead of assuming it's in this machine's local timezone. Only
+# absolute times are actually parsed downstream (see try_parse_reset_time)
+# — a relative phrase like "resets in 2 hours" will match this regex
+# loosely (capturing just "2") but then safely fail every strptime format
+# and fall back to polling, rather than being mis-parsed as a clock time.
 RESET_TIME_RE = re.compile(
-    r"reset[s]?\s+(?:at|in)\s+([0-9:apmAPM\s./\-TZ+]+)", re.IGNORECASE
+    r"reset[s]?\s+(?:at\s+|in\s+)?"
+    r"([0-9:apmAPM\s./\-T+]+?)"
+    r"(?:\s*\(([A-Za-z]+/[A-Za-z_]+)\))?"
+    r"(?:[.,]|\s|$)",
+    re.IGNORECASE,
 )
 
 PROMPT_TEMPLATE = """\
@@ -207,25 +235,65 @@ def ensure_clean_branch() -> bool:
 
 
 def try_parse_reset_time(text: str) -> datetime | None:
+    """Best-effort parse of a reset time out of Claude Code's own message.
+
+    Returns a naive datetime in THIS MACHINE'S local time (matching every
+    other use of `datetime.now()` in this script), or None if parsing
+    fails — callers should fall back to periodic polling rather than
+    guess wrong and oversleep. Claude Code's exact wording isn't a stable
+    API, so a failed parse here is expected sometimes, not a bug.
+    """
     match = RESET_TIME_RE.search(text)
     if not match:
         return None
     raw = match.group(1).strip()
-    # Best-effort only — Claude Code's exact wording here isn't guaranteed
-    # stable across versions, so a failed parse is expected sometimes, not
-    # a bug. We just fall back to polling when this returns None.
-    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%I:%M%p", "%I%p", "%H:%M"):
+    tz_name = match.group(2)  # e.g. "Europe/Stockholm", or None
+
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%I:%M%p",
+        "%I:%M %p",
+        "%I %p",
+        "%I%p",
+        "%H:%M",
+    ):
         try:
-            parsed = datetime.strptime(raw, fmt)
+            parsed = datetime.strptime(raw.upper(), fmt)
         except ValueError:
             continue
+
+        if parsed.tzinfo is not None:
+            # A full ISO timestamp already carries its own date/offset —
+            # just convert straight to local time.
+            return parsed.astimezone().replace(tzinfo=None)
+
+        minute = parsed.minute if "%M" in fmt else 0
+
+        if tz_name:
+            try:
+                zone = ZoneInfo(tz_name)
+            except Exception:  # noqa: BLE001 — unknown/malformed zone name
+                zone = None
+        else:
+            zone = None
+
+        if zone is not None:
+            now_in_zone = datetime.now(zone)
+            candidate_in_zone = now_in_zone.replace(
+                hour=parsed.hour, minute=minute, second=0, microsecond=0
+            )
+            if candidate_in_zone <= now_in_zone:
+                candidate_in_zone += timedelta(days=1)
+            return candidate_in_zone.astimezone().replace(tzinfo=None)
+
+        # No timezone info available at all — assume this machine's own
+        # local time, same as the original (pre-fix) behavior.
         now = datetime.now()
-        candidate = now.replace(
-            hour=parsed.hour, minute=getattr(parsed, "minute", 0), second=0, microsecond=0
-        )
+        candidate = now.replace(hour=parsed.hour, minute=minute, second=0, microsecond=0)
         if candidate <= now:
             candidate += timedelta(days=1)
         return candidate
+
     return None
 
 
@@ -244,10 +312,11 @@ class CycleOutcome:
         self.result_is_error: bool | None = None
         self.saw_result_event = False
         self.pre_stream_lines: list[str] = []  # non-JSON lines, likely early failures
+        self.last_assistant_text = ""  # overwritten each time — ends up holding the final one
         self.exit_code = 1
 
 
-def stream_claude_cycle() -> CycleOutcome:
+def stream_claude_cycle(cycle_number: int) -> CycleOutcome:
     """Run one `claude -p` cycle, printing INFO lines live as it works."""
     cmd = [
         CLAUDE_BIN,
@@ -272,50 +341,62 @@ def stream_claude_cycle() -> CycleOutcome:
 
     outcome = CycleOutcome()
 
+    TRANSCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    transcript_path = TRANSCRIPTS_DIR / f"cycle-{cycle_number:04d}-{ts}.jsonl"
+    log(f"Raw transcript for this cycle: {transcript_path}")
+
     assert proc.stdout is not None
-    for raw_line in proc.stdout:
-        raw_line = raw_line.rstrip("\n")
-        if not raw_line:
-            continue
+    with transcript_path.open("w", encoding="utf-8") as transcript_file:
+        for raw_line in proc.stdout:
+            raw_line = raw_line.rstrip("\n")
+            if not raw_line:
+                continue
 
-        try:
-            event = json.loads(raw_line)
-        except json.JSONDecodeError:
-            # Not a JSON event (e.g. a startup warning, or a hard CLI-level
-            # rejection printed before any streaming starts — that's exactly
-            # where a real "usage limit reached" message would show up).
-            log(raw_line, "CLAUDE")
-            outcome.pre_stream_lines.append(raw_line)
-            continue
+            try:
+                transcript_file.write(raw_line + "\n")
+            except OSError:
+                pass  # transcript logging is best-effort; never let it crash the loop
 
-        etype = event.get("type")
-        if etype == "system" and event.get("subtype") == "init":
-            log(f"Session started (model={event.get('model', '?')}, "
-                f"session_id={event.get('session_id', '?')})")
-        elif etype == "assistant":
-            for block in event.get("message", {}).get("content", []):
-                if block.get("type") == "text":
-                    text = block.get("text", "").strip()
-                    if text:
-                        # Keep the console readable — one line per thought,
-                        # not a full essay dumped mid-stream.
-                        first_line = text.splitlines()[0][:200]
-                        log(f"→ {first_line}")
-                elif block.get("type") == "tool_use":
-                    name = block.get("name", "?")
-                    tool_input = block.get("input", {})
-                    hint = tool_input.get("command") or tool_input.get("description") \
-                        or tool_input.get("file_path") or tool_input.get("prompt", "")
-                    hint = (str(hint)[:140] + "...") if len(str(hint)) > 140 else str(hint)
-                    log(f"  tool call: {name} {hint}".rstrip())
-        elif etype == "result":
-            outcome.saw_result_event = True
-            outcome.final_result_text = event.get("result", "") or ""
-            outcome.result_is_error = bool(event.get("is_error"))
-            cost = event.get("total_cost_usd")
-            turns = event.get("num_turns")
-            log(f"Cycle finished (is_error={event.get('is_error')}, "
-                f"cost=${cost}, turns={turns})")
+            try:
+                event = json.loads(raw_line)
+            except json.JSONDecodeError:
+                # Not a JSON event (e.g. a startup warning, or a hard CLI-level
+                # rejection printed before any streaming starts — that's exactly
+                # where a real "usage limit reached" message would show up).
+                log(raw_line, "CLAUDE")
+                outcome.pre_stream_lines.append(raw_line)
+                continue
+
+            etype = event.get("type")
+            if etype == "system" and event.get("subtype") == "init":
+                log(f"Session started (model={event.get('model', '?')}, "
+                    f"session_id={event.get('session_id', '?')})")
+            elif etype == "assistant":
+                for block in event.get("message", {}).get("content", []):
+                    if block.get("type") == "text":
+                        text = block.get("text", "").strip()
+                        if text:
+                            outcome.last_assistant_text = text
+                            # Keep the console readable — one line per thought,
+                            # not a full essay dumped mid-stream.
+                            first_line = text.splitlines()[0][:200]
+                            log(f"→ {first_line}")
+                    elif block.get("type") == "tool_use":
+                        name = block.get("name", "?")
+                        tool_input = block.get("input", {})
+                        hint = tool_input.get("command") or tool_input.get("description") \
+                            or tool_input.get("file_path") or tool_input.get("prompt", "")
+                        hint = (str(hint)[:140] + "...") if len(str(hint)) > 140 else str(hint)
+                        log(f"  tool call: {name} {hint}".rstrip())
+            elif etype == "result":
+                outcome.saw_result_event = True
+                outcome.final_result_text = event.get("result", "") or ""
+                outcome.result_is_error = bool(event.get("is_error"))
+                cost = event.get("total_cost_usd")
+                turns = event.get("num_turns")
+                log(f"Cycle finished (is_error={event.get('is_error')}, "
+                    f"cost=${cost}, turns={turns})")
 
     outcome.exit_code = proc.wait()
     return outcome
@@ -328,12 +409,19 @@ def classify_and_act(outcome: CycleOutcome) -> str:
     project's own work regularly involves building real "rate limit"/
     "quota"/"throttle" features (see ADR-0007/0013/0023 etc.), so scanning
     Claude's full narration of a *successful* cycle for those words would
-    false-positive constantly. Only Claude Code's own system-generated
-    error text — the `result` event when `is_error` is true, or raw output
-    printed before any structured event ever started (a hard CLI-level
-    rejection) — is a trustworthy signal here.
+    false-positive constantly. Only text tied to an actual error outcome
+    is scanned — the `result` event's own text when `is_error` is true,
+    the last assistant text block seen before that error result (this is
+    where Claude Code's own "You've hit your session limit" notice showed
+    up during this tool's real supervised test, 2026-08-07 — NOT in the
+    result event's text), or raw output printed before any structured
+    event ever started (a hard CLI-level rejection). A successful cycle
+    (is_error false/absent) never has this scan run against it at all.
     """
-    if outcome.result_is_error and looks_rate_limited(outcome.final_result_text):
+    if outcome.result_is_error and (
+        looks_rate_limited(outcome.final_result_text)
+        or looks_rate_limited(outcome.last_assistant_text)
+    ):
         return "rate_limited"
     if not outcome.saw_result_event and looks_rate_limited(
         "\n".join(outcome.pre_stream_lines)
@@ -411,7 +499,7 @@ def main() -> int:
             continue
 
         try:
-            cycle_outcome = stream_claude_cycle()
+            cycle_outcome = stream_claude_cycle(cycle)
         except FileNotFoundError:
             log(f"Could not find the `{CLAUDE_BIN}` executable on PATH. "
                 "Install/authenticate Claude Code, then rerun this script.", "ERROR")
@@ -440,11 +528,14 @@ def main() -> int:
             consecutive_failures = 0
             sleep_with_heartbeat(IDLE_SLEEP_SECONDS, "item blocked on project owner")
         elif classification == "rate_limited":
-            reset_source = (
-                cycle_outcome.final_result_text
-                if cycle_outcome.saw_result_event
-                else "\n".join(cycle_outcome.pre_stream_lines)
-            )
+            # Try every place the actual reset-time text could be, in the
+            # same priority order classify_and_act checked for the
+            # rate-limit keywords themselves.
+            reset_source = "\n".join(filter(None, [
+                cycle_outcome.final_result_text,
+                cycle_outcome.last_assistant_text,
+                "\n".join(cycle_outcome.pre_stream_lines),
+            ]))
             reset_at = try_parse_reset_time(reset_source)
             if reset_at:
                 wait_seconds = max(60, int((reset_at - datetime.now()).total_seconds()))

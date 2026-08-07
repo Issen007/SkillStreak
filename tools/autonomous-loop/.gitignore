@@ -1,4 +1,5 @@
 # Runtime control/state files — never meant to be committed.
 STOP
+transcripts/
 __pycache__/
 *.pyc
