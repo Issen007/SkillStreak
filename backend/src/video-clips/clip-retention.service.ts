@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
+import { ERROR_LOG_JOB_NAMES } from '../error-log/error-log.constants';
+import { ErrorLogService } from '../error-log/error-log.service';
 import { RedisService } from '../redis/redis.service';
 import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
 import { ObjectStorageService } from './object-storage.service';
@@ -43,6 +45,15 @@ const SCHEDULED_JOB_LOCK_TTL_SECONDS = 5 * 60;
  * this race has nothing useful left to do once the winner runs the sweep,
  * unlike a migration a losing pod still needs to eventually observe as
  * "already applied".
+ *
+ * Since docs/adr/0022-admin-control-center.md Decision 6, a failure of the
+ * sweep as a whole (the query itself, or anything else that would otherwise
+ * reject out of the `@Cron` handler unobserved) also writes an
+ * `error_log_entry` row with `source: 'job'`. The per-row failures inside
+ * `sweepRows` deliberately stay logger-only: they're already observed, and
+ * a sustained MinIO outage would otherwise write one row per clip per run
+ * into a table the admin console paginates over — the run-level row is what
+ * tells an operator this sweep is unhealthy.
  */
 @Injectable()
 export class ClipRetentionService {
@@ -54,36 +65,66 @@ export class ClipRetentionService {
     private readonly videoClipRepository: Repository<VideoClip>,
     private readonly objectStorageService: ObjectStorageService,
     private readonly redisService: RedisService,
+    private readonly errorLogService: ErrorLogService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async sweepExpiredPublishedClips(): Promise<void> {
-    if (!(await this.tryClaimJobOrSkip('clip-retention:published'))) {
+    const jobName = ERROR_LOG_JOB_NAMES.clipRetentionPublished;
+    if (!(await this.tryClaimJobOrSkip(jobName))) {
       return;
     }
-    const rows = await this.videoClipRepository.find({
-      where: {
-        status: VideoClipStatus.PUBLISHED,
-        expiresAt: LessThan(new Date()),
-      },
-    });
-    await this.sweepRows(rows, 'expired published clip');
+    try {
+      const rows = await this.videoClipRepository.find({
+        where: {
+          status: VideoClipStatus.PUBLISHED,
+          expiresAt: LessThan(new Date()),
+        },
+      });
+      await this.sweepRows(rows, 'expired published clip');
+    } catch (error) {
+      await this.recordJobFailure(jobName, error);
+    }
   }
 
   @Cron(CronExpression.EVERY_HOUR)
   async sweepAbandonedPendingUploads(): Promise<void> {
-    if (!(await this.tryClaimJobOrSkip('clip-retention:pending-upload'))) {
+    const jobName = ERROR_LOG_JOB_NAMES.clipRetentionPendingUpload;
+    if (!(await this.tryClaimJobOrSkip(jobName))) {
       return;
     }
-    const ttlMinutes = this.pendingUploadTtlMinutes();
-    const cutoff = new Date(Date.now() - ttlMinutes * 60_000);
-    const rows = await this.videoClipRepository.find({
-      where: {
-        status: VideoClipStatus.PENDING_UPLOAD,
-        createdAt: LessThan(cutoff),
-      },
-    });
-    await this.sweepRows(rows, 'abandoned pending_upload clip');
+    try {
+      const ttlMinutes = this.pendingUploadTtlMinutes();
+      const cutoff = new Date(Date.now() - ttlMinutes * 60_000);
+      const rows = await this.videoClipRepository.find({
+        where: {
+          status: VideoClipStatus.PENDING_UPLOAD,
+          createdAt: LessThan(cutoff),
+        },
+      });
+      await this.sweepRows(rows, 'abandoned pending_upload clip');
+    } catch (error) {
+      await this.recordJobFailure(jobName, error);
+    }
+  }
+
+  /**
+   * docs/adr/0022-admin-control-center.md Decision 6 — a run-level failure
+   * gets a durable row instead of disappearing into an unobserved rejected
+   * promise. Logged as well as recorded: stdout is still the first place an
+   * operator looks, and it's the only place left if the recorder's own
+   * database write is what's broken (ErrorLogService.record swallows that).
+   */
+  private async recordJobFailure(
+    jobName: string,
+    error: unknown,
+  ): Promise<void> {
+    this.logger.error(
+      `${jobName} failed — left for the next run: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    await this.errorLogService.record({ source: 'job', jobName, error });
   }
 
   /**

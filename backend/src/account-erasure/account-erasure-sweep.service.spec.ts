@@ -22,13 +22,27 @@ function buildService(overrides: {
     ...overrides.redisService,
   };
 
+  // docs/adr/0022-admin-control-center.md Decision 6 — a run-level sweep
+  // failure is recorded as an `error_log_entry` row (see the dedicated test
+  // at the bottom of this file).
+  const errorLogService = {
+    record: jest.fn().mockResolvedValue(undefined),
+  };
+
   const service = new AccountErasureSweepService(
     accountErasureService as never,
     playersService as never,
     redisService as never,
+    errorLogService as never,
   );
 
-  return { service, accountErasureService, playersService, redisService };
+  return {
+    service,
+    accountErasureService,
+    playersService,
+    redisService,
+    errorLogService,
+  };
 }
 
 // docs/adr/0013-account-erasure.md Decision 5/8 — the security-reviewer's
@@ -221,5 +235,43 @@ describe('AccountErasureSweepService.sweep', () => {
     await expect(service.sweep()).resolves.toBeUndefined();
 
     expect(accountErasureService.findDueRows).not.toHaveBeenCalled();
+  });
+});
+
+// docs/adr/0022-admin-control-center.md Decision 6 — a run-level sweep
+// failure gets a durable `error_log_entry` row (`source: 'job'`); a
+// single team's batch failure deliberately stays logger-only, so one
+// broken dependency can't write a row per team per run.
+describe('AccountErasureSweepService job-failure recording', () => {
+  it('records a run-level failure as a job row and does not rethrow', async () => {
+    const failure = new Error('connection terminated unexpectedly');
+    const { service, errorLogService } = buildService({
+      accountErasureService: {
+        findDueRows: jest.fn().mockRejectedValue(failure),
+      },
+    });
+
+    await expect(service.sweep()).resolves.toBeUndefined();
+
+    expect(errorLogService.record).toHaveBeenCalledWith({
+      source: 'job',
+      jobName: 'account-erasure:sweep',
+      error: failure,
+    });
+  });
+
+  it('does not record a row for a single team batch failure', async () => {
+    const { service, errorLogService } = buildService({
+      accountErasureService: {
+        findDueRows: jest
+          .fn()
+          .mockResolvedValue([{ id: 'e-1', playerId: 'p-1', teamId: 't-1' }]),
+        executeTeamCascade: jest.fn().mockRejectedValue(new Error('boom')),
+      },
+    });
+
+    await expect(service.sweep()).resolves.toBeUndefined();
+
+    expect(errorLogService.record).not.toHaveBeenCalled();
   });
 });

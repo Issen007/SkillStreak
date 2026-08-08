@@ -226,6 +226,32 @@ class EnvironmentVariables {
   // protection outright.
   @IsOptional()
   USAGE_REPORT_MIN_TEAMS_PER_BUCKET?: string;
+
+  // --- Fas 7 (admin control center — docs/adr/0022-admin-control-center.md
+  // Decision 6) ----------------------------------------------------------
+  // Both are @IsOptional() ALONE, deliberately not stacked with
+  // @IsNotEmpty()/@IsNumberString(), for exactly the reason the Fas 5 block
+  // above spells out: an empty-but-PRESENT value ('' from a k8s Secret key
+  // whose GitHub Actions secret was never set, or from docker-compose's
+  // `${VAR:-}`) passes @IsOptional() only when it's undefined/null, so
+  // stacking either of those decorators would crash-loop the API on boot
+  // over an optional operational knob. Both are parsed by
+  // error-log/error-log.util.ts's positiveIntFromConfig, which treats '',
+  // non-numeric, zero, negative and fractional values as "use the default".
+  //
+  // How long a row in `error_log_entry` is kept before the daily sweep
+  // deletes it (Decision 6 recommends 90 days). Default 90. Also echoed by
+  // the admin API so the console can interpolate the real number instead of
+  // hardcoding it — docs/design/phase7-admin-console-flows.md §5.2/§13.
+  @IsOptional()
+  ERROR_LOG_RETENTION_DAYS?: string;
+
+  // How many stack frames are kept when a row is written (Decision 6's
+  // "e.g. first ~20 frames" — explicitly a recommendation, not a fixed
+  // number, which is why it's a knob at all). Default 20, and echoed by the
+  // admin API for the same reason as above.
+  @IsOptional()
+  ERROR_LOG_STACK_MAX_FRAMES?: string;
 }
 
 // Fails fast on boot rather than surfacing a confusing runtime error the

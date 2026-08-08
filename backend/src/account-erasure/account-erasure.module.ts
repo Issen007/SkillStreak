@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
+import { ErrorLogModule } from '../error-log/error-log.module';
 import { MailModule } from '../mail/mail.module';
 import { PlayerPrivateInfoModule } from '../player-private-info/player-private-info.module';
 import { PlayersModule } from '../players/players.module';
@@ -44,6 +45,10 @@ import { AccountErasureRequest } from './entities/account-erasure-request.entity
     VideoClipsModule,
     RedisModule,
     MailModule,
+    // docs/adr/0022-admin-control-center.md Decision 6 — the sweep records a
+    // run-level failure as an `error_log_entry` row instead of letting it
+    // reject out of the `@Cron` handler unobserved.
+    ErrorLogModule,
   ],
   controllers: [AccountErasureController],
   providers: [AccountErasureService, AccountErasureSweepService],

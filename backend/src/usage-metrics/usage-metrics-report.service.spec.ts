@@ -81,14 +81,27 @@ function buildService(overrides: {
     ...overrides.redisService,
   };
 
+  // docs/adr/0022-admin-control-center.md Decision 6 — a failed report run
+  // is recorded as an `error_log_entry` row (see the dedicated test below).
+  const errorLogService = {
+    record: jest.fn().mockResolvedValue(undefined),
+  };
+
   const service = new UsageMetricsReportService(
     configService as never,
     usageMetricsService as never,
     mailService as never,
     redisService as never,
+    errorLogService as never,
   );
 
-  return { service, usageMetricsService, mailService, redisService };
+  return {
+    service,
+    usageMetricsService,
+    mailService,
+    redisService,
+    errorLogService,
+  };
 }
 
 // docs/adr/0020-usage-analytics-product-metrics.md Decision 5 — the
@@ -263,5 +276,36 @@ describe('UsageMetricsReportService.sendScheduledReport', () => {
         config: { USAGE_REPORT_RECIPIENT_EMAIL: 'owner@example.com' },
       }).service.onModuleInit(),
     ).not.toThrow();
+  });
+});
+
+// docs/adr/0022-admin-control-center.md Decision 6 — the existing
+// log-and-swallow catch now also writes a durable `error_log_entry` row, so
+// "the monthly report never arrived" is a lookup rather than a mystery.
+describe('UsageMetricsReportService job-failure recording', () => {
+  it('records a failed run as a job row and still resolves', async () => {
+    const failure = new Error('smtp timeout');
+    const { service, errorLogService } = buildService({
+      config: { USAGE_REPORT_RECIPIENT_EMAIL: 'owner@example.com' },
+      mailService: { sendMail: jest.fn().mockRejectedValue(failure) },
+    });
+
+    await expect(service.sendScheduledReport()).resolves.toBeUndefined();
+
+    expect(errorLogService.record).toHaveBeenCalledWith({
+      source: 'job',
+      jobName: 'usage-metrics:report',
+      error: failure,
+    });
+  });
+
+  it('records nothing on a successful run', async () => {
+    const { service, errorLogService } = buildService({
+      config: { USAGE_REPORT_RECIPIENT_EMAIL: 'owner@example.com' },
+    });
+
+    await service.sendScheduledReport();
+
+    expect(errorLogService.record).not.toHaveBeenCalled();
   });
 });

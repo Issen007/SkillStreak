@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { Coach } from '../coaches/entities/coach.entity';
+import { ErrorLogModule } from '../error-log/error-log.module';
 import { MailModule } from '../mail/mail.module';
 import { ModerationModule } from '../moderation/moderation.module';
 import { PlayerPrivateInfoModule } from '../player-private-info/player-private-info.module';
@@ -58,6 +59,9 @@ import { VideoProcessingService } from './video-processing.service';
     TeamsModule,
     RedisModule,
     MailModule,
+    // docs/adr/0022-admin-control-center.md Decision 6 — ClipRetentionService
+    // records a run-level sweep failure as an `error_log_entry` row.
+    ErrorLogModule,
     ModerationModule,
   ],
   controllers: [VideoClipsController],

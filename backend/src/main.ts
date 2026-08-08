@@ -3,7 +3,6 @@ import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { AppExceptionFilter } from './common/errors/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -18,7 +17,13 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  app.useGlobalFilters(new AppExceptionFilter());
+  // AppExceptionFilter is NOT registered here any more (was:
+  // `app.useGlobalFilters(new AppExceptionFilter())`) — since
+  // docs/adr/0022-admin-control-center.md Decision 6 it injects
+  // ErrorLogService to record every error branch into `error_log_entry`,
+  // and a filter constructed with `new` gets no DI at all. It's provided as
+  // an APP_FILTER in AppModule instead, which is the same global scope with
+  // a working injector. The response envelope is byte-identical either way.
 
   // CORS, off by default — only enabled if CORS_ORIGIN is explicitly set
   // (see env.validation.ts), and only for the specific origins listed, not

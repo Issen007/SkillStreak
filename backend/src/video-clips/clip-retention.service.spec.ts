@@ -18,12 +18,19 @@ function buildService(overrides: { configValue?: string } = {}) {
     // "skips when another replica already claimed this run" tests below).
     tryClaimScheduledJobRun: jest.fn().mockResolvedValue(true),
   };
+  // docs/adr/0022-admin-control-center.md Decision 6 — a run-level sweep
+  // failure is recorded as an `error_log_entry` row (see the dedicated test
+  // at the bottom of this file).
+  const errorLogService = {
+    record: jest.fn().mockResolvedValue(undefined),
+  };
 
   const service = new ClipRetentionService(
     configService as never,
     videoClipRepository as never,
     objectStorageService as never,
     redisService as never,
+    errorLogService as never,
   );
 
   return {
@@ -32,6 +39,7 @@ function buildService(overrides: { configValue?: string } = {}) {
     videoClipRepository,
     objectStorageService,
     redisService,
+    errorLogService,
   };
 }
 
@@ -172,5 +180,49 @@ describe('ClipRetentionService.sweepAbandonedPendingUploads', () => {
       expect.any(Number),
     );
     expect(videoClipRepository.find).not.toHaveBeenCalled();
+  });
+});
+
+// docs/adr/0022-admin-control-center.md Decision 6 — a run-level sweep
+// failure (the query itself, not one row's MinIO delete) used to reject
+// straight out of the `@Cron` handler into the `cron` package's bare
+// console.error. It now leaves a durable `error_log_entry` row instead.
+describe('ClipRetentionService job-failure recording', () => {
+  it('records a run-level failure as a job row and does not rethrow', async () => {
+    const { service, videoClipRepository, errorLogService } = buildService();
+    const failure = new Error('connection terminated unexpectedly');
+    videoClipRepository.find.mockRejectedValue(failure);
+
+    await expect(service.sweepExpiredPublishedClips()).resolves.toBeUndefined();
+
+    expect(errorLogService.record).toHaveBeenCalledWith({
+      source: 'job',
+      jobName: 'clip-retention:published',
+      error: failure,
+    });
+  });
+
+  it('records the pending-upload sweep under its own stable job name', async () => {
+    const { service, videoClipRepository, errorLogService } = buildService();
+    videoClipRepository.find.mockRejectedValue(new Error('deadlock detected'));
+
+    await expect(
+      service.sweepAbandonedPendingUploads(),
+    ).resolves.toBeUndefined();
+
+    expect(errorLogService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'job',
+        jobName: 'clip-retention:pending-upload',
+      }),
+    );
+  });
+
+  it('records nothing on a successful run', async () => {
+    const { service, errorLogService } = buildService();
+
+    await service.sweepExpiredPublishedClips();
+
+    expect(errorLogService.record).not.toHaveBeenCalled();
   });
 });

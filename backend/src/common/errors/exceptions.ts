@@ -864,3 +864,39 @@ export class SystemMessageNotReportableException extends AppException {
     );
   }
 }
+
+// --- Fas 7 (admin control center / in-app bug reports —
+// docs/adr/0022-admin-control-center.md Decision 7) -------------------------
+
+export class BugReportRateLimitedException extends AppException {
+  constructor() {
+    // Same per-player burst-cooldown + daily-cap shape as
+    // ErasureRateLimitedException, which docs/design/phase7-admin-console-
+    // flows.md §13 explicitly names as the precedent this code should
+    // mirror. Different threat model, though (named here rather than
+    // inherited by analogy): submitting a bug report emails nobody and
+    // touches no other account, so what's being bounded is queue spam
+    // against the single operator, not a family's inbox.
+    super(
+      'bug_report_rate_limited',
+      'A few bug reports were already sent from this account recently; try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+export class BugReportNotFoundException extends AppException {
+  constructor() {
+    // A real, expected case rather than a defensive backstop: `player_id`
+    // is ON DELETE CASCADE, so an account erasure removes a report while
+    // the operator may still have it open — docs/design/phase7-admin-
+    // console-flows.md §6.4's `gone` state exists precisely for this, and
+    // renders "the reporter's account was probably erased" instead of a
+    // generic failure.
+    super(
+      'bug_report_not_found',
+      'No bug report with this id exists.',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}

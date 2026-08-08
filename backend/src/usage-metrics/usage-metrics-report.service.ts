@@ -1,6 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
+import { ERROR_LOG_JOB_NAMES } from '../error-log/error-log.constants';
+import { ErrorLogService } from '../error-log/error-log.service';
 import { MailService } from '../mail/mail.service';
 import { buildUsageReportEmail } from '../mail/templates/usage-report-email.template';
 import { RedisService } from '../redis/redis.service';
@@ -63,6 +65,7 @@ export class UsageMetricsReportService implements OnModuleInit {
     private readonly usageMetricsService: UsageMetricsService,
     private readonly mailService: MailService,
     private readonly redisService: RedisService,
+    private readonly errorLogService: ErrorLogService,
   ) {}
 
   onModuleInit(): void {
@@ -114,6 +117,17 @@ export class UsageMetricsReportService implements OnModuleInit {
           error instanceof Error ? error.message : String(error)
         }`,
       );
+      // docs/adr/0022-admin-control-center.md Decision 6 — this catch used
+      // to end at the log line above, i.e. a failed monthly report was only
+      // ever visible to whoever happened to be reading pod stdout that day.
+      // It now also gets a durable `error_log_entry` row (`source: 'job'`),
+      // which is the difference between "the report never arrived" being a
+      // mystery and being a lookup.
+      await this.errorLogService.record({
+        source: 'job',
+        jobName: ERROR_LOG_JOB_NAMES.usageMetricsReport,
+        error,
+      });
     }
   }
 
