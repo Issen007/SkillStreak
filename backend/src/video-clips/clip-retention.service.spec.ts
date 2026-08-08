@@ -1,3 +1,4 @@
+import { FindOperator } from 'typeorm';
 import { ClipRetentionService } from './clip-retention.service';
 import { VideoClipStatus } from './entities/video-clip.entity';
 
@@ -53,9 +54,12 @@ describe('ClipRetentionService.sweepExpiredPublishedClips', () => {
     await service.sweepExpiredPublishedClips();
 
     const [[{ where: expiredWhere }]] = videoClipRepository.find.mock.calls as [
-      [{ where: { status: VideoClipStatus } }],
+      [{ where: { status: FindOperator<VideoClipStatus> } }],
     ];
-    expect(expiredWhere.status).toBe(VideoClipStatus.PUBLISHED);
+    expect(expiredWhere.status.value).toEqual([
+      VideoClipStatus.PUBLISHED,
+      VideoClipStatus.HIDDEN,
+    ]);
     expect(objectStorageService.deleteObjectIfExists).toHaveBeenCalledWith(
       'clips/team-1/clip-1.mp4',
     );
@@ -83,6 +87,40 @@ describe('ClipRetentionService.sweepExpiredPublishedClips', () => {
     await service.sweepExpiredPublishedClips();
 
     expect(videoClipRepository.delete).not.toHaveBeenCalled();
+  });
+
+  // BACKLOG.md's live retention gap, fixed 2026-08-08: reporting a clip
+  // flips it to `hidden`, and a status: PUBLISHED-only query silently
+  // exempted exactly those clips from the 90-day promise — forever.
+  it('sweeps an expired clip that a teammate reported (hidden), deleting its object and row like any other', async () => {
+    const reported = { id: 'clip-9', storageKey: 'clips/team-1/clip-9.mp4' };
+    const { service, videoClipRepository, objectStorageService } =
+      buildService();
+    videoClipRepository.find.mockResolvedValue([reported]);
+
+    await service.sweepExpiredPublishedClips();
+
+    const [[{ where: expiredWhere }]] = videoClipRepository.find.mock.calls as [
+      [{ where: { status: FindOperator<VideoClipStatus> } }],
+    ];
+    expect(expiredWhere.status.value).toContain(VideoClipStatus.HIDDEN);
+    expect(objectStorageService.deleteObjectIfExists).toHaveBeenCalledWith(
+      'clips/team-1/clip-9.mp4',
+    );
+    expect(videoClipRepository.delete).toHaveBeenCalledWith({ id: 'clip-9' });
+  });
+
+  // The hourly sweep is a separate clock and must stay pending_upload-only
+  // — widening the daily one must not have leaked into it.
+  it('leaves the hourly pending-upload sweep querying pending_upload alone', async () => {
+    const { service, videoClipRepository } = buildService();
+
+    await service.sweepAbandonedPendingUploads();
+
+    const [[{ where: pendingWhere }]] = videoClipRepository.find.mock.calls as [
+      [{ where: { status: VideoClipStatus } }],
+    ];
+    expect(pendingWhere.status).toBe(VideoClipStatus.PENDING_UPLOAD);
   });
 
   it('does nothing when no rows are due', async () => {

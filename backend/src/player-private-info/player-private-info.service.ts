@@ -138,6 +138,28 @@ export class PlayerPrivateInfoService {
   }
 
   /**
+   * Row-locked lookup by playerId, for callers that need to decide
+   * something from the pending-change state and then write in the same
+   * transaction — added 2026-08-08 for ProfileService
+   * .cancelOwnContactChange. Same "lock, then check" shape as the two
+   * code-keyed lookups below, just keyed by the authenticated caller
+   * instead of by a code, and with no liveness filter: self-cancel is
+   * valid against a live *and* an expired pending change (clearing the
+   * expired one is most of the point).
+   */
+  async findByPlayerIdForUpdate(
+    manager: EntityManager,
+    playerId: string,
+  ): Promise<PlayerPrivateInfo | null> {
+    return manager
+      .getRepository(PlayerPrivateInfo)
+      .createQueryBuilder('info')
+      .setLock('pessimistic_write')
+      .where('info.player_id = :playerId', { playerId })
+      .getOne();
+  }
+
+  /**
    * Row-locked lookup by contact-change code, for use inside
    * ProfileService.confirmContactChange's transaction — same "lock, then
    * check liveness" shape as PlayersService.findValidBySessionReissueCode.
@@ -232,6 +254,14 @@ export class PlayerPrivateInfoService {
    * clears every pending field (not just pendingParentContact) so a
    * stale contactChangeCancelCode can't be reused, mirroring
    * applyPendingContactChange's single-use posture.
+   *
+   * Widened 2026-08-08 to also clear contactChangeCode/
+   * contactChangeCodeExpiresAt. Both are already null on the original
+   * caller's path (startContactChangeGracePeriod nulls them at confirm
+   * time), so this is a no-op there — but the authenticated self-cancel
+   * added the same day reaches this from the *unconfirmed* state, where
+   * they are the fields that matter. One method that clears the whole
+   * pending state in every reachable state, rather than two near-copies.
    */
   async cancelPendingContactChange(
     manager: EntityManager,
@@ -241,6 +271,8 @@ export class PlayerPrivateInfoService {
       { playerId },
       {
         pendingParentContact: null,
+        contactChangeCode: null,
+        contactChangeCodeExpiresAt: null,
         contactChangeApplyAt: null,
         contactChangeCancelCode: null,
       },
@@ -283,12 +315,37 @@ export class PlayerPrivateInfoService {
    * outright (409) while any contact-change — still within its own 24h
    * window, or already past due but not yet lazily applied by some other
    * read — is unresolved.
+   *
+   * Fixed 2026-08-08 (BACKLOG.md, found by ADR-0019's security pass): this
+   * used to be a bare `pendingParentContact != null`, which latched
+   * FOREVER on the unconfirmed branch. setPendingContactChange writes
+   * pendingParentContact up front, but all three clearing paths require
+   * the confirm step to have happened first — so a player who requested a
+   * change, mistyped the address and never confirmed kept a non-null
+   * pendingParentContact after their 15-minute code expired, and was
+   * silently barred from ever requesting erasure (a GDPR right, blocked by
+   * a typo). "Unresolved" therefore means one of two live states, not
+   * merely "the column is set":
    */
   async hasPendingContactChange(playerId: string): Promise<boolean> {
     const info = await this.privateInfoRepository.findOne({
       where: { playerId },
     });
-    return info?.pendingParentContact != null;
+    if (!info || info.pendingParentContact == null) {
+      return false;
+    }
+    // Confirmed: in its 24h grace window, or due but not yet lazily
+    // applied by a getEffective() read. Both genuinely unresolved — this
+    // is the state the docstring above insists on observing, not resolving.
+    if (info.contactChangeApplyAt !== null) {
+      return true;
+    }
+    // Unconfirmed: only unresolved while the confirmation code is still
+    // live. Once it expires the change can never proceed, so it must not
+    // keep blocking erasure. A dead row is left in place rather than
+    // cleaned up here — this is a read path, and clearing it is exactly
+    // what the authenticated cancel route below is for.
+    return isContactChangeCodeLive(info);
   }
 
   /**

@@ -52,6 +52,12 @@ export interface ConfirmContactChangeResponse {
   appliesAt: string;
 }
 
+// `false` means "there was nothing pending to cancel" — an expected,
+// non-error outcome, not a failure. See cancelOwnContactChange.
+export interface CancelOwnContactChangeResponse {
+  cancelled: boolean;
+}
+
 // docs/adr/0012-profile-page-and-contact-email-change.md. Every method
 // except cancelContactChange operates on the *authenticated caller's
 // own* playerId (`/players/me/...` routes, no `:playerId` param) — no
@@ -264,6 +270,51 @@ export class ProfileService {
         player.tokenVersion + 1,
       );
       return { screenName: player.screenName };
+    });
+  }
+
+  /**
+   * The authenticated "actually, forget that change" route, added
+   * 2026-08-08 alongside the hasPendingContactChange fix (BACKLOG.md's
+   * preferred option (a)). The guard fix alone stops an abandoned request
+   * from blocking erasure forever, but it leaves the player with no way to
+   * *act* on a state they can otherwise only escape by accident — by
+   * re-running the whole change to completion and waiting out the 24h
+   * grace. This gives them the door.
+   *
+   * Deliberately different from cancelContactChange (the emailed
+   * old-address link) in two ways:
+   *
+   * - No token-version bump. That one bumps because it means "this wasn't
+   *   me" — an account-compromise signal worth logging every session out
+   *   for. This one is the account holder cancelling their own typo;
+   *   logging them out of the app they are standing in would be hostile.
+   * - Idempotent, returning `{ cancelled: false }` rather than throwing
+   *   when there is nothing pending, matching cancelContactChange's
+   *   "second POST is an expected case" posture.
+   *
+   * Cancelling from the confirmed-and-in-grace state is allowed on
+   * purpose: cancelling always resolves *towards* the old (parent)
+   * contact, so it is the fail-safe direction — a hijacked session gains
+   * nothing by calling it, and the legitimate player gets one obvious
+   * escape hatch that behaves the same in both states.
+   */
+  async cancelOwnContactChange(
+    playerId: string,
+  ): Promise<CancelOwnContactChangeResponse> {
+    return this.dataSource.transaction(async (manager) => {
+      const info = await this.playerPrivateInfoService.findByPlayerIdForUpdate(
+        manager,
+        playerId,
+      );
+      if (!info || info.pendingParentContact == null) {
+        return { cancelled: false };
+      }
+      await this.playerPrivateInfoService.cancelPendingContactChange(
+        manager,
+        playerId,
+      );
+      return { cancelled: true };
     });
   }
 

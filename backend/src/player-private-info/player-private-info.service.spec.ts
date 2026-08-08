@@ -84,6 +84,65 @@ describe('PlayerPrivateInfoService.hasPendingContactChange', () => {
     expect(findOne).toHaveBeenCalledTimes(1);
   });
 
+  // The unconfirmed branch (BACKLOG.md, fixed 2026-08-08). Before the
+  // fix this method was a bare `pendingParentContact != null`, so every
+  // one of these three returned true — and the middle one is the live bug:
+  // a player who mistyped the address and never confirmed was barred from
+  // requesting account erasure forever.
+  it('returns true when the change is unconfirmed but its code is still live', async () => {
+    const { service } = buildService({
+      privateInfoRepository: {
+        findOne: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-blob',
+          contactChangeCode: 'ABC123',
+          contactChangeCodeExpiresAt: new Date(Date.now() + 60_000),
+          contactChangeApplyAt: null,
+        }),
+      },
+    });
+
+    await expect(service.hasPendingContactChange('player-1')).resolves.toBe(
+      true,
+    );
+  });
+
+  it('returns false once an unconfirmed change’s code has expired — it can never proceed, so it must stop blocking erasure', async () => {
+    const { service } = buildService({
+      privateInfoRepository: {
+        findOne: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-blob',
+          contactChangeCode: 'ABC123',
+          contactChangeCodeExpiresAt: new Date(Date.now() - 60_000),
+          contactChangeApplyAt: null,
+        }),
+      },
+    });
+
+    await expect(service.hasPendingContactChange('player-1')).resolves.toBe(
+      false,
+    );
+  });
+
+  it('returns false when an unconfirmed change has no expiry recorded at all (defensive)', async () => {
+    const { service } = buildService({
+      privateInfoRepository: {
+        findOne: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-blob',
+          contactChangeCode: 'ABC123',
+          contactChangeCodeExpiresAt: null,
+          contactChangeApplyAt: null,
+        }),
+      },
+    });
+
+    await expect(service.hasPendingContactChange('player-1')).resolves.toBe(
+      false,
+    );
+  });
+
   it('returns false when no contact change is pending', async () => {
     const { service } = buildService({
       privateInfoRepository: {

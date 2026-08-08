@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Repository } from 'typeorm';
+import { In, LessThan, Repository } from 'typeorm';
 import { ERROR_LOG_JOB_NAMES } from '../error-log/error-log.constants';
 import { ErrorLogService } from '../error-log/error-log.service';
 import { RedisService } from '../redis/redis.service';
@@ -22,12 +22,13 @@ const SCHEDULED_JOB_LOCK_TTL_SECONDS = 5 * 60;
  * sharing one mechanism parameterized by status/cutoff, per the ADR's own
  * "reuses the same mechanism... not new infrastructure" framing:
  *
- * 1. **Daily**, `published` clips past their `expires_at` (the 90-day-by-
- *    default rolling retention window, set at `complete` time).
+ * 1. **Daily**, `published` *and* `hidden` clips past their `expires_at`
+ *    (the 90-day-by-default rolling retention window, set at `complete`
+ *    time). `hidden` was added 2026-08-08 — see the query's own comment.
  * 2. **Hourly**, `pending_upload` clips past a short TTL from `created_at`
  *    (~1 hour by default) — the fix for the storage-exhaustion path an
  *    abandoned/never-completed upload would otherwise leave unbounded,
- *    since the daily sweep only ever looks at `published` rows.
+ *    since the daily sweep never looks at `pending_upload` rows.
  *
  * Both delete the MinIO object *before* the Postgres row, and leave the row
  * alone (for the next run) if object deletion fails transiently — the
@@ -77,11 +78,21 @@ export class ClipRetentionService {
     try {
       const rows = await this.videoClipRepository.find({
         where: {
-          status: VideoClipStatus.PUBLISHED,
+          // `hidden` is swept on exactly the same clock as `published`
+          // (fixed 2026-08-08, BACKLOG.md). This used to be PUBLISHED
+          // alone, which meant a clip a teammate had reported —
+          // VideoClipsService.reportClip flips it to HIDDEN — fell out of
+          // retention entirely and kept both its row and its MinIO object
+          // forever. That inverted the intent: the reported clips are the
+          // last set that should outlive the window, and
+          // docs/legal/terms-of-service-DRAFT.md promises every clip is
+          // "automatically and permanently deleted after a limited
+          // period".
+          status: In([VideoClipStatus.PUBLISHED, VideoClipStatus.HIDDEN]),
           expiresAt: LessThan(new Date()),
         },
       });
-      await this.sweepRows(rows, 'expired published clip');
+      await this.sweepRows(rows, 'expired published or hidden clip');
     } catch (error) {
       await this.recordJobFailure(jobName, error);
     }

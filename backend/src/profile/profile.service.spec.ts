@@ -35,6 +35,7 @@ function buildService(overrides: {
     startContactChangeGracePeriod: jest.fn().mockResolvedValue(undefined),
     previewByCancelCode: jest.fn(),
     findValidByCancelCode: jest.fn(),
+    findByPlayerIdForUpdate: jest.fn(),
     cancelPendingContactChange: jest.fn().mockResolvedValue(undefined),
     ...overrides.playerPrivateInfoService,
   };
@@ -408,5 +409,105 @@ describe('ProfileService.cancelContactChange', () => {
 
     await expect(service.cancelContactChange('NOPE0000')).resolves.toBeNull();
     expect(playersService.bumpTokenVersion).not.toHaveBeenCalled();
+  });
+});
+
+// The authenticated self-cancel (BACKLOG.md's option (a), 2026-08-08).
+// Its whole reason to exist is the unconfirmed-and-expired state, which
+// the emailed old-address link above cannot reach: that link is keyed by
+// a contactChangeCancelCode, and one is only ever minted at confirm time.
+describe('ProfileService.cancelOwnContactChange', () => {
+  it('clears a pending change the player never confirmed', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-blob',
+          contactChangeCode: 'ABC123',
+          contactChangeCodeExpiresAt: new Date(Date.now() - 60_000),
+          contactChangeApplyAt: null,
+        }),
+      },
+    });
+
+    await expect(service.cancelOwnContactChange('player-1')).resolves.toEqual({
+      cancelled: true,
+    });
+    expect(
+      playerPrivateInfoService.cancelPendingContactChange,
+    ).toHaveBeenCalledWith(undefined, 'player-1');
+  });
+
+  it('also cancels a confirmed change still inside its grace period', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-blob',
+          contactChangeApplyAt: new Date(Date.now() + 60_000),
+          contactChangeCancelCode: 'CANCEL01',
+        }),
+      },
+    });
+
+    await expect(service.cancelOwnContactChange('player-1')).resolves.toEqual({
+      cancelled: true,
+    });
+    expect(
+      playerPrivateInfoService.cancelPendingContactChange,
+    ).toHaveBeenCalledWith(undefined, 'player-1');
+  });
+
+  // Unlike the emailed link, this one must NOT log the player out — they
+  // are cancelling their own typo from inside the app, not reporting a
+  // hijacked session.
+  it('does not bump the token version', async () => {
+    const { service, playersService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-blob',
+          contactChangeApplyAt: null,
+        }),
+      },
+    });
+
+    await service.cancelOwnContactChange('player-1');
+
+    expect(playersService.bumpTokenVersion).not.toHaveBeenCalled();
+  });
+
+  it('is idempotent — reports cancelled:false and writes nothing when there is no pending change', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: null,
+          contactChangeApplyAt: null,
+        }),
+      },
+    });
+
+    await expect(service.cancelOwnContactChange('player-1')).resolves.toEqual({
+      cancelled: false,
+    });
+    expect(
+      playerPrivateInfoService.cancelPendingContactChange,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('reports cancelled:false when the player has no PlayerPrivateInfo row at all (defensive)', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue(null),
+      },
+    });
+
+    await expect(service.cancelOwnContactChange('player-1')).resolves.toEqual({
+      cancelled: false,
+    });
+    expect(
+      playerPrivateInfoService.cancelPendingContactChange,
+    ).not.toHaveBeenCalled();
   });
 });
