@@ -51,6 +51,16 @@
 # must stay that way — see k8s/api-deployment.yaml's comment and
 # backend/src/admin/admin-planning-docs.service.ts for why.
 #
+# PUT A `<!-- synced: YYYY-MM-DD -->` MARKER AT THE TOP OF EACH FILE
+#
+# The console shows a staleness warning when this content gets old, and it
+# reads that date from the marker — NOT from the file's mtime. A ConfigMap
+# volume's mtime is rewritten by the kubelet every time the pod starts, so
+# any unrelated image roll or node drain would otherwise reset the date and
+# make months-old planning content look freshly synced. Update the marker
+# when you update the content; if you forget, the banner falls back to
+# mtime and will simply under-report staleness.
+#
 # Every key is optional: a cluster without this ConfigMap boots fine and
 # simply reports the planning views as unavailable. The filenames below are
 # fixed — the backend never takes a filename from a request, so these four
@@ -63,15 +73,19 @@ metadata:
 data:
   # ACTION_PLAN.md's "Next Up" slice only — not the whole file.
   action-plan-next-up.md: |
+    <!-- synced: 2026-01-01 -->
     ## Next Up
     REPLACE_ME — paste the curated slice here.
   # PROJECT.md's curated open subset.
   project-roadmap.md: |
+    <!-- synced: 2026-01-01 -->
     REPLACE_ME
   # BACKLOG.md's curated open subset.
   backlog.md: |
+    <!-- synced: 2026-01-01 -->
     REPLACE_ME
   # The hand-maintained security-issues list. No template content on
   # purpose — this one has never had a tracked counterpart to copy from.
   security-issues.md: |
+    <!-- synced: 2026-01-01 -->
     REPLACE_ME

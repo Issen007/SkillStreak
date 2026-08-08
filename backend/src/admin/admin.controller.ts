@@ -66,9 +66,12 @@ import { UpdateBugReportStatusDto } from './dto/update-bug-report-status.dto';
  * Decision 10's `planning/*` endpoints were added 2026-08-08, once the
  * step-up question that blocked them was resolved in favour of OIDC
  * re-authentication (see StaffAuthService.buildLoginRedirect). They carry
- * AdminStepUpGuard *instead of* the class-level AdminAuthGuard — that
- * guard composes on top of this one, so those three routes are strictly
- * more gated than the rest, never less.
+ * AdminStepUpGuard *in addition to* the class-level AdminAuthGuard: Nest
+ * runs both, and AdminStepUpGuard itself also composes AdminAuthGuard, so
+ * that guard executes twice on those three routes. Harmless — strictly
+ * more gating, one extra row lookup on a low-volume operator surface — and
+ * stated plainly here because an earlier version of this comment said
+ * "instead of", which would mislead the next reader of exactly this code.
  *
  * **Still not built here, deliberately**: any static serving of an admin
  * web page. Note that if that ever lands, the `admin-planning-docs` mount

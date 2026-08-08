@@ -2,7 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
 import { randomUUID } from 'crypto';
-import { mkdtempSync, writeFileSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import request from 'supertest';
@@ -61,6 +61,14 @@ interface CreatePlayerBody {
  */
 const ADMIN_EMAIL = 'p7-admin@example.com';
 
+function restoreEnv(name: string, previous: string | undefined) {
+  if (previous === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = previous;
+  }
+}
+
 describe('Fas 7: admin console + bug reports (e2e)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
@@ -68,11 +76,20 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
   let teamId: string;
   let planningDir: string;
   let staffSessionTokenService: StaffSessionTokenService;
+  // Restored in afterAll. Jest reuses worker processes across spec files,
+  // so leaving these set would boot every later e2e file in this worker
+  // with an admin allow-list and a planning dir pointing at this suite's
+  // tmpdir — a failure that would depend on file ordering (code-critic,
+  // 2026-08-08).
+  let previousAdminEmails: string | undefined;
+  let previousPlanningDir: string | undefined;
 
   beforeAll(async () => {
     // Set before the module compiles, since ConfigService snapshots
     // process.env at construction. ADMIN_EMAILS is normally unset locally,
     // which would make AdminAuthGuard reject every account as not_admin.
+    previousAdminEmails = process.env.ADMIN_EMAILS;
+    previousPlanningDir = process.env.ADMIN_PLANNING_DOCS_DIR;
     process.env.ADMIN_EMAILS = ADMIN_EMAIL;
     planningDir = mkdtempSync(join(tmpdir(), 'p7-planning-'));
     process.env.ADMIN_PLANNING_DOCS_DIR = planningDir;
@@ -116,7 +133,14 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
     // from the team, so deleting the team removes this suite's rows the same
     // way a real account erasure would.
     await dataSource.getRepository(Team).delete({ id: teamId });
+    await dataSource.getRepository(StaffAccount).delete({ email: ADMIN_EMAIL });
     await app.close();
+
+    // Restore rather than delete: another spec may legitimately have set
+    // these before this file ran.
+    restoreEnv('ADMIN_EMAILS', previousAdminEmails);
+    restoreEnv('ADMIN_PLANNING_DOCS_DIR', previousPlanningDir);
+    rmSync(planningDir, { recursive: true, force: true });
   });
 
   async function createPlayer(): Promise<CreatePlayerBody> {
@@ -314,7 +338,15 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
   // these three" is exactly the kind of wiring fact a unit test can't
   // reach.
   describe('planning/* — Decision 10 step-up gate', () => {
-    async function createAdminSession(lastLoginAt: Date | null) {
+    /**
+     * `stepUpAt` mirrors what a real step-up callback issues: the IdP's
+     * verified `auth_time`, in epoch seconds, as a claim on THIS session.
+     * Passing undefined models an ordinary /login session — which is the
+     * case the gate must refuse, and which the first implementation
+     * wrongly accepted because it read an account-wide column every login
+     * stamps.
+     */
+    async function createAdminSession(options: { stepUpAt?: number } = {}) {
       const repository = dataSource.getRepository(StaffAccount);
       const account = await repository.save(
         repository.create({
@@ -323,15 +355,18 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
           role: StaffAccountRole.ADMIN,
           authProvider: StaffAuthProvider.GOOGLE,
           authProviderSubject: `p7-${randomUUID()}`,
-          lastLoginAt,
+          lastLoginAt: new Date(),
         }),
       );
       const token = staffSessionTokenService.issueFor(
-        account.id as string,
-        account.role as StaffAccountRole,
+        account.id,
+        account.role,
+        { stepUpAt: options.stepUpAt },
       );
       return { account, cookie: `${STAFF_SESSION_COOKIE_NAME}=${token}` };
     }
+
+    const secondsAgo = (ms: number) => Math.floor((Date.now() - ms) / 1000);
 
     afterEach(async () => {
       await dataSource.getRepository(StaffAccount).delete({
@@ -340,7 +375,9 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
     });
 
     it('serves a mounted planning doc to a freshly-authenticated admin, with syncedAt', async () => {
-      const { cookie } = await createAdminSession(new Date());
+      const { cookie } = await createAdminSession({
+        stepUpAt: secondsAgo(60_000),
+      });
 
       const response = await request(app.getHttpServer())
         .get('/api/v1/admin/planning/security-issues')
@@ -365,9 +402,28 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
     // the console renders AD5's inline prompt over preserved state, and a
     // plain 401 means something different (the whole session went).
     it('refuses a stale-but-valid admin session with reauth_required', async () => {
-      const { cookie } = await createAdminSession(
-        new Date(Date.now() - ADMIN_STEP_UP_FRESHNESS_MS - 60_000),
+      const { cookie } = await createAdminSession({
+        stepUpAt: secondsAgo(ADMIN_STEP_UP_FRESHNESS_MS + 60_000),
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/api/v1/admin/planning/security-issues')
+        .set('Cookie', cookie)
+        .expect(401);
+
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'reauth_required',
       );
+    });
+
+    // THE bypass a blocking security review found, now a regression test.
+    // An ordinary /login issues a session with no step-up claim — and it
+    // completes with no credential prompt at all when the IdP's own SSO
+    // session is live, which is the whole reason this gate exists. The
+    // first implementation accepted it, because it read
+    // StaffAccount.lastLoginAt, a column EVERY completed callback stamps.
+    it('refuses an ordinary login session even though the account just logged in', async () => {
+      const { cookie } = await createAdminSession();
 
       const response = await request(app.getHttpServer())
         .get('/api/v1/admin/planning/security-issues')
@@ -383,9 +439,9 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
     // working everywhere else, or the operator gets bounced out of the
     // whole console instead of one section.
     it('leaves the rest of the console reachable with that same stale session', async () => {
-      const { cookie } = await createAdminSession(
-        new Date(Date.now() - ADMIN_STEP_UP_FRESHNESS_MS - 60_000),
-      );
+      const { cookie } = await createAdminSession({
+        stepUpAt: secondsAgo(ADMIN_STEP_UP_FRESHNESS_MS + 60_000),
+      });
 
       await request(app.getHttpServer())
         .get('/api/v1/admin/bug-reports')
@@ -401,7 +457,9 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
     // hand-applied ConfigMap doesn't exist yet — an empty section, not a
     // 500 that takes the view down.
     it('reports an unmounted planning key as unavailable rather than failing', async () => {
-      const { cookie } = await createAdminSession(new Date());
+      const { cookie } = await createAdminSession({
+        stepUpAt: secondsAgo(1000),
+      });
 
       const response = await request(app.getHttpServer())
         .get('/api/v1/admin/planning/ideas')
@@ -421,7 +479,9 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
     // than ignoring it, which is what keeps this pillar from quietly
     // growing a filter.
     it('rejects any query parameter outright', async () => {
-      const { cookie } = await createAdminSession(new Date());
+      const { cookie } = await createAdminSession({
+        stepUpAt: secondsAgo(1000),
+      });
 
       await request(app.getHttpServer())
         .get('/api/v1/admin/planning/roadmap?teamId=whatever')

@@ -147,6 +147,49 @@ describe('ProfileService.requestContactChange', () => {
     );
   });
 
+  // code-critic finding, 2026-08-08. Without this refusal, the second
+  // (unconfirmed) address inherits the FIRST change's grace deadline, and
+  // getEffective's lazy apply promotes it into parent_contact when that
+  // deadline elapses — an address nobody ever confirmed, while the veto
+  // email the parent received named a different one entirely.
+  it('refuses a second request while a confirmed change is still inside its grace period', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-b',
+          contactChangeApplyAt: new Date(Date.now() + 60_000),
+          contactChangeCancelCode: 'CANCEL01',
+        }),
+      },
+    });
+
+    await expect(
+      service.requestContactChange('player-1', 'c@example.com'),
+    ).rejects.toMatchObject({ code: 'contact_change_already_confirmed' });
+
+    expect(
+      playerPrivateInfoService.setPendingContactChange,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('allows a second request when the first was never confirmed (no grace period started)', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-b',
+          contactChangeApplyAt: null,
+        }),
+      },
+    });
+
+    await expect(
+      service.requestContactChange('player-1', 'c@example.com'),
+    ).resolves.toMatchObject({ requested: true });
+    expect(playerPrivateInfoService.setPendingContactChange).toHaveBeenCalled();
+  });
+
   it('never includes the code in its response', async () => {
     const { service } = buildService({});
     const result = await service.requestContactChange(
@@ -438,7 +481,13 @@ describe('ProfileService.cancelOwnContactChange', () => {
     ).toHaveBeenCalledWith(undefined, 'player-1');
   });
 
-  it('also cancels a confirmed change still inside its grace period', async () => {
+  // Security review, 2026-08-08: this used to be allowed, on the argument
+  // that cancelling always resolves toward the old parent contact and is
+  // therefore fail-safe. True of the contact, false of the consequences —
+  // it also clears contactChangeCancelCode, which is the old address
+  // holder's only lever, and the ONLY path that bumps token_version and
+  // evicts a hijacked session. A confirmed change is theirs to cancel now.
+  it('refuses to cancel a confirmed change in its grace period, leaving the parent’s cancel code intact', async () => {
     const { service, playerPrivateInfoService } = buildService({
       playerPrivateInfoService: {
         findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
@@ -451,11 +500,33 @@ describe('ProfileService.cancelOwnContactChange', () => {
     });
 
     await expect(service.cancelOwnContactChange('player-1')).resolves.toEqual({
-      cancelled: true,
+      cancelled: false,
     });
     expect(
       playerPrivateInfoService.cancelPendingContactChange,
-    ).toHaveBeenCalledWith(undefined, 'player-1');
+    ).not.toHaveBeenCalled();
+  });
+
+  // The same refusal applies once the grace period has elapsed but the
+  // lazy apply hasn't run yet — still not this route's to resolve.
+  it('refuses to cancel a confirmed change that is already past due', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-blob',
+          contactChangeApplyAt: new Date(Date.now() - 60_000),
+          contactChangeCancelCode: 'CANCEL01',
+        }),
+      },
+    });
+
+    await expect(service.cancelOwnContactChange('player-1')).resolves.toEqual({
+      cancelled: false,
+    });
+    expect(
+      playerPrivateInfoService.cancelPendingContactChange,
+    ).not.toHaveBeenCalled();
   });
 
   // Unlike the emailed link, this one must NOT log the player out — they

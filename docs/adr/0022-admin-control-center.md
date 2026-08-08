@@ -1548,13 +1548,48 @@ Two details that make it a real check rather than a hopeful one:
 - The step-up flag lives in the signed `staff_auth_pending` cookie, never a
   query parameter, so a caller cannot assert its own step-up.
 
-`AdminStepUpGuard` then gates exactly the three `planning/*` routes on a
-`lastLoginAt` within 15 minutes, composing on top of `AdminAuthGuard`
-rather than replacing it. A stale session is refused with `401
-reauth_required` — deliberately not 403, and deliberately its own code —
-and stays fully valid everywhere else in the console, which is what lets
-§8's AD5 render an inline prompt over preserved state instead of signing
-the operator out.
+`AdminStepUpGuard` then gates exactly the three `planning/*` routes,
+composing on top of `AdminAuthGuard` rather than replacing it. A stale
+session is refused with `401 reauth_required` — deliberately not 403, and
+deliberately its own code — and stays fully valid everywhere else in the
+console, which is what lets §8's AD5 render an inline prompt over
+preserved state instead of signing the operator out.
+
+**Corrected the same day, before this shipped, by a blocking
+security-reviewer pass — the first implementation gated nothing.** It read
+freshness from `StaffAccount.lastLoginAt`, which fails twice over, and the
+code-critic pass found the identical defect independently:
+
+1. **Every completed callback stamps that column**, including an ordinary
+   `/login` — which sends no `prompt=login`, runs no `auth_time` check, and
+   against a live IdP SSO session typically completes with no credential
+   prompt at all. So the attack this pillar exists to stop (an attacker
+   holding a live session at an unlocked browser) was defeated by
+   navigating to `/login` instead of `/step-up`. The carefully-verified
+   `auth_time` was computed and then discarded.
+2. **The column is account-scoped, not session-scoped**, so a stolen
+   session was upgraded by the victim's own unrelated sign-in elsewhere —
+   precisely what `AdminSessionService`'s own comment warns against
+   building on.
+
+As shipped that was weaker than both the TOTP recommended above and this
+ADR's own superseded password reprompt. **Fixed**: the verified `auth_time`
+now travels as a `stepUpAt` claim on the session the step-up callback
+issues (`StaffJwtPayload`), and the guard reads it off the presenting
+session. A session without that claim can never satisfy the gate, no matter
+who else signs in or how recently, which restores the property the original
+reviewer asked for. An `auth_time` upper bound was added at the same time so
+a future-dated claim cannot be permanently fresh.
+
+**Two consequences worth stating plainly.** Sign in with Apple does not
+honour `prompt`/`max_age`, so an Apple-authenticated admin now fails closed
+and cannot reach this pillar at all — that is the safe direction, but it is
+a real product limitation someone must decide about. And the pending-auth
+cookie was found to be `SameSite=Strict`, which a browser withholds on the
+cross-site return from the IdP; staff SSO therefore cannot have completed in
+a real browser since ADR-0023 shipped. Corrected to `lax` (`none` for
+Apple's cross-site form POST), but **not verified against a live IdP** —
+treat the first real sign-in as the test.
 
 **Consequence for the design doc**: §8's AD5 was drawn as an inline
 username/password modal posting to `POST /api/v1/admin/auth/login`. That

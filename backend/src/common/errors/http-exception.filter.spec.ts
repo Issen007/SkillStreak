@@ -1,5 +1,6 @@
 import {
   ArgumentsHost,
+  HttpException,
   HttpStatus,
   NotFoundException,
   BadRequestException,
@@ -170,8 +171,64 @@ describe('AppExceptionFilter error recording', () => {
 
     expect(status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
     expect(json).toHaveBeenCalled();
+    // ...and, since 2026-08-08, does not record it either (code-critic):
+    // this exact shape — a 404 on a route that never matched — is
+    // continuous internet scanning noise on any public API, and writing a
+    // row per hit makes inbound volume the only bound on a 90-day table.
+    // The envelope is unchanged; only the durable row is skipped.
+    expect(errorLogService.record).not.toHaveBeenCalled();
+  });
+
+  it('still records a 404 that a real handler raised (the route DID match)', () => {
+    const { filter, host, errorLogService } = buildFilter({
+      method: 'GET',
+      route: { path: '/api/v1/teams/:teamId' },
+      originalUrl: '/api/v1/teams/abc',
+    });
+
+    filter.catch(new NotFoundException('No such team'), host);
+
     expect(errorLogService.record).toHaveBeenCalledWith(
-      expect.objectContaining({ route: null, method: 'GET', statusCode: 404 }),
+      expect.objectContaining({
+        route: '/api/v1/teams/:teamId',
+        statusCode: 404,
+      }),
+    );
+  });
+
+  // A throttler rejection is the system working, and recording it means a
+  // throttled client still drives one INSERT per rejected request — the
+  // rate limiter could no longer shed the load it exists to shed.
+  it('does not record a 429, while still returning the rate_limited envelope', () => {
+    const { filter, host, errorLogService, status, json } = buildFilter({
+      method: 'POST',
+      route: { path: '/api/v1/players' },
+      originalUrl: '/api/v1/players',
+    });
+
+    filter.catch(
+      new HttpException('Too Many Requests', HttpStatus.TOO_MANY_REQUESTS),
+      host,
+    );
+
+    expect(status).toHaveBeenCalledWith(HttpStatus.TOO_MANY_REQUESTS);
+    expect(json).toHaveBeenCalledWith({
+      error: { code: 'rate_limited', message: 'Too Many Requests' },
+    });
+    expect(errorLogService.record).not.toHaveBeenCalled();
+  });
+
+  // A 500 is always durable, even on a route that never matched.
+  it('records a 5xx on an unmatched route', () => {
+    const { filter, host, errorLogService } = buildFilter({
+      method: 'GET',
+      originalUrl: '/whatever',
+    });
+
+    filter.catch(new Error('boom'), host);
+
+    expect(errorLogService.record).toHaveBeenCalledWith(
+      expect.objectContaining({ route: null, statusCode: 500 }),
     );
   });
 

@@ -25,8 +25,11 @@ export interface PlanningDocSection {
   /** Raw markdown. Rendering — including any escaping — is the caller's. */
   content: string;
   /**
-   * The file's mtime. §13 asked for this so §7.6 can warn when a
-   * hand-applied ConfigMap has gone stale; null when the file is absent.
+   * When the operator last curated this file — read from its own
+   * `<!-- synced: YYYY-MM-DD -->` marker, falling back to mtime. §13 asked
+   * for this so §7.6 can warn when a hand-applied ConfigMap has gone
+   * stale; null when the file is absent. See syncedAtOf for why mtime
+   * alone cannot answer the question.
    */
   syncedAt: string | null;
   /** False when the key isn't mounted — an empty section, not an error. */
@@ -82,13 +85,24 @@ export class AdminPlanningDocsService {
       return {
         source: key,
         content,
-        syncedAt: stats.mtime.toISOString(),
+        syncedAt: syncedAtOf(content, stats.mtime),
         available: true,
       };
-    } catch {
+    } catch (error) {
       // An absent key is the normal state on a cluster where the ConfigMap
       // hasn't been applied yet — not an error, and deliberately not
-      // distinguished from an unreadable one in the response.
+      // distinguished from an unreadable one in the *response*.
+      //
+      // But anything that is NOT "file missing" gets a log line
+      // (code-critic, 2026-08-08): a subPath typo or a restrictive
+      // defaultMode/fsGroup surfaces as EACCES, which the console renders
+      // identically to "never configured" — leaving an operator with a
+      // misconfigured mount and no signal anywhere that the two differ.
+      if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+        this.logger.warn(
+          `Planning doc "${PLANNING_DOC_FILES[key]}" could not be read (${(error as NodeJS.ErrnoException)?.code ?? 'unknown error'}) — check the admin-planning-docs volume mount. Serving it as unavailable.`,
+        );
+      }
       return { source: key, content: '', syncedAt: null, available: false };
     }
   }
@@ -104,4 +118,36 @@ export class AdminPlanningDocsService {
     const trimmed = raw?.trim();
     return trimmed ? trimmed : null;
   }
+}
+
+// Matches a `<!-- synced: 2026-08-08 -->` marker in the first few lines of
+// a curated file.
+const SYNCED_MARKER = /<!--\s*synced:\s*(\d{4}-\d{2}-\d{2})\s*-->/;
+
+/**
+ * Where §7.6's staleness banner gets its date.
+ *
+ * **A ConfigMap volume's file mtime cannot answer this** (code-critic,
+ * 2026-08-08). The kubelet writes a fresh payload directory and re-writes
+ * every file at pod start, so mtime is `max(last ConfigMap edit, pod
+ * start)` — meaning an unrelated image roll, node drain or OOM restart
+ * silently resets it. The one condition the banner exists to surface —
+ * hand-applied content going stale, in a design that deliberately keeps it
+ * out of CI — is exactly the condition mtime erases.
+ *
+ * So the curated file states its own sync date in a marker, and mtime is
+ * only a fallback for a file that hasn't adopted one. The fallback is
+ * deliberately still offered rather than returning null: a wrong-but-recent
+ * date is no worse than what a null would render, and a file predating this
+ * convention shouldn't read as "never synced".
+ */
+function syncedAtOf(content: string, mtime: Date): string {
+  const marker = SYNCED_MARKER.exec(content.slice(0, 500));
+  if (marker) {
+    const parsed = new Date(`${marker[1]}T00:00:00.000Z`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+  return mtime.toISOString();
 }

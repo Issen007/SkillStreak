@@ -51,6 +51,11 @@ const SCOPE_BY_PROVIDER: Record<StaffAuthProvider, string> = {
 // that silently extends it.
 const STEP_UP_MAX_AUTH_AGE_MS = 5 * 60 * 1000;
 
+// Allowance for the IdP's clock running ahead of ours. Small on purpose:
+// this is the only thing stopping a future-dated auth_time from being
+// permanently "fresh".
+const STEP_UP_CLOCK_SKEW_TOLERANCE_MS = 60 * 1000;
+
 // ADR-0023 Part B — orchestrates the three-provider OIDC login/callback
 // flow: state/PKCE/nonce generation and verification (Decision B6,
 // required per security-reviewer's Part B pass, Finding 3), StaffAccount
@@ -192,21 +197,31 @@ export class StaffAuthService {
     // claim means the IdP did not honour the request and this must fail
     // closed rather than quietly downgrading to an ordinary login — which
     // would hand out the freshness stamp the planning endpoints trust.
+    let verifiedStepUpAt: number | undefined;
     if (pending.stepUp) {
       const authTime = claims.auth_time;
+      const authTimeMs = typeof authTime === 'number' ? authTime * 1000 : null;
       if (
-        typeof authTime !== 'number' ||
-        Date.now() - authTime * 1000 > STEP_UP_MAX_AUTH_AGE_MS
+        authTimeMs === null ||
+        Date.now() - authTimeMs > STEP_UP_MAX_AUTH_AGE_MS ||
+        // Also bound it in the other direction: without this, a future-dated
+        // auth_time (an IdP with a fast clock, or a misbehaving one) passes
+        // the check above trivially and stays "fresh" indefinitely.
+        authTimeMs > Date.now() + STEP_UP_CLOCK_SKEW_TOLERANCE_MS
       ) {
         throw new StaffOAuthCallbackRejectedException();
       }
+      verifiedStepUpAt = authTime;
     }
 
     const account = await this.provisionOrRefreshAccount(provider, claims);
 
+    // The step-up proof travels on the session this callback issues, not on
+    // the StaffAccount row — see StaffJwtPayload.stepUpAt.
     const sessionToken = this.staffSessionTokenService.issueFor(
       account.id,
       account.role,
+      { stepUpAt: verifiedStepUpAt },
     );
 
     return { sessionToken, account };

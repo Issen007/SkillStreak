@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import {
+  ContactChangeAlreadyConfirmedException,
   ContactChangeRateLimitedException,
   InvalidOrExpiredContactChangeCodeException,
 } from '../common/errors/exceptions';
@@ -149,6 +150,33 @@ export class ProfileService {
     const { code, expiresAt } = generateHumanCode(CONTACT_CHANGE_CODE_TTL_MS);
 
     await this.dataSource.transaction(async (manager) => {
+      // Refuse while a CONFIRMED change is still in flight — code-critic
+      // finding, 2026-08-08, and the most consequential bug in this area.
+      //
+      // setPendingContactChange overwrites pendingParentContact/code/expiry
+      // but leaves contactChangeApplyAt and contactChangeCancelCode alone.
+      // So without this check: confirm a change to B (grace starts, the old
+      // address is emailed a cancel link naming B), then request a second
+      // change to C and never confirm it. The row now holds pending=C with
+      // A's grace deadline still ticking — and when it elapses,
+      // getEffective's lazy apply moves C into parent_contact. C was never
+      // confirmed by anyone, and the parent's veto email described B. An
+      // unverified, possibly attacker-chosen address becomes a child's live
+      // parent contact, which every consent and erasure email then goes to.
+      //
+      // Refusing is the right resolution rather than clearing applyAt/
+      // cancelCode here: clearing them would let any session holder disarm
+      // the old address's cancel link — and its token_version bump — just
+      // by starting a new change, which is the same hole the self-cancel
+      // route had to be scoped down to avoid on the same day.
+      const existing =
+        await this.playerPrivateInfoService.findByPlayerIdForUpdate(
+          manager,
+          playerId,
+        );
+      if (existing?.contactChangeApplyAt != null) {
+        throw new ContactChangeAlreadyConfirmedException();
+      }
       await this.playerPrivateInfoService.setPendingContactChange(
         manager,
         playerId,
@@ -293,11 +321,26 @@ export class ProfileService {
    *   when there is nothing pending, matching cancelContactChange's
    *   "second POST is an expected case" posture.
    *
-   * Cancelling from the confirmed-and-in-grace state is allowed on
-   * purpose: cancelling always resolves *towards* the old (parent)
-   * contact, so it is the fail-safe direction — a hijacked session gains
-   * nothing by calling it, and the legitimate player gets one obvious
-   * escape hatch that behaves the same in both states.
+   * **Scoped to the UNCONFIRMED state only — corrected 2026-08-08 after a
+   * blocking security review.** The first version also allowed cancelling
+   * a confirmed change inside its 24h grace period, on the argument that
+   * cancelling always resolves towards the old parent contact and is
+   * therefore fail-safe. That argument was wrong, and in a way worth
+   * recording: it is true about the *contact*, but cancelling also clears
+   * `contactChangeCancelCode`, and that code is the old address holder's
+   * only actionable lever — the one path that bumps `token_version` and
+   * evicts every live session. A hijacked session could therefore start a
+   * change, confirm it (the code goes to the attacker's own address),
+   * watch the parent get a cancel link, then immediately self-cancel:
+   * the parent's link now renders "nothing to cancel", no sessions are
+   * evicted, and the intruder keeps their access with the alarm silenced.
+   * That was not possible before this route existed.
+   *
+   * Once confirmed, cancellation belongs to the old address holder alone.
+   * This returns `{ cancelled: false }` in that state — the same shape as
+   * "nothing was pending", deliberately: both mean "this route did not
+   * change anything", and no client of this endpoint exists yet to need
+   * them distinguished.
    */
   async cancelOwnContactChange(
     playerId: string,
@@ -307,7 +350,11 @@ export class ProfileService {
         manager,
         playerId,
       );
-      if (!info || info.pendingParentContact == null) {
+      if (
+        !info ||
+        info.pendingParentContact == null ||
+        info.contactChangeApplyAt !== null
+      ) {
         return { cancelled: false };
       }
       await this.playerPrivateInfoService.cancelPendingContactChange(

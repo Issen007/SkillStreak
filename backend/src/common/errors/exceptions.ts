@@ -468,6 +468,22 @@ export class SessionReissueRateLimitedException extends AppException {
 // docs/adr/0012-profile-page-and-contact-email-change.md — the profile
 // page's contact-email change flow.
 
+export class ContactChangeAlreadyConfirmedException extends AppException {
+  constructor() {
+    // A confirmed contact change is already inside its 24h grace period.
+    // Starting a second one would leave the first's deadline ticking
+    // against the second's (unconfirmed) address — see
+    // ProfileService.requestContactChange for the full scenario. The way
+    // out is the cancel link emailed to the OLD address, deliberately not
+    // anything this session can do on its own.
+    super(
+      'contact_change_already_confirmed',
+      'A contact change is already confirmed and waiting to take effect. Use the cancel link sent to the current contact address to stop it first.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
 export class ContactChangeRateLimitedException extends AppException {
   constructor() {
     // Same per-player cooldown-lock shape/reasoning as

@@ -96,6 +96,10 @@ export class ProfileController {
   // finished — distinct from the OLD address's emailed cancel link below,
   // which is unauthenticated, code-keyed, and bumps the token version.
   // See ProfileService.cancelOwnContactChange for why those differ.
+  // Same per-IP limit as the two sibling cancel routes below — this one is
+  // authenticated, so it is less exposed, but there is no reason for it to
+  // be the one cancel path with no ceiling at all.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('me/contact-change-cancel')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
