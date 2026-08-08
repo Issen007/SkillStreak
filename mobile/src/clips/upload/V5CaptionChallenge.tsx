@@ -57,7 +57,12 @@ export function V5CaptionChallenge({
   });
 
   useEffect(() => {
-    void getTeammates(teamId)
+    // approvedOnly: the backend has supported this since 2026-08-06 but
+    // nothing called it, so a teammate whose join is still PENDING was
+    // offered as taggable here and then rejected at submit time with a
+    // 400 — a real error for a choice the picker should never have shown.
+    // Filtering server-side rather than here keeps the two in step.
+    void getTeammates(teamId, { approvedOnly: true })
       .then((response) =>
         setTeammates(response.teammates.filter((t) => t.playerId !== viewerPlayerId)),
       )

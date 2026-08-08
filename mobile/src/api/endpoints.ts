@@ -264,10 +264,20 @@ export function transferCaptaincy(
 
 /** 10 (addendum). GET /teams/:teamId/teammates — auth required; open to
  * any teammate (not captain-gated). Backs Screen K1's baseline "Spelare i
- * laget" section and Screen K4's transfer-target list. */
-export function getTeammates(teamId: string): Promise<TeammatesResponse> {
+ * laget" section and Screen K4's transfer-target list.
+ *
+ * `approvedOnly` (ADR-0021's security-reviewer addendum finding 2) is
+ * opt-in per call site, never a default: this one endpoint backs three
+ * independent pickers — the clip tag picker, the captain-transfer picker
+ * and the GDPR erasure successor picker — and only the first one wants a
+ * still-PENDING joiner hidden. Pass it there and nowhere else. */
+export function getTeammates(
+  teamId: string,
+  options: { approvedOnly?: boolean } = {},
+): Promise<TeammatesResponse> {
+  const query = options.approvedOnly ? '?approvedOnly=true' : '';
   return apiClient.request<TeammatesResponse>(
-    `/teams/${encodeURIComponent(teamId)}/teammates`,
+    `/teams/${encodeURIComponent(teamId)}/teammates${query}`,
     { auth: true },
   );
 }
