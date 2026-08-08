@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { UsageMetricsService } from '../usage-metrics/usage-metrics.service';
 import { AdminAuthGuard } from '../staff-auth/guards/admin-auth.guard';
+import { AdminStepUpGuard } from '../staff-auth/guards/admin-step-up.guard';
 // Imported from `pt/` rather than duplicated: it's a pure param decorator
 // over `request.staffAccountId` (set by StaffAuthGuard, which both
 // AdminAuthGuard and PtAuthGuard build on), with no DI and no PT-specific
@@ -29,6 +30,11 @@ import {
   AdminSessionResponse,
   AdminSessionService,
 } from './admin-session.service';
+import { AdminPlanningDocsService } from './admin-planning-docs.service';
+import {
+  AdminPlanningResponse,
+  toPlanningResponse,
+} from './admin-planning.view';
 import {
   AdminUsageMetricsResponse,
   toAdminUsageMetricsResponse,
@@ -37,6 +43,7 @@ import {
   DEFAULT_BUG_REPORT_PAGE_SIZE,
   ListBugReportsQueryDto,
 } from './dto/list-bug-reports-query.dto';
+import { EmptyQueryDto } from './dto/empty-query.dto';
 import { ListErrorLogQueryDto } from './dto/list-error-log-query.dto';
 import { UpdateBugReportStatusDto } from './dto/update-bug-report-status.dto';
 
@@ -56,12 +63,17 @@ import { UpdateBugReportStatusDto } from './dto/update-bug-report-status.dto';
  * lookup (revoked_at + a live `ADMIN_EMAILS` re-check), so an admin's
  * authority is re-derived on every call rather than trusted from a claim.
  *
- * **Not built here, deliberately** (out of scope for this pass, and in one
- * case still unresolved in the ADR itself): the `planning/*` endpoints and
- * their `admin-planning-docs` ConfigMap, Decision 10's step-up
- * re-authentication (whose TOTP-vs-password question the security-reviewer
- * pass left open and which blocks exactly those three endpoints), and any
- * static serving of an admin web page.
+ * Decision 10's `planning/*` endpoints were added 2026-08-08, once the
+ * step-up question that blocked them was resolved in favour of OIDC
+ * re-authentication (see StaffAuthService.buildLoginRedirect). They carry
+ * AdminStepUpGuard *instead of* the class-level AdminAuthGuard — that
+ * guard composes on top of this one, so those three routes are strictly
+ * more gated than the rest, never less.
+ *
+ * **Still not built here, deliberately**: any static serving of an admin
+ * web page. Note that if that ever lands, the `admin-planning-docs` mount
+ * path must stay disjoint from whatever directory it serves — see
+ * AdminPlanningDocsService's docstring for why that is structural.
  */
 @Controller('api/v1/admin')
 @UseGuards(AdminAuthGuard)
@@ -71,6 +83,7 @@ export class AdminController {
     private readonly usageMetricsService: UsageMetricsService,
     private readonly adminErrorLogService: AdminErrorLogService,
     private readonly adminBugReportsService: AdminBugReportsService,
+    private readonly adminPlanningDocsService: AdminPlanningDocsService,
   ) {}
 
   // §13/§2 — lets the console know it's signed in on first paint without
@@ -90,10 +103,15 @@ export class AdminController {
    * requirement, not an implementation preference.
    *
    * **No query parameters at all.** Decision 5: the endpoint accepts nothing
-   * that identifies a team or player, and `main.ts`'s
-   * `forbidNonWhitelisted: true` rejects any unlisted parameter outright
-   * rather than ignoring it. The response mapper additionally drops
-   * `totalTeams` — see admin-usage-metrics.view.ts.
+   * that identifies a team or player. Note the mechanism, corrected
+   * 2026-08-08: declaring no `@Query()` means ValidationPipe never runs on
+   * the query string, so an unlisted parameter is *ignored*, not rejected —
+   * `forbidNonWhitelisted` has nothing to validate against. Harmless here
+   * (this handler reads no input at all, so an ignored parameter cannot
+   * change what it returns), but the planning routes below take an
+   * EmptyQueryDto to make the guarantee real rather than assumed. The
+   * response mapper additionally drops `totalTeams` — see
+   * admin-usage-metrics.view.ts.
    *
    * Recomputed fresh on every call (Decision 4: no snapshot table). It's
    * eight aggregate queries against the shared pool, run by one operator at
@@ -144,5 +162,53 @@ export class AdminController {
     @Body() dto: UpdateBugReportStatusDto,
   ): Promise<AdminBugReportRow> {
     return this.adminBugReportsService.updateStatus(bugReportId, dto.status);
+  }
+
+  /**
+   * Decision 10's three planning views. All read-only, all take **no query
+   * parameter of any kind**, and none returns anything shaped like a
+   * per-player or per-team record — this pillar is the project's own
+   * internal prose, and must never become a second path into Decision 5's
+   * suppression floor.
+   *
+   * `/roadmap` returns its two halves already grouped and source-labelled
+   * (§13): both come from the same ConfigMap at the same trust level since
+   * the ADR's 2026-08-07 amendment, so the split is purely presentational
+   * — but the console must not have to re-derive it, and must never
+   * re-parse checkbox syntax client-side.
+   */
+  @Get('planning/roadmap')
+  @UseGuards(AdminStepUpGuard)
+  async getPlanningRoadmap(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- present purely so ValidationPipe runs on the query string at all; see EmptyQueryDto
+    @Query() _query: EmptyQueryDto,
+  ): Promise<AdminPlanningResponse> {
+    const [plan, project] = await Promise.all([
+      this.adminPlanningDocsService.read('roadmapPlan'),
+      this.adminPlanningDocsService.read('roadmapProject'),
+    ]);
+    return toPlanningResponse([plan, project]);
+  }
+
+  @Get('planning/ideas')
+  @UseGuards(AdminStepUpGuard)
+  async getPlanningIdeas(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see getPlanningRoadmap
+    @Query() _query: EmptyQueryDto,
+  ): Promise<AdminPlanningResponse> {
+    return toPlanningResponse([
+      await this.adminPlanningDocsService.read('ideas'),
+    ]);
+  }
+
+  @Get('planning/security-issues')
+  @UseGuards(AdminStepUpGuard)
+  async getPlanningSecurityIssues(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see getPlanningRoadmap
+    @Query() _query: EmptyQueryDto,
+  ): Promise<AdminPlanningResponse> {
+    return toPlanningResponse([
+      await this.adminPlanningDocsService.read('securityIssues'),
+    ]);
   }
 }

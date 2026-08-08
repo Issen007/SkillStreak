@@ -9,6 +9,7 @@ import { UsageMetricsModule } from '../usage-metrics/usage-metrics.module';
 import { AdminBugReportsService } from './admin-bug-reports.service';
 import { AdminController } from './admin.controller';
 import { AdminErrorLogService } from './admin-error-log.service';
+import { AdminPlanningDocsService } from './admin-planning-docs.service';
 import { AdminSessionService } from './admin-session.service';
 
 /**
@@ -60,6 +61,7 @@ import { AdminSessionService } from './admin-session.service';
     AdminSessionService,
     AdminErrorLogService,
     AdminBugReportsService,
+    AdminPlanningDocsService,
   ],
 })
 export class AdminModule {}

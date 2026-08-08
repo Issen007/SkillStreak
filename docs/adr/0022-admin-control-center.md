@@ -1521,6 +1521,49 @@ blocker for the ADR's other eight decisions, but should be resolved
 before Decision 10's own endpoints are built, given the Decision's own
 stated reasoning for why they need to be different.
 
+**Resolved 2026-08-08 — OIDC re-authentication, not TOTP; the endpoints are
+now built.** The recommendation above is accepted in substance and declined
+in mechanism, for a reason that only became true after it was written: it
+was authored 2026-08-02 against Decision 2's world of one local admin
+password, and `docs/adr/0023-pt-role-and-staff-sso-rbac.md` superseded
+Decision 2 three days later, removing app-held staff credentials entirely.
+"Prompt for a second app-managed secret" therefore no longer describes
+anything this app has — the same shape of stale premise Decision 10's
+sourcing line already needed amending for.
+
+What ships instead: `GET /api/v1/staff-auth/:provider/step-up` re-runs the
+existing OIDC flow with `prompt=login` and `max_age=0`. This satisfies the
+reviewer's actual requirement — possessing a live session must not be
+enough to reach this pillar — and inherits whatever MFA the IdP already
+enforces, which is a stronger second factor than an app-managed TOTP
+secret this project would then own, rotate and recover.
+
+Two details that make it a real check rather than a hopeful one:
+
+- `max_age=0` makes `auth_time` a REQUIRED ID-token claim, so the callback
+  **verifies** that the IdP genuinely re-authenticated (within 5 minutes)
+  rather than trusting that `prompt=login` was honoured. A step-up callback
+  missing that claim fails closed instead of quietly downgrading to an
+  ordinary login and handing out the freshness stamp.
+- The step-up flag lives in the signed `staff_auth_pending` cookie, never a
+  query parameter, so a caller cannot assert its own step-up.
+
+`AdminStepUpGuard` then gates exactly the three `planning/*` routes on a
+`lastLoginAt` within 15 minutes, composing on top of `AdminAuthGuard`
+rather than replacing it. A stale session is refused with `401
+reauth_required` — deliberately not 403, and deliberately its own code —
+and stays fully valid everywhere else in the console, which is what lets
+§8's AD5 render an inline prompt over preserved state instead of signing
+the operator out.
+
+**Consequence for the design doc**: §8's AD5 was drawn as an inline
+username/password modal posting to `POST /api/v1/admin/auth/login`. That
+endpoint does not exist and cannot, under ADR-0023. AD5 becomes a redirect
+to the IdP and back — the modal's trigger, its preserved-state requirement
+and its error states all still hold, but the credential form inside it does
+not. Flagged there too; needs a ux-designer pass before the console is
+built.
+
 ### New endpoints
 
 ```

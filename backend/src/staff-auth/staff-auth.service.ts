@@ -43,6 +43,14 @@ const SCOPE_BY_PROVIDER: Record<StaffAuthProvider, string> = {
   [StaffAuthProvider.APPLE]: 'openid email name',
 };
 
+// How recent the IdP's own `auth_time` must be for a step-up flow to
+// count. Generous enough to absorb a real person typing a password and an
+// MFA code at an unfamiliar provider, plus clock skew between us and the
+// IdP; far shorter than the freshness window the planning endpoints then
+// grant (see ADMIN_STEP_UP_FRESHNESS_MS), so this can never be the thing
+// that silently extends it.
+const STEP_UP_MAX_AUTH_AGE_MS = 5 * 60 * 1000;
+
 // ADR-0023 Part B — orchestrates the three-provider OIDC login/callback
 // flow: state/PKCE/nonce generation and verification (Decision B6,
 // required per security-reviewer's Part B pass, Finding 3), StaffAccount
@@ -59,8 +67,28 @@ export class StaffAuthService {
     private readonly staffAccountRepository: Repository<StaffAccount>,
   ) {}
 
+  /**
+   * `options.stepUp` implements ADR-0022 Decision 10's step-up re-auth,
+   * resolved 2026-08-08 in favour of OIDC re-authentication over the ADR's
+   * literal TOTP recommendation. That recommendation was written
+   * 2026-08-02 against Decision 2's world of one local admin password;
+   * ADR-0023 superseded Decision 2 three days later and removed app-held
+   * staff credentials entirely, so "prompt for a second app-managed
+   * secret" no longer describes anything this app has. Re-running the IdP
+   * flow with `prompt=login` satisfies the reviewer's actual requirement —
+   * that possessing a live session must not be enough — and inherits
+   * whatever MFA the provider already enforces, without this app storing a
+   * second authentication secret.
+   *
+   * `max_age: 0` is sent alongside `prompt=login` deliberately: OIDC makes
+   * the `auth_time` claim REQUIRED in the ID token whenever `max_age` is
+   * requested, which turns "the IdP says it re-authenticated the user just
+   * now" into something completeLogin can actually verify, rather than
+   * trusting that `prompt=login` was honoured.
+   */
   async buildLoginRedirect(
     provider: StaffAuthProvider,
+    options: { stepUp?: boolean } = {},
   ): Promise<StaffLoginRedirect> {
     const client = await this.oidcClients.getClient(provider);
 
@@ -75,6 +103,7 @@ export class StaffAuthService {
       nonce,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
+      ...(options.stepUp ? { prompt: 'login', max_age: 0 } : {}),
       ...(provider === StaffAuthProvider.APPLE
         ? { response_mode: 'form_post' }
         : {}),
@@ -85,6 +114,7 @@ export class StaffAuthService {
       state,
       nonce,
       codeVerifier,
+      ...(options.stepUp ? { stepUp: true } : {}),
     });
 
     return { authorizationUrl, pendingAuthCookieValue };
@@ -155,6 +185,21 @@ export class StaffAuthService {
       // OPError) — surfaced uniformly, never echoing the library's own
       // error text to the client.
       throw new StaffOAuthCallbackRejectedException();
+    }
+
+    // A step-up flow is only satisfied by a genuinely fresh
+    // authentication. `max_age: 0` made `auth_time` REQUIRED, so a missing
+    // claim means the IdP did not honour the request and this must fail
+    // closed rather than quietly downgrading to an ordinary login — which
+    // would hand out the freshness stamp the planning endpoints trust.
+    if (pending.stepUp) {
+      const authTime = claims.auth_time;
+      if (
+        typeof authTime !== 'number' ||
+        Date.now() - authTime * 1000 > STEP_UP_MAX_AUTH_AGE_MS
+      ) {
+        throw new StaffOAuthCallbackRejectedException();
+      }
     }
 
     const account = await this.provisionOrRefreshAccount(provider, claims);

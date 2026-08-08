@@ -2,6 +2,9 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
 import { randomUUID } from 'crypto';
+import { mkdtempSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -9,6 +12,14 @@ import { AppModule } from '../src/app.module';
 import { BugReport } from '../src/bug-reports/entities/bug-report.entity';
 import { AppExceptionFilter } from '../src/common/errors/http-exception.filter';
 import { STAFF_SESSION_COOKIE_NAME } from '../src/staff-auth/staff-cookies';
+import { StaffSessionTokenService } from '../src/staff-auth/staff-session-token.service';
+import {
+  StaffAccount,
+  StaffAccountRole,
+  StaffAuthProvider,
+} from '../src/staff-auth/entities/staff-account.entity';
+import { ADMIN_STEP_UP_FRESHNESS_MS } from '../src/staff-auth/guards/admin-step-up.guard';
+import { PLANNING_DOC_FILES } from '../src/admin/admin-planning-docs.service';
 import { Team } from '../src/teams/entities/team.entity';
 
 interface ApiErrorBody {
@@ -39,19 +50,37 @@ interface CreatePlayerBody {
  *     security-reviewer correction insisted on and the `bug_report_rate_limited`
  *     limiter §13 names by code.
  *
- * A signed-in admin path is deliberately *not* exercised here: minting a
- * real `staff_session` needs an ADMIN_EMAILS-allow-listed StaffAccount plus
- * ADR-0023's OAuth round trip, and the read services' own logic is covered
- * by unit specs (admin-*.service.spec.ts). What can't be unit-tested — "is
- * the guard actually wired to these paths" — is what's here.
+ * A signed-in admin path was originally left out here, on the grounds that
+ * minting a real `staff_session` needs an ADMIN_EMAILS-allow-listed
+ * StaffAccount plus ADR-0023's OAuth round trip. Decision 10's step-up gate
+ * (added 2026-08-08) forced the issue: "a stale session is refused but a
+ * fresh one is not" is precisely a wiring fact, not service logic, so this
+ * file now stands up a real allow-listed StaffAccount and signs its own
+ * session cookie — skipping only the IdP round trip, which is what
+ * staff-auth.service.spec.ts covers.
  */
+const ADMIN_EMAIL = 'p7-admin@example.com';
+
 describe('Fas 7: admin console + bug reports (e2e)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let inviteCode: string;
   let teamId: string;
+  let planningDir: string;
+  let staffSessionTokenService: StaffSessionTokenService;
 
   beforeAll(async () => {
+    // Set before the module compiles, since ConfigService snapshots
+    // process.env at construction. ADMIN_EMAILS is normally unset locally,
+    // which would make AdminAuthGuard reject every account as not_admin.
+    process.env.ADMIN_EMAILS = ADMIN_EMAIL;
+    planningDir = mkdtempSync(join(tmpdir(), 'p7-planning-'));
+    process.env.ADMIN_PLANNING_DOCS_DIR = planningDir;
+    writeFileSync(
+      join(planningDir, PLANNING_DOC_FILES.securityIssues),
+      '# Security issues\n- nothing outstanding',
+    );
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -72,6 +101,7 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
     await app.init();
 
     dataSource = app.get(DataSource);
+    staffSessionTokenService = app.get(StaffSessionTokenService);
 
     inviteCode = `P7A${randomUUID().slice(0, 8).toUpperCase()}`;
     const teamRepository = dataSource.getRepository(Team);
@@ -122,6 +152,9 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
       ['get', '/api/v1/admin/usage-metrics'],
       ['get', '/api/v1/admin/errors'],
       ['get', '/api/v1/admin/bug-reports'],
+      ['get', '/api/v1/admin/planning/roadmap'],
+      ['get', '/api/v1/admin/planning/ideas'],
+      ['get', '/api/v1/admin/planning/security-issues'],
     ];
 
     it.each(routes)(
@@ -272,6 +305,128 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
         .set('Authorization', `Bearer ${player.sessionToken}`)
         .send(validSubmission({ description: undefined, osVersion: undefined }))
         .expect(201);
+    });
+  });
+
+  // docs/adr/0022-admin-control-center.md Decision 10. The step-up gate is
+  // the only place in this app where a *valid* admin session is refused,
+  // so "is AdminStepUpGuard actually on these three routes, and only
+  // these three" is exactly the kind of wiring fact a unit test can't
+  // reach.
+  describe('planning/* — Decision 10 step-up gate', () => {
+    async function createAdminSession(lastLoginAt: Date | null) {
+      const repository = dataSource.getRepository(StaffAccount);
+      const account = await repository.save(
+        repository.create({
+          email: ADMIN_EMAIL,
+          displayName: 'P7 Admin',
+          role: StaffAccountRole.ADMIN,
+          authProvider: StaffAuthProvider.GOOGLE,
+          authProviderSubject: `p7-${randomUUID()}`,
+          lastLoginAt,
+        }),
+      );
+      const token = staffSessionTokenService.issueFor(
+        account.id as string,
+        account.role as StaffAccountRole,
+      );
+      return { account, cookie: `${STAFF_SESSION_COOKIE_NAME}=${token}` };
+    }
+
+    afterEach(async () => {
+      await dataSource.getRepository(StaffAccount).delete({
+        email: ADMIN_EMAIL,
+      });
+    });
+
+    it('serves a mounted planning doc to a freshly-authenticated admin, with syncedAt', async () => {
+      const { cookie } = await createAdminSession(new Date());
+
+      const response = await request(app.getHttpServer())
+        .get('/api/v1/admin/planning/security-issues')
+        .set('Cookie', cookie)
+        .expect(200);
+
+      const body = response.body as {
+        sections: Array<{
+          source: string;
+          content: string;
+          available: boolean;
+        }>;
+        syncedAt: string | null;
+      };
+      expect(body.sections).toHaveLength(1);
+      expect(body.sections[0].available).toBe(true);
+      expect(body.sections[0].content).toContain('nothing outstanding');
+      expect(body.syncedAt).not.toBeNull();
+    });
+
+    // 401 + reauth_required specifically, NOT a plain 401 and NOT a 403:
+    // the console renders AD5's inline prompt over preserved state, and a
+    // plain 401 means something different (the whole session went).
+    it('refuses a stale-but-valid admin session with reauth_required', async () => {
+      const { cookie } = await createAdminSession(
+        new Date(Date.now() - ADMIN_STEP_UP_FRESHNESS_MS - 60_000),
+      );
+
+      const response = await request(app.getHttpServer())
+        .get('/api/v1/admin/planning/security-issues')
+        .set('Cookie', cookie)
+        .expect(401);
+
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'reauth_required',
+      );
+    });
+
+    // The gate is scoped to this pillar only — a stale session must keep
+    // working everywhere else, or the operator gets bounced out of the
+    // whole console instead of one section.
+    it('leaves the rest of the console reachable with that same stale session', async () => {
+      const { cookie } = await createAdminSession(
+        new Date(Date.now() - ADMIN_STEP_UP_FRESHNESS_MS - 60_000),
+      );
+
+      await request(app.getHttpServer())
+        .get('/api/v1/admin/bug-reports')
+        .set('Cookie', cookie)
+        .expect(200);
+      await request(app.getHttpServer())
+        .get('/api/v1/admin/session')
+        .set('Cookie', cookie)
+        .expect(200);
+    });
+
+    // An unmounted key is the normal state on a cluster where the
+    // hand-applied ConfigMap doesn't exist yet — an empty section, not a
+    // 500 that takes the view down.
+    it('reports an unmounted planning key as unavailable rather than failing', async () => {
+      const { cookie } = await createAdminSession(new Date());
+
+      const response = await request(app.getHttpServer())
+        .get('/api/v1/admin/planning/ideas')
+        .set('Cookie', cookie)
+        .expect(200);
+
+      const body = response.body as {
+        sections: Array<{ available: boolean }>;
+        syncedAt: string | null;
+      };
+      expect(body.sections[0].available).toBe(false);
+      expect(body.syncedAt).toBeNull();
+    });
+
+    // Decision 10: these endpoints accept nothing. main.ts's
+    // forbidNonWhitelisted rejects an unlisted parameter outright rather
+    // than ignoring it, which is what keeps this pillar from quietly
+    // growing a filter.
+    it('rejects any query parameter outright', async () => {
+      const { cookie } = await createAdminSession(new Date());
+
+      await request(app.getHttpServer())
+        .get('/api/v1/admin/planning/roadmap?teamId=whatever')
+        .set('Cookie', cookie)
+        .expect(400);
     });
   });
 });

@@ -644,6 +644,24 @@ export class StaffAccountNotPtException extends AppException {
   }
 }
 
+export class StaffStepUpRequiredException extends AppException {
+  constructor() {
+    // ADR-0022 Decision 10's step-up gate, on the three `planning/*`
+    // endpoints only. Deliberately 401 and NOT 403, and deliberately its
+    // own code: the session is valid and stays valid — every other admin
+    // endpoint keeps working — so the console must render AD5's inline
+    // re-auth prompt over a preserved console state
+    // (docs/design/phase7-admin-console-flows.md §8) rather than treating
+    // this as a sign-out. A plain 401 with no code means the ordinary
+    // session expired too, which is a different, whole-console failure.
+    super(
+      'reauth_required',
+      'Confirm it is you to view this section.',
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+}
+
 export class StaffOAuthPendingAuthInvalidException extends AppException {
   constructor() {
     // Covers a missing, expired, or signature-invalid staff_auth_pending

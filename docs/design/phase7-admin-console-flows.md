@@ -1059,9 +1059,28 @@ correct outcome rather than an annoyance.
 ## 8. AD5 — Step-up re-auth prompt
 
 **Trigger:** any `planning/*` request returning `401 reauth_required`.
-**API:** `POST /api/v1/admin/auth/login { username, password }` — the same
+**API:** ~~`POST /api/v1/admin/auth/login { username, password }` — the same
 endpoint, which refreshes `authenticatedAt` on the existing session
-(Decision 10).
+(Decision 10).~~
+
+> **Superseded 2026-08-08 — this section needs a ux-designer pass before
+> the console is built.** There is no admin password to prompt for:
+> ADR-0023 replaced Decision 2's local credential with federated SSO, and
+> ADR-0022's step-up was resolved (see its Decision 10 amendment) as an
+> **OIDC re-authentication** — `GET /api/v1/staff-auth/:provider/step-up`,
+> which redirects to the IdP with `prompt=login` and returns via the normal
+> callback.
+>
+> What survives from the design below: the trigger, the requirement that
+> console state be preserved, the "ordinary session also expired" branch,
+> and every error/copy state that isn't about a credential field. What does
+> not: the username/password form inside the modal, and with it the
+> shape of §8.1's layout — a redirect leaves and re-enters the app rather
+> than resolving inline, so "preserved console state" now means restoring
+> the remembered `#planning/...` destination after the round trip rather
+> than never unmounting. The backend already supports that: the step-up
+> route is a plain redirect, and the freshness stamp it produces is what
+> the next `planning/*` request checks.
 
 ### 8.1 Layout
 

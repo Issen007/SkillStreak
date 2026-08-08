@@ -252,6 +252,21 @@ class EnvironmentVariables {
   // admin API for the same reason as above.
   @IsOptional()
   ERROR_LOG_STACK_MAX_FRAMES?: string;
+
+  // Where the `admin-planning-docs` ConfigMap volume is mounted
+  // (docs/adr/0022-admin-control-center.md Decision 10). @IsOptional()
+  // alone for the same empty-but-present reason as the two above: a
+  // cluster that hasn't applied the ConfigMap yet must boot fine, with the
+  // planning views simply reporting themselves unavailable.
+  //
+  // **This path must stay disjoint from any statically-served directory**
+  // — never an ancestor or descendant of one. That is the
+  // security-reviewer's required 2026-08-02 fix, not a style preference:
+  // a static handler rooted at or above this directory would make the raw
+  // security-issues markdown downloadable without passing AdminAuthGuard
+  // or the step-up check at all. See AdminPlanningDocsService.
+  @IsOptional()
+  ADMIN_PLANNING_DOCS_DIR?: string;
 }
 
 // Fails fast on boot rather than surfacing a confusing runtime error the

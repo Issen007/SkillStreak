@@ -20,6 +20,15 @@ export interface PendingStaffAuthPayload {
   state: string;
   nonce: string;
   codeVerifier: string;
+  /**
+   * True when this flow was started by ADR-0022 Decision 10's step-up
+   * re-auth rather than an ordinary sign-in. Carried here — inside the
+   * signed cookie, not a query parameter — precisely so the callback
+   * cannot be tricked into treating an ordinary login as a step-up: the
+   * caller never gets to assert it. See StaffAuthService.completeLogin
+   * for the `auth_time` check this flag turns on.
+   */
+  stepUp?: boolean;
 }
 
 const PENDING_AUTH_TTL = '10m';

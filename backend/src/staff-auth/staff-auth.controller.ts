@@ -60,6 +60,42 @@ export class StaffAuthController {
     res.redirect(authorizationUrl);
   }
 
+  // ADR-0022 Decision 10's step-up re-auth, as an IdP round trip rather
+  // than the ADR's literal TOTP (see StaffAuthService.buildLoginRedirect
+  // for why that recommendation's premise no longer holds). Same shape as
+  // /login above — a redirect, not JSON — so the console navigates here
+  // and lands back on the callback exactly as it does for a fresh sign-in.
+  //
+  // docs/design/phase7-admin-console-flows.md §13 asked for a deliberate
+  // answer on whether step-up shares /login's per-IP bucket and can
+  // therefore lock the operator out of ordinary sign-in. Checked against
+  // the installed @nestjs/throttler (6.5.0) rather than assumed: its
+  // generateKey is `${ClassName}-${HandlerName}-${throttlerName}` hashed
+  // with the tracker, so two distinct handlers already count separately
+  // even under the same named throttler. The limits below are /login's,
+  // the counter is not — no second global throttler needed to get there.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Get(':provider/step-up')
+  async stepUp(
+    @Param('provider') providerParam: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const provider = this.parseProvider(providerParam);
+    const { authorizationUrl, pendingAuthCookieValue } =
+      await this.staffAuthService.buildLoginRedirect(provider, {
+        stepUp: true,
+      });
+
+    res.cookie(STAFF_PENDING_AUTH_COOKIE_NAME, pendingAuthCookieValue, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: this.cookieSecure(),
+      path: STAFF_PENDING_AUTH_COOKIE_PATH,
+      maxAge: PENDING_AUTH_COOKIE_MAX_AGE_MS,
+    });
+    res.redirect(authorizationUrl);
+  }
+
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Get(':provider/callback')
   async callbackGet(
