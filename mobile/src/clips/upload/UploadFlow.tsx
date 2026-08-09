@@ -5,6 +5,7 @@ import { V5CaptionChallenge } from './V5CaptionChallenge';
 import { V6UploadProgress } from './V6UploadProgress';
 import { V7Success } from './V7Success';
 import { ClipUploadSession } from './clipUploadSession';
+import { shouldPreUpload } from './shouldPreUpload';
 import type { PickedClip } from './PickedClip';
 
 interface UploadFlowProps {
@@ -78,7 +79,14 @@ export function UploadFlow({ teamId, viewerPlayerId, onCancel, onConsentRevoked,
           pickedClipRef.current = clip;
           const session = new ClipUploadSession(teamId, clip);
           sessionRef.current = session;
-          session.start();
+          // Start now only if we are not on a metered connection. On
+          // cellular the session stays idle and starts at submit instead —
+          // the pre-background-upload behaviour — so a family never pays
+          // for a video their child then decides not to post. Not awaited:
+          // the caption screen must appear instantly either way.
+          void shouldPreUpload().then((preUpload) => {
+            if (preUpload) session.start();
+          });
           setStep({ kind: 'caption', clip });
         }}
         onCancel={abandon}
@@ -96,9 +104,12 @@ export function UploadFlow({ teamId, viewerPlayerId, onCancel, onConsentRevoked,
         initialCaption={step.caption}
         initialTaggedPlayerId={step.taggedPlayerId}
         initialCaptionError={step.captionError}
-        onSubmitted={(caption, taggedPlayerId) =>
-          setStep({ kind: 'finishing', caption, taggedPlayerId })
-        }
+        onSubmitted={(caption, taggedPlayerId) => {
+          // No-op when the WiFi check already started it; the real start
+          // for anyone on cellular.
+          sessionRef.current?.start();
+          setStep({ kind: 'finishing', caption, taggedPlayerId });
+        }}
         onConsentRevoked={onConsentRevoked}
         onCancel={abandon}
       />

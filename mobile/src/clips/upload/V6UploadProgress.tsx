@@ -125,7 +125,11 @@ export function V6UploadProgress({
 
   const failed = uploadState.kind === 'failed';
   const progress =
-    uploadState.kind === 'uploading' ? uploadState.progress : 1;
+    uploadState.kind === 'uploading'
+      ? uploadState.progress
+      : uploadState.kind === 'idle'
+        ? 0
+        : 1;
   const message = error ?? (failed ? t('v6.giveUp') : null);
 
   return (

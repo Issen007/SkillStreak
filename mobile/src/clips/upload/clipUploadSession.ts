@@ -13,6 +13,9 @@ import type { PickedClip } from './PickedClip';
 const MAX_AUTOMATIC_ATTEMPTS = 2;
 
 export type ClipUploadState =
+  /** Created but deliberately not started — the player is on cellular, so
+   * the bytes wait until they actually commit. See shouldPreUpload. */
+  | { kind: 'idle' }
   | { kind: 'uploading'; progress: number }
   | { kind: 'uploaded'; upload: CreateClipUploadUrlResponse }
   | { kind: 'consent-revoked' }
@@ -78,7 +81,7 @@ async function putViaXhrForWeb(
  * and `UploadFlow` holds it across V5 → V6. Subscribers come and go.
  */
 export class ClipUploadSession {
-  private state: ClipUploadState = { kind: 'uploading', progress: 0 };
+  private state: ClipUploadState = { kind: 'idle' };
   private listeners = new Set<(state: ClipUploadState) => void>();
   private upload: CreateClipUploadUrlResponse | null = null;
   private attempt = 1;
@@ -92,7 +95,11 @@ export class ClipUploadSession {
     private readonly clip: PickedClip,
   ) {}
 
+  /** Idempotent: calling it again once the transfer is already going (or
+   * done) is a no-op, so `UploadFlow` can safely start-on-submit without
+   * knowing whether the WiFi check already started it. */
   start(): void {
+    if (this.state.kind !== 'idle') return;
     void this.run();
   }
 
