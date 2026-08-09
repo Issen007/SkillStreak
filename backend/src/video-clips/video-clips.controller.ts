@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { CurrentPlayerId } from '../auth/current-player-id.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CompleteUploadDto } from './dto/complete-upload.dto';
 import { CreateUploadUrlDto } from './dto/create-upload-url.dto';
 import { ListClipsQueryDto } from './dto/list-clips-query.dto';
 import { ReportClipDto } from './dto/report-clip.dto';
@@ -52,8 +53,12 @@ export class VideoClipsController {
     @Param('teamId') teamId: string,
     @Param('clipId') clipId: string,
     @CurrentPlayerId() playerId: string,
+    @Body() dto: CompleteUploadDto,
   ): Promise<CompleteUploadResponse> {
-    return this.videoClipsService.completeUpload(teamId, playerId, clipId);
+    return this.videoClipsService.completeUpload(teamId, playerId, clipId, {
+      caption: dto.caption,
+      taggedPlayerId: dto.taggedPlayerId,
+    });
   }
 
   @UseGuards(JwtAuthGuard)

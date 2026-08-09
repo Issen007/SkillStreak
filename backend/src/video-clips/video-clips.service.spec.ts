@@ -11,6 +11,7 @@ import {
   UploadNotFoundException,
 } from '../common/errors/exceptions';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
+import { BadRequestException } from '@nestjs/common';
 import { TeamJoinStatus } from '../players/team-join-status.enum';
 import {
   ChatMessageAuthorType,
@@ -319,6 +320,149 @@ describe('VideoClipsService.createUploadUrl', () => {
       uploadMethod: 'PUT',
       requiredHeaders: { 'Content-Type': 'video/mp4' },
     });
+  });
+});
+
+// Background upload (docs/internal/BACKLOG.md, 2026-08-09) — the client
+// may now start pushing bytes the moment a file is picked and supply the
+// caption/tag here instead. These tests exist because that new path writes
+// the same two columns the create path does, and a second, weaker set of
+// checks on it would be a real bypass rather than a style problem.
+describe('VideoClipsService.completeUpload — metadata supplied at complete', () => {
+  function pendingClip() {
+    return {
+      id: 'clip-1',
+      teamId: 'team-1',
+      uploaderPlayerId: 'player-1',
+      storageKey: 'clips/team-1/clip-1.mp4',
+      mimeType: 'video/mp4',
+      durationSeconds: 10,
+      createdAt: new Date(),
+      caption: null,
+      taggedPlayerId: null,
+    };
+  }
+
+  // THE test this whole change hangs on. A caption that reached the
+  // database without passing chatModerationCheck would be a moderation
+  // bypass on child-authored text, reachable by any authenticated player.
+  it('runs the caption through the moderation filter, exactly like the create path', async () => {
+    const { service, videoClipRepository, chatModerationCheck } =
+      buildService();
+    videoClipRepository.findOne.mockResolvedValue(pendingClip());
+    chatModerationCheck.check.mockResolvedValue({ allowed: false });
+
+    await expect(
+      service.completeUpload('team-1', 'player-1', 'clip-1', {
+        caption: 'something the filter rejects',
+      }),
+    ).rejects.toBeInstanceOf(CaptionRejectedByFilterException);
+
+    expect(chatModerationCheck.check).toHaveBeenCalledWith(
+      'something the filter rejects',
+    );
+    // Rejected before any storage work — the object is never even HEADed.
+    expect(videoClipRepository.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a tagged player from another team, exactly like the create path', async () => {
+    const { service, videoClipRepository, playersService } = buildService();
+    videoClipRepository.findOne.mockResolvedValue(pendingClip());
+    playersService.findByIdOrThrow.mockResolvedValue({
+      id: 'other-1',
+      teamId: 'team-2',
+      teamJoinStatus: TeamJoinStatus.APPROVED,
+    });
+
+    await expect(
+      service.completeUpload('team-1', 'player-1', 'clip-1', {
+        taggedPlayerId: 'other-1',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects a tagged player whose team join is not yet approved', async () => {
+    const { service, videoClipRepository, playersService } = buildService();
+    videoClipRepository.findOne.mockResolvedValue(pendingClip());
+    playersService.findByIdOrThrow.mockResolvedValue({
+      id: 'joiner-1',
+      teamId: 'team-1',
+      teamJoinStatus: TeamJoinStatus.PENDING,
+    });
+
+    await expect(
+      service.completeUpload('team-1', 'player-1', 'clip-1', {
+        taggedPlayerId: 'joiner-1',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  // The original flow sends no body at all — it must keep whatever create
+  // already stored rather than having it silently nulled.
+  it('leaves the stored caption and tag untouched when no metadata is supplied', async () => {
+    const {
+      service,
+      videoClipRepository,
+      chatModerationCheck,
+      transactionVideoClipRepository,
+    } = buildService();
+    videoClipRepository.findOne.mockResolvedValue({
+      ...pendingClip(),
+      caption: 'set at create time',
+      taggedPlayerId: 'mate-1',
+    });
+
+    await service.completeUpload('team-1', 'player-1', 'clip-1');
+
+    expect(chatModerationCheck.check).not.toHaveBeenCalled();
+    // The publish flip is transactional, so it lands on the
+    // transaction-scoped repository, not the plain one.
+    const [, publishPatch] = transactionVideoClipRepository.update.mock
+      .calls[0] as [unknown, Record<string, unknown>];
+    expect(publishPatch.caption).toBe('set at create time');
+    expect(publishPatch.taggedPlayerId).toBe('mate-1');
+  });
+});
+
+describe('VideoClipsService.completeUpload — ordering of the tag notification', () => {
+  // The system chat message that notifies a tagged teammate reads
+  // clip.taggedPlayerId, so it has to run AFTER the metadata assignment.
+  // Get that order wrong and a tag chosen during a background upload
+  // publishes silently — the challenge exists, nobody is told.
+  it('posts the challenge system message for a tag supplied at complete', async () => {
+    const {
+      service,
+      videoClipRepository,
+      playersService,
+      teamChatMessageRepository,
+      transactionVideoClipRepository,
+    } = buildService();
+    videoClipRepository.findOne.mockResolvedValue({
+      id: 'clip-1',
+      teamId: 'team-1',
+      uploaderPlayerId: 'player-1',
+      storageKey: 'clips/team-1/clip-1.mp4',
+      mimeType: 'video/mp4',
+      durationSeconds: 10,
+      createdAt: new Date(),
+      caption: null,
+      taggedPlayerId: null,
+    });
+    playersService.findByIdOrThrow.mockResolvedValue({
+      id: 'mate-1',
+      teamId: 'team-1',
+      teamJoinStatus: TeamJoinStatus.APPROVED,
+      screenName: 'SnabbaBen07',
+    });
+
+    await service.completeUpload('team-1', 'player-1', 'clip-1', {
+      taggedPlayerId: 'mate-1',
+    });
+
+    const [, publishPatch] = transactionVideoClipRepository.update.mock
+      .calls[0] as [unknown, Record<string, unknown>];
+    expect(publishPatch.taggedPlayerId).toBe('mate-1');
+    expect(teamChatMessageRepository.save).toHaveBeenCalled();
   });
 });
 

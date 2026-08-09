@@ -220,45 +220,8 @@ export class VideoClipsService {
       throw new ClipUploadRateLimitedException();
     }
 
-    if (dto.taggedPlayerId) {
-      const tagged = await this.playersService.findByIdOrThrow(
-        dto.taggedPlayerId,
-      );
-      // docs/adr/0021-clip-challenge-notifications.md Decision 3 — a real,
-      // if narrow, tightening: taggedPlayerId must now also be
-      // teamJoinStatus === APPROVED, not just teamId-matching. Closes a
-      // small, pre-existing gap this feature's new visibility (a durable
-      // pending-challenges list + a chat broadcast, not a dormant FK) made
-      // worth ruling out — a not-yet-captain-approved joiner could
-      // previously be tagged. This is the enforcement point (not
-      // PlayersService.listTeammates's own default — that method stays
-      // unfiltered by default, per a code-critic finding, 2026-08-06
-      // pre-merge pass: it backs two other, unrelated pickers — captain
-      // transfer and GDPR erasure successor — that must not be narrowed by
-      // this ADR's own reasoning). The message deliberately still contains
-      // the substring "taggedPlayerId" so the mobile tag-picker's existing
-      // catch (V5CaptionChallenge.tsx) handles this 400 correctly
-      // (design doc §7's "secondary, acceptable" option — the one actually
-      // shipped here, since `GET .../teammates`'s own opt-in
-      // `approvedOnly` narrowing, once the tag-picker's mobile call site
-      // is updated to request it, is frontend-developer's follow-up work,
-      // not wired by this backend change).
-      if (
-        tagged.teamId !== teamId ||
-        tagged.teamJoinStatus !== TeamJoinStatus.APPROVED
-      ) {
-        throw new BadRequestException(
-          'taggedPlayerId must belong to the same team as the requesting player and have an approved team join.',
-        );
-      }
-    }
-
-    if (dto.caption) {
-      const moderation = await this.chatModerationCheck.check(dto.caption);
-      if (!moderation.allowed) {
-        throw new CaptionRejectedByFilterException();
-      }
-    }
+    await this.assertTaggedPlayerAllowed(teamId, dto.taggedPlayerId);
+    await this.assertCaptionAllowed(dto.caption);
 
     const clip = await this.videoClipRepository.save(
       this.videoClipRepository.create({
@@ -315,12 +278,90 @@ export class VideoClipsService {
    * bytes back to the same storage_key; 7) flip status to published with
    * expiresAt set; 8) mint a fresh presigned GET and return.
    */
+  /**
+   * The tag rule, extracted 2026-08-09 so `createUploadUrl` and
+   * `completeUpload` cannot drift apart. Background upload
+   * (docs/internal/BACKLOG.md) means the caption and tag can now arrive at
+   * `complete` instead of at `create` — and a second, subtly weaker copy
+   * of this check on that path would be a real authorization gap, not a
+   * style problem. One method, both callers.
+   */
+  private async assertTaggedPlayerAllowed(
+    teamId: string,
+    taggedPlayerId: string | undefined,
+  ): Promise<void> {
+    if (!taggedPlayerId) return;
+    const tagged = await this.playersService.findByIdOrThrow(taggedPlayerId);
+    // docs/adr/0021-clip-challenge-notifications.md Decision 3 — a real,
+    // if narrow, tightening: taggedPlayerId must now also be
+    // teamJoinStatus === APPROVED, not just teamId-matching. Closes a
+    // small, pre-existing gap this feature's new visibility (a durable
+    // pending-challenges list + a chat broadcast, not a dormant FK) made
+    // worth ruling out — a not-yet-captain-approved joiner could
+    // previously be tagged. This is the enforcement point (not
+    // PlayersService.listTeammates's own default — that method stays
+    // unfiltered by default, per a code-critic finding, 2026-08-06
+    // pre-merge pass: it backs two other, unrelated pickers — captain
+    // transfer and GDPR erasure successor — that must not be narrowed by
+    // this ADR's own reasoning). The message deliberately still contains
+    // the substring "taggedPlayerId" so the mobile tag-picker's existing
+    // catch (V5CaptionChallenge.tsx) handles this 400 correctly
+    // (design doc §7's "secondary, acceptable" option — the one actually
+    // shipped here, since `GET .../teammates`'s own opt-in
+    // `approvedOnly` narrowing, once the tag-picker's mobile call site
+    // is updated to request it, is frontend-developer's follow-up work,
+    // not wired by this backend change).
+    if (
+      tagged.teamId !== teamId ||
+      tagged.teamJoinStatus !== TeamJoinStatus.APPROVED
+    ) {
+      throw new BadRequestException(
+        'taggedPlayerId must belong to the same team as the requesting player and have an approved team join.',
+      );
+    }
+  }
+
+  /**
+   * The caption moderation gate, extracted for the same reason as the tag
+   * check above — and this one matters more: a caption supplied at
+   * `complete` that skipped `chatModerationCheck` would be a straight
+   * moderation bypass on child-authored text, reachable by any
+   * authenticated player. There is deliberately no path that writes a
+   * caption without passing through here.
+   */
+  private async assertCaptionAllowed(
+    caption: string | undefined,
+  ): Promise<void> {
+    if (!caption) return;
+    const moderation = await this.chatModerationCheck.check(caption);
+    if (!moderation.allowed) {
+      throw new CaptionRejectedByFilterException();
+    }
+  }
+
+  /**
+   * `metadata` supports the background-upload flow (BACKLOG.md): the client
+   * may now mint the upload URL and start pushing bytes the moment a file
+   * is picked — before the player has written a caption or chosen a tag —
+   * and supply both here instead. Omitted entirely by the original flow,
+   * which still sets them at create time; when present they overwrite,
+   * since they are the player's later, more considered answer.
+   *
+   * **Both go through the exact same validation as the create path**, via
+   * the two shared helpers above rather than a second copy. A caption
+   * arriving here that skipped `chatModerationCheck` would be a moderation
+   * bypass on child-authored text, and a tag that skipped the team/approval
+   * check would be an authorization one.
+   */
   async completeUpload(
     teamId: string,
     requesterId: string,
     clipId: string,
+    metadata: { caption?: string; taggedPlayerId?: string } = {},
   ): Promise<CompleteUploadResponse> {
     await this.playersService.assertTeamMembership(requesterId, teamId);
+    await this.assertTaggedPlayerAllowed(teamId, metadata.taggedPlayerId);
+    await this.assertCaptionAllowed(metadata.caption);
 
     const clip = await this.videoClipRepository.findOne({
       where: {
@@ -435,13 +476,31 @@ export class VideoClipsService {
       // way an email send would be — same "one more step in the same
       // transaction" pattern ADR-0005's goal-bonus check already
       // established (see TrainingLogsService.logTraining).
+      // Metadata supplied at complete (background upload) is applied in
+      // the SAME transaction as the publish flip — never as a follow-up
+      // write, which could leave a clip published with the caption the
+      // player replaced. Both values were validated at the top of this
+      // method by the same helpers the create path uses.
+      if (metadata.caption !== undefined) {
+        clip.caption = metadata.caption.trim() || null;
+      }
+      if (metadata.taggedPlayerId !== undefined) {
+        clip.taggedPlayerId = metadata.taggedPlayerId || null;
+      }
+
       await this.dataSource.transaction(async (manager) => {
-        await manager
-          .getRepository(VideoClip)
-          .update(
-            { id: clip.id },
-            { status: VideoClipStatus.PUBLISHED, expiresAt },
-          );
+        await manager.getRepository(VideoClip).update(
+          { id: clip.id },
+          {
+            status: VideoClipStatus.PUBLISHED,
+            expiresAt,
+            caption: clip.caption,
+            taggedPlayerId: clip.taggedPlayerId,
+          },
+        );
+        // Reads clip.taggedPlayerId, so it must run after the assignment
+        // above — otherwise a tag chosen during the background upload would
+        // publish without ever notifying the tagged teammate.
         await this.postChallengeSystemMessageIfTagged(manager, teamId, clip);
       });
 
