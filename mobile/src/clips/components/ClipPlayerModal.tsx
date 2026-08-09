@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -17,7 +17,7 @@ import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
 import { formatClipRelativeTime } from '../../utils/formatDate';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { CLIP_ASPECT_RATIO } from '../constants';
+import { BLANK_PLAYBACK_TIMEOUT_MS, CLIP_ASPECT_RATIO } from '../constants';
 import type { ClipFeedItem } from '../../api/types';
 
 interface ClipPlayerModalProps {
@@ -95,8 +95,13 @@ function ClipPlayerModalContent({
     player.muted = muted;
   }, [player, muted]);
 
+  // Whether this player has EVER actually played a frame, as opposed to
+  // having merely reported a status. See the watchdog below.
+  const hasPlayedRef = useRef(false);
+
   useEffect(() => {
     const playingSub = player.addListener('playingChange', (payload: { isPlaying: boolean }) => {
+      if (payload.isPlaying) hasPlayedRef.current = true;
       setIsPlaying(payload.isPlaying);
     });
     const statusSub = player.addListener(
@@ -113,6 +118,42 @@ function ClipPlayerModalContent({
     };
   }, [player]);
 
+  /**
+   * Blank-panel watchdog — project owner's screenshot, 2026-08-09
+   * (BACKLOG.md). The status machine above is sound on its own: it opens
+   * on `loading` (spinner) and has a real `error` branch with retry. What
+   * it cannot catch is a player that reports `readyToPlay` and then
+   * renders nothing — which is exactly what the web build did after an
+   * upload, leaving a full-screen navy rectangle with no spinner, no
+   * error, and no way out. A status claim is not evidence; a frame is.
+   *
+   * So: if nothing has actually played within the grace period and the
+   * player hasn't already errored, fall into the existing error state.
+   * That state's Retry doubles as a tap-to-play, which also covers the
+   * one benign case this could otherwise misread — a browser refusing
+   * autoplay (unlikely here, since the player is muted, but the recovery
+   * is identical either way).
+   *
+   * Deliberately generous at 8s: a cold MinIO fetch on a slow phone
+   * connection is legitimately slow, and a false "couldn't play" is worse
+   * than a few extra seconds of spinner.
+   */
+  useEffect(() => {
+    if (playerStatus === 'error' || hasPlayedRef.current) return;
+    const timer = setTimeout(() => {
+      if (hasPlayedRef.current) return;
+      // Logged, not swallowed: the backlog entry could not tell whether
+      // this was a pending transcode, a dead presigned URL, or expo-video
+      // simply not rendering on web, and this line is what makes the next
+      // real occurrence answerable from the console.
+      console.warn(
+        `[clips] Playback produced no frames within ${BLANK_PLAYBACK_TIMEOUT_MS}ms (status=${playerStatus}) — showing the retry state instead of a blank panel.`,
+      );
+      setPlayerStatus('error');
+    }, BLANK_PLAYBACK_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [playerStatus]);
+
   const handleTapVideo = () => {
     if (playerStatus === 'error') return;
     if (isPlaying) {
@@ -123,6 +164,7 @@ function ClipPlayerModalContent({
   };
 
   const handleRetry = () => {
+    hasPlayedRef.current = false;
     setPlayerStatus('loading');
     player.replace(clip.playbackUrl);
     player.play();
