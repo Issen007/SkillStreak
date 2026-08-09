@@ -1,0 +1,42 @@
+{
+  "mine": {
+    "title": "Meine Trainer",
+    "statusActive": "Aktiv",
+    "statusPending": "Wartet auf Antwort",
+    "statusEnded": "Beendet",
+    "seeingSince": "Sieht dein Training seit {{date}}",
+    "pendingSince": "Gefragt am {{date}}",
+    "endedOn": "Beendet am {{date}}",
+    "end": "Beenden",
+    "yourChoice": "Es ist immer deine Entscheidung. Du kannst sofort beenden, ohne jemanden zu fragen.",
+    "confirmTitle": "Mit {{name}} beenden?",
+    "confirmBody": "{{name}} sieht dein Training dann nicht mehr.",
+    "confirmAgain": "Du kannst später wieder Ja sagen, wenn du willst.",
+    "cancel": "Abbrechen",
+    "confirm": "Beenden",
+    "ended": "Fertig — {{name}} sieht dein Training nicht mehr."
+  },
+  "captain": {
+    "title": "Trainer",
+    "invite": "Trainer einladen",
+    "memberSince": "Dabei seit {{date}}",
+    "remove": "Entfernen",
+    "empty": "Dem Team ist kein Trainer zugeordnet.",
+    "codeTitle": "Gib diesen Code an den Trainer",
+    "codeValidity": "Der Code gilt 24 Stunden.",
+    "share": "Teilen",
+    "done": "Fertig",
+    "removeTitle": "{{name}} entfernen?",
+    "removeBody": "{{name}} sieht sofort das Training aller Spielerinnen und Spieler im Team nicht mehr — auch nicht von denen, die zugestimmt haben.",
+    "removeNoEmail": "Die Familien werden darüber nicht per E-Mail informiert.",
+    "cancel": "Abbrechen",
+    "confirm": "Entfernen",
+    "removed": "{{name}} wurde entfernt.",
+    "removedWithConsents": "{{name}} wurde entfernt. {{count}} Zustimmungen wurden beendet."
+  },
+  "errors": {
+    "linkGone": "Deine Verbindung zum Team wurde beendet.",
+    "notCaptain": "Das kann nur die Teamkapitänin oder der Teamkapitän.",
+    "generic": "Etwas ist schiefgelaufen. Versuch es noch einmal."
+  }
+}

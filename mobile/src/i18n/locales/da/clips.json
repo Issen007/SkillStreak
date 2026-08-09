@@ -102,7 +102,8 @@
     "captionRejected": "Billedteksten kunne ikke gemmes — den indeholdt ord, der ikke virker her. Prøv at skrive den om! ✍️",
     "rateLimited": "Du uploader Shorts lidt hurtigt lige nu. Vent et lille øjeblik, så virker det igen.",
     "taggedPlayerGone": "Den spiller er ikke længere på holdet. Vælg en anden, eller ingen.",
-    "genericError": "Noget gik galt. Prøv igen."
+    "genericError": "Noget gik galt. Prøv igen.",
+    "uploadStalled": "Uploadet gik i stå. Skriv færdig — vi prøver igen, når du sender."
   },
   "v6": {
     "heading": "Uploader din Shorts…",
@@ -111,7 +112,10 @@
     "cancel": "Annuller",
     "backToFeed": "Tilbage til feedet",
     "retryFailure": "Noget gik galt med uploadet. Vi prøver igen fra starten.",
-    "giveUp": "Uploadet lykkedes ikke denne gang. Tjek din forbindelse, og prøv igen."
+    "giveUp": "Uploadet lykkedes ikke denne gang. Tjek din forbindelse, og prøv igen.",
+    "finishingHeading": "Gemmer din Shorts…",
+    "captionRejected": "Billedteksten blev ikke godkendt. Ret den og prøv igen.",
+    "uploadExpired": "Klippet nåede at forsvinde. Vælg det igen, så uploader vi det på ny."
   },
   "v7": {
     "heading": "Din Shorts er oppe! 🎉",

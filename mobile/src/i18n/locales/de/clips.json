@@ -102,7 +102,8 @@
     "captionRejected": "Die Bildunterschrift konnte nicht gespeichert werden — sie enthielt Wörter, die hier nicht funktionieren. Schreib sie um, dann klappt's! ✍️",
     "rateLimited": "Du lädst gerade etwas schnell Shorts hoch. Warte einen Moment, dann funktioniert es wieder.",
     "taggedPlayerGone": "Diese Spielerin/dieser Spieler ist nicht mehr im Team. Wähl jemand anderen oder niemanden.",
-    "genericError": "Etwas ist schiefgelaufen. Versuch es nochmal."
+    "genericError": "Etwas ist schiefgelaufen. Versuch es nochmal.",
+    "uploadStalled": "Der Upload hängt. Schreib zu Ende — wir versuchen es beim Senden noch einmal."
   },
   "v6": {
     "heading": "Deine Shorts wird hochgeladen…",
@@ -111,7 +112,10 @@
     "cancel": "Abbrechen",
     "backToFeed": "Zurück zum Feed",
     "retryFailure": "Beim Hochladen ist etwas schiefgelaufen. Wir versuchen es nochmal von vorne.",
-    "giveUp": "Der Upload hat dieses Mal nicht geklappt. Überprüfe deine Verbindung und versuch es nochmal."
+    "giveUp": "Der Upload hat dieses Mal nicht geklappt. Überprüfe deine Verbindung und versuch es nochmal.",
+    "finishingHeading": "Dein Shorts wird gespeichert…",
+    "captionRejected": "Die Bildunterschrift ging nicht durch. Ändere sie und versuch es noch einmal.",
+    "uploadExpired": "Der Clip ist verschwunden, bevor er gespeichert wurde. Wähl ihn noch einmal aus, dann laden wir ihn neu hoch."
   },
   "v7": {
     "heading": "Deine Shorts ist online! 🎉",

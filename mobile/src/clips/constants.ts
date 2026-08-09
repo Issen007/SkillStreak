@@ -13,3 +13,15 @@
  * touching components outside this change's scope.
  */
 export const CLIP_ASPECT_RATIO = 9 / 16;
+
+/**
+ * How long a clip may report itself playable while producing no frames
+ * before the player gives up and shows its retry state instead of a blank
+ * panel. See ClipPlayerModal's watchdog for why a status claim isn't
+ * enough on its own.
+ *
+ * Generous on purpose: a cold object-storage fetch over a slow phone
+ * connection is legitimately slow, and a false "couldn't play" is a worse
+ * outcome than a few more seconds of spinner.
+ */
+export const BLANK_PLAYBACK_TIMEOUT_MS = 8_000;

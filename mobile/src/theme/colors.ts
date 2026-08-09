@@ -56,7 +56,7 @@ export const colors = {
   goldRowTint: '#FFF7E0',
   goldRowBorder: '#FFD873',
   /** Self-service team creation (2026-07-09 update) — the non-alarming
-   * "💡 tip" row fill + border used at Screen O1c's permanence warning,
+   * "💡 tip" row fill + border used at Screen O1a's permanence warning,
    * matching `docs/design/phase1-mockup.html`'s `.tip-row` exactly.
    * Deliberately its own warm-neutral token, not reused from
    * `pendingBg`/`pendingBorder` (those are semantically "waiting for

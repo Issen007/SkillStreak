@@ -102,7 +102,8 @@
     "captionRejected": "Bildtexten gick inte att spara — den innehöll ord som inte funkar här. Skriv om den så går det bra! ✍️",
     "rateLimited": "Du laddar upp Shorts lite snabbt just nu. Vänta en liten stund så går det bra igen.",
     "taggedPlayerGone": "Den spelaren är inte kvar i laget längre. Välj någon annan, eller ingen.",
-    "genericError": "Något gick fel. Testa igen."
+    "genericError": "Något gick fel. Testa igen.",
+    "uploadStalled": "Uppladdningen hakade upp sig. Skriv klart — vi försöker igen när du skickar."
   },
   "v6": {
     "heading": "Laddar upp din Shorts…",
@@ -111,7 +112,10 @@
     "cancel": "Avbryt",
     "backToFeed": "Tillbaka till flödet",
     "retryFailure": "Något gick fel med uppladdningen. Vi provar igen från början.",
-    "giveUp": "Uppladdningen lyckades inte den här gången. Kolla din uppkoppling och testa igen."
+    "giveUp": "Uppladdningen lyckades inte den här gången. Kolla din uppkoppling och testa igen.",
+    "finishingHeading": "Sparar din Shorts…",
+    "captionRejected": "Bildtexten gick inte igenom. Ändra den och försök igen.",
+    "uploadExpired": "Klippet hann försvinna. Välj det igen så laddar vi upp det på nytt."
   },
   "v7": {
     "heading": "Din Shorts är uppe! 🎉",

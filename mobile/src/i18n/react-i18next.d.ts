@@ -6,6 +6,7 @@ import svCommon from './locales/sv/common.json';
 import svGoal from './locales/sv/goal.json';
 import svHome from './locales/sv/home.json';
 import svOnboarding from './locales/sv/onboarding.json';
+import svPt from './locales/sv/pt.json';
 import svTeam from './locales/sv/team.json';
 
 // Typed-resource augmentation (docs/adr/0014-multi-language-support.md
@@ -27,6 +28,7 @@ declare module 'i18next' {
       goal: typeof svGoal;
       chat: typeof svChat;
       clips: typeof svClips;
+      pt: typeof svPt;
     };
   }
 }

@@ -5,14 +5,14 @@ import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
-import { createClipUploadUrl, getTeammates } from '../../api/endpoints';
+import { getTeammates } from '../../api/endpoints';
 import { ApiError, isConsentRequiredError } from '../../api/ApiError';
 import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import type { CreateClipUploadUrlResponse } from '../../api/types';
 import type { TeammateEntry } from '../../api/types';
 import type { PickedClip } from './PickedClip';
+import type { ClipUploadSession } from './clipUploadSession';
 
 const CAPTION_MAX_LENGTH = 140;
 
@@ -20,8 +20,17 @@ interface V5CaptionChallengeProps {
   teamId: string;
   viewerPlayerId: string;
   clip: PickedClip;
+  /** The transfer already running behind this screen, started at V4. Null
+   * only in the defensive case where the flow was entered without one. */
+  session: ClipUploadSession | null;
+  /** Prefilled when returning here from V6 because `complete` rejected the
+   * caption — a child should never have to retype what they wrote. */
+  initialCaption?: string;
+  initialTaggedPlayerId?: string;
+  /** Set when V6 bounced back with a rejected caption, so the reason is
+   * visible on the screen that can actually fix it. */
+  initialCaptionError?: string | null;
   onSubmitted: (
-    response: CreateClipUploadUrlResponse,
     caption: string | undefined,
     taggedPlayerId: string | undefined,
   ) => void;
@@ -29,10 +38,26 @@ interface V5CaptionChallengeProps {
   onCancel: () => void;
 }
 
-/** Screen V5 — "Bildtext & utmana en lagkompis (frivilligt)." Submitting
- * calls endpoint 1 (`upload-url`); the actual `PUT`/`complete` sequence
- * happens on the next screen (V6), never here. */
+/** Screen V5 — "Bildtext & utmana en lagkompis (frivilligt)."
+ *
+ * **No longer mints the upload URL.** That happens at V4 now, so the bytes
+ * are already moving while the player types here — the whole point of the
+ * background-upload change. Submitting just hands the caption and tag to
+ * V6, which sends them at `complete`.
+ *
+ * Consequence worth knowing: the two errors this screen used to catch from
+ * `upload-url` (a rejected caption, a tagged player who is no longer
+ * eligible) now come back from `complete` instead, on the next screen. The
+ * caption is not validated until then, so V5 can no longer tell a player
+ * their caption was rejected while they are still looking at it. That is a
+ * real regression in feedback locality, accepted deliberately: it is the
+ * price of not making them wait, and V6 routes both back here with the
+ * caption preserved rather than dead-ending. */
 export function V5CaptionChallenge({
+  session,
+  initialCaption,
+  initialTaggedPlayerId,
+  initialCaptionError,
   teamId,
   viewerPlayerId,
   clip,
@@ -41,12 +66,29 @@ export function V5CaptionChallenge({
   onCancel,
 }: V5CaptionChallengeProps) {
   const { t } = useTranslation('clips');
-  const [caption, setCaption] = useState('');
+  const [caption, setCaption] = useState(initialCaption ?? '');
   const [teammates, setTeammates] = useState<TeammateEntry[] | null>(null);
-  const [taggedPlayerId, setTaggedPlayerId] = useState<string | null>(null);
+  const [taggedPlayerId, setTaggedPlayerId] = useState<string | null>(
+    initialTaggedPlayerId ?? null,
+  );
 
   const [submitting, setSubmitting] = useState(false);
-  const [captionError, setCaptionError] = useState<string | null>(null);
+  const [captionError, setCaptionError] = useState<string | null>(
+    initialCaptionError ?? null,
+  );
+  // The transfer is running behind this screen, and it can fail while the
+  // player is still typing. Saying so here — rather than letting them
+  // finish a caption and only then meet an error — is the one thing this
+  // screen needs the session for. Deliberately not a progress percentage:
+  // the point of moving the upload here is that a child stops watching it.
+  const [uploadFailed, setUploadFailed] = useState(
+    session?.getState().kind === 'failed',
+  );
+
+  useEffect(() => {
+    if (!session) return undefined;
+    return session.subscribe((state) => setUploadFailed(state.kind === 'failed'));
+  }, [session]);
   const [tagError, setTagError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -78,15 +120,7 @@ export function V5CaptionChallenge({
     setFormError(null);
     try {
       const trimmedCaption = caption.trim();
-      const response = await createClipUploadUrl(teamId, {
-        mimeType: clip.mimeType,
-        fileSizeBytes: clip.fileSizeBytes,
-        durationSeconds: clip.durationSeconds,
-        caption: trimmedCaption.length > 0 ? trimmedCaption : undefined,
-        taggedPlayerId: taggedPlayerId ?? undefined,
-      });
       onSubmitted(
-        response,
         trimmedCaption.length > 0 ? trimmedCaption : undefined,
         taggedPlayerId ?? undefined,
       );
@@ -141,6 +175,8 @@ export function V5CaptionChallenge({
       {captionError ? <Text style={styles.errorText}>{captionError}</Text> : null}
 
       <Text style={styles.sectionLabel}>{t('v5.challengeLabel')}</Text>
+      {uploadFailed ? <Text style={styles.uploadWarning}>{t('v5.uploadStalled')}</Text> : null}
+
       {teammates === null ? (
         <ActivityIndicator color={colors.flame} />
       ) : teammates.length === 0 ? (
@@ -187,6 +223,12 @@ export function V5CaptionChallenge({
 }
 
 const styles = StyleSheet.create({
+  uploadWarning: {
+    fontFamily: fonts.body,
+    fontSize: 12.5,
+    color: colors.error,
+    marginTop: 6,
+  },
   container: {
     paddingHorizontal: 24,
     paddingTop: 56,

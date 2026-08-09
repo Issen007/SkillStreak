@@ -6,36 +6,20 @@
   },
   "o1": {
     "heading": "Hvilket hold spiller du for?",
-    "sub": "Spørg din træner om holdets kode.",
+    "sub": "Spørg din træner om holdets kode. Har I ikke et hold endnu? Find selv på en kode, så hjælper vi dig med at starte holdet.",
     "codePlaceholder": "F.eks. FALKEN24",
     "findTeamButton": "Find mit hold",
     "returningUserLink": "Har du allerede en konto?"
   },
   "o1a": {
-    "heading": "Vi fandt ikke noget hold med koden <code>{{inviteCode}}</code>",
-    "sub": "Ingen fare — vælg det, der passer på dig:",
-    "wrongCodeTitle": "Jeg skrev nok forkert",
-    "wrongCodeSub": "Prøv koden igen",
-    "createTeamTitle": "Vores hold har ikke en kode endnu",
-    "createTeamSub": "Opret et nyt hold med denne kode",
-    "helper": "Usikker? Spørg din træner, før du opretter et nyt hold."
-  },
-  "o1b": {
-    "codeChip": "Holdkode: {{inviteCode}}",
-    "changeCode": "Skift kode",
-    "heading": "Hvad skal jeres hold hedde?",
-    "sub": "Du bliver holdets første spiller — og kaptajn! Vælg et navn, resten af holdet kan være stolte af.",
+    "heading": "Vi fandt ikke et hold med koden {{inviteCode}}",
+    "sub": "Er det et nyt hold? Giv det et navn, så opretter vi det for dig.",
     "nameLabel": "Holdnavn",
-    "namePlaceholder": "F.eks. IBK Falken P13",
-    "helper": "Andre hold kan se navnet på ranglisten.",
-    "next": "Næste"
-  },
-  "o1c": {
-    "heading": "Opret {{teamName}}?",
-    "sub": "Holdkode: {{inviteCode}} — del den med holdkammerater, så de kan tilslutte sig senere.",
-    "tip": "Navnet og koden kan ikke ændres bagefter, så tjek at alt stemmer!",
-    "confirm": "Ja, opret holdet!",
-    "editName": "Nej, ret navnet"
+    "namePlaceholder": "F.eks. IBK Falken U13",
+    "codeLabel": "Holdkode — del den med dine holdkammerater, så de kan være med",
+    "permanentTip": "Navnet og koden kan ikke ændres senere, så dobbelttjek at det hele passer!",
+    "createButton": "Opret holdet",
+    "wrongCode": "Jeg skrev nok koden forkert"
   },
   "o2": {
     "heading": "Tilslutter du dig {{teamName}}?",

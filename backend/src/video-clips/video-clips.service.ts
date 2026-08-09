@@ -220,45 +220,8 @@ export class VideoClipsService {
       throw new ClipUploadRateLimitedException();
     }
 
-    if (dto.taggedPlayerId) {
-      const tagged = await this.playersService.findByIdOrThrow(
-        dto.taggedPlayerId,
-      );
-      // docs/adr/0021-clip-challenge-notifications.md Decision 3 — a real,
-      // if narrow, tightening: taggedPlayerId must now also be
-      // teamJoinStatus === APPROVED, not just teamId-matching. Closes a
-      // small, pre-existing gap this feature's new visibility (a durable
-      // pending-challenges list + a chat broadcast, not a dormant FK) made
-      // worth ruling out — a not-yet-captain-approved joiner could
-      // previously be tagged. This is the enforcement point (not
-      // PlayersService.listTeammates's own default — that method stays
-      // unfiltered by default, per a code-critic finding, 2026-08-06
-      // pre-merge pass: it backs two other, unrelated pickers — captain
-      // transfer and GDPR erasure successor — that must not be narrowed by
-      // this ADR's own reasoning). The message deliberately still contains
-      // the substring "taggedPlayerId" so the mobile tag-picker's existing
-      // catch (V5CaptionChallenge.tsx) handles this 400 correctly
-      // (design doc §7's "secondary, acceptable" option — the one actually
-      // shipped here, since `GET .../teammates`'s own opt-in
-      // `approvedOnly` narrowing, once the tag-picker's mobile call site
-      // is updated to request it, is frontend-developer's follow-up work,
-      // not wired by this backend change).
-      if (
-        tagged.teamId !== teamId ||
-        tagged.teamJoinStatus !== TeamJoinStatus.APPROVED
-      ) {
-        throw new BadRequestException(
-          'taggedPlayerId must belong to the same team as the requesting player and have an approved team join.',
-        );
-      }
-    }
-
-    if (dto.caption) {
-      const moderation = await this.chatModerationCheck.check(dto.caption);
-      if (!moderation.allowed) {
-        throw new CaptionRejectedByFilterException();
-      }
-    }
+    await this.assertTaggedPlayerAllowed(teamId, dto.taggedPlayerId);
+    await this.assertCaptionAllowed(dto.caption);
 
     const clip = await this.videoClipRepository.save(
       this.videoClipRepository.create({
@@ -315,13 +278,133 @@ export class VideoClipsService {
    * bytes back to the same storage_key; 7) flip status to published with
    * expiresAt set; 8) mint a fresh presigned GET and return.
    */
+  /**
+   * The tag rule, extracted 2026-08-09 so `createUploadUrl` and
+   * `completeUpload` cannot drift apart. Background upload
+   * (docs/internal/BACKLOG.md) means the caption and tag can now arrive at
+   * `complete` instead of at `create` — and a second, subtly weaker copy
+   * of this check on that path would be a real authorization gap, not a
+   * style problem. One method, both callers.
+   */
+  private async assertTaggedPlayerAllowed(
+    teamId: string,
+    taggedPlayerId: string | undefined,
+  ): Promise<void> {
+    if (!taggedPlayerId) return;
+    const tagged = await this.playersService.findByIdOrThrow(taggedPlayerId);
+    // docs/adr/0021-clip-challenge-notifications.md Decision 3 — a real,
+    // if narrow, tightening: taggedPlayerId must now also be
+    // teamJoinStatus === APPROVED, not just teamId-matching. Closes a
+    // small, pre-existing gap this feature's new visibility (a durable
+    // pending-challenges list + a chat broadcast, not a dormant FK) made
+    // worth ruling out — a not-yet-captain-approved joiner could
+    // previously be tagged. This is the enforcement point (not
+    // PlayersService.listTeammates's own default — that method stays
+    // unfiltered by default, per a code-critic finding, 2026-08-06
+    // pre-merge pass: it backs two other, unrelated pickers — captain
+    // transfer and GDPR erasure successor — that must not be narrowed by
+    // this ADR's own reasoning). The message deliberately still contains
+    // the substring "taggedPlayerId" so the mobile tag-picker's existing
+    // catch (V5CaptionChallenge.tsx) handles this 400 correctly
+    // (design doc §7's "secondary, acceptable" option — the one actually
+    // shipped here, since `GET .../teammates`'s own opt-in
+    // `approvedOnly` narrowing, once the tag-picker's mobile call site
+    // is updated to request it, is frontend-developer's follow-up work,
+    // not wired by this backend change).
+    if (
+      tagged.teamId !== teamId ||
+      tagged.teamJoinStatus !== TeamJoinStatus.APPROVED
+    ) {
+      throw new BadRequestException(
+        'taggedPlayerId must belong to the same team as the requesting player and have an approved team join.',
+      );
+    }
+  }
+
+  /**
+   * The caption moderation gate, extracted for the same reason as the tag
+   * check above — and this one matters more: a caption supplied at
+   * `complete` that skipped `chatModerationCheck` would be a straight
+   * moderation bypass on child-authored text, reachable by any
+   * authenticated player. There is deliberately no path that writes a
+   * caption without passing through here.
+   */
+  /**
+   * A tag that was stored at create time, re-checked leniently: returns it
+   * if the teammate is still there and still eligible, or `null` if they
+   * are not. Deliberately does NOT throw, unlike the strict check used for
+   * a client-supplied tag — the caller did not just assert this value, and
+   * the realistic way it goes stale is the tagged teammate erasing their
+   * own account mid-upload (ON DELETE SET NULL on the FK), which is not the
+   * uploader's error to be punished for.
+   */
+  private async resolveStoredTagOrClear(
+    teamId: string,
+    storedTagId: string | null,
+  ): Promise<string | null> {
+    if (!storedTagId) return null;
+    const tagged = await this.playersService.findById(storedTagId);
+    if (
+      !tagged ||
+      tagged.teamId !== teamId ||
+      tagged.teamJoinStatus !== TeamJoinStatus.APPROVED
+    ) {
+      return null;
+    }
+    return storedTagId;
+  }
+
+  private async assertCaptionAllowed(
+    caption: string | undefined,
+  ): Promise<void> {
+    if (!caption) return;
+    const moderation = await this.chatModerationCheck.check(caption);
+    if (!moderation.allowed) {
+      throw new CaptionRejectedByFilterException();
+    }
+  }
+
+  /**
+   * `metadata` supports the background-upload flow (BACKLOG.md): the client
+   * may now mint the upload URL and start pushing bytes the moment a file
+   * is picked — before the player has written a caption or chosen a tag —
+   * and supply both here instead. Omitted entirely by the original flow,
+   * which still sets them at create time; when present they overwrite,
+   * since they are the player's later, more considered answer.
+   *
+   * **Both go through the exact same validation as the create path**, via
+   * the two shared helpers above rather than a second copy. A caption
+   * arriving here that skipped `chatModerationCheck` would be a moderation
+   * bypass on child-authored text, and a tag that skipped the team/approval
+   * check would be an authorization one.
+   */
   async completeUpload(
     teamId: string,
     requesterId: string,
     clipId: string,
+    metadata: {
+      caption?: string | null;
+      taggedPlayerId?: string | null;
+    } = {},
   ): Promise<CompleteUploadResponse> {
-    await this.playersService.assertTeamMembership(requesterId, teamId);
+    const player = await this.playersService.assertTeamMembership(
+      requesterId,
+      teamId,
+    );
+    // Security-reviewer finding, 2026-08-09: this endpoint accepts the bytes
+    // into the published feed and hands back a playback URL, so CLAUDE.md's
+    // "parental approval before any account can upload media" applies here
+    // as much as at `upload-url`. Every sibling media endpoint already gates
+    // both; this one checked team membership alone. The create->complete
+    // window is now an entire captioning session, which is exactly when a
+    // revocation would land.
+    assertConsentApproved(player.parentalConsentStatus);
+    assertTeamJoinApproved(player.teamJoinStatus);
 
+    // The clip lookup comes BEFORE any metadata validation, deliberately.
+    // With the asserts first, a caller needed no clip at all to reach the
+    // caption moderation filter, and could read a clean binary oracle over
+    // the wordlist off the 400-vs-404 response — see the rate limit below.
     const clip = await this.videoClipRepository.findOne({
       where: {
         id: clipId,
@@ -333,6 +416,64 @@ export class VideoClipsService {
     if (!clip) {
       throw new ClipNotFoundException();
     }
+
+    // `undefined` means "keep whatever create stored"; explicit `null` means
+    // "clear it". Both fields agree on that, which they previously did not:
+    // `@IsOptional()` skips validation for `null` as well as `undefined`, so
+    // `caption: null` reached a `.trim()` on null and threw — after the
+    // download, ffprobe, remux and re-upload had already run, leaving the
+    // row pending and the object intact, i.e. an infinitely repeatable
+    // ~75MB-per-request amplification loop. Resolved here, before any
+    // storage work, rather than in the middle of it.
+    const effectiveCaption =
+      metadata.caption !== undefined
+        ? (metadata.caption?.trim() ?? '') || null
+        : clip.caption;
+    const suppliedTag =
+      metadata.taggedPlayerId !== undefined
+        ? metadata.taggedPlayerId || null
+        : undefined;
+
+    if (
+      metadata.caption !== undefined ||
+      metadata.taggedPlayerId !== undefined
+    ) {
+      // `upload-url` claims its allowance before running the filter, on
+      // purpose, "so repeated filter-probing on the caption still costs the
+      // uploader's quota, not free". This path needs its own for the same
+      // reason — owning one pending clip would otherwise buy unlimited
+      // probes at the generic 300/min/IP backstop.
+      const claimed =
+        await this.redisService.tryClaimClipCompleteAllowance(requesterId);
+      if (!claimed) {
+        throw new ClipUploadRateLimitedException();
+      }
+    }
+
+    if (suppliedTag !== undefined) {
+      // Client-supplied: strict, exactly as at create.
+      await this.assertTaggedPlayerAllowed(teamId, suppliedTag ?? undefined);
+    }
+    if (metadata.caption !== undefined) {
+      // Only what the CALLER supplied is re-moderated. A caption that came
+      // from `create` was already filtered there, and re-running it would
+      // cost a filter call per complete for no added guarantee. The
+      // invariant that matters still holds: every value that reaches the
+      // column passed the filter on the path that introduced it.
+      await this.assertCaptionAllowed(effectiveCaption ?? undefined);
+    }
+
+    // A tag stored at create time is re-checked leniently rather than
+    // trusted: `video_clip.tagged_player_id` is ON DELETE SET NULL, so a
+    // teammate erasing their account mid-upload leaves this in-memory
+    // snapshot holding a UUID the row no longer has. Writing it back would
+    // violate the FK and 500 on every retry, burning a full remux each
+    // time. Resolving to null instead is the honest outcome — the person
+    // being challenged no longer exists.
+    const effectiveTag =
+      suppliedTag !== undefined
+        ? suppliedTag
+        : await this.resolveStoredTagOrClear(teamId, clip.taggedPlayerId);
 
     const head = await this.objectStorageService.headObject(clip.storageKey);
     if (!head) {
@@ -435,15 +576,53 @@ export class VideoClipsService {
       // way an email send would be — same "one more step in the same
       // transaction" pattern ADR-0005's goal-bonus check already
       // established (see TrainingLogsService.logTraining).
-      await this.dataSource.transaction(async (manager) => {
-        await manager
-          .getRepository(VideoClip)
-          .update(
-            { id: clip.id },
-            { status: VideoClipStatus.PUBLISHED, expiresAt },
-          );
+      // Resolved before any of the storage work above; applied here in the
+      // SAME transaction as the publish flip, never as a follow-up write
+      // that could leave a clip published with a caption the player had
+      // already replaced.
+      clip.caption = effectiveCaption;
+      clip.taggedPlayerId = effectiveTag;
+
+      const lostRace = await this.dataSource.transaction(async (manager) => {
+        // `status: PENDING_UPLOAD` in the WHERE clause, and `affected`
+        // actually checked — security-reviewer finding, 2026-08-09. This
+        // update previously matched on id alone and ignored its result, so
+        // two things went wrong silently. A `complete` racing a delete (the
+        // child pressing "discard" during a background upload, or the
+        // hourly abandoned-upload sweep) would find 0 rows, commit an empty
+        // transaction, and still return 200 published with a working
+        // playback URL — for a clip whose row is gone and whose object this
+        // method had just re-created, leaving a file no retention sweep can
+        // ever reach, since both sweeps iterate rows. And two CONCURRENT
+        // completes would both match, both publish, and both post the
+        // challenge message, naming the tagged child twice in team chat.
+        const result = await manager.getRepository(VideoClip).update(
+          { id: clip.id, status: VideoClipStatus.PENDING_UPLOAD },
+          {
+            status: VideoClipStatus.PUBLISHED,
+            expiresAt,
+            caption: clip.caption,
+            taggedPlayerId: clip.taggedPlayerId,
+          },
+        );
+        if (!result.affected) {
+          return true;
+        }
+        // Reads clip.taggedPlayerId, so it must run after the assignment
+        // above — otherwise a tag chosen during the background upload would
+        // publish without ever notifying the tagged teammate.
         await this.postChallengeSystemMessageIfTagged(manager, teamId, clip);
+        return false;
       });
+
+      if (lostRace) {
+        // The row went away (or another request published it) while this
+        // one was remuxing. Remove the object this method re-uploaded a few
+        // lines above, so a deleted clip's bytes don't outlive it, and
+        // report the same 404 a fresh caller would get.
+        await this.objectStorageService.deleteObjectIfExists(clip.storageKey);
+        throw new ClipNotFoundException();
+      }
 
       const playbackUrl = await this.objectStorageService.createPresignedGetUrl(
         clip.storageKey,

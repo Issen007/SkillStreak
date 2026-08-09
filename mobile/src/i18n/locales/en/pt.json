@@ -1,0 +1,42 @@
+{
+  "mine": {
+    "title": "My trainers",
+    "statusActive": "Active",
+    "statusPending": "Awaiting reply",
+    "statusEnded": "Ended",
+    "seeingSince": "Has seen your training since {{date}}",
+    "pendingSince": "Asked {{date}}",
+    "endedOn": "Ended {{date}}",
+    "end": "End",
+    "yourChoice": "It is always your choice. You can end it right away, without asking anyone.",
+    "confirmTitle": "End with {{name}}?",
+    "confirmBody": "{{name}} will no longer see your training.",
+    "confirmAgain": "You can say yes again later if you want.",
+    "cancel": "Cancel",
+    "confirm": "End",
+    "ended": "Done — {{name}} can no longer see your training."
+  },
+  "captain": {
+    "title": "Trainers",
+    "invite": "Invite a trainer",
+    "memberSince": "With the team since {{date}}",
+    "remove": "Remove",
+    "empty": "No trainers are linked to the team.",
+    "codeTitle": "Give this code to the trainer",
+    "codeValidity": "The code is valid for 24 hours.",
+    "share": "Share",
+    "done": "Done",
+    "removeTitle": "Remove {{name}}?",
+    "removeBody": "{{name}} immediately stops seeing every player's training in the team — including those who said yes.",
+    "removeNoEmail": "Families are not emailed about this.",
+    "cancel": "Cancel",
+    "confirm": "Remove",
+    "removed": "{{name}} was removed.",
+    "removedWithConsents": "{{name}} was removed. {{count}} approvals ended."
+  },
+  "errors": {
+    "linkGone": "Your link to the team has ended.",
+    "notCaptain": "Only the team captain can do this.",
+    "generic": "Something went wrong. Try again."
+  }
+}

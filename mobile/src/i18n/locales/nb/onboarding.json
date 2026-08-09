@@ -6,36 +6,20 @@
   },
   "o1": {
     "heading": "Hvilket lag spiller du for?",
-    "sub": "Spør treneren din om lagets kode.",
+    "sub": "Spør treneren om lagets kode. Har dere ikke noe lag ennå? Finn på din egen kode, så hjelper vi deg å starte laget.",
     "codePlaceholder": "F.eks. FALKEN24",
     "findTeamButton": "Finn laget mitt",
     "returningUserLink": "Har du allerede en konto?"
   },
   "o1a": {
-    "heading": "Vi fant ikke noe lag med koden <code>{{inviteCode}}</code>",
-    "sub": "Ingen fare — velg det som stemmer for deg:",
-    "wrongCodeTitle": "Jeg skrev nok feil",
-    "wrongCodeSub": "Prøv koden igjen",
-    "createTeamTitle": "Laget vårt har ingen kode ennå",
-    "createTeamSub": "Opprett et nytt lag med denne koden",
-    "helper": "Usikker? Spør treneren din før du oppretter et nytt lag."
-  },
-  "o1b": {
-    "codeChip": "Lagkode: {{inviteCode}}",
-    "changeCode": "Bytt kode",
-    "heading": "Hva skal laget deres hete?",
-    "sub": "Du blir lagets første spiller — og kaptein! Velg et navn resten av laget kan være stolte av.",
+    "heading": "Vi fant ingen lag med koden {{inviteCode}}",
+    "sub": "Er det et nytt lag? Gi det et navn, så oppretter vi det for deg.",
     "nameLabel": "Lagnavn",
-    "namePlaceholder": "F.eks. IBK Falken P13",
-    "helper": "Andre lag kan se navnet på resultatlisten.",
-    "next": "Neste"
-  },
-  "o1c": {
-    "heading": "Opprette {{teamName}}?",
-    "sub": "Lagkode: {{inviteCode}} — del den med lagkamerater så de kan bli med senere.",
-    "tip": "Navnet og koden kan ikke endres etterpå, så dobbeltsjekk at alt stemmer!",
-    "confirm": "Ja, opprett laget!",
-    "editName": "Nei, endre navnet"
+    "namePlaceholder": "F.eks. IBK Falken G13",
+    "codeLabel": "Lagkode — del den med lagkameratene dine så de kan bli med",
+    "permanentTip": "Navnet og koden kan ikke endres senere, så dobbeltsjekk at alt stemmer!",
+    "createButton": "Opprett laget",
+    "wrongCode": "Jeg skrev nok feil kode"
   },
   "o2": {
     "heading": "Blir du med i {{teamName}}?",

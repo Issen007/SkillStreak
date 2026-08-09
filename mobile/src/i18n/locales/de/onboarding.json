@@ -6,36 +6,20 @@
   },
   "o1": {
     "heading": "Für welches Team spielst du?",
-    "sub": "Frag deinen Trainer nach dem Team-Code.",
+    "sub": "Frag deine Trainerin oder deinen Trainer nach dem Team-Code. Noch kein Team? Denk dir einen eigenen Code aus — wir helfen dir, das Team zu gründen.",
     "codePlaceholder": "Z. B. FALKEN24",
     "findTeamButton": "Mein Team finden",
     "returningUserLink": "Hast du schon ein Konto?"
   },
   "o1a": {
-    "heading": "Wir haben kein Team mit dem Code <code>{{inviteCode}}</code> gefunden",
-    "sub": "Kein Problem — wähl aus, was auf dich zutrifft:",
-    "wrongCodeTitle": "Ich habe mich wohl vertippt",
-    "wrongCodeSub": "Code noch einmal versuchen",
-    "createTeamTitle": "Unser Team hat noch keinen Code",
-    "createTeamSub": "Neues Team mit diesem Code erstellen",
-    "helper": "Unsicher? Frag deinen Trainer, bevor du ein neues Team erstellst."
-  },
-  "o1b": {
-    "codeChip": "Team-Code: {{inviteCode}}",
-    "changeCode": "Code ändern",
-    "heading": "Wie soll euer Team heißen?",
-    "sub": "Du wirst der erste Spieler im Team — und Kapitän! Wähl einen Namen, auf den der Rest des Teams stolz sein kann.",
+    "heading": "Wir haben kein Team mit dem Code {{inviteCode}} gefunden",
+    "sub": "Ist es ein neues Team? Gib ihm einen Namen, dann legen wir es für dich an.",
     "nameLabel": "Teamname",
-    "namePlaceholder": "Z. B. IBK Falken P13",
-    "helper": "Andere Teams können den Namen in der Bestenliste sehen.",
-    "next": "Weiter"
-  },
-  "o1c": {
-    "heading": "{{teamName}} erstellen?",
-    "sub": "Team-Code: {{inviteCode}} — teile ihn mit deinen Teamkolleg:innen, damit sie später beitreten können.",
-    "tip": "Name und Code lassen sich später nicht mehr ändern — also lieber noch mal alles überprüfen!",
-    "confirm": "Ja, Team erstellen!",
-    "editName": "Nein, Namen ändern"
+    "namePlaceholder": "z. B. IBK Falken U13",
+    "codeLabel": "Team-Code — teile ihn mit deinen Teamkolleginnen und -kollegen, damit sie mitmachen können",
+    "permanentTip": "Name und Code lassen sich später nicht mehr ändern — prüf also lieber zweimal!",
+    "createButton": "Team anlegen",
+    "wrongCode": "Ich habe den Code wohl falsch geschrieben"
   },
   "o2": {
     "heading": "Trittst du {{teamName}} bei?",

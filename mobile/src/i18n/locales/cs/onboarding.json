@@ -6,36 +6,20 @@
   },
   "o1": {
     "heading": "Za jaký tým hraješ?",
-    "sub": "Zeptej se trenéra na kód týmu.",
+    "sub": "Zeptej se trenéra na kód týmu. Ještě žádný tým nemáte? Vymysli si vlastní kód a my ti pomůžeme tým založit.",
     "codePlaceholder": "Např. FALKEN24",
     "findTeamButton": "Najít můj tým",
     "returningUserLink": "Máš už účet?"
   },
   "o1a": {
-    "heading": "Tým s kódem <code>{{inviteCode}}</code> jsme nenašli",
-    "sub": "Žádný problém — vyber, co se hodí na tebe:",
-    "wrongCodeTitle": "Asi jsem se překlepl(a)",
-    "wrongCodeSub": "Zkusit kód znovu",
-    "createTeamTitle": "Náš tým ještě nemá kód",
-    "createTeamSub": "Vytvořit nový tým s tímto kódem",
-    "helper": "Nejsi si jistý/á? Zeptej se trenéra, než založíš nový tým."
-  },
-  "o1b": {
-    "codeChip": "Kód týmu: {{inviteCode}}",
-    "changeCode": "Změnit kód",
-    "heading": "Jak se bude jmenovat váš tým?",
-    "sub": "Staneš se prvním hráčem týmu — a kapitánem! Vyber jméno, na které může být hrdý celý tým.",
+    "heading": "Nenašli jsme tým s kódem {{inviteCode}}",
+    "sub": "Je to nový tým? Dej mu jméno a my ho pro tebe založíme.",
     "nameLabel": "Název týmu",
-    "namePlaceholder": "Např. IBK Falken P13",
-    "helper": "Ostatní týmy uvidí tento název na žebříčku.",
-    "next": "Další"
-  },
-  "o1c": {
-    "heading": "Vytvořit {{teamName}}?",
-    "sub": "Kód týmu: {{inviteCode}} — sdílej ho se spoluhráči, aby se mohli později připojit.",
-    "tip": "Název ani kód později nepůjde změnit, tak si vše dvakrát zkontroluj!",
-    "confirm": "Ano, vytvořit tým!",
-    "editName": "Ne, upravit název"
+    "namePlaceholder": "Např. IBK Falken U13",
+    "codeLabel": "Kód týmu — sdílej ho se spoluhráči, aby se mohli přidat",
+    "permanentTip": "Název ani kód už později nepůjde změnit, tak si to radši zkontroluj!",
+    "createButton": "Založit tým",
+    "wrongCode": "Asi jsem napsal kód špatně"
   },
   "o2": {
     "heading": "Připojuješ se k {{teamName}}?",

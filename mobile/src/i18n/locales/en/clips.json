@@ -102,7 +102,8 @@
     "captionRejected": "The caption couldn't be saved — it contained words that don't work here. Try rewriting it! ✍️",
     "rateLimited": "You're uploading Shorts a bit fast right now. Wait a little while and it'll work again.",
     "taggedPlayerGone": "That player is no longer on the team. Choose someone else, or no one.",
-    "genericError": "Something went wrong. Try again."
+    "genericError": "Something went wrong. Try again.",
+    "uploadStalled": "The upload stalled. Finish writing — we'll try again when you send."
   },
   "v6": {
     "heading": "Uploading your Shorts…",
@@ -111,7 +112,10 @@
     "cancel": "Cancel",
     "backToFeed": "Back to the feed",
     "retryFailure": "Something went wrong with the upload. We'll try again from the start.",
-    "giveUp": "The upload didn't succeed this time. Check your connection and try again."
+    "giveUp": "The upload didn't succeed this time. Check your connection and try again.",
+    "finishingHeading": "Saving your Shorts…",
+    "captionRejected": "That caption wasn't allowed. Change it and try again.",
+    "uploadExpired": "The clip expired before it was saved. Pick it again and we'll upload it fresh."
   },
   "v7": {
     "heading": "Your Shorts is up! 🎉",

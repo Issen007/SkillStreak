@@ -42,6 +42,7 @@ function buildService(overrides: {
     save: jest.fn((entity: unknown) => Promise.resolve(entity)),
     create: jest.fn((entity: unknown) => entity),
     findOne: jest.fn().mockResolvedValue(null),
+    find: jest.fn().mockResolvedValue([]),
     count: jest.fn().mockResolvedValue(0),
     ...overrides.ptPlayerConsentRepository,
   };
@@ -58,6 +59,7 @@ function buildService(overrides: {
     findOne: jest
       .fn()
       .mockResolvedValue({ email: 'pt@example.com', displayName: 'Coach PT' }),
+    find: jest.fn().mockResolvedValue([]),
     ...overrides.staffAccountRepository,
   };
   const playersService = {
@@ -402,5 +404,124 @@ describe('PtConsentService.playerSelfRevoke (Decision A4 lever 1)', () => {
         revokedReason: 'parent_or_player_revoked',
       }),
     );
+  });
+});
+
+// Screen PL1's list (docs/design/phase8-pt-flows.md §7). The read side of
+// Decision A4's self-service revoke lever, which shipped without one — a
+// child could revoke, but never see what.
+describe('PtConsentService.listOwnConsents', () => {
+  const rows = [
+    {
+      id: 'consent-1',
+      ptStaffAccountId: 'pt-1',
+      status: PtPlayerConsentStatus.APPROVED,
+      decidedAt: new Date('2026-06-12T00:00:00.000Z'),
+      revokedAt: null,
+    },
+    {
+      id: 'consent-2',
+      ptStaffAccountId: 'pt-2',
+      status: PtPlayerConsentStatus.REVOKED,
+      decidedAt: new Date('2026-05-01T00:00:00.000Z'),
+      revokedAt: new Date('2026-08-02T00:00:00.000Z'),
+    },
+  ];
+
+  it('returns the player’s own relationships with the PT’s display name resolved', async () => {
+    const { service } = buildService({
+      ptPlayerConsentRepository: {
+        find: jest.fn().mockResolvedValue(rows),
+      },
+      staffAccountRepository: {
+        find: jest.fn().mockResolvedValue([
+          { id: 'pt-1', displayName: 'Anna Svensson', email: 'a@x.se' },
+          { id: 'pt-2', displayName: 'Jonas Berg', email: 'j@x.se' },
+        ]),
+      },
+    });
+
+    await expect(service.listOwnConsents('player-1')).resolves.toEqual([
+      {
+        id: 'consent-1',
+        ptDisplayName: 'Anna Svensson',
+        status: PtPlayerConsentStatus.APPROVED,
+        decidedAt: '2026-06-12T00:00:00.000Z',
+        revokedAt: null,
+      },
+      {
+        id: 'consent-2',
+        ptDisplayName: 'Jonas Berg',
+        status: PtPlayerConsentStatus.REVOKED,
+        decidedAt: '2026-05-01T00:00:00.000Z',
+        revokedAt: '2026-08-02T00:00:00.000Z',
+      },
+    ]);
+  });
+
+  // Filtering by the caller's own playerId is the whole authorization
+  // story here — there is no id in the request to tamper with.
+  it('scopes the query to the caller and omits declined/expired rows', async () => {
+    const find = jest.fn().mockResolvedValue([]);
+    const { service } = buildService({
+      ptPlayerConsentRepository: { find },
+    });
+
+    await service.listOwnConsents('player-1');
+
+    const [[criteria]] = find.mock.calls as [
+      [{ where: { playerId: string; status: { value: string[] } } }],
+    ];
+    expect(criteria.where.playerId).toBe('player-1');
+    expect(criteria.where.status.value).toEqual([
+      PtPlayerConsentStatus.PENDING_REVIEW,
+      PtPlayerConsentStatus.APPROVED,
+      PtPlayerConsentStatus.REVOKED,
+    ]);
+    // A declined request is a relationship that never existed; showing a
+    // child a stream of requests their parent quietly turned down is not
+    // this screen's job.
+    expect(criteria.where.status.value).not.toContain(
+      PtPlayerConsentStatus.DECLINED,
+    );
+  });
+
+  it('never queries staff accounts when the player has no relationships', async () => {
+    const staffFind = jest.fn().mockResolvedValue([]);
+    const { service } = buildService({
+      ptPlayerConsentRepository: { find: jest.fn().mockResolvedValue([]) },
+      staffAccountRepository: { find: staffFind },
+    });
+
+    await expect(service.listOwnConsents('player-1')).resolves.toEqual([]);
+    expect(staffFind).not.toHaveBeenCalled();
+  });
+
+  // Apple withholds a display name on every login after the first, so an
+  // account can legitimately have none. A blank row is unactionable for a
+  // child deciding whether to end a relationship.
+  it('falls back to the email, then a placeholder, when no display name exists', async () => {
+    const { service } = buildService({
+      ptPlayerConsentRepository: {
+        find: jest
+          .fn()
+          .mockResolvedValue([
+            rows[0],
+            { ...rows[1], ptStaffAccountId: 'ghost' },
+          ]),
+      },
+      staffAccountRepository: {
+        find: jest
+          .fn()
+          .mockResolvedValue([
+            { id: 'pt-1', displayName: null, email: 'a@x.se' },
+          ]),
+      },
+    });
+
+    const result = await service.listOwnConsents('player-1');
+
+    expect(result[0].ptDisplayName).toBe('a@x.se');
+    expect(result[1].ptDisplayName).toBe('—');
   });
 });

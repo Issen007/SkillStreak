@@ -97,6 +97,11 @@ const styles = StyleSheet.create({
   },
   textBlock: {
     flexShrink: 1,
+    // Reserves the badge's corner now that it sits inside the card. The
+    // Swedish label stops well short of it, but this block is the one
+    // element that grows with translation length — de/fi run longer, and
+    // without a gutter a long label would wrap straight under the badge.
+    paddingRight: 52,
   },
   count: {
     fontFamily: fonts.headingBold,
@@ -127,10 +132,26 @@ const styles = StyleSheet.create({
   // opposite corner so the two can never collide even when both show at
   // once (`alreadyLoggedToday` + a nonzero banked count are unrelated and
   // can co-occur).
+  //
+  // **Moved inside the card's bounds 2026-08-09** (project owner's
+  // screenshot, BACKLOG.md). It used to overhang at `bottom: -10, right:
+  // -4`, mirroring `checkChip` above — and on the web build that overhang
+  // came out sliced by the card's own rounded corner, so a shipped feature
+  // rendered as a visual glitch. Rather than chase which layer did the
+  // clipping (the card's `borderRadius` under React Native Web, or paint
+  // order), the badge now sits fully within the padding box, where no
+  // ancestor's overflow or stacking behaviour can reach it on any
+  // platform. `zIndex` is belt-and-braces for the paint-order case.
+  //
+  // `checkChip` above keeps its overhang deliberately: it is a transient,
+  // self-explanatory "logged today" confirmation, so a clipped corner
+  // costs little — whereas this badge IS the feature's only affordance,
+  // and it also has to stay tappable.
   saverBadge: {
     position: 'absolute',
-    bottom: -10,
-    right: -4,
+    bottom: 8,
+    right: 10,
+    zIndex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
