@@ -433,10 +433,15 @@ export function createClipUploadUrl(
 export function completeClipUpload(
   teamId: string,
   clipId: string,
+  /** Background upload: the caption and tag are written here rather than at
+   * upload-url time, because the bytes start moving before the player has
+   * typed anything. Omit both on the original flow. An explicit `null`
+   * clears a value set at create time; `undefined` keeps it. */
+  metadata: { caption?: string | null; taggedPlayerId?: string | null } = {},
 ): Promise<CompleteClipUploadResponse> {
   return apiClient.request<CompleteClipUploadResponse>(
     `/teams/${encodeURIComponent(teamId)}/clips/${encodeURIComponent(clipId)}/complete`,
-    { method: 'POST', auth: true },
+    { method: 'POST', body: metadata, auth: true },
   );
 }
 

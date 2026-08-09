@@ -1,260 +1,164 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
-import * as FileSystem from 'expo-file-system/legacy';
+import { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { SecondaryButton } from '../../components/SecondaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
-import { completeClipUpload, createClipUploadUrl, deleteClip } from '../../api/endpoints';
+import { completeClipUpload } from '../../api/endpoints';
 import { ApiError, isConsentRequiredError } from '../../api/ApiError';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import type { CompleteClipUploadResponse, CreateClipUploadUrlResponse } from '../../api/types';
-import type { PickedClip } from './PickedClip';
-
-// One silent automatic retry-from-scratch (per the flow doc's V6 note) —
-// capped rather than looped forever, so a persistently bad connection
-// surfaces a manual retry instead of silently burning through the upload
-// rate limit.
-const MAX_AUTOMATIC_ATTEMPTS = 2;
-
-/** `expo-file-system`'s `createUploadTask`/`uploadAsync` (used below for
- * native) has no web implementation at all — `ExponentFileSystemShim`
- * (the package's own `.web.ts`) doesn't define `uploadTaskStartAsync`,
- * so calling it on web throws immediately, every attempt, every retry.
- * Confirmed live 2026-07-31 as the cause of every "try it" site upload
- * failing with the generic give-up message. Web instead does the same
- * presigned `PUT` via `XMLHttpRequest` directly (not `fetch`, which has no
- * cross-browser upload-progress event) — `clip.uri` on web is a `blob:`
- * URL from `expo-image-picker`'s own web implementation, fetched into a
- * real `Blob` first since `XMLHttpRequest.send` needs the bytes, not a
- * reference to them. Requires the S3-compatible bucket to actually allow
- * this cross-origin request (see `ObjectStorageService
- * .configureCorsPolicy` on the backend) — a browser enforces CORS on this
- * `PUT`, unlike native's direct native-module HTTP call. */
-async function putViaXhrForWeb(
-  uploadUrl: string,
-  headers: Record<string, string>,
-  fileUri: string,
-  onXhrReady: (xhr: XMLHttpRequest) => void,
-  onProgress: (sentBytes: number, totalBytes: number) => void,
-): Promise<{ status: number }> {
-  const blob = await (await fetch(fileUri)).blob();
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    onXhrReady(xhr);
-    xhr.open('PUT', uploadUrl);
-    Object.entries(headers).forEach(([key, value]) => xhr.setRequestHeader(key, value));
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) onProgress(event.loaded, event.total);
-    };
-    xhr.onload = () => resolve({ status: xhr.status });
-    xhr.onerror = () => reject(new Error('Network error during the upload PUT.'));
-    xhr.onabort = () => reject(new Error('Upload cancelled.'));
-    xhr.send(blob);
-  });
-}
+import type { ClipUploadSession, ClipUploadState } from './clipUploadSession';
 
 interface V6UploadProgressProps {
   teamId: string;
-  clip: PickedClip;
+  /** The transfer started back at V4. Null only in the defensive case
+   * where the flow was somehow entered without one. */
+  session: ClipUploadSession | null;
   caption: string | undefined;
   taggedPlayerId: string | undefined;
-  initialUpload: CreateClipUploadUrlResponse;
-  onSuccess: (response: CompleteClipUploadResponse) => void;
+  onSuccess: () => void;
+  /** Called when `complete` rejects the caption — the only screen that can
+   * fix it is V5, and the player's text has to survive the trip. */
+  onEditCaption: (reason: string) => void;
   onConsentRevoked: () => void;
   onCancel: () => void;
 }
 
-/** Screen V6 — "Laddar upp klippet…" The required two-phase sequence:
- * `PUT` the raw bytes to `uploadUrl` directly (never through this app's own
- * API), then call `complete`. Never skip the second call, even though the
- * `PUT` alone can appear to succeed — `published`/`expiresAt` are only ever
- * set by `complete` (per the contract's explicit note, and this project's
- * own history of code-critic catching "skip step 2" bugs in similar
- * flows). */
+/**
+ * Screen V6 — the finishing step.
+ *
+ * **No longer owns the upload.** The bytes have been moving since V4 (see
+ * ClipUploadSession), so on a normal upload this screen appears with the
+ * transfer already finished and only has to call `complete` — which is the
+ * entire point of the change: the child stops waiting for something that
+ * could have happened while they typed.
+ *
+ * It still renders a progress bar, because "already finished" is the
+ * common case and not a guarantee — a long clip on a slow connection can
+ * still be mid-flight here, and that is precisely when a progress bar is
+ * worth showing.
+ *
+ * `complete` is where the caption and tag are sent, so it is also where
+ * their errors surface. Both route the player back to V5 with what they
+ * wrote intact rather than dead-ending on this screen.
+ */
 export function V6UploadProgress({
   teamId,
-  clip,
+  session,
   caption,
   taggedPlayerId,
-  initialUpload,
   onSuccess,
+  onEditCaption,
   onConsentRevoked,
   onCancel,
 }: V6UploadProgressProps) {
   const { t } = useTranslation('clips');
-  const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState<'uploading' | 'completing'>('uploading');
-  const [manualError, setManualError] = useState<string | null>(null);
+  const [uploadState, setUploadState] = useState<ClipUploadState>(
+    session?.getState() ?? { kind: 'failed', retryable: false },
+  );
+  const [completing, setCompleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
-  const currentUploadRef = useRef(initialUpload);
-  const attemptRef = useRef(1);
-  // Exactly one of these is live per attempt, per platform (see
-  // `putViaXhrForWeb`'s comment for why web can't use `FileSystem.UploadTask`
-  // at all) — `handleCancel` below checks both since it doesn't know which.
-  const uploadTaskRef = useRef<FileSystem.UploadTask | null>(null);
-  const xhrRef = useRef<XMLHttpRequest | null>(null);
-  const cancelledRef = useRef(false);
-  const runIdRef = useRef(0);
+  useEffect(() => {
+    if (!session) return undefined;
+    setUploadState(session.getState());
+    return session.subscribe(setUploadState);
+  }, [session]);
 
-  const runAttempt = useCallback(
-    async (upload: CreateClipUploadUrlResponse) => {
-      const runId = ++runIdRef.current;
-      currentUploadRef.current = upload;
-      uploadTaskRef.current = null;
-      xhrRef.current = null;
-      setPhase('uploading');
-      setProgress(0);
-      setManualError(null);
-
+  const finish = useCallback(
+    async (clipId: string) => {
+      setCompleting(true);
+      setError(null);
       try {
-        let result: { status: number } | null;
-        if (Platform.OS === 'web') {
-          result = await putViaXhrForWeb(
-            upload.uploadUrl,
-            upload.requiredHeaders,
-            clip.uri,
-            (xhr) => {
-              xhrRef.current = xhr;
-            },
-            (sentBytes, totalBytes) => {
-              if (runId !== runIdRef.current) return;
-              setProgress(totalBytes > 0 ? sentBytes / totalBytes : 0);
-            },
-          );
-        } else {
-          const task = FileSystem.createUploadTask(
-            upload.uploadUrl,
-            clip.uri,
-            {
-              httpMethod: 'PUT',
-              uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-              headers: upload.requiredHeaders,
-            },
-            (data) => {
-              if (runId !== runIdRef.current) return;
-              const total = data.totalBytesExpectedToSend;
-              setProgress(total > 0 ? data.totalBytesSent / total : 0);
-            },
-          );
-          uploadTaskRef.current = task;
-          const nativeResult = await task.uploadAsync();
-          result = nativeResult ? { status: nativeResult.status } : null;
-        }
-        if (cancelledRef.current || runId !== runIdRef.current) return;
-
-        if (!result || result.status < 200 || result.status >= 300) {
-          throw new Error(`Upload PUT failed with status ${result?.status ?? 'unknown'}`);
-        }
-
-        setPhase('completing');
-        const response = await completeClipUpload(teamId, upload.clipId);
-        if (cancelledRef.current || runId !== runIdRef.current) return;
-        onSuccess(response);
+        await completeClipUpload(teamId, clipId, { caption, taggedPlayerId });
+        onSuccess();
       } catch (err) {
-        if (cancelledRef.current || runId !== runIdRef.current) return;
-
         if (isConsentRequiredError(err)) {
           onConsentRevoked();
           return;
         }
-
-        const isRetryableContractError =
-          err instanceof ApiError &&
-          (err.code === 'upload_not_found' || err.code === 'clip_processing_failed');
-
-        if (attemptRef.current < MAX_AUTOMATIC_ATTEMPTS) {
-          attemptRef.current += 1;
-          try {
-            const freshUpload = await createClipUploadUrl(teamId, {
-              mimeType: clip.mimeType,
-              fileSizeBytes: clip.fileSizeBytes,
-              durationSeconds: clip.durationSeconds,
-              caption,
-              taggedPlayerId,
-            });
-            if (cancelledRef.current || runId !== runIdRef.current) return;
-            void runAttempt(freshUpload);
-            return;
-          } catch (retryErr) {
-            if (isConsentRequiredError(retryErr)) {
-              onConsentRevoked();
-              return;
-            }
-            // Fall through to the manual-error state below.
-          }
+        if (err instanceof ApiError && err.code === 'caption_rejected_by_filter') {
+          // The caption is only checked at complete now, so this is the
+          // first moment it can be rejected. Send the player back to the
+          // screen that can fix it, with their text intact — the transfer
+          // keeps its place, so this costs them nothing but the edit.
+          onEditCaption(t('v6.captionRejected'));
+          return;
+        } else if (err instanceof ApiError && err.code === 'clip_not_found') {
+          // The pending clip is gone: swept by the abandoned-upload job
+          // (its TTL runs from file-pick now, so a long captioning session
+          // can genuinely outlive it) or deleted elsewhere. The bytes are
+          // unrecoverable, so say so plainly rather than offering a retry
+          // that cannot work.
+          setError(t('v6.uploadExpired'));
+        } else {
+          setError(t('v6.giveUp'));
         }
-
-        setManualError(isRetryableContractError ? t('v6.retryFailure') : t('v6.giveUp'));
+      } finally {
+        setCompleting(false);
       }
     },
-    [teamId, clip, caption, taggedPlayerId, onSuccess, onConsentRevoked, t],
+    [teamId, caption, taggedPlayerId, onSuccess, onEditCaption, onConsentRevoked, t],
   );
 
+  // Fires as soon as the transfer reports done — usually immediately on
+  // mount, since it has been running since V4.
   useEffect(() => {
-    void runAttempt(initialUpload);
-    return () => {
-      cancelledRef.current = true;
-    };
-    // Only ever run once per mount — retries are driven internally via
-    // `runAttempt`'s own recursion, not by re-running this effect.
+    if (uploadState.kind === 'uploaded' && !completing && !error) {
+      void finish(uploadState.upload.clipId);
+    }
+    if (uploadState.kind === 'consent-revoked') {
+      onConsentRevoked();
+    }
+    // `completing`/`error` are guards, not triggers — including them would
+    // re-fire this the moment either clears.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [uploadState]);
 
   const handleCancel = async () => {
     setCancelling(true);
-    cancelledRef.current = true;
-    try {
-      xhrRef.current?.abort();
-      await uploadTaskRef.current?.cancelAsync();
-    } catch {
-      // Non-critical — the DELETE below (or, failing that, the pending_upload
-      // TTL sweep) is the real cleanup regardless of whether the client-side
-      // cancel itself succeeded.
-    }
-    try {
-      // Judgment call (flagged for backend-developer, per the flow doc):
-      // "Avbryt" deletes the still-pending_upload clip immediately rather
-      // than waiting on the ~1 hour TTL sweep. Best-effort — if this fails,
-      // the sweep still cleans it up eventually.
-      await deleteClip(teamId, currentUploadRef.current.clipId);
-    } catch {
-      // Swallow — see above.
-    } finally {
-      onCancel();
-    }
+    await session?.cancel();
+    onCancel();
   };
 
-  const handleManualRetry = () => {
-    attemptRef.current = 1;
-    void runAttempt(currentUploadRef.current);
-  };
+  const failed = uploadState.kind === 'failed';
+  const progress =
+    uploadState.kind === 'uploading' ? uploadState.progress : 1;
+  const message = error ?? (failed ? t('v6.giveUp') : null);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>{t('v6.heading')}</Text>
+      <Text style={styles.heading}>
+        {completing ? t('v6.finishingHeading') : t('v6.heading')}
+      </Text>
       <Text style={styles.sub}>{t('v6.sub')}</Text>
 
       <View style={styles.barTrack}>
         <View
-          style={[
-            styles.barFill,
-            { width: `${Math.round((phase === 'completing' ? 1 : progress) * 100)}%` },
-          ]}
+          style={[styles.barFill, { width: `${Math.round(progress * 100)}%` }]}
         />
       </View>
 
-      {manualError ? (
+      {message ? (
         <>
-          <Text style={styles.errorText}>{manualError}</Text>
-          <SecondaryButton label={t('v6.retry')} onPress={handleManualRetry} />
+          <Text style={styles.errorText}>{message}</Text>
+          {failed ? (
+            <SecondaryButton
+              label={t('v6.retry')}
+              onPress={() => session?.retry()}
+            />
+          ) : null}
         </>
       ) : null}
 
-      <SecondaryButton label={t('v6.cancel')} loading={cancelling} onPress={() => void handleCancel()} />
-      {manualError ? <SecondaryLink label={t('v6.backToFeed')} onPress={onCancel} /> : null}
+      <SecondaryButton
+        label={t('v6.cancel')}
+        loading={cancelling}
+        onPress={() => void handleCancel()}
+      />
+      {message ? <SecondaryLink label={t('v6.backToFeed')} onPress={onCancel} /> : null}
     </View>
   );
 }

@@ -102,7 +102,8 @@
     "captionRejected": "La légende n'a pas pu être enregistrée — elle contenait des mots qui ne fonctionnent pas ici. Essaie de la réécrire ! ✍️",
     "rateLimited": "Tu mets des Shorts en ligne un peu vite en ce moment. Attends un petit moment, puis réessaie.",
     "taggedPlayerGone": "Ce joueur/cette joueuse n'est plus dans l'équipe. Choisis quelqu'un d'autre, ou personne.",
-    "genericError": "Un problème est survenu. Réessaie."
+    "genericError": "Un problème est survenu. Réessaie.",
+    "uploadStalled": "L'envoi s'est bloqué. Termine ton texte — on réessaiera à l'envoi."
   },
   "v6": {
     "heading": "Mise en ligne de ton Shorts…",
@@ -111,7 +112,10 @@
     "cancel": "Annuler",
     "backToFeed": "Retour au fil",
     "retryFailure": "Un problème est survenu pendant la mise en ligne. On réessaie depuis le début.",
-    "giveUp": "La mise en ligne n'a pas fonctionné cette fois. Vérifie ta connexion et réessaie."
+    "giveUp": "La mise en ligne n'a pas fonctionné cette fois. Vérifie ta connexion et réessaie.",
+    "finishingHeading": "Enregistrement de ton Shorts…",
+    "captionRejected": "La légende n'a pas été acceptée. Modifie-la et réessaie.",
+    "uploadExpired": "Le clip a expiré avant d'être enregistré. Choisis-le à nouveau et on le renvoie."
   },
   "v7": {
     "heading": "Ton Shorts est en ligne ! 🎉",

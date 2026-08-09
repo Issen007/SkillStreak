@@ -102,7 +102,8 @@
     "captionRejected": "Bildeteksten kunne ikke lagres — den inneholdt ord som ikke fungerer her. Prøv å skrive den om! ✍️",
     "rateLimited": "Du laster opp Shorts litt raskt akkurat nå. Vent litt, så går det bra igjen.",
     "taggedPlayerGone": "Den spilleren er ikke lenger på laget. Velg noen andre, eller ingen.",
-    "genericError": "Noe gikk galt. Prøv igjen."
+    "genericError": "Noe gikk galt. Prøv igjen.",
+    "uploadStalled": "Opplastingen stoppet opp. Skriv ferdig — vi prøver igjen når du sender."
   },
   "v6": {
     "heading": "Laster opp Shorts-videoen din…",
@@ -111,7 +112,10 @@
     "cancel": "Avbryt",
     "backToFeed": "Tilbake til strømmen",
     "retryFailure": "Noe gikk galt med opplastingen. Vi prøver igjen fra starten.",
-    "giveUp": "Opplastingen lyktes ikke denne gangen. Sjekk tilkoblingen din, og prøv igjen."
+    "giveUp": "Opplastingen lyktes ikke denne gangen. Sjekk tilkoblingen din, og prøv igjen.",
+    "finishingHeading": "Lagrer Shortsen din…",
+    "captionRejected": "Bildeteksten gikk ikke gjennom. Endre den og prøv igjen.",
+    "uploadExpired": "Klippet rakk å forsvinne. Velg det på nytt, så laster vi det opp igjen."
   },
   "v7": {
     "heading": "Shorts-videoen din er oppe! 🎉",

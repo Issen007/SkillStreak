@@ -102,7 +102,8 @@
     "captionRejected": "Popisek se nepodařilo uložit — obsahoval slova, která tady nefungují. Zkus ho přepsat! ✍️",
     "rateLimited": "Nahráváš Shorts zrovna trochu rychle. Chvíli počkej a bude to zase fungovat.",
     "taggedPlayerGone": "Tenhle hráč už není v týmu. Vyber někoho jiného, nebo nikoho.",
-    "genericError": "Něco se pokazilo. Zkus to znovu."
+    "genericError": "Něco se pokazilo. Zkus to znovu.",
+    "uploadStalled": "Nahrávání se zaseklo. Dopiš to — až odešleš, zkusíme to znovu."
   },
   "v6": {
     "heading": "Nahrává se tvoje Shorts video…",
@@ -111,7 +112,10 @@
     "cancel": "Zrušit",
     "backToFeed": "Zpět na feed",
     "retryFailure": "Při nahrávání se něco pokazilo. Zkusíme to znovu od začátku.",
-    "giveUp": "Nahrávání se tentokrát nepovedlo. Zkontroluj své připojení a zkus to znovu."
+    "giveUp": "Nahrávání se tentokrát nepovedlo. Zkontroluj své připojení a zkus to znovu.",
+    "finishingHeading": "Ukládáme tvůj Shorts…",
+    "captionRejected": "Popisek neprošel. Uprav ho a zkus to znovu.",
+    "uploadExpired": "Klip mezitím zmizel. Vyber ho znovu a nahrajeme ho ještě jednou."
   },
   "v7": {
     "heading": "Tvoje Shorts video je nahoře! 🎉",

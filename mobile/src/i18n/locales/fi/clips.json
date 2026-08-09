@@ -102,7 +102,8 @@
     "captionRejected": "Kuvatekstiä ei voitu tallentaa — se sisälsi sanoja, jotka eivät toimi täällä. Kirjoita se uudelleen, niin homma toimii! ✍️",
     "rateLimited": "Lataat Shorts-videoita nyt hieman liian nopeasti. Odota hetki, niin se onnistuu taas.",
     "taggedPlayerGone": "Kyseinen pelaaja ei ole enää joukkueessa. Valitse joku muu tai ei ketään.",
-    "genericError": "Jokin meni pieleen. Yritä uudelleen."
+    "genericError": "Jokin meni pieleen. Yritä uudelleen.",
+    "uploadStalled": "Lataus juuttui. Kirjoita loppuun — yritämme uudelleen kun lähetät."
   },
   "v6": {
     "heading": "Ladataan Shorts-videotasi…",
@@ -111,7 +112,10 @@
     "cancel": "Peruuta",
     "backToFeed": "Takaisin syötteeseen",
     "retryFailure": "Latauksessa tapahtui virhe. Yritämme uudelleen alusta.",
-    "giveUp": "Lataus ei onnistunut tällä kertaa. Tarkista yhteytesi ja yritä uudelleen."
+    "giveUp": "Lataus ei onnistunut tällä kertaa. Tarkista yhteytesi ja yritä uudelleen.",
+    "finishingHeading": "Tallennetaan Shortsiasi…",
+    "captionRejected": "Kuvateksti ei mennyt läpi. Muuta sitä ja yritä uudelleen.",
+    "uploadExpired": "Klippi ehti kadota. Valitse se uudelleen, niin lataamme sen taas."
   },
   "v7": {
     "heading": "Shorts-videosi on julkaistu! 🎉",
