@@ -2,7 +2,22 @@
 
 ## Status
 
-Proposed, 2026-08-09. Supersedes nothing; **changes** the base rate in
+**Accepted 2026-08-09**, backend built the same day. The project owner
+chose the re-based numbers (Decision 2), deferred the selfie tier
+(Decision 5), and resolved the tier-3 question that building surfaced —
+see the amendment below. Tier 5 remains unbuilt and gated.
+
+**Amendment, 2026-08-09 — tiers 3 and 4 differ by intent, not visibility.**
+Building this exposed a gap the design missed: every published clip in
+this app is already visible to the whole team, so "video, not shared"
+described a state that does not exist. Rather than invent a private-clip
+visibility state in a child-media system, the owner chose the lighter
+reading — both tiers attach a real, team-visible clip, and the difference
+is the player's declared intent to share it with the team. Worth being
+honest that this makes the ×12/×14 gap a smaller distinction than the
+original tier list implied.
+
+Originally proposed, 2026-08-09. Supersedes nothing; **changes** the base rate in
 `backend/src/training-logs/points.util.ts` that ADR-0005's weekly-goal
 bonus formula sits on top of.
 

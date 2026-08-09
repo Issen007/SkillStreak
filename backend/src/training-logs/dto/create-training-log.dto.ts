@@ -1,4 +1,12 @@
-import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 import { ActivityType } from '../activity-type.enum';
 
 // Loose upper bound — a sanity check against fat-fingered/garbage input,
@@ -21,4 +29,22 @@ export class CreateTrainingLogDto {
   @IsOptional()
   @IsUUID()
   challengeId?: string;
+
+  /**
+   * docs/adr/0025 — a published clip offered as proof of this session.
+   * Absent means tier 1 (a plain tap), which is exactly today's behaviour
+   * and is why this change is backwards compatible.
+   */
+  @IsOptional()
+  @IsUUID()
+  evidenceClipId?: string;
+
+  /**
+   * Whether the player chose to share that clip with their team, which is
+   * the difference between tier 3 and tier 4. Ignored without an
+   * `evidenceClipId` — sharing nothing is not a tier.
+   */
+  @IsOptional()
+  @IsBoolean()
+  sharedWithTeam?: boolean;
 }
