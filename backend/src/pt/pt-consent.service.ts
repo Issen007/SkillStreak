@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import {
   PtConsentAlreadyActiveException,
   PtConsentBlockedPendingContactChangeException,
@@ -39,6 +39,15 @@ const ONE_ACTIVE_CONSENT_PER_PT_PLAYER_CONSTRAINT =
 const DEFAULT_APP_PUBLIC_URL = 'http://localhost:3000';
 
 export type PtConsentStatusResponse = 'none' | 'pending_review' | 'approved';
+
+/** Screen PL1's row shape — see listOwnConsents. */
+export interface PtConsentSummary {
+  id: string;
+  ptDisplayName: string;
+  status: PtPlayerConsentStatus;
+  decidedAt: string | null;
+  revokedAt: string | null;
+}
 
 export interface PtConsentRequestResult {
   requested: true;
@@ -459,6 +468,65 @@ export class PtConsentService {
    * distinguishing "no such id" from "not yours", same posture as every
    * other ownership-checked mailed/self-service action in this app).
    */
+  /**
+   * The player's own list of PT relationships, for Screen PL1
+   * (docs/design/phase8-pt-flows.md §7).
+   *
+   * Added 2026-08-09, after the Phase 8 design pass found the gap: ADR-0023
+   * Decision A4 gives the child an unconditional, immediate,
+   * no-parent-needed revocation lever, and shipped it as
+   * `POST .../pt-consents/:id/revoke` — but nothing ever let the child see
+   * *what* to revoke. A lever with no dial is not self-determination, so
+   * the read side is part of A4's intent rather than an addition to it.
+   *
+   * Exposes only this player's own relationships, and only the counterparty
+   * they already know about by definition (the PT who asked for them). It
+   * is deliberately NOT the mirror of A5's "a PT never learns a player's
+   * other PT relationships" rule — that rule protects the child from one
+   * PT learning about another, and says nothing about the child's own view
+   * of their own life.
+   *
+   * `declined`/`expired` rows are omitted: they represent a relationship
+   * that never existed, and listing them would show a child a stream of
+   * requests their parent quietly turned down.
+   */
+  async listOwnConsents(playerId: string): Promise<PtConsentSummary[]> {
+    const rows = await this.ptPlayerConsentRepository.find({
+      where: {
+        playerId,
+        status: In([
+          PtPlayerConsentStatus.PENDING_REVIEW,
+          PtPlayerConsentStatus.APPROVED,
+          PtPlayerConsentStatus.REVOKED,
+        ]),
+      },
+      order: { createdAt: 'DESC' },
+    });
+    if (rows.length === 0) return [];
+
+    const staffAccounts = await this.staffAccountRepository.find({
+      where: { id: In(rows.map((row) => row.ptStaffAccountId)) },
+    });
+    const nameById = new Map(
+      staffAccounts.map((account) => [
+        account.id,
+        account.displayName ?? account.email,
+      ]),
+    );
+
+    return rows.map((row) => ({
+      id: row.id,
+      // Falls back to the email only if a provider gave us no display name
+      // (Apple, for accounts created before it withheld one) — never null,
+      // since an unnamed row is unactionable for a child deciding whether
+      // to end it.
+      ptDisplayName: nameById.get(row.ptStaffAccountId) ?? '—',
+      status: row.status,
+      decidedAt: row.decidedAt?.toISOString() ?? null,
+      revokedAt: row.revokedAt?.toISOString() ?? null,
+    }));
+  }
+
   async playerSelfRevoke(
     playerId: string,
     consentId: string,
