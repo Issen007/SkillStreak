@@ -370,6 +370,8 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
+          build-args: |
+            APP_VERSION=main-${{ github.sha }}
           tags: |
             ${{ env.LOWER_IMAGE }}:${{ github.sha }}
 
@@ -392,6 +394,7 @@ jobs:
             API_BASE_URL=https://api.skillstreak.xyz
             TRY_IT_URL=https://try.skillstreak.xyz
             EXPO_PUBLIC_JOIN_URL=https://skillstreak.xyz
+            EXPO_PUBLIC_APP_VERSION=main-${{ github.sha }}
           tags: |
             ${{ env.LOWER_SITE_IMAGE }}:${{ github.sha }}
 
@@ -500,10 +503,17 @@ jobs:
         with:
           fetch-depth: 0 # need full tag history to find the latest version
 
-      # Patch-only auto-versioning (v0.0.1, v0.0.2, ...) — matches the
-      # project owner's own spec exactly ("+0.0.1" each merge to main).
-      # No minor/major bumps are ever computed automatically; those stay a
-      # deliberate, manual `git tag` if this project ever wants one.
+      # Cascading auto-versioning, per the project owner's spec
+      # (2026-08-09): +0.0.1 each merge to main, and each component rolls
+      # over at 9 into the next one up — v0.0.9 -> v0.1.0, v0.9.9 -> v1.0.0.
+      #
+      # NOTE this is deliberately NOT semver, which would go v0.0.9 ->
+      # v0.0.10 and reserves major/minor bumps for compatibility meaning
+      # rather than counting. It is a release counter in base 10, chosen
+      # knowingly: it makes "how far along are we" readable at a glance,
+      # at the cost of the version number carrying no compatibility
+      # signal. Only the patch/minor rollover is capped at 9 — major keeps
+      # counting normally, so v9.9.9 -> v10.0.0 rather than wrapping.
       - name: Compute next version
         id: version
         run: |
@@ -516,7 +526,16 @@ jobs:
             MAJOR=$(echo "$VERSION_NUMBERS" | cut -d. -f1)
             MINOR=$(echo "$VERSION_NUMBERS" | cut -d. -f2)
             PATCH=$(echo "$VERSION_NUMBERS" | cut -d. -f3)
-            NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+            PATCH=$((PATCH + 1))
+            if [ "$PATCH" -gt 9 ]; then
+              PATCH=0
+              MINOR=$((MINOR + 1))
+            fi
+            if [ "$MINOR" -gt 9 ]; then
+              MINOR=0
+              MAJOR=$((MAJOR + 1))
+            fi
+            NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
           fi
           echo "Latest tag: ${LATEST_TAG:-none yet}, new tag: $NEW_TAG"
           echo "version=$NEW_TAG" >> "$GITHUB_OUTPUT"
@@ -561,6 +580,8 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.version }}
           tags: ${{ env.LOWER_IMAGE }}:${{ steps.version.outputs.version }}
 
       # EXPO_PUBLIC_API_URL/API_BASE_URL match the same real-domain value
@@ -577,6 +598,7 @@ jobs:
             API_BASE_URL=https://api.skillstreak.xyz
             TRY_IT_URL=https://try.skillstreak.xyz
             EXPO_PUBLIC_JOIN_URL=https://skillstreak.xyz
+            EXPO_PUBLIC_APP_VERSION=${{ steps.version.outputs.version }}
           tags: ${{ env.LOWER_SITE_IMAGE }}:${{ steps.version.outputs.version }}
 
   internal-images:
@@ -630,6 +652,8 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
+          build-args: |
+            APP_VERSION=prerelease-${{ github.sha }}
           tags: ${{ env.LOWER_IMAGE }}:prerelease-${{ github.sha }}
 
       # These four addresses are ubuntu01's own metallb LoadBalancer IPs
@@ -649,4 +673,5 @@ jobs:
             API_BASE_URL=http://192.168.55.71
             TRY_IT_URL=http://192.168.55.72:8081
             EXPO_PUBLIC_JOIN_URL=http://192.168.55.72
+            EXPO_PUBLIC_APP_VERSION=prerelease-${{ github.sha }}
           tags: ${{ env.LOWER_SITE_IMAGE }}:prerelease-${{ github.sha }}

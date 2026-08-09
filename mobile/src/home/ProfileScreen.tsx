@@ -673,6 +673,15 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
         <SecondaryLink label={t('profileScreen.view.back')} onPress={onBack} />
         <SecondaryLink label={t('profileScreen.view.logout')} onPress={() => void handleLogout()} />
 
+        {/* The running build, stamped at image-build time (see
+            site/Dockerfile's EXPO_PUBLIC_APP_VERSION). Deliberately the
+            last thing on the screen and deliberately plain: nobody is
+            looking for it until something is wrong, and then it is the
+            first thing worth asking for. A version the app reports about
+            itself is also the check that would have caught the 2026-07-30
+            incident where production served an internal-test build. */}
+        <Text style={styles.versionLine}>{APP_VERSION}</Text>
+
         {/* Screen E1 — only shown when no erasure request is active
             (Judgment call 8: never alongside E6's status card above). */}
         {erasureStatus.status === 'none' ? (
@@ -697,7 +706,17 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
   );
 }
 
+/** "dev" for a local run; CI stamps the release tag or the short SHA. */
+const APP_VERSION = process.env.EXPO_PUBLIC_APP_VERSION ?? 'dev';
+
 const styles = StyleSheet.create({
+  versionLine: {
+    fontFamily: fonts.body,
+    fontSize: 11.5,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: 18,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.paper,

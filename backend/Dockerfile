@@ -20,6 +20,14 @@ RUN pnpm run build
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+
+# The release version this image was built from, surfaced by GET /health so
+# it is always possible to ask a running pod what it actually is rather
+# than inferring it from a tag someone believes was deployed. Defaults to
+# "dev" for local builds; CI passes the real value (the version tag on a
+# release build, the short SHA otherwise) — see .github/workflows/ci-cd.yml.
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
 RUN corepack enable
 
 # ffmpeg (+ ffprobe, bundled in the same Alpine package) is required, not

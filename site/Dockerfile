@@ -25,6 +25,13 @@ COPY mobile/. .
 ARG EXPO_PUBLIC_API_URL
 ENV EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL}
 
+# The release this web build came from, shown on the app's profile screen.
+# "dev" locally; CI passes the version tag on a release build and the short
+# SHA otherwise, so what a user reads always describes the bundle they are
+# actually running.
+ARG EXPO_PUBLIC_APP_VERSION=dev
+ENV EXPO_PUBLIC_APP_VERSION=${EXPO_PUBLIC_APP_VERSION}
+
 # The marketing site's own public base URL (NOT try-it's -- a different
 # origin, see TRY_IT_URL below) -- baked into the app so its "Bjud in en
 # kompis" share link/QR (mobile/src/team/components/InviteFriendSheet.tsx)

@@ -129,11 +129,24 @@ finished work, the project owner merges `prerelease` → `main` themselves;
 that merge is what triggers the versioning/release pipeline below.
 
 **Merging to `main` auto-versions and releases.** `.github/workflows/
-ci-cd.yml`'s `release` job (triggered on push to `main`) bumps a patch
-version (`v0.0.1`, `v0.0.2`, ... — via git tags), creates a GitHub Release,
+ci-cd.yml`'s `release` job (triggered on push to `main`) bumps the version
+(via git tags), creates a GitHub Release,
 and builds/pushes Docker images tagged with that version to GHCR
 (`ghcr.io/issen007/skillstreak-api`/`skillstreak-site`), alongside the
-existing git-SHA-tagged images. A systemd timer on the local test machine
+existing git-SHA-tagged images.
+
+The bump **cascades at 9** (project owner's spec, 2026-08-09): `+0.0.1`
+each merge, `v0.0.9` → `v0.1.0`, `v0.9.9` → `v1.0.0`. This is deliberately
+**not** semver — it is a release counter in base 10, so the number says
+"how far along are we" and carries no compatibility meaning. Don't
+"correct" it back to `v0.0.10`.
+
+Every image is stamped with what it was built from (`APP_VERSION` /
+`EXPO_PUBLIC_APP_VERSION` build args): the release tag on a release build,
+`main-<sha>` or `prerelease-<sha>` otherwise. `GET /health` returns it and
+the app shows it at the bottom of the profile screen — so a *running* pod
+can be asked what it actually is, which is exactly the check that would
+have caught the 2026-07-30 wrong-image incident described below. A systemd timer on the local test machine
 (`ubuntu01`) polls for new GitHub Releases and pulls/redeploys them to the
 local microk8s cluster automatically — see `tools/local-release-poller/`
 for that script and its systemd unit files.
