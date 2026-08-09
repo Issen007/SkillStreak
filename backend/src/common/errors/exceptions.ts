@@ -468,6 +468,22 @@ export class SessionReissueRateLimitedException extends AppException {
 // docs/adr/0012-profile-page-and-contact-email-change.md — the profile
 // page's contact-email change flow.
 
+export class ContactChangeAlreadyConfirmedException extends AppException {
+  constructor() {
+    // A confirmed contact change is already inside its 24h grace period.
+    // Starting a second one would leave the first's deadline ticking
+    // against the second's (unconfirmed) address — see
+    // ProfileService.requestContactChange for the full scenario. The way
+    // out is the cancel link emailed to the OLD address, deliberately not
+    // anything this session can do on its own.
+    super(
+      'contact_change_already_confirmed',
+      'A contact change is already confirmed and waiting to take effect. Use the cancel link sent to the current contact address to stop it first.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
 export class ContactChangeRateLimitedException extends AppException {
   constructor() {
     // Same per-player cooldown-lock shape/reasoning as
@@ -640,6 +656,24 @@ export class StaffAccountNotPtException extends AppException {
       'not_pt',
       'This action requires a pt-role staff session.',
       HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class StaffStepUpRequiredException extends AppException {
+  constructor() {
+    // ADR-0022 Decision 10's step-up gate, on the three `planning/*`
+    // endpoints only. Deliberately 401 and NOT 403, and deliberately its
+    // own code: the session is valid and stays valid — every other admin
+    // endpoint keeps working — so the console must render AD5's inline
+    // re-auth prompt over a preserved console state
+    // (docs/design/phase7-admin-console-flows.md §8) rather than treating
+    // this as a sign-out. A plain 401 with no code means the ordinary
+    // session expired too, which is a different, whole-console failure.
+    super(
+      'reauth_required',
+      'Confirm it is you to view this section.',
+      HttpStatus.UNAUTHORIZED,
     );
   }
 }
@@ -829,6 +863,73 @@ export class PtPlayerConsentNotFoundException extends AppException {
     super(
       'pt_player_consent_not_found',
       'No active PT consent with this id was found for this player.',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+// --- Fas 4.6 (video-clip challenge notifications —
+// docs/adr/0021-clip-challenge-notifications.md) -----------------------------
+
+export class NotYourChallengeException extends AppException {
+  constructor() {
+    // Mirrors NotYourClipException's shape/naming for uploader-only
+    // actions, extended to the tagged-player-only ack (ADR-0021 Decision
+    // 1's "GET/POST .../clips/challenges/..." endpoints).
+    super(
+      'not_your_challenge',
+      'Only the tagged player can acknowledge this challenge.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+export class SystemMessageNotReportableException extends AppException {
+  constructor() {
+    // ADR-0021's 2026-08-06 security-reviewer addendum, finding 1 (binding,
+    // not optional): a system-authored chat message has no real sender to
+    // report — block is inert against it for free (blocked_player_id is
+    // NOT NULL), but report has no equivalent structural safety, so this
+    // guard exists to close that gap explicitly.
+    super(
+      'cannot_report_system_message',
+      'System-authored chat messages cannot be reported — there is no real sender to report.',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}
+
+// --- Fas 7 (admin control center / in-app bug reports —
+// docs/adr/0022-admin-control-center.md Decision 7) -------------------------
+
+export class BugReportRateLimitedException extends AppException {
+  constructor() {
+    // Same per-player burst-cooldown + daily-cap shape as
+    // ErasureRateLimitedException, which docs/design/phase7-admin-console-
+    // flows.md §13 explicitly names as the precedent this code should
+    // mirror. Different threat model, though (named here rather than
+    // inherited by analogy): submitting a bug report emails nobody and
+    // touches no other account, so what's being bounded is queue spam
+    // against the single operator, not a family's inbox.
+    super(
+      'bug_report_rate_limited',
+      'A few bug reports were already sent from this account recently; try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+export class BugReportNotFoundException extends AppException {
+  constructor() {
+    // A real, expected case rather than a defensive backstop: `player_id`
+    // is ON DELETE CASCADE, so an account erasure removes a report while
+    // the operator may still have it open — docs/design/phase7-admin-
+    // console-flows.md §6.4's `gone` state exists precisely for this, and
+    // renders "the reporter's account was probably erased" instead of a
+    // generic failure.
+    super(
+      'bug_report_not_found',
+      'No bug report with this id exists.',
       HttpStatus.NOT_FOUND,
     );
   }

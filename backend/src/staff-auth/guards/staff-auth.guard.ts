@@ -13,6 +13,11 @@ declare module 'express' {
     staffAccountId?: string;
     /** Last-known/display hint only — see StaffJwtPayload's own comment. */
     staffRole?: StaffAccountRole;
+    /**
+     * IdP-asserted `auth_time` of a verified step-up, present only on a
+     * session issued by a step-up callback. Read by AdminStepUpGuard.
+     */
+    staffStepUpAt?: number;
   }
 }
 
@@ -40,6 +45,7 @@ export class StaffAuthGuard implements CanActivate {
       const payload = await this.staffSessionTokenService.verify(token);
       request.staffAccountId = payload.sub;
       request.staffRole = payload.role;
+      request.staffStepUpAt = payload.stepUpAt;
     } catch {
       throw new StaffUnauthorizedException(
         'Staff session is invalid or expired.',

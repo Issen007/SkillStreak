@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import {
+  ContactChangeAlreadyConfirmedException,
   ContactChangeRateLimitedException,
   InvalidOrExpiredContactChangeCodeException,
 } from '../common/errors/exceptions';
@@ -50,6 +51,12 @@ export interface RequestContactChangeResponse {
 export interface ConfirmContactChangeResponse {
   confirmed: true;
   appliesAt: string;
+}
+
+// `false` means "there was nothing pending to cancel" — an expected,
+// non-error outcome, not a failure. See cancelOwnContactChange.
+export interface CancelOwnContactChangeResponse {
+  cancelled: boolean;
 }
 
 // docs/adr/0012-profile-page-and-contact-email-change.md. Every method
@@ -143,6 +150,33 @@ export class ProfileService {
     const { code, expiresAt } = generateHumanCode(CONTACT_CHANGE_CODE_TTL_MS);
 
     await this.dataSource.transaction(async (manager) => {
+      // Refuse while a CONFIRMED change is still in flight — code-critic
+      // finding, 2026-08-08, and the most consequential bug in this area.
+      //
+      // setPendingContactChange overwrites pendingParentContact/code/expiry
+      // but leaves contactChangeApplyAt and contactChangeCancelCode alone.
+      // So without this check: confirm a change to B (grace starts, the old
+      // address is emailed a cancel link naming B), then request a second
+      // change to C and never confirm it. The row now holds pending=C with
+      // A's grace deadline still ticking — and when it elapses,
+      // getEffective's lazy apply moves C into parent_contact. C was never
+      // confirmed by anyone, and the parent's veto email described B. An
+      // unverified, possibly attacker-chosen address becomes a child's live
+      // parent contact, which every consent and erasure email then goes to.
+      //
+      // Refusing is the right resolution rather than clearing applyAt/
+      // cancelCode here: clearing them would let any session holder disarm
+      // the old address's cancel link — and its token_version bump — just
+      // by starting a new change, which is the same hole the self-cancel
+      // route had to be scoped down to avoid on the same day.
+      const existing =
+        await this.playerPrivateInfoService.findByPlayerIdForUpdate(
+          manager,
+          playerId,
+        );
+      if (existing?.contactChangeApplyAt != null) {
+        throw new ContactChangeAlreadyConfirmedException();
+      }
       await this.playerPrivateInfoService.setPendingContactChange(
         manager,
         playerId,
@@ -264,6 +298,70 @@ export class ProfileService {
         player.tokenVersion + 1,
       );
       return { screenName: player.screenName };
+    });
+  }
+
+  /**
+   * The authenticated "actually, forget that change" route, added
+   * 2026-08-08 alongside the hasPendingContactChange fix (BACKLOG.md's
+   * preferred option (a)). The guard fix alone stops an abandoned request
+   * from blocking erasure forever, but it leaves the player with no way to
+   * *act* on a state they can otherwise only escape by accident — by
+   * re-running the whole change to completion and waiting out the 24h
+   * grace. This gives them the door.
+   *
+   * Deliberately different from cancelContactChange (the emailed
+   * old-address link) in two ways:
+   *
+   * - No token-version bump. That one bumps because it means "this wasn't
+   *   me" — an account-compromise signal worth logging every session out
+   *   for. This one is the account holder cancelling their own typo;
+   *   logging them out of the app they are standing in would be hostile.
+   * - Idempotent, returning `{ cancelled: false }` rather than throwing
+   *   when there is nothing pending, matching cancelContactChange's
+   *   "second POST is an expected case" posture.
+   *
+   * **Scoped to the UNCONFIRMED state only — corrected 2026-08-08 after a
+   * blocking security review.** The first version also allowed cancelling
+   * a confirmed change inside its 24h grace period, on the argument that
+   * cancelling always resolves towards the old parent contact and is
+   * therefore fail-safe. That argument was wrong, and in a way worth
+   * recording: it is true about the *contact*, but cancelling also clears
+   * `contactChangeCancelCode`, and that code is the old address holder's
+   * only actionable lever — the one path that bumps `token_version` and
+   * evicts every live session. A hijacked session could therefore start a
+   * change, confirm it (the code goes to the attacker's own address),
+   * watch the parent get a cancel link, then immediately self-cancel:
+   * the parent's link now renders "nothing to cancel", no sessions are
+   * evicted, and the intruder keeps their access with the alarm silenced.
+   * That was not possible before this route existed.
+   *
+   * Once confirmed, cancellation belongs to the old address holder alone.
+   * This returns `{ cancelled: false }` in that state — the same shape as
+   * "nothing was pending", deliberately: both mean "this route did not
+   * change anything", and no client of this endpoint exists yet to need
+   * them distinguished.
+   */
+  async cancelOwnContactChange(
+    playerId: string,
+  ): Promise<CancelOwnContactChangeResponse> {
+    return this.dataSource.transaction(async (manager) => {
+      const info = await this.playerPrivateInfoService.findByPlayerIdForUpdate(
+        manager,
+        playerId,
+      );
+      if (
+        !info ||
+        info.pendingParentContact == null ||
+        info.contactChangeApplyAt !== null
+      ) {
+        return { cancelled: false };
+      }
+      await this.playerPrivateInfoService.cancelPendingContactChange(
+        manager,
+        playerId,
+      );
+      return { cancelled: true };
     });
   }
 

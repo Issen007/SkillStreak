@@ -4,6 +4,7 @@ import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { StaffAccount } from './entities/staff-account.entity';
 import { AdminAuthGuard } from './guards/admin-auth.guard';
+import { AdminStepUpGuard } from './guards/admin-step-up.guard';
 import { PtAuthGuard } from './guards/pt-auth.guard';
 import { StaffAuthGuard } from './guards/staff-auth.guard';
 import { PendingStaffAuthService } from './pending-staff-auth.service';
@@ -40,6 +41,7 @@ import { StaffSessionTokenService } from './staff-session-token.service';
     StaffAuthService,
     StaffAuthGuard,
     AdminAuthGuard,
+    AdminStepUpGuard,
     PtAuthGuard,
   ],
   // Re-exported (not just imported), mirroring AuthModule's own comment:
@@ -53,6 +55,7 @@ import { StaffSessionTokenService } from './staff-session-token.service';
     StaffSessionTokenService,
     StaffAuthGuard,
     AdminAuthGuard,
+    AdminStepUpGuard,
     PtAuthGuard,
   ],
 })

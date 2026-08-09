@@ -89,6 +89,20 @@ function ptConsentRequestCooldownKey(ptStaffAccountId: string): string {
   return `pt-consent-request:${ptStaffAccountId}:cooldown`;
 }
 
+// docs/adr/0022-admin-control-center.md Decision 7 — "rate-limited (reuse
+// the existing @Throttle/Redis-cooldown pattern, e.g. a per-player daily
+// cap)". Same two-key burst+daily shape as erasure-request above, which
+// docs/design/phase7-admin-console-flows.md §13 names as the precedent to
+// match (down to the `bug_report_rate_limited` error code mirroring
+// `erasure_rate_limited`).
+function bugReportCooldownKey(playerId: string): string {
+  return `bug-report:${playerId}:cooldown`;
+}
+
+function bugReportDailyCapKey(playerId: string): string {
+  return `bug-report:${playerId}:daily-cap`;
+}
+
 function ptConsentRequestDailyCapKey(ptStaffAccountId: string): string {
   return `pt-consent-request:${ptStaffAccountId}:daily-cap`;
 }
@@ -222,6 +236,26 @@ const PT_TEAM_LINK_INVITE_TTL_SECONDS = 24 * 60 * 60;
 const PT_CONSENT_REQUEST_COOLDOWN_SECONDS = 5 * 60;
 const PT_CONSENT_REQUEST_DAILY_CAP_WINDOW_SECONDS = 60 * 60 * 24;
 const PT_CONSENT_REQUEST_DAILY_CAP_MAX_PER_WINDOW = 10;
+
+// docs/adr/0022-admin-control-center.md Decision 7's per-player bug-report
+// limit. Same two-layer shape as erasure/session-reissue/PT-consent above,
+// but deliberately looser at the burst layer and tighter at the daily one,
+// because the threat model is genuinely different: nothing here emails a
+// family or touches another account, so the abuse surface is only "a
+// compromised or bored session filling the operator's triage queue with
+// junk rows."
+//
+// 60 seconds, not 5 minutes, for the burst lock: a child who hits two
+// different broken things in one sitting is a completely normal, useful
+// reporter, and a 5-minute lockout would suppress the second report
+// entirely (Decision 7's own reasoning for keeping the form easy — an
+// under-reported bug is the failure mode that actually costs this project
+// something). 5/day is the sustained ceiling docs/design/phase7-admin-
+// console-flows.md §9.4's copy already assumes ("Du har skickat några
+// rapporter idag redan. Testa igen imorgon.").
+const BUG_REPORT_COOLDOWN_SECONDS = 60;
+const BUG_REPORT_DAILY_CAP_WINDOW_SECONDS = 60 * 60 * 24;
+const BUG_REPORT_DAILY_CAP_MAX_PER_WINDOW = 5;
 
 @Injectable()
 export class RedisService {
@@ -592,6 +626,43 @@ export class RedisService {
     windowSeconds: number = PT_CONSENT_REQUEST_DAILY_CAP_WINDOW_SECONDS,
   ): Promise<boolean> {
     const key = ptConsentRequestDailyCapKey(ptStaffAccountId);
+    const count = await this.client.incr(key);
+    if (count === 1) {
+      await this.client.expire(key, windowSeconds);
+    }
+    return count <= maxPerWindow;
+  }
+
+  /** Same lock shape as tryClaimErasureRequestCooldown, for
+   * BugReportsService's submission endpoint (ADR-0022 Decision 7). Bounds
+   * burst rate only — see tryClaimBugReportDailyCap for sustained-volume
+   * protection. Lives in Redis, not in-process memory, for the same reason
+   * every other limiter in this file does: with k8s/api-deployment.yaml
+   * running multiple replicas, a per-pod counter would multiply the real
+   * ceiling by the replica count. */
+  async tryClaimBugReportCooldown(
+    playerId: string,
+    ttlSeconds: number = BUG_REPORT_COOLDOWN_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      bugReportCooldownKey(playerId),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
+  }
+
+  /** Same fixed-window shape as tryClaimErasureRequestDailyCap — the burst
+   * cooldown above alone would still allow ~1,440 rows per player per day
+   * into the operator's triage queue. */
+  async tryClaimBugReportDailyCap(
+    playerId: string,
+    maxPerWindow: number = BUG_REPORT_DAILY_CAP_MAX_PER_WINDOW,
+    windowSeconds: number = BUG_REPORT_DAILY_CAP_WINDOW_SECONDS,
+  ): Promise<boolean> {
+    const key = bugReportDailyCapKey(playerId);
     const count = await this.client.incr(key);
     if (count === 1) {
       await this.client.expire(key, windowSeconds);

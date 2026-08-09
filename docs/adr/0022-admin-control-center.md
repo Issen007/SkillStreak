@@ -323,6 +323,12 @@ same "public + authenticated, not VPN-isolated" argument Decision 3
 already made re-confirmed for the new Service specifically, not assumed to
 carry over silently.
 
+**Amended, 2026-08-07 — Decision 10 only, stale premise.** Commit
+`6b06d81` (2026-08-06) moved `docs/ACTION_PLAN.md` into the untracked
+`docs/internal/` and re-tracked `docs/PROJECT.md` as public, invalidating
+two of Decision 10's sourcing premises; the corrections are marked inline
+in that Decision, which is otherwise unchanged.
+
 ## Context
 
 The project owner, verbatim: *"Now let's build our backend control center
@@ -1109,6 +1115,30 @@ sources:
 
 ## Decision — 10: a fourth pillar, added mid-review — internal planning/security-issues triage view, with its own reachability, content-sync, and scope answers, not a copy of Decisions 3/5's
 
+**Amended, 2026-08-07 — a stale premise corrected, not a new decision.**
+Commit `6b06d81` (2026-08-06, "Reorganize internal planning docs into
+docs/internal/, expose PROJECT.md publicly") moved `docs/ACTION_PLAN.md`
+to `docs/internal/ACTION_PLAN.md`, a path `.gitignore` excludes and which
+was never tracked under that name — `git ls-files docs/internal/` returns
+nothing — and moved `docs/PROJECT.md` the *other* way, back to tracked and
+public (`git ls-files docs/PROJECT.md` confirms). Every sentence below
+that reasons from "`ACTION_PLAN.md` is already tracked, already public,
+already in the deployed image" is now false, and so is the premise that
+`PROJECT.md`'s content is kept out of the public tree. **What changes**:
+the roadmap pillar's `ACTION_PLAN.md` source gets the same gitignored-
+local-file → hand-applied `admin-planning-docs` ConfigMap treatment as the
+other three sources — option (c) below, extended to a fourth key, not a
+second mechanism, and explicitly **not** by re-tracking the file (option
+(a) below, already rejected for a public-repo reason the deliberate
+2026-08-06 move only reinforces). **What does not change**: the scope, the
+read-only posture, the step-up re-auth requirement, the three endpoints,
+or the security-reviewer's mount-path requirement. Two of this Decision's
+own caveats go moot as a side effect, both marked where they appear, and
+a code-critic pass on this amendment added two concrete parser traps and
+a `ConfigMap` size ceiling (all three below, all three arguing for
+shipping the "Next Up" slice rather than the whole 272 KB file).
+Original wording is kept throughout with the correction beside it.
+
 The project owner, mid-review, verbatim: *"I do also want to have a full
 list off issues, ideas, security issues and roadmap in this OBS site so we
 can start generate faster and developer faster new functions."* This is a
@@ -1125,6 +1155,15 @@ default.
   file just because a later `.gitignore` rule matches it. Its `- [ ]`/
   `- [x]` checklist format is consistent and mechanical throughout every
   phase.
+
+  **Amended 2026-08-07 — no longer true.** The file is
+  `docs/internal/ACTION_PLAN.md` as of `6b06d81` (2026-08-06) and is now
+  untracked. The carve-out that made the original claim correct — Git
+  doesn't retroactively untrack an already-tracked file — no longer
+  applies, because the move created a *new* path that `.gitignore`'s
+  `docs/internal/` line matched from the start. The `- [ ]`/`- [x]`
+  format itself is unchanged; only the location and the tracking status
+  are, and only those two facts drive the corrections below.
 - **`docs/BACKLOG.md`/`docs/PROJECT.md`** — confirmed via `git log
   --follow`/`git cat-file`: both **were** tracked and public for months,
   then deliberately **untracked** on 2026-07-26 (commit `c1b375d`, "Stop
@@ -1143,6 +1182,23 @@ default.
   and this project's PT/coach monetization thinking; `docs/PROJECT.md`
   includes financial/business-plan sections. This is exactly the shape of
   content the coordinator flagged as a real, not hypothetical, concern.
+
+  **Amended 2026-08-07 — `docs/PROJECT.md` specifically; `BACKLOG.md` is
+  unaffected.** The same `6b06d81` commit re-tracked `docs/PROJECT.md`
+  ("expose PROJECT.md publicly"), and the file it published still
+  contains the Fas 5 monetization/PT sections and the "Finansiering"
+  paragraph this bullet cited as the business-sensitive content — those
+  were published deliberately, not pruned first. So the confidentiality
+  half of the argument for handling `PROJECT.md` as a curated subset is
+  simply gone; the scoping half survives untouched (a 322-line Swedish
+  roadmap is not the triage view this pillar is for, and its eight open
+  items are numbered `N. [ ]` entries, not the mechanical checklist
+  `ACTION_PLAN.md` uses). Keeping its slice on the ConfigMap path anyway
+  remains right, but for a narrower reason than the text below gives: it
+  is now the only delivery path this pillar has, and reintroducing an
+  image-reading path for one source out of four would be exactly the
+  second mechanism this amendment is avoiding. `docs/BACKLOG.md` is
+  still untracked and still business-sensitive exactly as described.
 - **Security findings today** are scattered prose across many tracked
   ADRs and `ACTION_PLAN.md`'s own unchecked items (e.g. ADR-0004's
   case-variant screen-name-duplicate limitation, `ACTION_PLAN.md`'s
@@ -1180,6 +1236,34 @@ were weighed:
     already *is* the source of truth for "what's open," the same way a
     human reading it today would. No new sync mechanism, no new exposure
     (already public).
+
+    **Amended 2026-08-07**: "already tracked and public... already
+    bundled in the deployed image," and with it "no new sync mechanism,
+    no new exposure," are no longer true — see the block at the top of
+    this Decision. The parser argument itself survives intact (the
+    format is unchanged, and reading a mechanical checklist is still not
+    the delegate-judgment-to-a-scraper risk (A) describes); only the
+    *source* changes, from the image filesystem to the
+    `admin-planning-docs` ConfigMap volume the other three already use.
+    **Implementation constraint for backend-developer, read out of the
+    current file rather than assumed**: "parse all open `- [ ]` items"
+    would now return precisely the wrong set. Every unchecked `- [ ]`
+    item in today's 4,058-line `ACTION_PLAN.md` — 17 of them at the time
+    of writing, though the count drifts weekly and shouldn't be relied on
+    — sits *below* the "Completed Phases (archive)" header, whose own
+    text says "Historical record only... Not actionable"; the live "Next
+    Up" section above it contains zero `- [ ]` items, because it numbers
+    its entries (`1. [x]`, `2. [x]`, and 4 currently-open `N. [ ]`). The
+    structural point, not the count, is what matters: a parser must scope
+    to the "Next Up" section and match numbered checkboxes as well, or
+    the roadmap view shows archived leftovers and none of the
+    actually-current work. A second, smaller trap found the same way: an
+    18th `- [ ]` occurrence in the file isn't a checklist item at all, but
+    a checkbox literal inside an inline code span in ordinary prose
+    (`ACTION_PLAN.md:3573`, a sentence in this very Decision's own Phase 7
+    archive entry) — a line-oriented parser emits it as a roadmap row
+    reading "items parsed directly from the already-tracked,". Match
+    line-leading checkboxes only, and ignore anything inside backticks.
   - **Roadmap (business-prioritization slice) — a small, hand-curated
     "still open" subset of `docs/PROJECT.md`, never the whole file.**
   - **Ideas — a small, hand-curated "still open" subset of
@@ -1227,6 +1311,17 @@ tree it was built from.** `ACTION_PLAN.md`'s open items need nothing new
 design — getting their content into a running pod needs an honest answer,
 not an assumption either way:
 
+**Amended 2026-08-07**: `ACTION_PLAN.md`'s open items now need exactly
+what the other three sources need, and "already tracked, already in the
+image" no longer holds. A CI-built image still only contains the tracked
+tree — that sentence is as true as ever — but this file is no longer in
+it, so the parser behind `GET /api/v1/admin/planning/roadmap` cannot read
+it from the container filesystem at all. The correction is option (c)
+below extended to a fourth key, and explicitly **not** option (a): moving
+`docs/internal/ACTION_PLAN.md` back into the tracked tree to get it into
+the image is the same reversal (a) already rejects, against a repo that is
+still public and a 2026-08-06 move that was itself deliberate.
+
 - **(a) Stop gitignoring `BACKLOG.md`/`PROJECT.md` (or the new curated
   files) so CI can bundle them — rejected, explicitly, not for
   convenience.** This would directly reverse a deliberate decision made
@@ -1267,6 +1362,41 @@ not an assumption either way:
   app already accepts for `JWT_SECRET`/`PII_ENCRYPTION_KEY` rotation) —
   not real-time, deliberately, since planning docs don't change minute to
   minute.
+
+  **Amended 2026-08-07**: this ConfigMap now carries **four** keys, not
+  three — `ACTION_PLAN.md`'s open-items source alongside `PROJECT.md`'s
+  and `BACKLOG.md`'s curated subsets and the security-issues list — and
+  `k8s/admin-planning-configmap.yaml.example` documents the fourth
+  filename with the other three, still containing no real content. The
+  security-reviewer's mount-path requirement immediately below applies to
+  the new key identically, with no exception carved for it on
+  "it used to be public" grounds: the volume's directory must be disjoint
+  from — never an ancestor or descendant of — any statically-served
+  directory anywhere in this app, and the only code permitted to read it
+  is the three `AdminAuthGuard`-plus-step-up-gated controller endpoints in
+  this Decision, by construction rather than by configuration care.
+
+  **Size, and why the fourth key should be a curated slice like the other
+  three rather than the whole file** (code-critic, 2026-08-07): a
+  Kubernetes `ConfigMap` is hard-capped at **1 MiB across all keys**, and
+  `kubectl apply` additionally stores a full copy of the object in its own
+  `last-applied-configuration` annotation, so the practical ceiling is
+  roughly half that. `docs/internal/ACTION_PLAN.md` is 272,653 bytes
+  today and grew 3,676 → 4,058 lines in the 24 hours before this
+  amendment was written; `BACKLOG.md` adds 44,778. Nothing breaks now,
+  but the failure lands on the project owner's manual `kubectl create
+  configmap ... | kubectl apply -f -` refresh step (`data: Too long: must
+  have at most 1048576 bytes`) — the one step in this whole mechanism
+  where no CI run is watching, at an unpredictable future date.
+  **Recommendation: ship `ACTION_PLAN.md`'s *"Next Up" slice*, not the
+  whole file** — which is what the roadmap view actually renders anyway
+  (the archive is explicitly "not actionable"), makes all four keys the
+  same hand-curated shape rather than one exception, keeps the ConfigMap
+  small indefinitely, and dissolves both parser traps above outright
+  (no archive section to scope past, no prose checkbox literal to skip).
+  If the full file is shipped regardless, both parser rules stay
+  mandatory and the size ceiling becomes a real operational tripwire
+  someone must remember.
 
 **Security-reviewer correction, 2026-08-02, required before build**: the
 original design never stated where this volume gets mounted relative to
@@ -1362,6 +1492,16 @@ for negligible benefit, versus a few extra seconds of friction on an
 already-infrequent action. The boring, uniform choice over a fragmented
 one.
 
+**Amended 2026-08-07**: the caveat this paragraph is built on — that the
+`ACTION_PLAN.md` slice is "already public" and "alone wouldn't strictly
+need" step-up re-auth — is obsolete, since that slice is no longer public
+(see the top of this Decision). Uniform application across all three
+endpoints is now straightforwardly warranted on the content's own merits,
+rather than a deliberate over-application accepted to dodge sub-tab
+complexity. The requirement is unchanged; only its justification got
+simpler, and the fragmented alternative it argues against is now not even
+coherent.
+
 **Security-reviewer correction, 2026-08-02, strongly recommended before
 this pillar ships (not blocking Decisions 1-9's admin surface, which may
 proceed with password-only auth as designed)**: step-up re-auth using
@@ -1381,6 +1521,84 @@ blocker for the ADR's other eight decisions, but should be resolved
 before Decision 10's own endpoints are built, given the Decision's own
 stated reasoning for why they need to be different.
 
+**Resolved 2026-08-08 — OIDC re-authentication, not TOTP; the endpoints are
+now built.** The recommendation above is accepted in substance and declined
+in mechanism, for a reason that only became true after it was written: it
+was authored 2026-08-02 against Decision 2's world of one local admin
+password, and `docs/adr/0023-pt-role-and-staff-sso-rbac.md` superseded
+Decision 2 three days later, removing app-held staff credentials entirely.
+"Prompt for a second app-managed secret" therefore no longer describes
+anything this app has — the same shape of stale premise Decision 10's
+sourcing line already needed amending for.
+
+What ships instead: `GET /api/v1/staff-auth/:provider/step-up` re-runs the
+existing OIDC flow with `prompt=login` and `max_age=0`. This satisfies the
+reviewer's actual requirement — possessing a live session must not be
+enough to reach this pillar — and inherits whatever MFA the IdP already
+enforces, which is a stronger second factor than an app-managed TOTP
+secret this project would then own, rotate and recover.
+
+Two details that make it a real check rather than a hopeful one:
+
+- `max_age=0` makes `auth_time` a REQUIRED ID-token claim, so the callback
+  **verifies** that the IdP genuinely re-authenticated (within 5 minutes)
+  rather than trusting that `prompt=login` was honoured. A step-up callback
+  missing that claim fails closed instead of quietly downgrading to an
+  ordinary login and handing out the freshness stamp.
+- The step-up flag lives in the signed `staff_auth_pending` cookie, never a
+  query parameter, so a caller cannot assert its own step-up.
+
+`AdminStepUpGuard` then gates exactly the three `planning/*` routes,
+composing on top of `AdminAuthGuard` rather than replacing it. A stale
+session is refused with `401 reauth_required` — deliberately not 403, and
+deliberately its own code — and stays fully valid everywhere else in the
+console, which is what lets §8's AD5 render an inline prompt over
+preserved state instead of signing the operator out.
+
+**Corrected the same day, before this shipped, by a blocking
+security-reviewer pass — the first implementation gated nothing.** It read
+freshness from `StaffAccount.lastLoginAt`, which fails twice over, and the
+code-critic pass found the identical defect independently:
+
+1. **Every completed callback stamps that column**, including an ordinary
+   `/login` — which sends no `prompt=login`, runs no `auth_time` check, and
+   against a live IdP SSO session typically completes with no credential
+   prompt at all. So the attack this pillar exists to stop (an attacker
+   holding a live session at an unlocked browser) was defeated by
+   navigating to `/login` instead of `/step-up`. The carefully-verified
+   `auth_time` was computed and then discarded.
+2. **The column is account-scoped, not session-scoped**, so a stolen
+   session was upgraded by the victim's own unrelated sign-in elsewhere —
+   precisely what `AdminSessionService`'s own comment warns against
+   building on.
+
+As shipped that was weaker than both the TOTP recommended above and this
+ADR's own superseded password reprompt. **Fixed**: the verified `auth_time`
+now travels as a `stepUpAt` claim on the session the step-up callback
+issues (`StaffJwtPayload`), and the guard reads it off the presenting
+session. A session without that claim can never satisfy the gate, no matter
+who else signs in or how recently, which restores the property the original
+reviewer asked for. An `auth_time` upper bound was added at the same time so
+a future-dated claim cannot be permanently fresh.
+
+**Two consequences worth stating plainly.** Sign in with Apple does not
+honour `prompt`/`max_age`, so an Apple-authenticated admin now fails closed
+and cannot reach this pillar at all — that is the safe direction, but it is
+a real product limitation someone must decide about. And the pending-auth
+cookie was found to be `SameSite=Strict`, which a browser withholds on the
+cross-site return from the IdP; staff SSO therefore cannot have completed in
+a real browser since ADR-0023 shipped. Corrected to `lax` (`none` for
+Apple's cross-site form POST), but **not verified against a live IdP** —
+treat the first real sign-in as the test.
+
+**Consequence for the design doc**: §8's AD5 was drawn as an inline
+username/password modal posting to `POST /api/v1/admin/auth/login`. That
+endpoint does not exist and cannot, under ADR-0023. AD5 becomes a redirect
+to the IdP and back — the modal's trigger, its preserved-state requirement
+and its error states all still hold, but the credential form inside it does
+not. Flagged there too; needs a ux-designer pass before the console is
+built.
+
 ### New endpoints
 
 ```
@@ -1395,6 +1613,18 @@ GET /api/v1/admin/planning/ideas
 GET /api/v1/admin/planning/security-issues
   -> the new hand-maintained security-issues list (ConfigMap volume).
 ```
+
+**Amended 2026-08-07 — `/roadmap`'s sourcing line above**: both halves now
+come from the mounted `admin-planning-docs` ConfigMap volume; nothing in
+this pillar is read out of the image. The "sourced from two different
+trust levels, stated explicitly so a future contributor doesn't assume
+they're one homogeneous blob" caveat is therefore moot — every planning
+source now reaches the pod the same way, at the same trust level, out of
+band from CI and the public tree. (`PROJECT.md`'s underlying file is
+public again, but the curated slice delivered here is a local, untracked
+artifact like the other three.) This *simplifies* the build rather than
+complicating it: one directory, four files, one provenance story to
+explain instead of two.
 
 All three: `AdminAuthGuard` + the new fresh-`authenticatedAt` check above.
 None accept any query parameter, and none return anything shaped like a

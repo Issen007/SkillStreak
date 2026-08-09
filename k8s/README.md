@@ -121,13 +121,24 @@ environment. `skillstreak-config` there is applied by hand (not by CI,
 same posture as `k8s/secret.yaml` — see "Deploy order" below), pointed at
 those same LAN addresses.
 
+**Because that poller only runs `kubectl set image`, it never re-applies
+these manifests**: any change to `configmap.yaml`, `secret.yaml`, or
+`api-deployment.yaml`'s `env:` list has to be applied on ubuntu01 by hand
+before the internal cluster picks it up, even though the new image is
+deployed there automatically. Most recent example: Fas 5's
+`USAGE_REPORT_CRON`/`USAGE_REPORT_MIN_TEAMS_PER_BUCKET` (ConfigMap) and
+`USAGE_REPORT_RECIPIENT_EMAIL` (Secret) — all three are optional, so the
+internal cluster boots and runs fine without them (the report job just
+no-ops), which is the sensible default there: the internal test database's
+numbers aren't worth emailing anywhere.
+
 ## Files
 
 | File | What it is |
 |---|---|
 | `namespace.yaml` | The `skillstreak` namespace everything else lives in. |
-| `configmap.yaml` | Non-secret API config (`NODE_ENV`, `PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `JWT_EXPIRES_IN`, SMTP host/port/from, `APP_PUBLIC_URL`, and — since Fas 3 — `MINIO_ENDPOINT`/`MINIO_BUCKET`/`CLIP_RETENTION_DAYS`/`CLIP_PENDING_UPLOAD_TTL_MINUTES`). |
-| `secret.yaml.example` | Template for the real Secret — copy to `secret.yaml` and fill in. `secret.yaml` itself is git-ignored and must never be committed. Since Fas 3, also holds `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`. |
+| `configmap.yaml` | Non-secret API config (`NODE_ENV`, `PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `JWT_EXPIRES_IN`, SMTP host/port/from, `APP_PUBLIC_URL`, since Fas 3 `MINIO_ENDPOINT`/`MINIO_BUCKET`/`CLIP_RETENTION_DAYS`/`CLIP_PENDING_UPLOAD_TTL_MINUTES`, and since Fas 5 `USAGE_REPORT_CRON`/`USAGE_REPORT_MIN_TEAMS_PER_BUCKET`). |
+| `secret.yaml.example` | Template for the real Secret — copy to `secret.yaml` and fill in. `secret.yaml` itself is git-ignored and must never be committed. Since Fas 3, also holds `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`; since Fas 5, the optional `USAGE_REPORT_RECIPIENT_EMAIL`. |
 | `postgres-pvc.yaml` | PersistentVolumeClaim so Postgres data survives pod restarts. |
 | `postgres-deployment.yaml` | Postgres 16-alpine, single replica, `Recreate` rollout strategy (safe for a ReadWriteOnce PVC). |
 | `postgres-service.yaml` | ClusterIP only — never expose Postgres externally (no LoadBalancer/NodePort/Ingress for it, matching the compose setup's `127.0.0.1`-only binding). |

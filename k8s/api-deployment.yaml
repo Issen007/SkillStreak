@@ -225,6 +225,42 @@ spec:
                   name: skillstreak-secret
                   key: APPLE_PRIVATE_KEY
                   optional: true
+            # Fas 5 (docs/adr/0020-usage-analytics-product-metrics.md
+            # Decision 5) — who the monthly aggregate usage report is
+            # emailed to. `optional: true` for the same reason as
+            # ADMIN_EMAILS above: the key genuinely may not exist in the
+            # live Secret yet, and a missing key (not just an empty value)
+            # would otherwise stop kubelet starting the container at all
+            # (CreateContainerConfigError). Unset means the scheduled job
+            # no-ops with a log line — the intended degrade, not a boot
+            # failure. USAGE_REPORT_CRON/USAGE_REPORT_MIN_TEAMS_PER_BUCKET
+            # come from the ConfigMap via envFrom above (non-secret).
+            - name: USAGE_REPORT_RECIPIENT_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: USAGE_REPORT_RECIPIENT_EMAIL
+                  optional: true
+            # Fas 7 (docs/adr/0022-admin-control-center.md Decision 10) —
+            # where the admin-planning-docs volume below is mounted.
+            #
+            # /srv/admin-planning is deliberately NOT under any path this
+            # app serves statically, and must stay that way: the ADR's
+            # required 2026-08-02 security fix is that this directory be
+            # disjoint from (never an ancestor or descendant of) every
+            # statically-served directory, or the raw security-issues
+            # markdown becomes downloadable without passing AdminAuthGuard
+            # or the step-up check. This app serves nothing statically
+            # today; if an admin page ever lands, it does not go here.
+            - name: ADMIN_PLANNING_DOCS_DIR
+              value: "/srv/admin-planning"
+          volumeMounts:
+            # readOnly because nothing should ever write here, and the ADR
+            # is explicit that this pillar is read-only with no write-back
+            # to any file from the web UI.
+            - name: admin-planning-docs
+              mountPath: /srv/admin-planning
+              readOnly: true
           startupProbe:
             httpGet:
               path: /health
@@ -257,3 +293,15 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+      volumes:
+        # `optional: true` for the same reason ADMIN_EMAILS and the OAuth
+        # keys are optional above: this ConfigMap is applied by hand, per
+        # cluster, out of band from CI (ADR-0022 Decision 10 chose that
+        # deliberately over putting curated planning content into a public
+        # tracked tree). Without it, a cluster that hasn't been given the
+        # ConfigMap yet would fail to start the pod at all rather than
+        # simply showing the three planning views as unavailable.
+        - name: admin-planning-docs
+          configMap:
+            name: admin-planning-docs
+            optional: true

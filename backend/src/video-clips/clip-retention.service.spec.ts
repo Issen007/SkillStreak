@@ -1,3 +1,4 @@
+import { FindOperator } from 'typeorm';
 import { ClipRetentionService } from './clip-retention.service';
 import { VideoClipStatus } from './entities/video-clip.entity';
 
@@ -18,12 +19,19 @@ function buildService(overrides: { configValue?: string } = {}) {
     // "skips when another replica already claimed this run" tests below).
     tryClaimScheduledJobRun: jest.fn().mockResolvedValue(true),
   };
+  // docs/adr/0022-admin-control-center.md Decision 6 — a run-level sweep
+  // failure is recorded as an `error_log_entry` row (see the dedicated test
+  // at the bottom of this file).
+  const errorLogService = {
+    record: jest.fn().mockResolvedValue(undefined),
+  };
 
   const service = new ClipRetentionService(
     configService as never,
     videoClipRepository as never,
     objectStorageService as never,
     redisService as never,
+    errorLogService as never,
   );
 
   return {
@@ -32,6 +40,7 @@ function buildService(overrides: { configValue?: string } = {}) {
     videoClipRepository,
     objectStorageService,
     redisService,
+    errorLogService,
   };
 }
 
@@ -45,9 +54,12 @@ describe('ClipRetentionService.sweepExpiredPublishedClips', () => {
     await service.sweepExpiredPublishedClips();
 
     const [[{ where: expiredWhere }]] = videoClipRepository.find.mock.calls as [
-      [{ where: { status: VideoClipStatus } }],
+      [{ where: { status: FindOperator<VideoClipStatus> } }],
     ];
-    expect(expiredWhere.status).toBe(VideoClipStatus.PUBLISHED);
+    expect(expiredWhere.status.value).toEqual([
+      VideoClipStatus.PUBLISHED,
+      VideoClipStatus.HIDDEN,
+    ]);
     expect(objectStorageService.deleteObjectIfExists).toHaveBeenCalledWith(
       'clips/team-1/clip-1.mp4',
     );
@@ -75,6 +87,40 @@ describe('ClipRetentionService.sweepExpiredPublishedClips', () => {
     await service.sweepExpiredPublishedClips();
 
     expect(videoClipRepository.delete).not.toHaveBeenCalled();
+  });
+
+  // BACKLOG.md's live retention gap, fixed 2026-08-08: reporting a clip
+  // flips it to `hidden`, and a status: PUBLISHED-only query silently
+  // exempted exactly those clips from the 90-day promise — forever.
+  it('sweeps an expired clip that a teammate reported (hidden), deleting its object and row like any other', async () => {
+    const reported = { id: 'clip-9', storageKey: 'clips/team-1/clip-9.mp4' };
+    const { service, videoClipRepository, objectStorageService } =
+      buildService();
+    videoClipRepository.find.mockResolvedValue([reported]);
+
+    await service.sweepExpiredPublishedClips();
+
+    const [[{ where: expiredWhere }]] = videoClipRepository.find.mock.calls as [
+      [{ where: { status: FindOperator<VideoClipStatus> } }],
+    ];
+    expect(expiredWhere.status.value).toContain(VideoClipStatus.HIDDEN);
+    expect(objectStorageService.deleteObjectIfExists).toHaveBeenCalledWith(
+      'clips/team-1/clip-9.mp4',
+    );
+    expect(videoClipRepository.delete).toHaveBeenCalledWith({ id: 'clip-9' });
+  });
+
+  // The hourly sweep is a separate clock and must stay pending_upload-only
+  // — widening the daily one must not have leaked into it.
+  it('leaves the hourly pending-upload sweep querying pending_upload alone', async () => {
+    const { service, videoClipRepository } = buildService();
+
+    await service.sweepAbandonedPendingUploads();
+
+    const [[{ where: pendingWhere }]] = videoClipRepository.find.mock.calls as [
+      [{ where: { status: VideoClipStatus } }],
+    ];
+    expect(pendingWhere.status).toBe(VideoClipStatus.PENDING_UPLOAD);
   });
 
   it('does nothing when no rows are due', async () => {
@@ -172,5 +218,49 @@ describe('ClipRetentionService.sweepAbandonedPendingUploads', () => {
       expect.any(Number),
     );
     expect(videoClipRepository.find).not.toHaveBeenCalled();
+  });
+});
+
+// docs/adr/0022-admin-control-center.md Decision 6 — a run-level sweep
+// failure (the query itself, not one row's MinIO delete) used to reject
+// straight out of the `@Cron` handler into the `cron` package's bare
+// console.error. It now leaves a durable `error_log_entry` row instead.
+describe('ClipRetentionService job-failure recording', () => {
+  it('records a run-level failure as a job row and does not rethrow', async () => {
+    const { service, videoClipRepository, errorLogService } = buildService();
+    const failure = new Error('connection terminated unexpectedly');
+    videoClipRepository.find.mockRejectedValue(failure);
+
+    await expect(service.sweepExpiredPublishedClips()).resolves.toBeUndefined();
+
+    expect(errorLogService.record).toHaveBeenCalledWith({
+      source: 'job',
+      jobName: 'clip-retention:published',
+      error: failure,
+    });
+  });
+
+  it('records the pending-upload sweep under its own stable job name', async () => {
+    const { service, videoClipRepository, errorLogService } = buildService();
+    videoClipRepository.find.mockRejectedValue(new Error('deadlock detected'));
+
+    await expect(
+      service.sweepAbandonedPendingUploads(),
+    ).resolves.toBeUndefined();
+
+    expect(errorLogService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'job',
+        jobName: 'clip-retention:pending-upload',
+      }),
+    );
+  });
+
+  it('records nothing on a successful run', async () => {
+    const { service, errorLogService } = buildService();
+
+    await service.sweepExpiredPublishedClips();
+
+    expect(errorLogService.record).not.toHaveBeenCalled();
   });
 });

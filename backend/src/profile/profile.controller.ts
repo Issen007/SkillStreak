@@ -23,6 +23,7 @@ import { ConfirmContactChangeDto } from './dto/confirm-contact-change.dto';
 import { RequestContactChangeDto } from './dto/request-contact-change.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import {
+  CancelOwnContactChangeResponse,
   ConfirmContactChangeResponse,
   PlayerProfile,
   ProfileService,
@@ -89,6 +90,23 @@ export class ProfileController {
     @Body() dto: ConfirmContactChangeDto,
   ): Promise<ConfirmContactChangeResponse> {
     return this.profileService.confirmContactChange(playerId, dto.code);
+  }
+
+  // The player's own escape hatch from a change they started and never
+  // finished — distinct from the OLD address's emailed cancel link below,
+  // which is unauthenticated, code-keyed, and bumps the token version.
+  // See ProfileService.cancelOwnContactChange for why those differ.
+  // Same per-IP limit as the two sibling cancel routes below — this one is
+  // authenticated, so it is less exposed, but there is no reason for it to
+  // be the one cancel path with no ceiling at all.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('me/contact-change-cancel')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  cancelOwnContactChange(
+    @CurrentPlayerId() playerId: string,
+  ): Promise<CancelOwnContactChangeResponse> {
+    return this.profileService.cancelOwnContactChange(playerId);
   }
 
   // The OLD address's cancel link — no auth, HTML not JSON, same

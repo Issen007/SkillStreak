@@ -1,0 +1,91 @@
+# TEMPLATE — copy to admin-planning-configmap.yaml and fill in real
+# content, exactly like k8s/secret.yaml.example -> k8s/secret.yaml. The
+# real file is git-ignored (see root .gitignore) specifically so curated
+# planning content can never be accidentally committed.
+#
+# docs/adr/0022-admin-control-center.md Decision 10 (as amended
+# 2026-08-07). This carries the four curated planning sources behind the
+# admin console's `planning/*` views.
+#
+# WHY THIS IS APPLIED BY HAND, NEVER BY CI
+#
+# A CI-built image only ever contains the tracked git tree, and this repo
+# is public. All four of these sources are deliberately untracked — the
+# 2026-07-26 untracking decision for BACKLOG.md/PROJECT.md, and the
+# 2026-08-06 move of ACTION_PLAN.md into docs/internal/. Getting their
+# content into a running pod therefore reuses the same out-of-band
+# mechanism every credential in secret.yaml already uses: applied by hand,
+# independently on each cluster (production AND ubuntu01), never generated
+# from tracked source by the public pipeline.
+#
+# The security-issues list is treated with the same caution as genuinely
+# private material even though each individual fact in it already appears
+# somewhere in this repo's tracked ADRs. Compiling scattered facts into one
+# curated "here is everything currently unfixed" index is itself a new
+# risk, independent of whether any single entry was already discoverable.
+#
+# SHIP CURATED SLICES, NOT WHOLE FILES
+#
+# A ConfigMap is hard-capped at 1 MiB across all keys, and `kubectl apply`
+# stores a second full copy in its own last-applied-configuration
+# annotation — so the practical ceiling is roughly half that. The whole
+# docs/internal/ACTION_PLAN.md was already 272 KB when this was written and
+# grows daily; the backend additionally refuses any single file over 256 KB
+# and reports that section unavailable (with a log line naming the file)
+# rather than letting the failure land on your `kubectl apply` step at some
+# unpredictable future date. `action-plan-next-up.md` should be the "Next
+# Up" slice only — which is all the roadmap view renders anyway.
+#
+# HOW TO APPLY / REFRESH after editing your local curated files:
+#
+#   kubectl create configmap admin-planning-docs \
+#     --namespace skillstreak \
+#     --from-file=action-plan-next-up.md=/path/to/your/action-plan-next-up.md \
+#     --from-file=project-roadmap.md=/path/to/your/project-roadmap.md \
+#     --from-file=backlog.md=/path/to/your/backlog.md \
+#     --from-file=security-issues.md=/path/to/your/security-issues.md \
+#     --dry-run=client -o yaml | kubectl apply -f -
+#
+# The api Deployment mounts this at /srv/admin-planning (read-only). That
+# path is deliberately disjoint from any statically-served directory and
+# must stay that way — see k8s/api-deployment.yaml's comment and
+# backend/src/admin/admin-planning-docs.service.ts for why.
+#
+# PUT A `<!-- synced: YYYY-MM-DD -->` MARKER AT THE TOP OF EACH FILE
+#
+# The console shows a staleness warning when this content gets old, and it
+# reads that date from the marker — NOT from the file's mtime. A ConfigMap
+# volume's mtime is rewritten by the kubelet every time the pod starts, so
+# any unrelated image roll or node drain would otherwise reset the date and
+# make months-old planning content look freshly synced. Update the marker
+# when you update the content; if you forget, the banner falls back to
+# mtime and will simply under-report staleness.
+#
+# Every key is optional: a cluster without this ConfigMap boots fine and
+# simply reports the planning views as unavailable. The filenames below are
+# fixed — the backend never takes a filename from a request, so these four
+# are the only ones it will ever read.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: admin-planning-docs
+  namespace: skillstreak
+data:
+  # ACTION_PLAN.md's "Next Up" slice only — not the whole file.
+  action-plan-next-up.md: |
+    <!-- synced: 2026-01-01 -->
+    ## Next Up
+    REPLACE_ME — paste the curated slice here.
+  # PROJECT.md's curated open subset.
+  project-roadmap.md: |
+    <!-- synced: 2026-01-01 -->
+    REPLACE_ME
+  # BACKLOG.md's curated open subset.
+  backlog.md: |
+    <!-- synced: 2026-01-01 -->
+    REPLACE_ME
+  # The hand-maintained security-issues list. No template content on
+  # purpose — this one has never had a tracked counterpart to copy from.
+  security-issues.md: |
+    <!-- synced: 2026-01-01 -->
+    REPLACE_ME

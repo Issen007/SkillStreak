@@ -6,12 +6,17 @@ import {
   ChatSendRateLimitedException,
   ClipNotFoundException,
   ConsentRequiredException,
+  SystemMessageNotReportableException,
   TeamMismatchException,
 } from '../common/errors/exceptions';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
 import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { VideoClipStatus } from '../video-clips/entities/video-clip.entity';
-import { ChatMessageStatus } from './entities/team-chat-message.entity';
+import {
+  ChatMessageAuthorType,
+  ChatMessageStatus,
+  SystemChatEventType,
+} from './entities/team-chat-message.entity';
 import { ChatMessageReportReason } from './entities/team-chat-message-report.entity';
 import { TeamChatService } from './team-chat.service';
 
@@ -209,6 +214,11 @@ describe('TeamChatService.postMessage', () => {
       senderPlayerId: 'player-1',
       senderScreenName: 'FloorballStar15',
       senderAvatarId: 'fox',
+      // docs/adr/0021-clip-challenge-notifications.md Decision 2 — a
+      // message sent through this HTTP path is always 'player'-authored;
+      // there is no DTO field that could ever make it 'system'.
+      authorType: ChatMessageAuthorType.PLAYER,
+      systemEventType: null,
       content: 'Bra jobbat!',
       clip: null,
     });
@@ -340,6 +350,8 @@ describe('TeamChatService.listMessages', () => {
     const messageA = {
       id: 'msg-1',
       senderPlayerId: 'player-1',
+      authorType: ChatMessageAuthorType.PLAYER,
+      systemEventType: null,
       content: 'hej',
       createdAt: new Date('2026-07-08T10:00:00Z'),
     };
@@ -374,6 +386,8 @@ describe('TeamChatService.listMessages', () => {
         senderPlayerId: 'player-1',
         senderScreenName: 'FloorballStar15',
         senderAvatarId: 'fox',
+        authorType: ChatMessageAuthorType.PLAYER,
+        systemEventType: null,
         content: 'hej',
         clip: null,
         createdAt: messageA.createdAt.toISOString(),
@@ -517,6 +531,44 @@ describe('TeamChatService.listMessages', () => {
       service.listMessages('team-1', 'player-1', undefined, 50),
     ).rejects.toThrow();
   });
+
+  // docs/adr/0021-clip-challenge-notifications.md Decision 2 — a system row
+  // (senderPlayerId null from creation, never an erased player) surfaces
+  // authorType/systemEventType so the client can disambiguate it from
+  // ADR-0013 Decision 6's "real player, since erased" null-sender case,
+  // which shares the same null senderPlayerId/senderScreenName/
+  // senderAvatarId shape but authorType: 'player'.
+  it('surfaces authorType/systemEventType on a system-authored row (senderPlayerId null from creation, not erasure)', async () => {
+    const systemMessage = {
+      id: 'msg-system-1',
+      senderPlayerId: null,
+      authorType: ChatMessageAuthorType.SYSTEM,
+      systemEventType: SystemChatEventType.CLIP_CHALLENGE_ISSUED,
+      content: '🎯 Anna utmanade Karl med en video!',
+      createdAt: new Date('2026-08-01T10:00:00Z'),
+    };
+    const { service } = buildService({ messages: [systemMessage] });
+
+    const [result] = await service.listMessages(
+      'team-1',
+      'player-1',
+      undefined,
+      50,
+    );
+
+    expect(result).toEqual({
+      id: 'msg-system-1',
+      senderPlayerId: null,
+      senderScreenName: null,
+      senderAvatarId: null,
+      authorType: ChatMessageAuthorType.SYSTEM,
+      systemEventType: SystemChatEventType.CLIP_CHALLENGE_ISSUED,
+      content: '🎯 Anna utmanade Karl med en video!',
+      clip: null,
+      createdAt: systemMessage.createdAt.toISOString(),
+      reportedByMe: false,
+    });
+  });
 });
 
 describe('TeamChatService.reportMessage', () => {
@@ -524,8 +576,34 @@ describe('TeamChatService.reportMessage', () => {
     id: 'msg-1',
     teamId: 'team-1',
     senderPlayerId: 'player-2',
+    authorType: ChatMessageAuthorType.PLAYER,
     content: 'hej',
   };
+
+  // docs/adr/0021-clip-challenge-notifications.md's 2026-08-06
+  // security-reviewer addendum, finding 1 — the single most important test
+  // in this feature: a report against a system-authored row (no real
+  // sender to report) must be rejected, not silently succeed.
+  it('rejects with cannot_report_system_message for a system-authored row, WITHOUT ever claiming the report cooldown or checking for an existing report', async () => {
+    const { service, messageRepository, reportRepository, redisService } =
+      buildService();
+    messageRepository.findOne.mockResolvedValue({
+      id: 'msg-system-1',
+      teamId: 'team-1',
+      senderPlayerId: null,
+      authorType: ChatMessageAuthorType.SYSTEM,
+      content: '🎯 Anna utmanade Karl med en video!',
+    });
+
+    await expect(
+      service.reportMessage('team-1', 'player-1', 'msg-system-1', {
+        reason: ChatMessageReportReason.OTHER,
+      }),
+    ).rejects.toBeInstanceOf(SystemMessageNotReportableException);
+    expect(reportRepository.findOne).not.toHaveBeenCalled();
+    expect(redisService.tryClaimChatReportCooldown).not.toHaveBeenCalled();
+    expect(reportRepository.save).not.toHaveBeenCalled();
+  });
 
   it('rejects with chat_message_not_found for a message outside this team (or nonexistent)', async () => {
     const { service, messageRepository } = buildService();

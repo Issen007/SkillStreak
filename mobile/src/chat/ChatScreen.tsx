@@ -394,6 +394,16 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened, onGoToClipsTab }:
 
   const handleReportSubmit = async (reason: ChatReportReason, note: string | undefined) => {
     if (!reportTarget) return;
+    // A system message is never reportable (MessageBubble's canReportMessage
+    // gates the report affordance on !isSystem), so senderPlayerId/etc. are
+    // guaranteed real here in practice — this guard makes that provable to
+    // TypeScript rather than asserting it, and stays safe if that invariant
+    // ever changes.
+    if (!reportTarget.senderPlayerId || !reportTarget.senderScreenName
+      || !reportTarget.senderAvatarId) {
+      setReportTarget(null);
+      return;
+    }
     setReportSubmitting(true);
     try {
       await reportChatMessage(teamId, reportTarget.id, { reason, note });
@@ -504,6 +514,11 @@ export function ChatScreen({ teamId, viewerPlayerId, onOpened, onGoToClipsTab }:
   };
 
   const handleTapSender = (message: ChatMessage) => {
+    // A system message has no tappable sender (MessageBubble omits the
+    // sender row entirely for authorType === 'system'), so this is never
+    // actually invoked with null sender fields — guard rather than assert,
+    // same reasoning as handleReportSubmit above.
+    if (!message.senderPlayerId || !message.senderScreenName || !message.senderAvatarId) return;
     setBlockTarget({
       playerId: message.senderPlayerId,
       screenName: message.senderScreenName,

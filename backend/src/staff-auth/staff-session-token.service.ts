@@ -13,8 +13,22 @@ import { StaffJwtPayload } from './staff-jwt-payload.interface';
 export class StaffSessionTokenService {
   constructor(private readonly jwtService: JwtService) {}
 
-  issueFor(staffAccountId: string, role: StaffAccountRole): string {
-    const payload: StaffJwtPayload = { sub: staffAccountId, role };
+  /**
+   * `options.stepUpAt` is set only by a step-up callback that actually
+   * verified the IdP's `auth_time` — never by an ordinary login. See
+   * StaffJwtPayload.stepUpAt for why the proof lives on the session rather
+   * than on the StaffAccount row.
+   */
+  issueFor(
+    staffAccountId: string,
+    role: StaffAccountRole,
+    options: { stepUpAt?: number } = {},
+  ): string {
+    const payload: StaffJwtPayload = {
+      sub: staffAccountId,
+      role,
+      ...(options.stepUpAt !== undefined ? { stepUpAt: options.stepUpAt } : {}),
+    };
     return this.jwtService.sign(payload);
   }
 

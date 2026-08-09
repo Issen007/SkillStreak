@@ -4,6 +4,7 @@
     "loadError": "Kunne ikke hente laget. Sjekk internettforbindelsen din.",
     "genericError": "Noe gikk galt.",
     "retry": "Prøv igjen",
+    "pendingChallengesHeading": "🎯 Utfordringer til deg ({{count}})",
     "pendingSectionLabel": "Venter på godkjenning",
     "teammatesSectionLabel": "Spillere på laget",
     "inviteCodeLabel": "Lagkode",
@@ -17,6 +18,8 @@
     "approveErrorToast": "Kunne ikke godkjenne akkurat nå. Prøv igjen.",
     "rejectSuccessToast": "{{screenName}} ble avvist.",
     "rejectErrorToast": "Kunne ikke avvise akkurat nå. Prøv igjen.",
+    "challengeAckedToast": "Utfordringen fra {{screenName}} er merket som sett.",
+    "challengeAckErrorToast": "Kunne ikke merke utfordringen som sett. Prøv igjen.",
     "captainTransferredToast": "Kapteinsrollen er overført til {{newCaptainScreenName}}. 👑",
     "linkCopiedToast": "Lenke kopiert!"
   },
@@ -60,6 +63,17 @@
   "pendingJoinRow": {
     "reject": "Avvis",
     "approve": "Godkjenn"
+  },
+  "challengeRow": {
+    "title": "{{screenName}} utfordret deg!",
+    "watchCta": "Se →",
+    "dismissCta": "Allerede sett",
+    "a11yLabel": "Utfordring fra {{screenName}}. Trykk for å se."
+  },
+  "challengeClipModal": {
+    "heading": "{{screenName}} utfordret deg! 🎯",
+    "close": "Lukk",
+    "playError": "Kunne ikke spille av videoen."
   },
   "reminderActionSheet": {
     "sendReminder": "Send påminnelse til forelder",

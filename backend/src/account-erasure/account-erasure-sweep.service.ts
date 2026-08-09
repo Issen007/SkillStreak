@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { ERROR_LOG_JOB_NAMES } from '../error-log/error-log.constants';
+import { ErrorLogService } from '../error-log/error-log.service';
 import { PlayersService } from '../players/players.service';
 import { RedisService } from '../redis/redis.service';
 import { AccountErasureService } from './account-erasure.service';
@@ -65,35 +67,54 @@ export class AccountErasureSweepService {
     private readonly accountErasureService: AccountErasureService,
     private readonly playersService: PlayersService,
     private readonly redisService: RedisService,
+    private readonly errorLogService: ErrorLogService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async sweep(): Promise<void> {
-    if (!(await this.tryClaimJobOrSkip('account-erasure:sweep'))) {
+    const jobName = ERROR_LOG_JOB_NAMES.accountErasureSweep;
+    if (!(await this.tryClaimJobOrSkip(jobName))) {
       return;
     }
-    const dueRows = await this.accountErasureService.findDueRows();
-    if (dueRows.length === 0) return;
 
-    const byTeam = groupByTeam(dueRows);
-    this.logger.log(
-      `Sweeping ${dueRows.length} due account-erasure request(s) across ${byTeam.size} team(s).`,
-    );
+    try {
+      const dueRows = await this.accountErasureService.findDueRows();
+      if (dueRows.length === 0) return;
 
-    for (const [teamId, batchRows] of byTeam) {
-      try {
-        await this.processTeamBatch(teamId, batchRows);
-      } catch (error) {
-        // Same per-batch try/catch/leave-for-next-run posture as
-        // ClipRetentionService — a failure on one team's batch is logged
-        // and retried the next day, never blocks another team's batch in
-        // the same run.
-        this.logger.warn(
-          `Failed to sweep account-erasure batch for team ${teamId} (${batchRows.length} row(s)) — left for the next run: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
+      const byTeam = groupByTeam(dueRows);
+      this.logger.log(
+        `Sweeping ${dueRows.length} due account-erasure request(s) across ${byTeam.size} team(s).`,
+      );
+
+      for (const [teamId, batchRows] of byTeam) {
+        try {
+          await this.processTeamBatch(teamId, batchRows);
+        } catch (error) {
+          // Same per-batch try/catch/leave-for-next-run posture as
+          // ClipRetentionService — a failure on one team's batch is logged
+          // and retried the next day, never blocks another team's batch in
+          // the same run. Deliberately logger-only, like
+          // ClipRetentionService's per-row catch: the run-level catch below
+          // is what writes a durable ADR-0022 Decision 6 row, so one broken
+          // dependency can't write a row per team per run.
+          this.logger.warn(
+            `Failed to sweep account-erasure batch for team ${teamId} (${batchRows.length} row(s)) — left for the next run: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
       }
+    } catch (error) {
+      // docs/adr/0022-admin-control-center.md Decision 6 — a failure of the
+      // sweep as a whole (findDueRows, the roster lookup that feeds the
+      // batching, anything outside a per-batch catch) is recorded rather
+      // than left to reject out of the `@Cron` handler unobserved.
+      this.logger.error(
+        `${jobName} failed — left for the next run: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      await this.errorLogService.record({ source: 'job', jobName, error });
     }
   }
 

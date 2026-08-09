@@ -35,6 +35,7 @@ function buildService(overrides: {
     startContactChangeGracePeriod: jest.fn().mockResolvedValue(undefined),
     previewByCancelCode: jest.fn(),
     findValidByCancelCode: jest.fn(),
+    findByPlayerIdForUpdate: jest.fn(),
     cancelPendingContactChange: jest.fn().mockResolvedValue(undefined),
     ...overrides.playerPrivateInfoService,
   };
@@ -144,6 +145,49 @@ describe('ProfileService.requestContactChange', () => {
       2,
       expect.objectContaining({ to: 'old-parent@example.com' }),
     );
+  });
+
+  // code-critic finding, 2026-08-08. Without this refusal, the second
+  // (unconfirmed) address inherits the FIRST change's grace deadline, and
+  // getEffective's lazy apply promotes it into parent_contact when that
+  // deadline elapses — an address nobody ever confirmed, while the veto
+  // email the parent received named a different one entirely.
+  it('refuses a second request while a confirmed change is still inside its grace period', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-b',
+          contactChangeApplyAt: new Date(Date.now() + 60_000),
+          contactChangeCancelCode: 'CANCEL01',
+        }),
+      },
+    });
+
+    await expect(
+      service.requestContactChange('player-1', 'c@example.com'),
+    ).rejects.toMatchObject({ code: 'contact_change_already_confirmed' });
+
+    expect(
+      playerPrivateInfoService.setPendingContactChange,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('allows a second request when the first was never confirmed (no grace period started)', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-b',
+          contactChangeApplyAt: null,
+        }),
+      },
+    });
+
+    await expect(
+      service.requestContactChange('player-1', 'c@example.com'),
+    ).resolves.toMatchObject({ requested: true });
+    expect(playerPrivateInfoService.setPendingContactChange).toHaveBeenCalled();
   });
 
   it('never includes the code in its response', async () => {
@@ -408,5 +452,133 @@ describe('ProfileService.cancelContactChange', () => {
 
     await expect(service.cancelContactChange('NOPE0000')).resolves.toBeNull();
     expect(playersService.bumpTokenVersion).not.toHaveBeenCalled();
+  });
+});
+
+// The authenticated self-cancel (BACKLOG.md's option (a), 2026-08-08).
+// Its whole reason to exist is the unconfirmed-and-expired state, which
+// the emailed old-address link above cannot reach: that link is keyed by
+// a contactChangeCancelCode, and one is only ever minted at confirm time.
+describe('ProfileService.cancelOwnContactChange', () => {
+  it('clears a pending change the player never confirmed', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-blob',
+          contactChangeCode: 'ABC123',
+          contactChangeCodeExpiresAt: new Date(Date.now() - 60_000),
+          contactChangeApplyAt: null,
+        }),
+      },
+    });
+
+    await expect(service.cancelOwnContactChange('player-1')).resolves.toEqual({
+      cancelled: true,
+    });
+    expect(
+      playerPrivateInfoService.cancelPendingContactChange,
+    ).toHaveBeenCalledWith(undefined, 'player-1');
+  });
+
+  // Security review, 2026-08-08: this used to be allowed, on the argument
+  // that cancelling always resolves toward the old parent contact and is
+  // therefore fail-safe. True of the contact, false of the consequences —
+  // it also clears contactChangeCancelCode, which is the old address
+  // holder's only lever, and the ONLY path that bumps token_version and
+  // evicts a hijacked session. A confirmed change is theirs to cancel now.
+  it('refuses to cancel a confirmed change in its grace period, leaving the parent’s cancel code intact', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-blob',
+          contactChangeApplyAt: new Date(Date.now() + 60_000),
+          contactChangeCancelCode: 'CANCEL01',
+        }),
+      },
+    });
+
+    await expect(service.cancelOwnContactChange('player-1')).resolves.toEqual({
+      cancelled: false,
+    });
+    expect(
+      playerPrivateInfoService.cancelPendingContactChange,
+    ).not.toHaveBeenCalled();
+  });
+
+  // The same refusal applies once the grace period has elapsed but the
+  // lazy apply hasn't run yet — still not this route's to resolve.
+  it('refuses to cancel a confirmed change that is already past due', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-blob',
+          contactChangeApplyAt: new Date(Date.now() - 60_000),
+          contactChangeCancelCode: 'CANCEL01',
+        }),
+      },
+    });
+
+    await expect(service.cancelOwnContactChange('player-1')).resolves.toEqual({
+      cancelled: false,
+    });
+    expect(
+      playerPrivateInfoService.cancelPendingContactChange,
+    ).not.toHaveBeenCalled();
+  });
+
+  // Unlike the emailed link, this one must NOT log the player out — they
+  // are cancelling their own typo from inside the app, not reporting a
+  // hijacked session.
+  it('does not bump the token version', async () => {
+    const { service, playersService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: 'encrypted-blob',
+          contactChangeApplyAt: null,
+        }),
+      },
+    });
+
+    await service.cancelOwnContactChange('player-1');
+
+    expect(playersService.bumpTokenVersion).not.toHaveBeenCalled();
+  });
+
+  it('is idempotent — reports cancelled:false and writes nothing when there is no pending change', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue({
+          playerId: 'player-1',
+          pendingParentContact: null,
+          contactChangeApplyAt: null,
+        }),
+      },
+    });
+
+    await expect(service.cancelOwnContactChange('player-1')).resolves.toEqual({
+      cancelled: false,
+    });
+    expect(
+      playerPrivateInfoService.cancelPendingContactChange,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('reports cancelled:false when the player has no PlayerPrivateInfo row at all (defensive)', async () => {
+    const { service, playerPrivateInfoService } = buildService({
+      playerPrivateInfoService: {
+        findByPlayerIdForUpdate: jest.fn().mockResolvedValue(null),
+      },
+    });
+
+    await expect(service.cancelOwnContactChange('player-1')).resolves.toEqual({
+      cancelled: false,
+    });
+    expect(
+      playerPrivateInfoService.cancelPendingContactChange,
+    ).not.toHaveBeenCalled();
   });
 });

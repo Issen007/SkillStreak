@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentPlayerId } from '../auth/current-player-id.decorator';
@@ -16,6 +17,7 @@ import {
   PlayersService,
   TeammateEntry,
 } from '../players/players.service';
+import { ListTeammatesQueryDto } from '../players/dto/list-teammates-query.dto';
 import { TransferCaptaincyDto } from '../players/dto/transfer-captaincy.dto';
 import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { CreateWeeklyGoalDto } from './dto/create-weekly-goal.dto';
@@ -213,13 +215,26 @@ export class WeeklyGoalController {
   // Fas 2.6a (ADR-0006 Decision 2, endpoint 10) — team-membership only, not
   // captain-gated: a deliberately narrower read than the roster endpoint
   // above (no consentStatus/lastTrainedDate).
+  //
+  // `approvedOnly` (added 2026-08-06, ADR-0021's security-reviewer
+  // addendum finding 2) — opt-in only, defaults to today's unfiltered
+  // behavior. See PlayersService.listTeammates's own comment for why this
+  // must not be a global default: this one endpoint backs three
+  // independent pickers (video-clip tag picker, captain-transfer picker,
+  // GDPR erasure successor picker) with three independent answers to
+  // "should a still-PENDING joiner be offered."
   @UseGuards(JwtAuthGuard)
   @Get('teammates')
   async getTeammates(
     @Param('teamId') teamId: string,
     @CurrentPlayerId() playerId: string,
+    @Query() query: ListTeammatesQueryDto,
   ): Promise<{ teammates: TeammateEntry[] }> {
-    const teammates = await this.playersService.listTeammates(teamId, playerId);
+    const teammates = await this.playersService.listTeammates(
+      teamId,
+      playerId,
+      { approvedOnly: query.approvedOnly },
+    );
     return { teammates };
   }
 

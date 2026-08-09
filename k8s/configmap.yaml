@@ -81,3 +81,29 @@ data:
   # section) must set this "false" instead — that cluster has no live TLS
   # at all, so a Secure-flagged cookie would silently never be sent there.
   STAFF_COOKIE_SECURE: "true"
+  # Fas 5 (docs/adr/0020-usage-analytics-product-metrics.md) — the scheduled
+  # aggregate-usage-report job's two non-secret knobs. The recipient address
+  # itself is NOT here: it lives in skillstreak-secret alongside
+  # ADMIN_EMAILS, for the same reason that entry gives (whose inbox receives
+  # this is operationally sensitive even though an email address isn't a
+  # cryptographic secret).
+  #
+  # Cadence (Decision 6): monthly, 06:00 on the 1st. Deliberately not one of
+  # @nestjs/schedule's CronExpression constants — the ADR flags cadence as a
+  # business judgment call the project owner should be able to change here
+  # (weekly/quarterly) without a code change. A malformed value falls back to
+  # this same default rather than crash-looping the pod.
+  USAGE_REPORT_CRON: "0 6 1 * *"
+  # Decision 3's security-reviewer-required minimum-population floor: the
+  # fewest TEAMS a team-size bucket must contain before the report breaks a
+  # metric out by team size at all. Below it, those teams are counted in the
+  # app-wide number only — never shown as their own bucket, since a bucket
+  # holding one or two teams can resolve to one specific child's behaviour.
+  #
+  # **5 is the reviewed value — don't lower it.** Raising it is always safe.
+  # Anything below 5 is what the security review signed off against, so the
+  # app logs a warning on every run that it's configured lower, and refuses
+  # outright to go below 2 (a "bucket" of one team is the exact degenerate
+  # case this floor exists to prevent). Lowering it needs a fresh
+  # security-reviewer pass, not just an edit here.
+  USAGE_REPORT_MIN_TEAMS_PER_BUCKET: "5"

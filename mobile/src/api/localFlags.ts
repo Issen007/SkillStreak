@@ -145,32 +145,10 @@ export async function setClipLastViewedAt(teamId: string, value: string): Promis
   await secureSetItem(clipLastViewedKeyFor(teamId), value);
 }
 
-// --- Fas 3: Screen V3's "you were challenged" one-time notice --------------
-// Reuses the K5/G3 "diff a locally persisted flag" mechanism verbatim, per
-// the flow doc's judgment call 6 — but since a player can be tagged in more
-// than one clip, this tracks a *set* of clipIds already shown (not a single
-// timestamp diff like K5/G3), persisted the moment the banner is *shown*
-// (not dismissed), same "a killed app doesn't re-show it" rule.
-function seenChallengeClipIdsKeyFor(teamId: string): string {
-  return `skillstreak.seenChallengeClipIds.${teamId}`;
-}
-
-export async function getSeenChallengeClipIds(teamId: string): Promise<string[]> {
-  const raw = await secureGetItem(seenChallengeClipIdsKeyFor(teamId));
-  if (!raw) return [];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as string[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export async function addSeenChallengeClipId(teamId: string, clipId: string): Promise<void> {
-  const existing = await getSeenChallengeClipIds(teamId);
-  if (existing.includes(clipId)) return;
-  await secureSetItem(
-    seenChallengeClipIdsKeyFor(teamId),
-    JSON.stringify([...existing, clipId]),
-  );
-}
+// Fas 3's `seenChallengeClipIds` flags (Screen V3's one-time "you were
+// challenged" toast) lived here until Fas 4.6 and are deliberately gone,
+// not kept alongside the replacement: per docs/adr/
+// 0021-clip-challenge-notifications.md Decision 1, "you've seen this
+// challenge" is now `VideoClip.challengeAcknowledgedAt` — durable,
+// per-account, survives a reinstall or a new phone, which this per-device
+// AsyncStorage set never did. Keeping both would just let the two drift.

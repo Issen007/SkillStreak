@@ -6,12 +6,18 @@ import {
   ClipUploadRateLimitedException,
   CaptionRejectedByFilterException,
   ConsentRequiredException,
+  NotYourChallengeException,
   NotYourClipException,
   UploadNotFoundException,
 } from '../common/errors/exceptions';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
 import { TeamJoinStatus } from '../players/team-join-status.enum';
-import { VideoClipStatus } from './entities/video-clip.entity';
+import {
+  ChatMessageAuthorType,
+  SystemChatEventType,
+  TeamChatMessage,
+} from '../team-chat/entities/team-chat-message.entity';
+import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
 import { VideoClipsService } from './video-clips.service';
 
 // Chainable fake query builder, mirroring team-chat.service.spec.ts's
@@ -96,6 +102,7 @@ function buildService(
     create: jest.fn((entity: unknown) => entity),
     update: jest.fn().mockResolvedValue(undefined),
     findOne: jest.fn(),
+    find: jest.fn().mockResolvedValue([]),
     delete: jest.fn().mockResolvedValue(undefined),
   };
   const clipReportRepository = {
@@ -110,11 +117,43 @@ function buildService(
   const teamCoachRepository = { find: jest.fn().mockResolvedValue([]) };
   const coachRepository = { find: jest.fn().mockResolvedValue([]) };
 
+  // docs/adr/0021-clip-challenge-notifications.md Decision 2 —
+  // completeUpload's transactional publish + system-message insert. The
+  // fake manager's getRepository dispatches to one of these two
+  // transaction-scoped repositories by entity, mirroring the real
+  // `manager.getRepository(Entity)` shape.
+  const transactionVideoClipRepository = {
+    update: jest.fn().mockResolvedValue(undefined),
+  };
+  const teamChatMessageRepository = {
+    save: jest.fn((entity: Record<string, unknown>) =>
+      Promise.resolve({ ...entity, id: 'sysmsg-1', createdAt: new Date() }),
+    ),
+    create: jest.fn((entity: unknown) => entity),
+  };
+  const dataSource = {
+    transaction: jest.fn(
+      async (work: (manager: unknown) => Promise<unknown>) => {
+        const manager = {
+          getRepository: jest.fn((entity: unknown) => {
+            if (entity === VideoClip) return transactionVideoClipRepository;
+            if (entity === TeamChatMessage) return teamChatMessageRepository;
+            throw new Error(
+              `Unexpected entity requested from the fake transaction manager: ${String(entity)}`,
+            );
+          }),
+        };
+        return work(manager);
+      },
+    ),
+  };
+
   const configService = {
     get: jest.fn().mockReturnValue(undefined),
   };
 
   const service = new VideoClipsService(
+    dataSource as never,
     configService as never,
     playersService as never,
     playerPrivateInfoService as never,
@@ -129,6 +168,7 @@ function buildService(
     teamChatBlockRepository as never,
     teamCoachRepository as never,
     coachRepository as never,
+    teamChatMessageRepository as never,
   );
 
   return {
@@ -147,6 +187,9 @@ function buildService(
     clipReportRepository,
     teamChatBlockRepository,
     teamCoachRepository,
+    dataSource,
+    transactionVideoClipRepository,
+    teamChatMessageRepository,
     coachRepository,
     configService,
   };
@@ -189,6 +232,7 @@ describe('VideoClipsService.createUploadUrl', () => {
     playersService.findByIdOrThrow.mockResolvedValue({
       id: 'player-2',
       teamId: 'other-team',
+      teamJoinStatus: TeamJoinStatus.APPROVED,
     });
 
     await expect(
@@ -199,6 +243,30 @@ describe('VideoClipsService.createUploadUrl', () => {
         taggedPlayerId: 'player-2',
       }),
     ).rejects.toThrow();
+  });
+
+  // docs/adr/0021-clip-challenge-notifications.md Decision 3 / the
+  // 2026-08-06 security-reviewer addendum finding 2 — this is the actual
+  // enforcement point (PlayersService.listTeammates stays unfiltered by
+  // default, per the code-critic finding on an earlier version of this
+  // diff — see that method's own comment), so this check must hold
+  // regardless of what any picker does or doesn't offer client-side.
+  it('rejects a taggedPlayerId that is on the same team but not yet teamJoinStatus APPROVED, with a message containing "taggedPlayerId"', async () => {
+    const { service, playersService } = buildService();
+    playersService.findByIdOrThrow.mockResolvedValue({
+      id: 'player-2',
+      teamId: 'team-1',
+      teamJoinStatus: TeamJoinStatus.PENDING,
+    });
+
+    await expect(
+      service.createUploadUrl('team-1', 'player-1', {
+        mimeType: 'video/mp4',
+        fileSizeBytes: 1000,
+        durationSeconds: 10,
+        taggedPlayerId: 'player-2',
+      }),
+    ).rejects.toThrow(/taggedPlayerId/);
   });
 
   it('rejects a filtered caption with caption_rejected_by_filter and never persists the clip', async () => {
@@ -410,6 +478,9 @@ describe('VideoClipsService.completeUpload', () => {
       videoClipRepository,
       objectStorageService,
       configService,
+      dataSource,
+      transactionVideoClipRepository,
+      teamChatMessageRepository,
     } = buildService();
     configService.get.mockImplementation((key: string) =>
       key === 'CLIP_RETENTION_DAYS' ? '90' : undefined,
@@ -433,10 +504,16 @@ describe('VideoClipsService.completeUpload', () => {
       expect.any(Buffer),
       'video/mp4',
     );
-    expect(videoClipRepository.update).toHaveBeenCalledWith(
+    // The publish status flip now happens inside dataSource.transaction
+    // (ADR-0021 Decision 2), against the transaction-scoped repository, not
+    // the plain injected one.
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(transactionVideoClipRepository.update).toHaveBeenCalledWith(
       { id: 'clip-1' },
       expect.objectContaining({ status: VideoClipStatus.PUBLISHED }),
     );
+    // No taggedPlayerId on this clip — no system chat message inserted.
+    expect(teamChatMessageRepository.save).not.toHaveBeenCalled();
     const expectedExpiresAt = new Date(
       createdAt.getTime() + 90 * 24 * 60 * 60 * 1000,
     );
@@ -447,6 +524,60 @@ describe('VideoClipsService.completeUpload', () => {
       caption: 'Zorro-fint #47!',
     });
     expect(result.expiresAt).toBe(expectedExpiresAt.toISOString());
+  });
+
+  // docs/adr/0021-clip-challenge-notifications.md Decision 2 — the system
+  // chat message, inserted in the same transaction as the publish-status
+  // flip, only when the clip carries a taggedPlayerId.
+  it('inserts a fixed-template system chat message in the same transaction when the clip has a taggedPlayerId', async () => {
+    const createdAt = new Date('2026-07-22T18:07:00Z');
+    const {
+      service,
+      videoClipRepository,
+      playersService,
+      dataSource,
+      transactionVideoClipRepository,
+      teamChatMessageRepository,
+    } = buildService();
+    videoClipRepository.findOne.mockResolvedValue({
+      id: 'clip-1',
+      teamId: 'team-1',
+      uploaderPlayerId: 'player-1',
+      taggedPlayerId: 'player-2',
+      storageKey: 'clips/team-1/clip-1.mp4',
+      mimeType: 'video/mp4',
+      durationSeconds: 10,
+      createdAt,
+      caption: null,
+    });
+    playersService.findByIdOrThrow.mockImplementation((id: string) =>
+      Promise.resolve(
+        id === 'player-1'
+          ? { id: 'player-1', screenName: 'Anna' }
+          : { id: 'player-2', screenName: 'Karl' },
+      ),
+    );
+
+    await service.completeUpload('team-1', 'player-1', 'clip-1');
+
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    // Both the publish flip and the message insert happened against the
+    // same fake transaction manager — nothing outside dataSource.transaction
+    // touched either repository for this step.
+    expect(transactionVideoClipRepository.update).toHaveBeenCalledWith(
+      { id: 'clip-1' },
+      expect.objectContaining({ status: VideoClipStatus.PUBLISHED }),
+    );
+    expect(teamChatMessageRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teamId: 'team-1',
+        senderPlayerId: null,
+        authorType: ChatMessageAuthorType.SYSTEM,
+        systemEventType: SystemChatEventType.CLIP_CHALLENGE_ISSUED,
+        content: '🎯 Anna utmanade Karl med en video!',
+        clipId: 'clip-1',
+      }),
+    );
   });
 });
 
@@ -668,6 +799,170 @@ describe('VideoClipsService.reportClip', () => {
         reason: 'other' as never,
       }),
     ).resolves.toBeDefined();
+  });
+});
+
+describe('VideoClipsService.listPendingChallenges', () => {
+  it('rejects with consent_required for a non-approved viewer', async () => {
+    const { service, playersService } = buildService();
+    playersService.assertTeamMembership.mockResolvedValue({
+      id: 'player-1',
+      teamId: 'team-1',
+      parentalConsentStatus: ParentalConsentStatus.PENDING,
+      teamJoinStatus: TeamJoinStatus.APPROVED,
+    });
+
+    await expect(
+      service.listPendingChallenges('team-1', 'player-1'),
+    ).rejects.toBeInstanceOf(ConsentRequiredException);
+  });
+
+  it('queries tagged_player_id = requester, published, unacknowledged clips on this team and returns the design-doc shape', async () => {
+    const { service, videoClipRepository, playersService } = buildService();
+    playersService.listByTeam.mockResolvedValue([
+      {
+        id: 'player-1',
+        screenName: 'TaggedPlayer',
+        avatarId: 'wolf',
+      },
+      {
+        id: 'player-2',
+        screenName: 'FloorballStar15',
+        avatarId: 'fox',
+      },
+    ]);
+    const clip = {
+      id: 'clip-1',
+      teamId: 'team-1',
+      uploaderPlayerId: 'player-2',
+      taggedPlayerId: 'player-1',
+      caption: 'Kolla min fintteknik',
+      storageKey: 'clips/team-1/clip-1.mp4',
+      createdAt: new Date('2026-08-01T10:00:00Z'),
+      challengeAcknowledgedAt: null,
+    };
+    videoClipRepository.find.mockResolvedValue([clip]);
+
+    const result = await service.listPendingChallenges('team-1', 'player-1');
+
+    expect(videoClipRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- jest's own matcher typing
+        where: expect.objectContaining({
+          teamId: 'team-1',
+          taggedPlayerId: 'player-1',
+          status: VideoClipStatus.PUBLISHED,
+        }),
+      }),
+    );
+    expect(result).toEqual([
+      {
+        clipId: 'clip-1',
+        uploaderPlayerId: 'player-2',
+        uploaderScreenName: 'FloorballStar15',
+        uploaderAvatarId: 'fox',
+        caption: 'Kolla min fintteknik',
+        playbackUrl: 'https://minio/get-url',
+        createdAt: '2026-08-01T10:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('returns an empty list without any further work when there are no matching rows', async () => {
+    const { service, videoClipRepository, objectStorageService } =
+      buildService();
+    videoClipRepository.find.mockResolvedValue([]);
+
+    const result = await service.listPendingChallenges('team-1', 'player-1');
+
+    expect(result).toEqual([]);
+    expect(objectStorageService.createPresignedGetUrl).not.toHaveBeenCalled();
+  });
+});
+
+describe('VideoClipsService.ackChallenge', () => {
+  it('rejects with clip_not_found for a nonexistent/cross-team clip', async () => {
+    const { service, videoClipRepository } = buildService();
+    videoClipRepository.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.ackChallenge('team-1', 'player-1', 'clip-1'),
+    ).rejects.toBeInstanceOf(ClipNotFoundException);
+  });
+
+  // code-critic finding, 2026-08-06 pre-merge pass — consistent with
+  // listPendingChallenges and the migration's own doc comment, both of
+  // which treat `published` as a precondition for
+  // challenge_acknowledged_at being meaningful.
+  it('scopes the lookup to status: published, same as listPendingChallenges', async () => {
+    const { service, videoClipRepository } = buildService();
+    videoClipRepository.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.ackChallenge('team-1', 'player-1', 'clip-1'),
+    ).rejects.toBeInstanceOf(ClipNotFoundException);
+
+    expect(videoClipRepository.findOne).toHaveBeenCalledWith({
+      where: {
+        id: 'clip-1',
+        teamId: 'team-1',
+        status: VideoClipStatus.PUBLISHED,
+      },
+    });
+  });
+
+  it('rejects with not_your_challenge when the requester is not the taggedPlayerId', async () => {
+    const { service, videoClipRepository } = buildService();
+    videoClipRepository.findOne.mockResolvedValue({
+      id: 'clip-1',
+      teamId: 'team-1',
+      taggedPlayerId: 'someone-else',
+      status: VideoClipStatus.PUBLISHED,
+      challengeAcknowledgedAt: null,
+    });
+
+    await expect(
+      service.ackChallenge('team-1', 'player-1', 'clip-1'),
+    ).rejects.toBeInstanceOf(NotYourChallengeException);
+  });
+
+  it('sets challengeAcknowledgedAt on the happy path', async () => {
+    const { service, videoClipRepository } = buildService();
+    videoClipRepository.findOne.mockResolvedValue({
+      id: 'clip-1',
+      teamId: 'team-1',
+      taggedPlayerId: 'player-1',
+      status: VideoClipStatus.PUBLISHED,
+      challengeAcknowledgedAt: null,
+    });
+
+    const result = await service.ackChallenge('team-1', 'player-1', 'clip-1');
+
+    expect(videoClipRepository.update).toHaveBeenCalledWith(
+      { id: 'clip-1' },
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- jest's own matcher typing
+      { challengeAcknowledgedAt: expect.any(Date) },
+    );
+    expect(result).toEqual({ clipId: 'clip-1', acknowledged: true });
+  });
+
+  // ADR-0021 Decision 1 / design doc §6's multi-device race — acking an
+  // already-acked challenge is a 200 no-op, not an error, and must not
+  // issue a second, redundant write.
+  it('is idempotent: acking an already-acked challenge is a no-op success that does not re-write the row', async () => {
+    const { service, videoClipRepository } = buildService();
+    videoClipRepository.findOne.mockResolvedValue({
+      id: 'clip-1',
+      teamId: 'team-1',
+      taggedPlayerId: 'player-1',
+      status: VideoClipStatus.PUBLISHED,
+      challengeAcknowledgedAt: new Date('2026-08-01T10:00:00Z'),
+    });
+
+    const result = await service.ackChallenge('team-1', 'player-1', 'clip-1');
+
+    expect(videoClipRepository.update).not.toHaveBeenCalled();
+    expect(result).toEqual({ clipId: 'clip-1', acknowledged: true });
   });
 });
 

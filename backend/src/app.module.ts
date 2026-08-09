@@ -1,13 +1,17 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AccountErasureModule } from './account-erasure/account-erasure.module';
+import { AdminModule } from './admin/admin.module';
 import { AppConfigModule } from './config/app-config.module';
+import { BugReportsModule } from './bug-reports/bug-reports.module';
 import { RedisThrottlerStorage } from './common/throttler/redis-throttler-storage.service';
 import { RedisThrottlerStorageModule } from './common/throttler/redis-throttler-storage.module';
 import { ConsentModule } from './consent/consent.module';
 import { DatabaseModule } from './database/database.module';
+import { AppExceptionFilter } from './common/errors/http-exception.filter';
+import { ErrorLogModule } from './error-log/error-log.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
@@ -21,6 +25,7 @@ import { TeamChatModule } from './team-chat/team-chat.module';
 import { TeamPoolModule } from './team-pool/team-pool.module';
 import { TeamsModule } from './teams/teams.module';
 import { TrainingLogsModule } from './training-logs/training-logs.module';
+import { UsageMetricsModule } from './usage-metrics/usage-metrics.module';
 import { VideoClipsModule } from './video-clips/video-clips.module';
 import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
 
@@ -107,11 +112,42 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     // /api/v1/teams/:teamId/pt-links/*, /api/v1/pt-consent*,
     // /api/v1/players/me/pt-consents/*).
     PtModule,
+    // docs/adr/0020-usage-analytics-product-metrics.md — Fas 5 item 1: a
+    // scheduled, in-process job (ScheduleModule.forRoot above already
+    // registers the mechanism) that emails the project owner an aggregate
+    // usage report. No controller, no endpoint, no exports — see that
+    // module's own docstring.
+    UsageMetricsModule,
+    // docs/adr/0022-admin-control-center.md Decision 6 — the write side of
+    // the error/crash + failed-job pipeline (ErrorLogService + its daily
+    // retention sweep). Imported here for the APP_FILTER below; the three
+    // modules owning a @Cron job import it themselves. The admin read
+    // endpoint (GET /api/v1/admin/errors) lives in AdminModule below —
+    // this one has no controller.
+    ErrorLogModule,
+    // docs/adr/0022-admin-control-center.md Decision 7 — the player-facing
+    // "Report a problem" submission (POST /api/v1/bug-reports, JwtAuthGuard,
+    // deliberately not consent-gated; see that module/service's docstrings).
+    BugReportsModule,
+    // docs/adr/0022-admin-control-center.md Decisions 4/6/7 — the admin
+    // control center's read/triage surface (/api/v1/admin/*), entirely
+    // behind ADR-0023 Part B's AdminAuthGuard. Decision 10's planning
+    // endpoints and its step-up re-auth are not built.
+    AdminModule,
   ],
   providers: [
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // Moved here from main.ts's `app.useGlobalFilters(new
+    // AppExceptionFilter())` by ADR-0022 Decision 6: same global scope, but
+    // DI-provided so the filter can inject ErrorLogService. The e2e suite
+    // still registers its own hand-constructed instance; Nest invokes only
+    // the first matching filter, so the envelope is identical either way.
+    {
+      provide: APP_FILTER,
+      useClass: AppExceptionFilter,
     },
   ],
 })

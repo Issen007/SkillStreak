@@ -77,6 +77,9 @@
     "reportMessage": "🚩 Anmeld beskeden",
     "reportClip": "🚩 Anmeld klippet"
   },
+  "systemMessage": {
+    "a11yPrefix": "Automatisk holdbesked: {{content}}"
+  },
   "clipEmbed": {
     "attribution": "Klip af {{screenName}}"
   },

@@ -135,7 +135,22 @@ export class AccountErasureService {
     const player = await this.playersService.findByIdOrThrow(playerId);
 
     if (await this.playerPrivateInfoService.hasPendingContactChange(playerId)) {
-      throw new ErasureBlockedPendingContactChangeException();
+      // One of the two states that gate blocks on — "confirmed, past due,
+      // not yet lazily applied" — is resolvable right here, and retrying
+      // erasure alone would never resolve it: the throw happens before
+      // getParentContact(), which is the only call on this path that
+      // triggers getEffective's apply-on-read. A client that entered this
+      // flow without first loading a profile screen would therefore be
+      // stuck in the same self-perpetuating shape as the latch bug this
+      // guard was just fixed for (code-critic, 2026-08-08). So force the
+      // read, then ask once more; a genuinely unresolved change still
+      // blocks.
+      await this.playerPrivateInfoService.getParentContact(playerId);
+      if (
+        await this.playerPrivateInfoService.hasPendingContactChange(playerId)
+      ) {
+        throw new ErasureBlockedPendingContactChangeException();
+      }
     }
 
     const teammates = await this.playersService.listByTeam(player.teamId);

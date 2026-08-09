@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, In } from 'typeorm';
 import { randomUUID } from 'crypto';
 import request from 'supertest';
@@ -21,6 +22,7 @@ import { ParentalConsentStatus } from '../src/players/player-consent-status.enum
 import { TeamJoinStatus } from '../src/players/team-join-status.enum';
 import { Player } from '../src/players/entities/player.entity';
 import { PlayerPrivateInfo } from '../src/player-private-info/entities/player-private-info.entity';
+import { encryptPii } from '../src/common/crypto/pii-encryption.util';
 import { Season } from '../src/team-pool/entities/season.entity';
 import { TeamSeasonPot } from '../src/team-pool/entities/team-season-pot.entity';
 import { TeamSeasonPotStatus } from '../src/team-pool/team-season-pot-status.enum';
@@ -157,16 +159,44 @@ describe('Fas 4 (ADR-0013): self-service GDPR account erasure (e2e)', () => {
    * which reads/writes PlayerPrivateInfo directly. */
   async function givePlayerPrivateInfo(
     playerId: string,
-    fields: { parentContact: string; pendingParentContact?: string },
+    fields: {
+      parentContact: string;
+      pendingParentContact?: string;
+      /**
+       * Sets up the *unconfirmed* branch instead of the default confirmed
+       * one: a contactChangeCode with this expiry and no
+       * contactChangeApplyAt — i.e. the player requested a change and
+       * never clicked the code. Pass a past date to model the abandoned
+       * state that used to latch erasure shut forever (BACKLOG.md, fixed
+       * 2026-08-08).
+       */
+      unconfirmedCodeExpiresAt?: Date;
+    },
   ) {
+    const unconfirmed = fields.unconfirmedCodeExpiresAt !== undefined;
+    // Both contact columns must hold real ciphertext, not the plaintext
+    // this helper originally wrote: the gate tests never got far enough to
+    // decrypt one, but any test that proceeds past the gate to a real
+    // erasure request does, and a plaintext value crashes it with a 500.
+    const piiKey = app
+      .get(ConfigService)
+      .getOrThrow<string>('PII_ENCRYPTION_KEY');
     await dataSource.getRepository(PlayerPrivateInfo).save(
       dataSource.getRepository(PlayerPrivateInfo).create({
         playerId,
-        parentContact: fields.parentContact,
-        pendingParentContact: fields.pendingParentContact ?? null,
-        contactChangeApplyAt: fields.pendingParentContact
-          ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+        parentContact: encryptPii(fields.parentContact, piiKey),
+        pendingParentContact: fields.pendingParentContact
+          ? encryptPii(fields.pendingParentContact, piiKey)
           : null,
+        // contact_change_code is UNIQUE app-wide and rows outlive a single
+        // run, so this is keyed off the player's own fresh UUID rather
+        // than a per-run counter that collides with the last run's rows.
+        contactChangeCode: unconfirmed ? `e2e-${playerId}` : null,
+        contactChangeCodeExpiresAt: fields.unconfirmedCodeExpiresAt ?? null,
+        contactChangeApplyAt:
+          fields.pendingParentContact && !unconfirmed
+            ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+            : null,
       }),
     );
   }
@@ -416,6 +446,101 @@ describe('Fas 4 (ADR-0013): self-service GDPR account erasure (e2e)', () => {
       expect((response.body as ApiErrorBody).error.code).toBe(
         'erasure_blocked_pending_contact_change',
       );
+    });
+
+    it('still refuses while an unconfirmed change’s code is genuinely live', async () => {
+      const { teamId } = await createTeamFixture();
+      const { playerId, sessionToken } = await createPlayer(teamId);
+      await createPlayer(teamId);
+      await givePlayerPrivateInfo(playerId, {
+        parentContact: 'parent@example.com',
+        pendingParentContact: 'new-parent@example.com',
+        unconfirmedCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      });
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/players/me/erasure/request')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({})
+        .expect(409);
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'erasure_blocked_pending_contact_change',
+      );
+    });
+
+    // The regression this whole fix exists for: before 2026-08-08 this
+    // returned 409 forever, so a mistyped address permanently revoked a
+    // GDPR right.
+    it('allows erasure once an abandoned change’s code has expired — the latch is gone', async () => {
+      const { teamId } = await createTeamFixture();
+      const { playerId, sessionToken } = await createPlayer(teamId);
+      await createPlayer(teamId);
+      await givePlayerPrivateInfo(playerId, {
+        parentContact: 'parent@example.com',
+        pendingParentContact: 'typo@example.com',
+        unconfirmedCodeExpiresAt: new Date(Date.now() - 60 * 1000),
+      });
+
+      await request(app.getHttpServer())
+        .post('/api/v1/players/me/erasure/request')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({})
+        .expect(201);
+      await expect(readErasureRow(playerId)).resolves.toBeDefined();
+    });
+
+    it('POST /me/contact-change-cancel clears a live pending change and unblocks erasure immediately', async () => {
+      const { teamId } = await createTeamFixture();
+      const { playerId, sessionToken } = await createPlayer(teamId);
+      await createPlayer(teamId);
+      await givePlayerPrivateInfo(playerId, {
+        parentContact: 'parent@example.com',
+        pendingParentContact: 'typo@example.com',
+        unconfirmedCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      });
+
+      const cancelResponse = await request(app.getHttpServer())
+        .post('/api/v1/players/me/contact-change-cancel')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({})
+        .expect(200);
+      expect(cancelResponse.body).toEqual({ cancelled: true });
+
+      // Every pending field is cleared, not just pendingParentContact —
+      // otherwise a stale code would survive its own cancellation.
+      const info = await dataSource
+        .getRepository(PlayerPrivateInfo)
+        .findOneOrFail({ where: { playerId } });
+      expect(info.pendingParentContact).toBeNull();
+      expect(info.contactChangeCode).toBeNull();
+      expect(info.contactChangeCodeExpiresAt).toBeNull();
+      expect(info.parentContact).not.toBeNull();
+
+      await request(app.getHttpServer())
+        .post('/api/v1/players/me/erasure/request')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({})
+        .expect(201);
+    });
+
+    it('POST /me/contact-change-cancel is idempotent and requires auth', async () => {
+      const { teamId } = await createTeamFixture();
+      const { playerId, sessionToken } = await createPlayer(teamId);
+      await givePlayerPrivateInfo(playerId, {
+        parentContact: 'parent@example.com',
+      });
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/players/me/contact-change-cancel')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({})
+        .expect(200);
+      expect(response.body).toEqual({ cancelled: false });
+
+      await request(app.getHttpServer())
+        .post('/api/v1/players/me/contact-change-cancel')
+        .send({})
+        .expect(401);
     });
   });
 

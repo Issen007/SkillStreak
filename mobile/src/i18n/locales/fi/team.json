@@ -4,6 +4,7 @@
     "loadError": "Joukkuetta ei voitu hakea. Tarkista verkkoyhteytesi.",
     "genericError": "Jokin meni pieleen.",
     "retry": "Yritä uudelleen",
+    "pendingChallengesHeading": "🎯 Haasteita sinulle ({{count}})",
     "pendingSectionLabel": "Odottaa hyväksyntää",
     "teammatesSectionLabel": "Joukkueen pelaajat",
     "inviteCodeLabel": "Joukkuekoodi",
@@ -17,6 +18,8 @@
     "approveErrorToast": "Hyväksyntä ei onnistunut juuri nyt. Yritä uudelleen.",
     "rejectSuccessToast": "{{screenName}} hylättiin.",
     "rejectErrorToast": "Hylkääminen ei onnistunut juuri nyt. Yritä uudelleen.",
+    "challengeAckedToast": "Haaste käyttäjältä {{screenName}} on merkitty nähdyksi.",
+    "challengeAckErrorToast": "Haastetta ei voitu merkitä nähdyksi. Yritä uudelleen.",
     "captainTransferredToast": "Kapteeniuus on siirretty pelaajalle {{newCaptainScreenName}}. 👑",
     "linkCopiedToast": "Linkki kopioitu!"
   },
@@ -60,6 +63,17 @@
   "pendingJoinRow": {
     "reject": "Hylkää",
     "approve": "Hyväksy"
+  },
+  "challengeRow": {
+    "title": "{{screenName}} haastoi sinut!",
+    "watchCta": "Katso →",
+    "dismissCta": "Jo nähty",
+    "a11yLabel": "Haaste käyttäjältä {{screenName}}. Katso napauttamalla."
+  },
+  "challengeClipModal": {
+    "heading": "{{screenName}} haastoi sinut! 🎯",
+    "close": "Sulje",
+    "playError": "Videota ei voitu toistaa."
   },
   "reminderActionSheet": {
     "sendReminder": "Lähetä muistutus vanhemmalle",

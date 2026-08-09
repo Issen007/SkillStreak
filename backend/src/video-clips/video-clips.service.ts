@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import {
   ClipAlreadyReportedException,
   ClipNotFoundException,
@@ -15,6 +15,7 @@ import {
   ClipUploadRateLimitedException,
   CaptionRejectedByFilterException,
   ConsentRequiredException,
+  NotYourChallengeException,
   NotYourClipException,
   TeamJoinApprovalRequiredException,
   UploadNotFoundException,
@@ -31,6 +32,12 @@ import { PlayersService } from '../players/players.service';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
 import { Coach } from '../coaches/entities/coach.entity';
 import { TeamChatBlock } from '../team-chat/entities/team-chat-block.entity';
+import {
+  ChatMessageAuthorType,
+  ChatMessageStatus,
+  SystemChatEventType,
+  TeamChatMessage,
+} from '../team-chat/entities/team-chat-message.entity';
 import { TeamCoach } from '../teams/entities/team-coach.entity';
 import { TeamsService } from '../teams/teams.service';
 import { RedisService } from '../redis/redis.service';
@@ -107,6 +114,27 @@ export interface DeleteClipResponse {
   deleted: true;
 }
 
+// docs/adr/0021-clip-challenge-notifications.md Decision 1 / the design
+// doc's §0 fixed contract — GET .../clips/challenges/pending. Deliberately
+// narrower than ClipFeedItem: no taggedPlayerId/taggedScreenName (always
+// the requester themselves, by construction of the query) and no
+// reportedByMe (not designed for this surface, per the design doc's §5
+// scope-cut note on ChallengeClipModal).
+export interface PendingChallengeItem {
+  clipId: string;
+  uploaderPlayerId: string;
+  uploaderScreenName: string;
+  uploaderAvatarId: string;
+  caption: string | null;
+  playbackUrl: string;
+  createdAt: string;
+}
+
+export interface ChallengeAckResponse {
+  clipId: string;
+  acknowledged: true;
+}
+
 export interface ReportClipResponse {
   reportId: string;
   clipId: string;
@@ -128,6 +156,7 @@ export class VideoClipsService {
   private readonly logger = new Logger(VideoClipsService.name);
 
   constructor(
+    private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly playersService: PlayersService,
     private readonly playerPrivateInfoService: PlayerPrivateInfoService,
@@ -148,6 +177,16 @@ export class VideoClipsService {
     private readonly teamCoachRepository: Repository<TeamCoach>,
     @InjectRepository(Coach)
     private readonly coachRepository: Repository<Coach>,
+    // docs/adr/0021-clip-challenge-notifications.md Decision 2's "Module
+    // wiring" — VideoClipsModule registers TeamChatMessage via its own
+    // TypeOrmModule.forFeature (video-clips.module.ts), NOT by importing
+    // TeamChatModule (which already imports VideoClipsModule — the reverse
+    // direction would cycle). Only ever written to inside completeUpload's
+    // own transaction, as a plain repository insert — never through
+    // TeamChatService.postMessage's HTTP path (rate-limit/moderation/DTO
+    // stack, none of which applies to a system-authored row).
+    @InjectRepository(TeamChatMessage)
+    private readonly teamChatMessageRepository: Repository<TeamChatMessage>,
   ) {}
 
   private retentionDays(): number {
@@ -185,9 +224,31 @@ export class VideoClipsService {
       const tagged = await this.playersService.findByIdOrThrow(
         dto.taggedPlayerId,
       );
-      if (tagged.teamId !== teamId) {
+      // docs/adr/0021-clip-challenge-notifications.md Decision 3 — a real,
+      // if narrow, tightening: taggedPlayerId must now also be
+      // teamJoinStatus === APPROVED, not just teamId-matching. Closes a
+      // small, pre-existing gap this feature's new visibility (a durable
+      // pending-challenges list + a chat broadcast, not a dormant FK) made
+      // worth ruling out — a not-yet-captain-approved joiner could
+      // previously be tagged. This is the enforcement point (not
+      // PlayersService.listTeammates's own default — that method stays
+      // unfiltered by default, per a code-critic finding, 2026-08-06
+      // pre-merge pass: it backs two other, unrelated pickers — captain
+      // transfer and GDPR erasure successor — that must not be narrowed by
+      // this ADR's own reasoning). The message deliberately still contains
+      // the substring "taggedPlayerId" so the mobile tag-picker's existing
+      // catch (V5CaptionChallenge.tsx) handles this 400 correctly
+      // (design doc §7's "secondary, acceptable" option — the one actually
+      // shipped here, since `GET .../teammates`'s own opt-in
+      // `approvedOnly` narrowing, once the tag-picker's mobile call site
+      // is updated to request it, is frontend-developer's follow-up work,
+      // not wired by this backend change).
+      if (
+        tagged.teamId !== teamId ||
+        tagged.teamJoinStatus !== TeamJoinStatus.APPROVED
+      ) {
         throw new BadRequestException(
-          'taggedPlayerId must belong to the same team as the requesting player.',
+          'taggedPlayerId must belong to the same team as the requesting player and have an approved team join.',
         );
       }
     }
@@ -365,10 +426,24 @@ export class VideoClipsService {
       const expiresAt = new Date(
         clip.createdAt.getTime() + this.retentionDays() * 24 * 60 * 60 * 1000,
       );
-      await this.videoClipRepository.update(
-        { id: clip.id },
-        { status: VideoClipStatus.PUBLISHED, expiresAt },
-      );
+      // docs/adr/0021-clip-challenge-notifications.md Decision 2 —
+      // "transactional, inside the same DB transaction as the
+      // publish-status flip." Both the status flip and the (conditional)
+      // system chat-message insert are pure DB writes with no external I/O
+      // in this step (the MinIO/ffmpeg work above has already completed),
+      // so there's no reason to split this into a best-effort try/catch the
+      // way an email send would be — same "one more step in the same
+      // transaction" pattern ADR-0005's goal-bonus check already
+      // established (see TrainingLogsService.logTraining).
+      await this.dataSource.transaction(async (manager) => {
+        await manager
+          .getRepository(VideoClip)
+          .update(
+            { id: clip.id },
+            { status: VideoClipStatus.PUBLISHED, expiresAt },
+          );
+        await this.postChallengeSystemMessageIfTagged(manager, teamId, clip);
+      });
 
       const playbackUrl = await this.objectStorageService.createPresignedGetUrl(
         clip.storageKey,
@@ -407,6 +482,56 @@ export class VideoClipsService {
         `Clip ${clip.id}: declared durationSeconds=${clip.durationSeconds} but ffprobe measured ${actualDurationSeconds}s (diff ${diff.toFixed(1)}s).`,
       );
     }
+  }
+
+  /**
+   * docs/adr/0021-clip-challenge-notifications.md Decision 2 — the team
+   * chat system message announcing a just-published challenge clip. Only
+   * called from inside completeUpload's own transaction (`manager` is
+   * always that transaction's manager, never a bare repository), and only
+   * when `clip.taggedPlayerId IS NOT NULL` — a no-op for every ordinary,
+   * untagged upload. `content` is a fixed, server-rendered Swedish string
+   * (not an i18n key, per Decision 2 and the design doc §4.1), baked in
+   * once here from both players' *current* screen names and never
+   * re-resolved live afterwards — this survives either player's later
+   * erasure/rename exactly like any other human-authored chat message's
+   * own text already does (ADR-0013 never scrubs free-text mentions).
+   * `senderPlayerId` stays NULL; `authorType: 'system'` is what
+   * distinguishes this from ADR-0013 Decision 6's unrelated "real player,
+   * since erased" NULL-sender case (see ChatMessageAuthorType's own
+   * comment). This is a direct repository write, never
+   * TeamChatService.postMessage's HTTP path — no rate limit, no moderation
+   * check, no DTO exposes authorType/systemEventType to any client
+   * (Decision 3).
+   */
+  private async postChallengeSystemMessageIfTagged(
+    manager: EntityManager,
+    teamId: string,
+    clip: VideoClip,
+  ): Promise<void> {
+    if (!clip.taggedPlayerId) {
+      return;
+    }
+
+    const [uploader, tagged] = await Promise.all([
+      this.playersService.findByIdOrThrow(clip.uploaderPlayerId, manager),
+      this.playersService.findByIdOrThrow(clip.taggedPlayerId, manager),
+    ]);
+
+    const content = `🎯 ${uploader.screenName} utmanade ${tagged.screenName} med en video!`;
+
+    const messageRepository = manager.getRepository(TeamChatMessage);
+    await messageRepository.save(
+      messageRepository.create({
+        teamId,
+        senderPlayerId: null,
+        authorType: ChatMessageAuthorType.SYSTEM,
+        systemEventType: SystemChatEventType.CLIP_CHALLENGE_ISSUED,
+        content,
+        clipId: clip.id,
+        status: ChatMessageStatus.VISIBLE,
+      }),
+    );
   }
 
   /**
@@ -502,6 +627,115 @@ export class VideoClipsService {
         };
       }),
     );
+  }
+
+  /**
+   * docs/adr/0021-clip-challenge-notifications.md Decision 1 / design doc
+   * §0 — "pending challenges for me." Gates identical to listClips's own
+   * requester-side gates (team membership -> consent -> team-join
+   * approval), on the viewer/tagged player, unchanged pattern, not a new
+   * precedent. WHERE tagged_player_id = requesterId AND status =
+   * 'published' AND challenge_acknowledged_at IS NULL — backed by
+   * IDX_video_clip_pending_challenge. No pagination (team sizes are
+   * small, same standing capacity assumption as every other small-list
+   * endpoint here).
+   */
+  async listPendingChallenges(
+    teamId: string,
+    requesterId: string,
+  ): Promise<PendingChallengeItem[]> {
+    const player = await this.playersService.assertTeamMembership(
+      requesterId,
+      teamId,
+    );
+    assertConsentApproved(player.parentalConsentStatus);
+    assertTeamJoinApproved(player.teamJoinStatus);
+
+    const clips = await this.videoClipRepository.find({
+      where: {
+        teamId,
+        taggedPlayerId: requesterId,
+        status: VideoClipStatus.PUBLISHED,
+        challengeAcknowledgedAt: IsNull(),
+      },
+      order: { createdAt: 'DESC' },
+    });
+    if (clips.length === 0) {
+      return [];
+    }
+
+    const players = await this.playersService.listByTeam(teamId);
+    const playerById = new Map(players.map((p) => [p.id, p]));
+
+    return Promise.all(
+      clips.map(async (clip) => {
+        const uploader = playerById.get(clip.uploaderPlayerId);
+        if (!uploader) {
+          // Can't occur given the API contract: identical reasoning to
+          // listClips's equivalent guard — an uploader is always a
+          // current team member, and player rows aren't deleted.
+          throw new Error(
+            `VideoClip ${clip.id} references uploader ${clip.uploaderPlayerId} not found on team ${teamId}`,
+          );
+        }
+        const playbackUrl =
+          await this.objectStorageService.createPresignedGetUrl(
+            clip.storageKey,
+            CLIP_PLAYBACK_URL_EXPIRES_SECONDS,
+          );
+        return {
+          clipId: clip.id,
+          uploaderPlayerId: clip.uploaderPlayerId,
+          uploaderScreenName: uploader.screenName,
+          uploaderAvatarId: uploader.avatarId,
+          caption: clip.caption,
+          playbackUrl,
+          createdAt: clip.createdAt.toISOString(),
+        };
+      }),
+    );
+  }
+
+  /**
+   * docs/adr/0021-clip-challenge-notifications.md Decision 1 — tagged-
+   * player-only, idempotent: acking an already-acked challenge is a 200
+   * no-op, not an error (same idiom as TeamChatBlock's idempotent block,
+   * ADR-0007 Decision 4) — this is a personal "I've seen it" state, not an
+   * accusation or a one-time resource, so a second ack (e.g. a multi-device
+   * race, design doc §6) carries no signal worth protecting against.
+   */
+  async ackChallenge(
+    teamId: string,
+    requesterId: string,
+    clipId: string,
+  ): Promise<ChallengeAckResponse> {
+    await this.playersService.assertTeamMembership(requesterId, teamId);
+
+    // `status: PUBLISHED` — consistent with listPendingChallenges and the
+    // migration's own doc comment, both of which treat `published` as a
+    // precondition for challenge_acknowledged_at being meaningful at all
+    // (code-critic finding, 2026-08-06 pre-merge pass). No realistic
+    // exploit today (a clipId is never exposed to the tagged player before
+    // publish), but this keeps the invariant enforced structurally rather
+    // than by convention.
+    const clip = await this.videoClipRepository.findOne({
+      where: { id: clipId, teamId, status: VideoClipStatus.PUBLISHED },
+    });
+    if (!clip) {
+      throw new ClipNotFoundException();
+    }
+    if (clip.taggedPlayerId !== requesterId) {
+      throw new NotYourChallengeException();
+    }
+
+    if (clip.challengeAcknowledgedAt === null) {
+      await this.videoClipRepository.update(
+        { id: clipId },
+        { challengeAcknowledgedAt: new Date() },
+      );
+    }
+
+    return { clipId, acknowledged: true };
   }
 
   /**

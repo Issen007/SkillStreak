@@ -192,6 +192,90 @@ class EnvironmentVariables {
 
   @IsOptional()
   APPLE_PRIVATE_KEY?: string;
+
+  // --- Fas 5 (usage analytics — docs/adr/0020-usage-analytics-product-
+  // metrics.md) ---------------------------------------------------------
+  // All three are @IsOptional() ALONE, deliberately not stacked with
+  // @IsNotEmpty()/@IsNumberString(), for the reason this file's OAuth block
+  // above already documents and env.validation.spec.ts pins down: a k8s
+  // Secret key created from an unset GitHub Actions secret, and
+  // docker-compose's `${VAR:-}` interpolation, both hand the process a
+  // defined EMPTY STRING rather than an absent value — and class-validator's
+  // @IsOptional() only skips undefined/null. Every consumer below treats ''
+  // exactly like unset, so nothing is lost by validating loosely here, and
+  // an optional reporting knob must never be able to crash-loop the API on
+  // boot.
+  //
+  // Where the report is emailed (Decision 5). Unset/empty = the scheduled
+  // job no-ops with a log line, the same graceful degrade MailService
+  // already has when SMTP is unconfigured.
+  @IsOptional()
+  USAGE_REPORT_RECIPIENT_EMAIL?: string;
+
+  // Cadence (Decision 6) — a cron expression, default monthly. Read from
+  // process.env at import time rather than through ConfigService (see
+  // usage-metrics/usage-report-cron.util.ts for why), and a malformed value
+  // falls back to the default instead of failing.
+  @IsOptional()
+  USAGE_REPORT_CRON?: string;
+
+  // Decision 3's security-reviewer-required minimum-population floor: the
+  // fewest TEAMS a team-size bucket may contain before it's reported as its
+  // own bucket instead of being folded into the app-wide number. Default 5;
+  // clamped to a hard minimum in code so a mis-set value can't disable the
+  // protection outright.
+  @IsOptional()
+  USAGE_REPORT_MIN_TEAMS_PER_BUCKET?: string;
+
+  // --- Fas 7 (admin control center — docs/adr/0022-admin-control-center.md
+  // Decision 6) ----------------------------------------------------------
+  // Both are @IsOptional() ALONE, deliberately not stacked with
+  // @IsNotEmpty()/@IsNumberString(), for exactly the reason the Fas 5 block
+  // above spells out: an empty-but-PRESENT value ('' from a k8s Secret key
+  // whose GitHub Actions secret was never set, or from docker-compose's
+  // `${VAR:-}`) passes @IsOptional() only when it's undefined/null, so
+  // stacking either of those decorators would crash-loop the API on boot
+  // over an optional operational knob. Both are parsed by
+  // error-log/error-log.util.ts's positiveIntFromConfig, which treats '',
+  // non-numeric, zero, negative and fractional values as "use the default".
+  //
+  // How long a row in `error_log_entry` is kept before the daily sweep
+  // deletes it (Decision 6 recommends 90 days). Default 90. Also echoed by
+  // the admin API so the console can interpolate the real number instead of
+  // hardcoding it — docs/design/phase7-admin-console-flows.md §5.2/§13.
+  @IsOptional()
+  ERROR_LOG_RETENTION_DAYS?: string;
+
+  // How many stack frames are kept when a row is written (Decision 6's
+  // "e.g. first ~20 frames" — explicitly a recommendation, not a fixed
+  // number, which is why it's a knob at all). Default 20, and echoed by the
+  // admin API for the same reason as above.
+  @IsOptional()
+  ERROR_LOG_STACK_MAX_FRAMES?: string;
+
+  // Where the `admin-planning-docs` ConfigMap volume is mounted
+  // (docs/adr/0022-admin-control-center.md Decision 10). @IsOptional()
+  // alone for the same empty-but-present reason as the two above: a
+  // cluster that hasn't applied the ConfigMap yet must boot fine, with the
+  // planning views simply reporting themselves unavailable.
+  //
+  // **This path must stay disjoint from any statically-served directory**
+  // — never an ancestor or descendant of one. That is the
+  // security-reviewer's required 2026-08-02 fix, not a style preference:
+  // a static handler rooted at or above this directory would make the raw
+  // security-issues markdown downloadable without passing AdminAuthGuard
+  // or the step-up check at all. See AdminPlanningDocsService.
+  @IsOptional()
+  ADMIN_PLANNING_DOCS_DIR?: string;
+
+  // How long a bug report is kept before the daily sweep deletes it
+  // (default 90 — see DEFAULT_BUG_REPORT_RETENTION_DAYS). @IsOptional()
+  // alone, for the same empty-but-present reason as the two ERROR_LOG_*
+  // knobs above; parsed by the same positiveIntFromConfig, which treats
+  // '', non-numeric, zero, negative and fractional values as "use the
+  // default".
+  @IsOptional()
+  BUG_REPORT_RETENTION_DAYS?: string;
 }
 
 // Fails fast on boot rather than surfacing a confusing runtime error the

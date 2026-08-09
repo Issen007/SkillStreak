@@ -163,6 +163,13 @@ activemq-data/
 # .example template.
 k8s/secret.yaml
 
+# ADR-0022 Decision 10's admin-planning-docs ConfigMap, same posture as the
+# Secret above: the .example template is tracked, the real file — which
+# carries curated roadmap/backlog/security-issues content — never is. The
+# whole point of the ConfigMap mechanism is keeping that content out of
+# this public tree.
+k8s/admin-planning-configmap.yaml
+
 # Business-sensitive planning docs (product ideas, roadmap priorities,
 # backlog) — kept locally for real project use, deliberately not pushed to
 # this public repo going forward. NOTE: this repo is public and both files

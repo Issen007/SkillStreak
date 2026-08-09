@@ -4,6 +4,7 @@
     "loadError": "Tým se nepodařilo načíst. Zkontroluj připojení.",
     "genericError": "Něco se pokazilo.",
     "retry": "Zkusit znovu",
+    "pendingChallengesHeading": "🎯 Výzvy pro tebe ({{count}})",
     "pendingSectionLabel": "Čeká na schválení",
     "teammatesSectionLabel": "Hráči v týmu",
     "inviteCodeLabel": "Kód týmu",
@@ -17,6 +18,8 @@
     "approveErrorToast": "Teď se nepodařilo schválit. Zkus to znovu.",
     "rejectSuccessToast": "{{screenName}} byl/a odmítnut/a.",
     "rejectErrorToast": "Teď se nepodařilo odmítnout. Zkus to znovu.",
+    "challengeAckedToast": "Výzva od {{screenName}} je označena jako zhlédnutá.",
+    "challengeAckErrorToast": "Výzvu se nepodařilo označit jako zhlédnutou. Zkus to znovu.",
     "captainTransferredToast": "Kapitánství bylo předáno hráči {{newCaptainScreenName}}. 👑",
     "linkCopiedToast": "Odkaz zkopírován!"
   },
@@ -60,6 +63,17 @@
   "pendingJoinRow": {
     "reject": "Odmítnout",
     "approve": "Schválit"
+  },
+  "challengeRow": {
+    "title": "{{screenName}} tě vyzval/a!",
+    "watchCta": "Podívat se →",
+    "dismissCta": "Už jsem viděl/a",
+    "a11yLabel": "Výzva od {{screenName}}. Klepnutím se podíváš."
+  },
+  "challengeClipModal": {
+    "heading": "{{screenName}} tě vyzval/a! 🎯",
+    "close": "Zavřít",
+    "playError": "Video se nepodařilo přehrát."
   },
   "reminderActionSheet": {
     "sendReminder": "Poslat připomínku rodiči",

@@ -14,6 +14,54 @@ invariant, which ADR-0007's own review scrutinized carefully — that's
 enough to warrant a real, if narrowly scoped, confirmation pass, not
 architect self-certification.
 
+**Security-reviewer's scoped pass, completed 2026-08-06 — no blocking
+design change; two findings folded in as binding implementation
+requirements, not left implicit in the ADR's prose:**
+
+1. **(Medium, CONFIRMED) Report-rejection for system messages is not safe
+   by construction, unlike block.** Block is inert against a system
+   message for free — `TeamChatBlock.blockedPlayerId` is `NOT NULL`, and
+   SQL's three-valued logic means `blocked_player_id = NULL` can never be
+   `TRUE`, so the existing block filter already excludes nothing it
+   shouldn't and includes system rows unconditionally, no new code needed.
+   Report has no equivalent free pass: `TeamChatService.reportMessage`
+   today creates a `TeamChatMessageReport` row for any `messageId` with no
+   check on the message's author type. **Decision 3's `author_type =
+   'system'` guard on `reportMessage` is not optional or a nice-to-have —
+   it must ship in the same PR that adds `author_type`, with a test
+   asserting a report attempt against a system row is rejected**, or a
+   report with no real target silently succeeds the moment this feature
+   ships.
+2. **(Confirmed, minor coordination gap) The new `teamJoinStatus ===
+   APPROVED` tagging restriction (Decision 3) will start rejecting a
+   currently-working mobile flow that neither this ADR nor
+   `PlayersService.listTeammates` currently accounts for.**
+   `listTeammates` (backing `GET .../teammates`, which backs the mobile
+   "tag a teammate" picker, `mobile/src/clips/upload/
+   V5CaptionChallenge.tsx`) applies no `teamJoinStatus` filter today, so a
+   still-PENDING (not captain-approved) player is actively shown as a
+   selectable tag target. Once the new backend check ships, selecting one
+   will fail at submit time with a 400 that didn't exist before. No
+   product flow depends on tagging a PENDING player (grepped for any
+   "welcome a pending joiner via challenge" pattern — none found), so this
+   isn't a design problem, but it needs an explicit choice, not a silent
+   gap: **either keep the new rejection's error message containing the
+   substring `"taggedPlayerId"`** (the mobile client already has a
+   plausible-looking catch for exactly that pattern, clearing the tag and
+   showing `v5.taggedPlayerGone` — untested against this specific case
+   today) **or have `listTeammates` filter to `teamJoinStatus ===
+   APPROVED`** so the picker never offers an invalid choice in the first
+   place (cleaner; recommended). backend-developer's call which, but it
+   must be a deliberate one, not whatever the default 400 shape happens to
+   produce.
+
+The other three claims the ADR asked this pass to verify (`authorType`/
+`systemEventType` unreachability, the fixed-template-only `content`
+guarantee, and the erasure/cascade claims in Decision 4) all held exactly
+as designed against the current code — no changes needed there. Full
+review detail available in this session's record if needed; not
+reproduced here since nothing in those three areas changed.
+
 ## Context
 
 The project owner, verbatim: *"When we do a challenge of a video between

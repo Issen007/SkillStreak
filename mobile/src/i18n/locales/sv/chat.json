@@ -77,6 +77,9 @@
     "reportMessage": "🚩 Rapportera meddelandet",
     "reportClip": "🚩 Rapportera klippet"
   },
+  "systemMessage": {
+    "a11yPrefix": "Automatiskt lagmeddelande: {{content}}"
+  },
   "clipEmbed": {
     "attribution": "Klipp av {{screenName}}"
   },

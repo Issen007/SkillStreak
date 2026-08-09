@@ -16,6 +16,8 @@ interface AuthorizationUrlCallArgs {
   code_challenge: string;
   code_challenge_method: string;
   response_mode?: string;
+  prompt?: string;
+  max_age?: number;
 }
 
 // ADR-0023 Decision B6 (required per security-reviewer's Part B pass,
@@ -117,6 +119,41 @@ describe('StaffAuthService', () => {
       expect(result.pendingAuthCookieValue).toBe('signed-pending-token');
       expect(result.authorizationUrl).toBe(
         'https://provider.example/authorize?...',
+      );
+    });
+
+    // ADR-0022 Decision 10's step-up, resolved 2026-08-08 as OIDC
+    // re-authentication rather than the ADR's literal TOTP (whose premise
+    // — a local admin password — ADR-0023 removed three days after that
+    // recommendation was written).
+    it('forces a real re-authentication for a step-up flow, and records it in the pending cookie rather than a query parameter', async () => {
+      const { service, client, pendingStaffAuthService } = buildService();
+
+      await service.buildLoginRedirect(StaffAuthProvider.GOOGLE, {
+        stepUp: true,
+      });
+
+      const authParams = client.authorizationUrl.mock.calls[0][0];
+      expect(authParams.prompt).toBe('login');
+      // max_age is what makes auth_time REQUIRED in the ID token, which is
+      // what completeLogin can then actually verify — prompt alone is only
+      // a request.
+      expect(authParams.max_age).toBe(0);
+      expect(pendingStaffAuthService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ stepUp: true }),
+      );
+    });
+
+    it('does not request re-authentication for an ordinary login', async () => {
+      const { service, client, pendingStaffAuthService } = buildService();
+
+      await service.buildLoginRedirect(StaffAuthProvider.GOOGLE);
+
+      const authParams = client.authorizationUrl.mock.calls[0][0];
+      expect(authParams.prompt).toBeUndefined();
+      expect(authParams.max_age).toBeUndefined();
+      expect(pendingStaffAuthService.sign).toHaveBeenCalledWith(
+        expect.not.objectContaining({ stepUp: true }),
       );
     });
 
@@ -246,6 +283,112 @@ describe('StaffAuthService', () => {
     ) {
       client.callback.mockResolvedValue({ claims: () => claims });
     }
+
+    // The step-up flow is only satisfied by a genuinely fresh
+    // authentication. Since `max_age: 0` makes auth_time REQUIRED, a
+    // missing or old claim means the IdP did not honour the request — and
+    // this must fail closed rather than silently downgrading to an
+    // ordinary login, which would hand out the freshness stamp
+    // AdminStepUpGuard trusts.
+    it('rejects a step-up callback whose ID token carries no auth_time claim', async () => {
+      const { service, client, pendingStaffAuthService } = buildService({
+        adminEmails: 'boss@example.com',
+      });
+      pendingStaffAuthService.verify.mockResolvedValue({
+        provider: StaffAuthProvider.GOOGLE,
+        state: 's',
+        nonce: 'n',
+        codeVerifier: 'v',
+        stepUp: true,
+      });
+      mockSuccessfulCallback(client, {
+        sub: 'google-sub-1',
+        email: 'boss@example.com',
+      });
+
+      await expect(
+        service.completeLogin(StaffAuthProvider.GOOGLE, 'pending-cookie', {
+          state: 's',
+          code: 'c',
+        }),
+      ).rejects.toBeInstanceOf(StaffOAuthCallbackRejectedException);
+    });
+
+    it('rejects a step-up callback whose auth_time is too old to be this re-authentication', async () => {
+      const { service, client, pendingStaffAuthService } = buildService({
+        adminEmails: 'boss@example.com',
+      });
+      pendingStaffAuthService.verify.mockResolvedValue({
+        provider: StaffAuthProvider.GOOGLE,
+        state: 's',
+        nonce: 'n',
+        codeVerifier: 'v',
+        stepUp: true,
+      });
+      mockSuccessfulCallback(client, {
+        sub: 'google-sub-1',
+        email: 'boss@example.com',
+        auth_time: Math.floor((Date.now() - 60 * 60 * 1000) / 1000),
+      });
+
+      await expect(
+        service.completeLogin(StaffAuthProvider.GOOGLE, 'pending-cookie', {
+          state: 's',
+          code: 'c',
+        }),
+      ).rejects.toBeInstanceOf(StaffOAuthCallbackRejectedException);
+    });
+
+    it('accepts a step-up callback with a fresh auth_time', async () => {
+      const { service, client, pendingStaffAuthService } = buildService({
+        adminEmails: 'boss@example.com',
+      });
+      pendingStaffAuthService.verify.mockResolvedValue({
+        provider: StaffAuthProvider.GOOGLE,
+        state: 's',
+        nonce: 'n',
+        codeVerifier: 'v',
+        stepUp: true,
+      });
+      mockSuccessfulCallback(client, {
+        sub: 'google-sub-1',
+        email: 'boss@example.com',
+        auth_time: Math.floor(Date.now() / 1000),
+      });
+
+      await expect(
+        service.completeLogin(StaffAuthProvider.GOOGLE, 'pending-cookie', {
+          state: 's',
+          code: 'c',
+        }),
+      ).resolves.toMatchObject({ sessionToken: 'signed-session-token' });
+    });
+
+    // An ordinary login must not start demanding a claim it never asked
+    // for — only the step-up flow requests max_age, so only it can rely on
+    // auth_time being present.
+    it('does not require auth_time for an ordinary (non-step-up) login', async () => {
+      const { service, client, pendingStaffAuthService } = buildService({
+        adminEmails: 'boss@example.com',
+      });
+      pendingStaffAuthService.verify.mockResolvedValue({
+        provider: StaffAuthProvider.GOOGLE,
+        state: 's',
+        nonce: 'n',
+        codeVerifier: 'v',
+      });
+      mockSuccessfulCallback(client, {
+        sub: 'google-sub-1',
+        email: 'boss@example.com',
+      });
+
+      await expect(
+        service.completeLogin(StaffAuthProvider.GOOGLE, 'pending-cookie', {
+          state: 's',
+          code: 'c',
+        }),
+      ).resolves.toMatchObject({ sessionToken: 'signed-session-token' });
+    });
 
     it('creates a new admin-role account for an email on ADMIN_EMAILS at first login', async () => {
       const {

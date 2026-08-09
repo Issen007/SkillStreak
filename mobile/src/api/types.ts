@@ -576,9 +576,18 @@ export interface MessageClipEmbed {
  * yet, so the client can safely default it to `false` locally). */
 export interface ChatMessage {
   id: string;
-  senderPlayerId: string;
-  senderScreenName: string;
-  senderAvatarId: string;
+  senderPlayerId: string | null;
+  senderScreenName: string | null;
+  senderAvatarId: string | null;
+  /** ADR-0021 Decision 2 — the real discriminator for team chat's first
+   * system-authored row. `'system'` means: no sender at all (all three
+   * `sender*` fields above come back `null` from the server, from
+   * creation), a fixed server-rendered Swedish `content` string, and no
+   * report affordance (`MessageBubble` must check this *before* `isOwn`).
+   * `'player'` with a null sender still means exactly what ADR-0013
+   * Decision 6 established — "a real player, since erased". */
+  authorType: 'player' | 'system';
+  systemEventType: 'clip_challenge_issued' | null;
   content: string;
   clip: MessageClipEmbed | null;
   createdAt: string;
@@ -602,6 +611,14 @@ export interface PostChatMessageResponse {
   senderPlayerId: string;
   senderScreenName: string;
   senderAvatarId: string;
+  /** Always `'player'`/`null` here — this response only ever comes from
+   * `postMessage`'s HTTP path, which can never write a system row (ADR-0021
+   * Decision 3: neither field is exposed on any request DTO). Present for
+   * shape-parity with `ChatMessage`, matching the backend's own
+   * `ChatMessageResponse`, so `ChatScreen` can keep building its optimistic
+   * message with a plain spread. */
+  authorType: 'player' | 'system';
+  systemEventType: 'clip_challenge_issued' | null;
   content: string;
   // Always populated when `clipId` was sent and accepted; `null` only when
   // no `clipId` was sent (ADR-0017 Decision 5) — the send response never
@@ -795,6 +812,36 @@ export interface ErasureStatusResponse {
 
 export interface CancelErasureResponse {
   cancelled: true;
+}
+
+// --- Fas 4.6 shapes, mirroring docs/adr/0021-clip-challenge-notifications.md
+// Decision 1's two new endpoints exactly (verified against
+// `backend/src/video-clips/video-clips.service.ts`'s `PendingChallengeItem`/
+// `ChallengeAckResponse`, not just the ADR's sketch).
+
+/** One unacknowledged "a teammate tagged you in a clip" challenge, from
+ * `GET .../clips/challenges/pending`. Deliberately *not* a `ClipFeedItem`:
+ * the endpoint carries no `taggedPlayerId`/`taggedScreenName` (the tagged
+ * player is always the requester) and no `reportedByMe` — see
+ * `ChallengeClipModal`'s comment for why that last omission rules out a
+ * report control on that surface. */
+export interface PendingChallengeEntry {
+  clipId: string;
+  uploaderPlayerId: string;
+  uploaderScreenName: string;
+  uploaderAvatarId: string;
+  caption: string | null;
+  playbackUrl: string;
+  createdAt: string;
+}
+
+export interface PendingChallengesResponse {
+  challenges: PendingChallengeEntry[];
+}
+
+export interface ChallengeAckResponse {
+  clipId: string;
+  acknowledged: true;
 }
 
 // --- Error envelope -----------------------------------------------------------

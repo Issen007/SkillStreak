@@ -4,6 +4,7 @@
     "loadError": "Team konnte nicht geladen werden. Prüf deine Verbindung.",
     "genericError": "Etwas ist schiefgelaufen.",
     "retry": "Erneut versuchen",
+    "pendingChallengesHeading": "🎯 Herausforderungen für dich ({{count}})",
     "pendingSectionLabel": "Wartet auf Freigabe",
     "teammatesSectionLabel": "Spieler im Team",
     "inviteCodeLabel": "Team-Code",
@@ -17,6 +18,8 @@
     "approveErrorToast": "Freigabe gerade nicht möglich. Versuch's noch mal.",
     "rejectSuccessToast": "{{screenName}} wurde abgelehnt.",
     "rejectErrorToast": "Ablehnen gerade nicht möglich. Versuch's noch mal.",
+    "challengeAckedToast": "Die Herausforderung von {{screenName}} ist als gesehen markiert.",
+    "challengeAckErrorToast": "Die Herausforderung konnte nicht als gesehen markiert werden. Versuch es nochmal.",
     "captainTransferredToast": "Die Kapitänsrolle wurde an {{newCaptainScreenName}} übergeben. 👑",
     "linkCopiedToast": "Link kopiert!"
   },
@@ -60,6 +63,17 @@
   "pendingJoinRow": {
     "reject": "Ablehnen",
     "approve": "Freigeben"
+  },
+  "challengeRow": {
+    "title": "{{screenName}} hat dich herausgefordert!",
+    "watchCta": "Ansehen →",
+    "dismissCta": "Schon gesehen",
+    "a11yLabel": "Herausforderung von {{screenName}}. Zum Ansehen tippen."
+  },
+  "challengeClipModal": {
+    "heading": "{{screenName}} hat dich herausgefordert! 🎯",
+    "close": "Schließen",
+    "playError": "Das Video konnte nicht abgespielt werden."
   },
   "reminderActionSheet": {
     "sendReminder": "Erinnerung an Eltern senden",

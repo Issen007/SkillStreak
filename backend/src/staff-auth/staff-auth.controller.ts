@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
-import type { Request, Response } from 'express';
+import type { CookieOptions, Request, Response } from 'express';
 import { StaffAuthProvider } from './entities/staff-account.entity';
 import {
   STAFF_PENDING_AUTH_COOKIE_NAME,
@@ -50,13 +50,45 @@ export class StaffAuthController {
     const { authorizationUrl, pendingAuthCookieValue } =
       await this.staffAuthService.buildLoginRedirect(provider);
 
-    res.cookie(STAFF_PENDING_AUTH_COOKIE_NAME, pendingAuthCookieValue, {
-      httpOnly: true,
-      sameSite: 'strict',
-      secure: this.cookieSecure(),
-      path: STAFF_PENDING_AUTH_COOKIE_PATH,
-      maxAge: PENDING_AUTH_COOKIE_MAX_AGE_MS,
-    });
+    res.cookie(
+      STAFF_PENDING_AUTH_COOKIE_NAME,
+      pendingAuthCookieValue,
+      this.pendingCookieOptions(provider),
+    );
+    res.redirect(authorizationUrl);
+  }
+
+  // ADR-0022 Decision 10's step-up re-auth, as an IdP round trip rather
+  // than the ADR's literal TOTP (see StaffAuthService.buildLoginRedirect
+  // for why that recommendation's premise no longer holds). Same shape as
+  // /login above — a redirect, not JSON — so the console navigates here
+  // and lands back on the callback exactly as it does for a fresh sign-in.
+  //
+  // docs/design/phase7-admin-console-flows.md §13 asked for a deliberate
+  // answer on whether step-up shares /login's per-IP bucket and can
+  // therefore lock the operator out of ordinary sign-in. Checked against
+  // the installed @nestjs/throttler (6.5.0) rather than assumed: its
+  // generateKey is `${ClassName}-${HandlerName}-${throttlerName}` hashed
+  // with the tracker, so two distinct handlers already count separately
+  // even under the same named throttler. The limits below are /login's,
+  // the counter is not — no second global throttler needed to get there.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Get(':provider/step-up')
+  async stepUp(
+    @Param('provider') providerParam: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const provider = this.parseProvider(providerParam);
+    const { authorizationUrl, pendingAuthCookieValue } =
+      await this.staffAuthService.buildLoginRedirect(provider, {
+        stepUp: true,
+      });
+
+    res.cookie(
+      STAFF_PENDING_AUTH_COOKIE_NAME,
+      pendingAuthCookieValue,
+      this.pendingCookieOptions(provider),
+    );
     res.redirect(authorizationUrl);
   }
 
@@ -94,6 +126,42 @@ export class StaffAuthController {
       path: STAFF_SESSION_COOKIE_PATH,
     });
     res.status(HttpStatus.OK).json({ ok: true });
+  }
+
+  /**
+   * The pending-auth cookie must survive the IdP round trip, which is a
+   * CROSS-SITE return — so `sameSite: 'strict'` (what this used to send)
+   * means the browser withholds it on the very request it exists for, and
+   * the callback rejects every real sign-in with
+   * `oauth_pending_auth_invalid`. Found 2026-08-08 by a security review;
+   * it passed e2e only because supertest does not enforce SameSite.
+   *
+   * - Google/Microsoft come back as a top-level GET navigation, which
+   *   `lax` permits — the tightest value that actually works.
+   * - Apple comes back as a cross-site form POST (`response_mode=
+   *   form_post`, required whenever name/email scope is requested), which
+   *   `lax` does NOT permit. That leaves `none`, which browsers only honour
+   *   alongside `Secure` — forced on for Apple regardless of
+   *   STAFF_COOKIE_SECURE, since Apple requires an HTTPS redirect URI
+   *   anyway and a plain-HTTP local Apple login was never possible.
+   *
+   * The real `staff_session` cookie keeps `strict`: it is only ever sent by
+   * the console's own same-site requests, so nothing about this applies to
+   * it.
+   *
+   * NOT VERIFIED AGAINST A LIVE IdP — this is the standard fix for the
+   * standard mistake, but staff SSO has evidently never completed in a real
+   * browser, so treat the first live login as the actual test.
+   */
+  private pendingCookieOptions(provider: StaffAuthProvider): CookieOptions {
+    const isApple = provider === StaffAuthProvider.APPLE;
+    return {
+      httpOnly: true,
+      sameSite: isApple ? 'none' : 'lax',
+      secure: isApple ? true : this.cookieSecure(),
+      path: STAFF_PENDING_AUTH_COOKIE_PATH,
+      maxAge: PENDING_AUTH_COOKIE_MAX_AGE_MS,
+    };
   }
 
   private async handleCallback(

@@ -32,6 +32,21 @@ source (ADR-0017 Decision 3).
 before merge**, per CLAUDE.md — this is real freeform text between
 children with no adult account reachable in-app.
 
+**Updated 2026-08-06 per [`docs/adr/0021-clip-challenge-notifications.md`](../adr/0021-clip-challenge-notifications.md)**:
+team chat's first-ever system-authored message. Every message (both
+endpoint 1's send response and endpoint 2's list items) gains two new
+fields, `authorType: 'player' | 'system'` and `systemEventType:
+'clip_challenge_issued' | null` — see Decision 2 for why this is a real
+discriminator, not an overload of the already-nullable `senderPlayerId`.
+A `'system'` row is **never** written through endpoint 1 (no DTO field
+exposes either new column to a player-facing request) — it's a direct
+repository insert from `VideoClipsService.completeUpload`, documented in
+`docs/api/phase3-contract.md` endpoint 2's own revision note, not a new
+endpoint here. Endpoint 3 (report) gains a new rejection for `'system'`
+rows — see that endpoint's own updated section below, this is the ADR's
+2026-08-06 security-reviewer addendum's single binding finding. No other
+endpoint changes.
+
 ## Conventions
 
 - Base path: `/api/v1` (unchanged).
@@ -105,6 +120,8 @@ Response `201`:
   "senderPlayerId": "uuid",
   "senderScreenName": "FloorballStar15",
   "senderAvatarId": "fox",
+  "authorType": "player",
+  "systemEventType": null,
   "content": "Bra jobbat idag allihopa! 💪",
   "clip": {
     "clipId": "uuid",
@@ -123,6 +140,11 @@ Response `201`:
   `published` one query earlier in the same request) — the `null`-on-
   unavailable case only ever arises later, on `GET` (endpoint 2, ADR-0017
   Decision 2).
+- **New 2026-08-06 (ADR-0021 Decision 2)**: `authorType` is **always**
+  `"player"` and `systemEventType` **always** `null` in this response —
+  this endpoint's HTTP path never writes a `'system'` row (no DTO field
+  exposes either). Present for shape-parity with endpoint 2's list items,
+  not because a system message could ever reach this response.
 
 Errors:
 - `403 consent_required` — same semantics as `POST /training-logs`.
@@ -167,6 +189,8 @@ Response `200`:
       "senderPlayerId": "uuid",
       "senderScreenName": "FloorballStar15",
       "senderAvatarId": "fox",
+      "authorType": "player",
+      "systemEventType": null,
       "content": "Bra jobbat idag allihopa! 💪",
       "clip": {
         "clipId": "uuid",
@@ -179,6 +203,18 @@ Response `200`:
       },
       "createdAt": "2026-07-08T18:04:00Z",
       "reportedByMe": false
+    },
+    {
+      "id": "uuid",
+      "senderPlayerId": null,
+      "senderScreenName": null,
+      "senderAvatarId": null,
+      "authorType": "system",
+      "systemEventType": "clip_challenge_issued",
+      "content": "🎯 Anna utmanade Karl med en video!",
+      "clip": { "...": "same ChatClipEmbed shape as above, resolved live from clipId, same as any other message" },
+      "createdAt": "2026-08-01T18:07:00Z",
+      "reportedByMe": false
     }
   ]
 }
@@ -189,10 +225,26 @@ Response `200`:
 - **Never includes** a message with `status = 'hidden'`, and **never
   includes** a message whose `senderPlayerId` is on the *viewer's own*
   `TeamChatBlock` list — both filters applied server-side in this query,
-  not left to the client (ADR-0007 Decision 4/Decision 5).
+  not left to the client (ADR-0007 Decision 4/Decision 5). A `'system'`
+  row's `senderPlayerId` is always `NULL`, so it can never match any
+  block's `blocked_player_id` (`NOT NULL`) — structurally un-blockable, no
+  new code (ADR-0021 Decision 3).
 - `reportedByMe` is `true` only if *this* viewer has already reported *this*
   message — never reveals whether or how many *other* players have
-  reported it (ADR-0007 Decision 1's anonymity guarantee).
+  reported it (ADR-0007 Decision 1's anonymity guarantee). Always `false`
+  for a `'system'` row going forward, since reporting one is rejected
+  server-side (endpoint 3, updated below) — no `TeamChatMessageReport` row
+  can ever exist against one.
+- **New 2026-08-06 (ADR-0021 Decision 2)**: `senderPlayerId`/
+  `senderScreenName`/`senderAvatarId` are `null` for **two different
+  reasons that share the same shape** — an erased player's anonymized
+  message (ADR-0013 Decision 6) or a `'system'` row that never had a
+  sender at all. `authorType` is what disambiguates the two; a client must
+  check it, never infer "erased" from a bare null sender alone. A
+  `'system'` row's `content` is a fixed, server-rendered string baked in
+  once at publish time (`docs/api/phase3-contract.md` endpoint 2), never
+  re-resolved live — it survives either named player's later erasure/rename
+  unaffected, same as any ordinary human-authored message's own text.
 - **New (ADR-0017 Decision 1/2)**: `clip` is `null` whenever: the message
   never had a `clipId`; the referenced clip is gone (self-deleted or
   expired — `clip_id` now `NULL` on the row, via the FK's `ON DELETE SET
@@ -225,6 +277,17 @@ otherwise touches the attached clip's own row; `POST
 separate, independent way to report the *clip itself*, reachable with the
 `clipId` already visible on the message.
 
+**New 2026-08-06 (ADR-0021 Decision 3 / that ADR's own security-reviewer
+addendum, finding 1 — binding, checked first, before the already-reported
+or rate-limit checks below):** rejects with `400
+cannot_report_system_message` when the target message's `authorType ===
+'system'`. A system-authored row has no real sender for this mechanism to
+ever notify — ADR-0007 Decision 3's entire report mechanism exists to
+email **a real reported player's** parent/coach, which a `'system'` row
+structurally can never have. Accepting the report anyway would create a
+`TeamChatMessageReport` with a reporter and no meaningful target, which is
+worse than not accepting it.
+
 Request:
 ```ts
 {
@@ -241,6 +304,7 @@ Response `201`:
 Errors:
 - `404 chat_message_not_found` — no such message, or it doesn't belong to
   `:teamId`.
+- `400 cannot_report_system_message` — **new 2026-08-06**, see above.
 - `409 chat_message_already_reported_by_you` — this viewer already
   reported this message (unique per `(messageId, reporterId)`).
 - `429 chat_report_rate_limited` — a per-reporter cooldown, bounding
@@ -394,3 +458,16 @@ Response `200`:
   clip-resolution/combined-validation checks (endpoint 1) — a mis-scoped
   join or a `clipId` accepted without the `teamId`/`status` conditions
   would be an identical class of bug.
+- **backend-developer (2026-08-06, ADR-0021):** the `authorType ===
+  'system'` guard on endpoint 3 (`reportMessage`) is checked immediately
+  after loading the target message, before the already-reported/cooldown
+  checks — a structural rejection, not a stale-state one. Has its own test
+  asserting the rejection (`team-chat.service.spec.ts` and the e2e suite),
+  per the ADR's own binding instruction — this is not optional.
+- **security-reviewer (2026-08-06, ADR-0021):** the scoped confirmation
+  pass this revision is built against is recorded in that ADR's own Status
+  section addendum — its three "verify directly" claims (`authorType`/
+  `systemEventType` unreachable from any player-facing DTO; `content` for a
+  system row is fixed-template-only in the real implementation; block is
+  structurally inert against a system row by construction) all held as
+  designed against the actual code, per that addendum.

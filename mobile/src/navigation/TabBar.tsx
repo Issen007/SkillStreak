@@ -46,6 +46,11 @@ interface TabBarProps {
    * count" convention, per docs/design/phase3-flows.md's "Unread
    * indicator" note. */
   clipsTabDot?: boolean;
+  /** Fas 4.6's presence dot for unacknowledged clip challenges on the
+   * "Laget" tab — a fifth boolean dot on the same convention, not a
+   * fourth exception (docs/design/clip-challenge-notifications-ui.md
+   * §1.3). */
+  teamTabDot?: boolean;
 }
 
 /** A plain bottom tab bar — not a navigation library, matching AppRoot's
@@ -57,6 +62,7 @@ export function TabBar({
   goalTabDot = false,
   chatTabDot = false,
   clipsTabDot = false,
+  teamTabDot = false,
 }: TabBarProps) {
   const { t } = useTranslation('common');
   return (
@@ -66,7 +72,8 @@ export function TabBar({
         const showDot =
           (tab.key === 'goal' && goalTabDot) ||
           (tab.key === 'chat' && chatTabDot) ||
-          (tab.key === 'clips' && clipsTabDot);
+          (tab.key === 'clips' && clipsTabDot) ||
+          (tab.key === 'team' && teamTabDot);
         return (
           <Pressable
             key={tab.key}

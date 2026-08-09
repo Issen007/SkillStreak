@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { ChallengeClipModal } from './components/ChallengeClipModal';
+import { ChallengeRow } from './components/ChallengeRow';
 import { ConsentChips } from './components/ConsentChips';
 import { TeammateRow } from './components/TeammateRow';
 import { PendingJoinRow } from './components/PendingJoinRow';
@@ -15,7 +17,9 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { Toast } from '../components/Toast';
 import { LoadingOrRetry } from '../components/LoadingOrRetry';
 import {
+  ackClipChallenge,
   approveTeamJoin,
+  getPendingClipChallenges,
   getPendingJoins,
   getTeamDashboard,
   getTeammates,
@@ -24,6 +28,7 @@ import {
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import type {
+  PendingChallengeEntry,
   PendingJoinEntry,
   TeamDashboardResponse,
   TeammateEntry,
@@ -48,6 +53,12 @@ interface TeamScreenProps {
    * (optional) "handed off" banner for a change this device already knows
    * about directly. */
   onCaptainTransferred: () => void;
+  /** Fas 4.6 — called on every challenges fetch and every successful ack,
+   * so AppShell can set/clear the "Laget" tab dot immediately from data
+   * this screen already has, without a second network round-trip. Same
+   * "tell the parent directly, don't wait for the next foreground poll"
+   * idiom as `onCaptainTransferred` above. */
+  onChallengesChanged: (hasPending: boolean) => void;
 }
 
 type TeamViewState = 'summary' | 'roster' | 'captain-transfer' | 'leaderboard';
@@ -63,6 +74,7 @@ export function TeamScreen({
   onManageGoal,
   onSeeGoalDetail,
   onCaptainTransferred,
+  onChallengesChanged,
 }: TeamScreenProps) {
   const { t } = useTranslation('team');
   const [dashboard, setDashboard] = useState<TeamDashboardResponse | null>(null);
@@ -75,18 +87,35 @@ export function TeamScreen({
   const [pendingJoins, setPendingJoins] = useState<PendingJoinEntry[]>([]);
   const [decidingPlayerId, setDecidingPlayerId] = useState<string | null>(null);
   const [decidingAction, setDecidingAction] = useState<'approve' | 'reject' | null>(null);
+  // Fas 4.6 (docs/design/clip-challenge-notifications-ui.md §1) — "someone
+  // challenged *you*" clips this player hasn't acknowledged yet.
+  const [pendingChallenges, setPendingChallenges] = useState<PendingChallengeEntry[]>([]);
+  const [activeChallenge, setActiveChallenge] = useState<PendingChallengeEntry | null>(null);
+  const [ackingClipId, setAckingClipId] = useState<string | null>(null);
 
   // "Fire both, render when both resolve" — one extra request, not a
   // second visible loading state, per the flow doc's Screen K1 note.
   const fetchAll = useCallback(async () => {
     try {
-      const [dashboardResponse, teammatesResponse] = await Promise.all([
+      const [dashboardResponse, teammatesResponse, challengesResponse] = await Promise.all([
         getTeamDashboard(teamId),
         getTeammates(teamId),
+        // Fas 4.6 — every player, not captain-gated, so it belongs in the
+        // Promise.all rather than in a conditional follow-up like
+        // pendingJoins below. But it carries its own catch: a transient
+        // failure, or the `403` a not-yet-consent/join-approved requester
+        // gets from this endpoint's `assertConsentApproved`/
+        // `assertTeamJoinApproved`, must not fail the whole screen's load
+        // — the section just doesn't render (design doc §6).
+        getPendingClipChallenges(teamId).catch(() => null),
       ]);
       setDashboard(dashboardResponse);
       setTeammates(teammatesResponse.teammates);
       setLoadError(null);
+
+      const challenges = challengesResponse?.challenges ?? [];
+      setPendingChallenges(challenges);
+      onChallengesChanged(challenges.length > 0);
 
       // Fas 4 — a third, captain-only fetch, kept separate from the
       // Promise.all above rather than always firing it: a non-captain
@@ -108,7 +137,7 @@ export function TeamScreen({
     } finally {
       setLoading(false);
     }
-  }, [teamId, t]);
+  }, [teamId, t, onChallengesChanged]);
 
   useEffect(() => {
     void fetchAll();
@@ -141,6 +170,48 @@ export function TeamScreen({
     } finally {
       setDecidingPlayerId(null);
       setDecidingAction(null);
+    }
+  };
+
+  const dropChallenge = (clipId: string) => {
+    setPendingChallenges((prev) => {
+      const next = prev.filter((c) => c.clipId !== clipId);
+      onChallengesChanged(next.length > 0);
+      return next;
+    });
+  };
+
+  /** Trigger A (design doc §2.1) — opens the modal *immediately*, never
+   * gated on the ack call's round-trip, and fires the ack in parallel. The
+   * ack's failure is deliberately silent (§2.4): the thing the player
+   * actually wanted (watching) already succeeded, the call is idempotent,
+   * and it retries for free the next time this row is tapped. */
+  const handleWatchChallenge = (challenge: PendingChallengeEntry) => {
+    setActiveChallenge(challenge);
+    void ackClipChallenge(teamId, challenge.clipId)
+      .then(() => dropChallenge(challenge.clipId))
+      .catch(() => {
+        // Silent by design — the row simply stays pending.
+      });
+  };
+
+  /** Trigger B (§2.2) — "Redan sett", for a player who already watched the
+   * clip elsewhere (the chat announcement embeds the same one) and
+   * shouldn't be made to re-watch it just to clear a badge. Here the ack
+   * call *is* the whole point of the tap, so unlike Trigger A its failure
+   * gets a visible toast — same rule as approve/reject above. */
+  const handleDismissChallenge = async (challenge: PendingChallengeEntry) => {
+    setAckingClipId(challenge.clipId);
+    try {
+      await ackClipChallenge(teamId, challenge.clipId);
+      dropChallenge(challenge.clipId);
+      setToastMessage(
+        t('k1.challengeAckedToast', { screenName: challenge.uploaderScreenName }),
+      );
+    } catch {
+      setToastMessage(t('k1.challengeAckErrorToast'));
+    } finally {
+      setAckingClipId(null);
     }
   };
 
@@ -200,6 +271,34 @@ export function TeamScreen({
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>{t('k1.heading')}</Text>
+
+        {/* Fas 4.6 — inserted first, ahead even of the captain-only
+            pending-joins block below: pending joins are administrative,
+            a pending challenge is personal ("someone challenged *you*"),
+            the one thing on this tab a kid actually wants to see first
+            (docs/design/clip-challenge-notifications-ui.md §1.1). No empty
+            state — the section simply isn't rendered when there's nothing
+            pending. */}
+        {pendingChallenges.length > 0 ? (
+          <>
+            <Text style={styles.sectionLabel}>
+              {t('k1.pendingChallengesHeading', { count: pendingChallenges.length })}
+            </Text>
+            <View style={styles.teammatesCard}>
+              {pendingChallenges.map((challenge) => (
+                <ChallengeRow
+                  key={challenge.clipId}
+                  uploaderScreenName={challenge.uploaderScreenName}
+                  caption={challenge.caption}
+                  playbackUrl={challenge.playbackUrl}
+                  acking={ackingClipId === challenge.clipId}
+                  onWatch={() => handleWatchChallenge(challenge)}
+                  onDismiss={() => void handleDismissChallenge(challenge)}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
 
         <ConsentChips
           approvedCount={dashboard.roster.approvedCount}
@@ -293,6 +392,11 @@ export function TeamScreen({
       </ScrollView>
 
       {toastMessage ? <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} /> : null}
+
+      <ChallengeClipModal
+        challenge={activeChallenge}
+        onClose={() => setActiveChallenge(null)}
+      />
 
       <InviteFriendSheet
         visible={inviteSheetOpen}
