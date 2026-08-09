@@ -50,6 +50,14 @@ function buildService(
 
   const playersService = {
     assertTeamMembership: jest.fn().mockResolvedValue(player),
+    // completeUpload now re-checks a stored tag leniently rather than
+    // trusting a snapshot taken before the remux.
+    findById: jest.fn().mockResolvedValue({
+      id: 'mate-1',
+      teamId: 'team-1',
+      teamJoinStatus: TeamJoinStatus.APPROVED,
+      screenName: 'SnabbaBen07',
+    }),
     listByTeam: jest.fn().mockResolvedValue([player]),
     findByIdOrThrow: jest.fn().mockResolvedValue(player),
   };
@@ -61,6 +69,7 @@ function buildService(
   };
   const redisService = {
     tryClaimClipUploadAllowance: jest.fn().mockResolvedValue(true),
+    tryClaimClipCompleteAllowance: jest.fn().mockResolvedValue(true),
     tryClaimClipReportCooldown: jest.fn().mockResolvedValue(true),
     tryClaimClipReportNotifyCooldown: jest.fn().mockResolvedValue(true),
   };
@@ -124,7 +133,7 @@ function buildService(
   // transaction-scoped repositories by entity, mirroring the real
   // `manager.getRepository(Entity)` shape.
   const transactionVideoClipRepository = {
-    update: jest.fn().mockResolvedValue(undefined),
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
   };
   const teamChatMessageRepository = {
     save: jest.fn((entity: Record<string, unknown>) =>
@@ -424,6 +433,157 @@ describe('VideoClipsService.completeUpload — metadata supplied at complete', (
   });
 });
 
+// Security-reviewer findings, 2026-08-09. Each of these pins a specific
+// hole the first version of the complete-time metadata change opened.
+describe('VideoClipsService.completeUpload — security-review regressions', () => {
+  function pendingClip(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'clip-1',
+      teamId: 'team-1',
+      uploaderPlayerId: 'player-1',
+      storageKey: 'clips/team-1/clip-1.mp4',
+      mimeType: 'video/mp4',
+      durationSeconds: 10,
+      createdAt: new Date(),
+      caption: null,
+      taggedPlayerId: null,
+      ...overrides,
+    };
+  }
+
+  // Finding 1. The asserts ran BEFORE the clip lookup, so a caller needed
+  // no clip at all to reach the caption filter and could read a clean
+  // 400-vs-404 oracle over the wordlist.
+  it('never reaches the moderation filter when the caller owns no pending clip', async () => {
+    const { service, videoClipRepository, chatModerationCheck } =
+      buildService();
+    videoClipRepository.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.completeUpload('team-1', 'player-1', 'clip-1', {
+        caption: 'probe',
+      }),
+    ).rejects.toBeInstanceOf(ClipNotFoundException);
+
+    expect(chatModerationCheck.check).not.toHaveBeenCalled();
+  });
+
+  // Finding 1, second half: owning one pending clip must not buy unlimited
+  // probes. `upload-url` charges its quota before filtering, on purpose.
+  it('charges a rate-limit allowance before filtering a supplied caption', async () => {
+    const { service, videoClipRepository, redisService, chatModerationCheck } =
+      buildService();
+    videoClipRepository.findOne.mockResolvedValue(pendingClip());
+    redisService.tryClaimClipCompleteAllowance.mockResolvedValue(false);
+
+    await expect(
+      service.completeUpload('team-1', 'player-1', 'clip-1', {
+        caption: 'probe',
+      }),
+    ).rejects.toBeInstanceOf(ClipUploadRateLimitedException);
+
+    expect(chatModerationCheck.check).not.toHaveBeenCalled();
+  });
+
+  it('does not charge an allowance when no metadata is supplied', async () => {
+    const { service, videoClipRepository, redisService } = buildService();
+    videoClipRepository.findOne.mockResolvedValue(pendingClip());
+
+    await service.completeUpload('team-1', 'player-1', 'clip-1');
+
+    expect(redisService.tryClaimClipCompleteAllowance).not.toHaveBeenCalled();
+  });
+
+  // Finding 4. This endpoint accepts the bytes into the feed, so parental
+  // consent gates it, not just the URL minting.
+  it('refuses a player whose parental consent is not approved', async () => {
+    const { service, playersService, videoClipRepository } = buildService();
+    playersService.assertTeamMembership.mockResolvedValue({
+      id: 'player-1',
+      teamId: 'team-1',
+      parentalConsentStatus: ParentalConsentStatus.PENDING,
+      teamJoinStatus: TeamJoinStatus.APPROVED,
+    });
+
+    await expect(
+      service.completeUpload('team-1', 'player-1', 'clip-1'),
+    ).rejects.toMatchObject({ code: 'consent_required' });
+
+    expect(videoClipRepository.findOne).not.toHaveBeenCalled();
+  });
+
+  // Finding 2. `@IsOptional()` skips validation for null too, so a null
+  // caption used to reach a .trim() AFTER the remux — leaving the row
+  // pending and the object intact, i.e. an infinitely repeatable ~75MB
+  // amplification loop. Null now means "clear", resolved before any
+  // storage work.
+  it('treats an explicit null caption as "clear", without throwing', async () => {
+    const { service, videoClipRepository, transactionVideoClipRepository } =
+      buildService();
+    videoClipRepository.findOne.mockResolvedValue(
+      pendingClip({ caption: 'set at create time' }),
+    );
+
+    await service.completeUpload('team-1', 'player-1', 'clip-1', {
+      caption: null,
+    });
+
+    const [, patch] = transactionVideoClipRepository.update.mock.calls[0] as [
+      unknown,
+      Record<string, unknown>,
+    ];
+    expect(patch.caption).toBeNull();
+  });
+
+  // Finding 3 / 8. The publish update is conditional on the row still being
+  // pending, and its result is checked — otherwise a complete racing a
+  // delete committed nothing, returned 200 published, and left the object
+  // it had just re-uploaded orphaned beyond the reach of either sweep.
+  it('reports 404 and removes the re-uploaded object when the row vanished mid-remux', async () => {
+    const {
+      service,
+      videoClipRepository,
+      transactionVideoClipRepository,
+      objectStorageService,
+    } = buildService();
+    videoClipRepository.findOne.mockResolvedValue(pendingClip());
+    transactionVideoClipRepository.update.mockResolvedValue({ affected: 0 });
+
+    await expect(
+      service.completeUpload('team-1', 'player-1', 'clip-1'),
+    ).rejects.toBeInstanceOf(ClipNotFoundException);
+
+    expect(objectStorageService.deleteObjectIfExists).toHaveBeenCalledWith(
+      'clips/team-1/clip-1.mp4',
+    );
+  });
+
+  // Finding 7. tagged_player_id is ON DELETE SET NULL, so a teammate
+  // erasing mid-upload leaves this snapshot holding a UUID the row no
+  // longer has. Writing it back would violate the FK and 500 on every
+  // retry, burning a full remux each time.
+  it('clears a stored tag whose player no longer exists rather than writing it back', async () => {
+    const {
+      service,
+      videoClipRepository,
+      playersService,
+      transactionVideoClipRepository,
+    } = buildService();
+    videoClipRepository.findOne.mockResolvedValue(
+      pendingClip({ taggedPlayerId: 'erased-1' }),
+    );
+    playersService.findById.mockResolvedValue(null);
+
+    await service.completeUpload('team-1', 'player-1', 'clip-1');
+
+    const [, patch] = transactionVideoClipRepository.update.mock.calls[0] as [
+      unknown,
+      Record<string, unknown>,
+    ];
+    expect(patch.taggedPlayerId).toBeNull();
+  });
+});
+
 describe('VideoClipsService.completeUpload — ordering of the tag notification', () => {
   // The system chat message that notifies a tagged teammate reads
   // clip.taggedPlayerId, so it has to run AFTER the metadata assignment.
@@ -653,7 +813,7 @@ describe('VideoClipsService.completeUpload', () => {
     // the plain injected one.
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     expect(transactionVideoClipRepository.update).toHaveBeenCalledWith(
-      { id: 'clip-1' },
+      { id: 'clip-1', status: VideoClipStatus.PENDING_UPLOAD },
       expect.objectContaining({ status: VideoClipStatus.PUBLISHED }),
     );
     // No taggedPlayerId on this clip — no system chat message inserted.
@@ -709,7 +869,7 @@ describe('VideoClipsService.completeUpload', () => {
     // same fake transaction manager — nothing outside dataSource.transaction
     // touched either repository for this step.
     expect(transactionVideoClipRepository.update).toHaveBeenCalledWith(
-      { id: 'clip-1' },
+      { id: 'clip-1', status: VideoClipStatus.PENDING_UPLOAD },
       expect.objectContaining({ status: VideoClipStatus.PUBLISHED }),
     );
     expect(teamChatMessageRepository.save).toHaveBeenCalledWith(

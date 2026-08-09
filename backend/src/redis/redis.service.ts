@@ -53,6 +53,10 @@ function chatReportNotifyCooldownKey(reportedPlayerId: string): string {
   return `chat-report-notify:${reportedPlayerId}:cooldown`;
 }
 
+function clipCompleteRateLimitKey(playerId: string): string {
+  return `ratelimit:clip-complete:${playerId}`;
+}
+
 function clipUploadRateLimitKey(playerId: string): string {
   return `clip-upload:${playerId}:window`;
 }
@@ -198,6 +202,19 @@ const CHAT_REPORT_NOTIFY_COOLDOWN_SECONDS = 60 * 60 * 24;
 // "one tap per thought" cadence.
 const CLIP_UPLOAD_RATE_LIMIT_WINDOW_SECONDS = 60 * 60 * 24;
 const CLIP_UPLOAD_RATE_LIMIT_MAX_PER_WINDOW = 10;
+
+// Attempts at POST .../clips/:clipId/complete carrying metadata, per player
+// per hour. Security-reviewer finding, 2026-08-09: `complete` reaches the
+// same caption moderation filter `upload-url` does, but `upload-url`
+// deliberately claims its 10/day allowance BEFORE the filter runs, "so
+// repeated filter-probing on the caption still costs the uploader's quota,
+// not free". Without a limit of its own, `complete` was a free, unmetered
+// oracle over the wordlist at the generic 300/min/IP backstop.
+//
+// 30/hour is generous for the real flow (one complete per upload, plus a
+// couple of retries) and useless for enumeration.
+const CLIP_COMPLETE_RATE_LIMIT_MAX_PER_WINDOW = 30;
+const CLIP_COMPLETE_RATE_LIMIT_WINDOW_SECONDS = 60 * 60;
 
 // docs/adr/0010-video-storage-and-serving.md Decision 4 — same per-reporter
 // cooldown shape/reasoning as ADR-0007 Decision 3's chat report cooldown:
@@ -483,6 +500,22 @@ export class RedisService {
     windowSeconds: number = CLIP_UPLOAD_RATE_LIMIT_WINDOW_SECONDS,
   ): Promise<boolean> {
     const key = clipUploadRateLimitKey(playerId);
+    const count = await this.client.incr(key);
+    if (count === 1) {
+      await this.client.expire(key, windowSeconds);
+    }
+    return count <= maxPerWindow;
+  }
+
+  /** Per-player hourly allowance for metadata-carrying `complete` calls —
+   * see CLIP_COMPLETE_RATE_LIMIT_MAX_PER_WINDOW for why this exists
+   * separately from the upload allowance. Same INCR+EXPIRE shape. */
+  async tryClaimClipCompleteAllowance(
+    playerId: string,
+    maxPerWindow: number = CLIP_COMPLETE_RATE_LIMIT_MAX_PER_WINDOW,
+    windowSeconds: number = CLIP_COMPLETE_RATE_LIMIT_WINDOW_SECONDS,
+  ): Promise<boolean> {
+    const key = clipCompleteRateLimitKey(playerId);
     const count = await this.client.incr(key);
     if (count === 1) {
       await this.client.expire(key, windowSeconds);

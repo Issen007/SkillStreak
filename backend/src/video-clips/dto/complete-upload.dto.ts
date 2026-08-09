@@ -18,9 +18,13 @@ import { CLIP_CAPTION_MAX_LENGTH } from '../video-clip.constants';
  * team-membership and approval on the tag) are shared as real methods
  * rather than copied — see VideoClipsService's two assert helpers.
  *
- * Both fields are absent on the original flow's requests, which is why
- * this is backwards compatible: an omitted field leaves whatever `create`
- * already stored untouched.
+ * **Contract**: an omitted field leaves whatever `create` already stored
+ * untouched (which is why the original flow is unaffected); an explicit
+ * `null` clears it. Both fields agree on that. They previously did not —
+ * `@IsOptional()` skips validation for `null` as well as `undefined`, so a
+ * `null` caption slipped through to a `.trim()` and threw *after* the
+ * remux had run, while a `null` tag silently cleared. Handled in
+ * `VideoClipsService.completeUpload` now, before any storage work.
  */
 export class CompleteUploadDto {
   // A whitespace-only caption trims to '' and is treated as "no caption"
@@ -34,9 +38,9 @@ export class CompleteUploadDto {
   })
   @IsString()
   @MaxLength(CLIP_CAPTION_MAX_LENGTH)
-  caption?: string;
+  caption?: string | null;
 
   @IsOptional()
   @IsUUID()
-  taggedPlayerId?: string;
+  taggedPlayerId?: string | null;
 }
