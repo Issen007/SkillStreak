@@ -267,6 +267,15 @@ class EnvironmentVariables {
   // or the step-up check at all. See AdminPlanningDocsService.
   @IsOptional()
   ADMIN_PLANNING_DOCS_DIR?: string;
+
+  // How long a bug report is kept before the daily sweep deletes it
+  // (default 90 — see DEFAULT_BUG_REPORT_RETENTION_DAYS). @IsOptional()
+  // alone, for the same empty-but-present reason as the two ERROR_LOG_*
+  // knobs above; parsed by the same positiveIntFromConfig, which treats
+  // '', non-numeric, zero, negative and fractional values as "use the
+  // default".
+  @IsOptional()
+  BUG_REPORT_RETENTION_DAYS?: string;
 }
 
 // Fails fast on boot rather than surfacing a confusing runtime error the

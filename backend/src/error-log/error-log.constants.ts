@@ -57,6 +57,7 @@ export const ERROR_LOG_JOB_NAMES = {
   accountErasureSweep: 'account-erasure:sweep',
   usageMetricsReport: 'usage-metrics:report',
   errorLogRetention: 'error-log:retention',
+  bugReportRetention: 'bug-report:retention',
 } as const;
 
 /**

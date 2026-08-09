@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
+import { ErrorLogModule } from '../error-log/error-log.module';
 import { RedisModule } from '../redis/redis.module';
+import { BugReportRetentionService } from './bug-report-retention.service';
 import { BugReportsController } from './bug-reports.controller';
 import { BugReportsService } from './bug-reports.service';
 import { BugReport } from './entities/bug-report.entity';
@@ -18,14 +20,21 @@ import { BugReport } from './entities/bug-report.entity';
  * without redeclaring it.
  *
  * `AuthModule` for `@UseGuards(JwtAuthGuard)`; `RedisModule` for the
- * per-player burst/daily rate limit. No MailModule — nothing here notifies
- * anyone, by design (§9.5: the success screen makes no promise of a reply,
- * because there is no reply channel).
+ * per-player burst/daily rate limit and the retention sweep's cross-pod run
+ * lock; `ErrorLogModule` so that sweep can record a run-level failure the
+ * same way every other scheduled job does. No MailModule — nothing here
+ * notifies anyone, by design (§9.5: the success screen makes no promise of a
+ * reply, because there is no reply channel).
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([BugReport]), AuthModule, RedisModule],
+  imports: [
+    TypeOrmModule.forFeature([BugReport]),
+    AuthModule,
+    RedisModule,
+    ErrorLogModule,
+  ],
   controllers: [BugReportsController],
-  providers: [BugReportsService],
+  providers: [BugReportsService, BugReportRetentionService],
   exports: [TypeOrmModule],
 })
 export class BugReportsModule {}
