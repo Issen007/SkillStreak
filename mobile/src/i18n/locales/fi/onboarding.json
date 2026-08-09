@@ -6,36 +6,20 @@
   },
   "o1": {
     "heading": "Missä joukkueessa pelaat?",
-    "sub": "Kysy valmentajaltasi joukkueen koodi.",
+    "sub": "Kysy valmentajalta joukkueen koodi. Eikö joukkuetta ole vielä? Keksi oma koodi, niin autamme sinua perustamaan sen.",
     "codePlaceholder": "Esim. FALKEN24",
     "findTeamButton": "Etsi joukkueeni",
     "returningUserLink": "Onko sinulla jo tili?"
   },
   "o1a": {
-    "heading": "Emme löytäneet joukkuetta koodilla <code>{{inviteCode}}</code>",
-    "sub": "Ei hätää — valitse se, mikä sopii sinulle:",
-    "wrongCodeTitle": "Kirjoitin varmaan väärin",
-    "wrongCodeSub": "Kokeile koodia uudelleen",
-    "createTeamTitle": "Joukkueellamme ei ole vielä koodia",
-    "createTeamSub": "Luo uusi joukkue tällä koodilla",
-    "helper": "Etkö ole varma? Kysy valmentajaltasi ennen kuin luot uuden joukkueen."
-  },
-  "o1b": {
-    "codeChip": "Joukkuekoodi: {{inviteCode}}",
-    "changeCode": "Vaihda koodi",
-    "heading": "Mikä on joukkueenne nimi?",
-    "sub": "Sinusta tulee joukkueen ensimmäinen pelaaja — ja kapteeni! Valitse nimi, josta koko joukkue voi olla ylpeä.",
+    "heading": "Emme löytäneet joukkuetta koodilla {{inviteCode}}",
+    "sub": "Onko kyseessä uusi joukkue? Anna sille nimi, niin luomme sen puolestasi.",
     "nameLabel": "Joukkueen nimi",
     "namePlaceholder": "Esim. IBK Falken P13",
-    "helper": "Muut joukkueet näkevät nimen tulostaulussa.",
-    "next": "Seuraava"
-  },
-  "o1c": {
-    "heading": "Luodaanko {{teamName}}?",
-    "sub": "Joukkuekoodi: {{inviteCode}} — jaa se joukkuekavereille, niin he voivat liittyä myöhemmin.",
-    "tip": "Nimeä ja koodia ei voi enää muuttaa jälkeenpäin, joten tarkista, että kaikki on oikein!",
-    "confirm": "Kyllä, luodaan joukkue!",
-    "editName": "Ei, muuta nimeä"
+    "codeLabel": "Joukkuekoodi — jaa se joukkuekavereillesi, jotta hekin pääsevät mukaan",
+    "permanentTip": "Nimeä ja koodia ei voi muuttaa myöhemmin, joten tarkista että ne ovat oikein!",
+    "createButton": "Luo joukkue",
+    "wrongCode": "Taisin kirjoittaa koodin väärin"
   },
   "o2": {
     "heading": "Liitytkö joukkueeseen {{teamName}}?",

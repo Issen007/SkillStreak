@@ -10,9 +10,9 @@ interface O6ConfirmationProps {
   screenName: string;
   teamName: string;
   /** Built strictly off the `201` response's `teamCreated`/`isCaptain`
-   * fields — never off which UI path (O1a/O1c vs O2) the player took to
+   * fields — never off which UI path (O1a vs O2) the player took to
    * get here. See the flow doc's O6 "Edge case" callout: a player who
-   * confirmed "create" at O1c can still legitimately land on the ordinary
+   * confirmed "create" at O1a can still legitimately land on the ordinary
    * `teamCreated: false` variant with zero error shown, if another
    * request won a race for the same invite code first. `isCaptain` is
    * always `true` whenever `teamCreated` is `true`, per the contract, but

@@ -3,9 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { O0ChooseLanguage } from './screens/O0ChooseLanguage';
 import { O1EnterCode } from './screens/O1EnterCode';
-import { O1aTeamNotFound } from './screens/O1aTeamNotFound';
-import { O1bNameTeam } from './screens/O1bNameTeam';
-import { O1cConfirmNewTeam } from './screens/O1cConfirmNewTeam';
+import { O1aCreateTeam } from './screens/O1aCreateTeam';
 import { O2ConfirmTeam } from './screens/O2ConfirmTeam';
 import { O3NameAvatar } from './screens/O3NameAvatar';
 import { O4BirthYear } from './screens/O4BirthYear';
@@ -24,11 +22,11 @@ interface OnboardingFlowProps {
   onComplete: () => void;
 }
 
-/** O1-O6 (plus O1a/O1b/O1c, the 2026-07-09 self-service-team-creation
+/** O1-O6 (plus O1a, the self-service-team-creation
  * branch) per docs/design/phase1-flows.md — a mostly-linear flow with a
  * handful of documented "jump back" recovery paths (404 -> O1a,
  * 409 screen_name_taken_in_team -> O3, 404 invite_code_not_found -> O1,
- * 422 team_name_rejected_by_filter -> O1b, 409
+ * 422 team_name_rejected_by_filter -> O1a, 409
  * invite_code_taken_concurrently -> O1), modeled as a small state machine
  * rather than a stack navigator: there's no deep back-history to preserve
  * beyond "which step am I on" plus the accumulated form data. */
@@ -42,8 +40,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   const [o1Error, setO1Error] = useState<string | null>(null);
   const [selectCodeOnO1, setSelectCodeOnO1] = useState(false);
-  const [o1bError, setO1bError] = useState<string | null>(null);
-  const [focusNameOnO1b, setFocusNameOnO1b] = useState(false);
+  const [teamNameError, setTeamNameError] = useState<string | null>(null);
+  const [focusTeamName, setFocusTeamName] = useState(false);
   const [o3Error, setO3Error] = useState<string | null>(null);
   const [focusNameOnO3, setFocusNameOnO3] = useState(false);
   const [o4Error, setO4Error] = useState<string | null>(null);
@@ -102,9 +100,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         // names both possibilities and points at "Byt kod" rather than
         // blaming the name alone, which would leave a kid whose *code* was
         // the real problem stuck retyping an already-fine name.
-        setO1bError(t('flow.teamNameRejected'));
-        setFocusNameOnO1b(true);
-        setStep('O1b');
+        setTeamNameError(t('flow.teamNameRejected'));
+        setFocusTeamName(true);
+        setStep('O1a');
       } else if (err instanceof ApiError && err.code === 'invite_code_taken_concurrently') {
         // Extremely rare race (ADR-0009 Decision 8) — the code is now
         // genuinely gone. Input cleared, everything else (screen name,
@@ -218,47 +216,26 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         />
       );
 
+    // One screen, replacing the former O1a -> O1b -> O1c sequence. Three
+    // screens to answer "is this a new team?" was the actual usability
+    // problem the project owner's 11-year-old tester ran into; nothing
+    // about the data collected changed, only the number of taps.
     case 'O1a':
       return (
-        <O1aTeamNotFound
+        <O1aCreateTeam
           inviteCode={data.inviteCode}
+          initialTeamName={data.teamName ?? ''}
+          externalError={teamNameError}
+          focusNameOnMount={focusTeamName}
           onWrongCode={() => {
             setSelectCodeOnO1(true);
             setStep('O1');
           }}
-          onCreateTeam={() => setStep('O1b')}
-        />
-      );
-
-    case 'O1b':
-      return (
-        <O1bNameTeam
-          inviteCode={data.inviteCode}
-          initialTeamName={data.teamName ?? ''}
-          externalError={o1bError}
-          focusNameOnMount={focusNameOnO1b}
-          onChangeCode={() => setStep('O1')}
-          onNext={(teamName) => {
-            setO1bError(null);
-            setFocusNameOnO1b(false);
-            setData((prev) => ({ ...prev, teamName }));
-            setStep('O1c');
-          }}
-        />
-      );
-
-    case 'O1c':
-      return (
-        <O1cConfirmNewTeam
-          teamName={data.teamName ?? ''}
-          inviteCode={data.inviteCode}
-          onConfirm={() => {
-            setData((prev) => ({ ...prev, isCreatingTeam: true }));
+          onCreate={(teamName) => {
+            setTeamNameError(null);
+            setFocusTeamName(false);
+            setData((prev) => ({ ...prev, teamName, isCreatingTeam: true }));
             setStep('O3');
-          }}
-          onEditName={() => {
-            setFocusNameOnO1b(true);
-            setStep('O1b');
           }}
         />
       );

@@ -6,36 +6,20 @@
   },
   "o1": {
     "heading": "Which team do you play for?",
-    "sub": "Ask your coach for the team code.",
+    "sub": "Ask your coach for the team's code. No team yet? Make up your own code and we'll help you start one.",
     "codePlaceholder": "E.g. FALKEN24",
     "findTeamButton": "Find my team",
     "returningUserLink": "Already have an account?"
   },
   "o1a": {
-    "heading": "We couldn't find a team with the code <code>{{inviteCode}}</code>",
-    "sub": "No worries — pick whichever fits:",
-    "wrongCodeTitle": "I probably typed it wrong",
-    "wrongCodeSub": "Try the code again",
-    "createTeamTitle": "Our team doesn't have a code yet",
-    "createTeamSub": "Create a new team with this code",
-    "helper": "Not sure? Ask your coach before creating a new team."
-  },
-  "o1b": {
-    "codeChip": "Team code: {{inviteCode}}",
-    "changeCode": "Change code",
-    "heading": "What should your team be called?",
-    "sub": "You'll be the team's first player — and captain! Pick a name the rest of the team can be proud of.",
+    "heading": "We couldn't find a team with the code {{inviteCode}}",
+    "sub": "Is it a new team? Give it a name and we'll create it for you.",
     "nameLabel": "Team name",
-    "namePlaceholder": "E.g. IBK Falken P13",
-    "helper": "Other teams can see the name on the leaderboard.",
-    "next": "Next"
-  },
-  "o1c": {
-    "heading": "Create {{teamName}}?",
-    "sub": "Team code: {{inviteCode}} — share it with teammates so they can join later.",
-    "tip": "The name and code can't be changed later, so double-check everything's right!",
-    "confirm": "Yes, create the team!",
-    "editName": "No, change the name"
+    "namePlaceholder": "e.g. IBK Falcons U13",
+    "codeLabel": "Team code — share it with your teammates so they can join",
+    "permanentTip": "The name and the code can't be changed later, so double-check they're right!",
+    "createButton": "Create the team",
+    "wrongCode": "I think I typed the code wrong"
   },
   "o2": {
     "heading": "Joining {{teamName}}?",

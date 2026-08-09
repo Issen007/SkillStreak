@@ -6,36 +6,20 @@
   },
   "o1": {
     "heading": "Pour quelle équipe joues-tu ?",
-    "sub": "Demande le code de l'équipe à ton entraîneur.",
+    "sub": "Demande le code de l'équipe à ton entraîneur. Pas encore d'équipe ? Invente ton propre code, on t'aide à la créer.",
     "codePlaceholder": "Ex. FALKEN24",
     "findTeamButton": "Trouver mon équipe",
     "returningUserLink": "Tu as déjà un compte ?"
   },
   "o1a": {
-    "heading": "Nous n'avons trouvé aucune équipe avec le code <code>{{inviteCode}}</code>",
-    "sub": "Pas de souci — choisis ce qui te correspond :",
-    "wrongCodeTitle": "J'ai dû me tromper en le tapant",
-    "wrongCodeSub": "Réessayer le code",
-    "createTeamTitle": "Notre équipe n'a pas encore de code",
-    "createTeamSub": "Créer une nouvelle équipe avec ce code",
-    "helper": "Pas sûr(e) ? Demande à ton entraîneur avant de créer une nouvelle équipe."
-  },
-  "o1b": {
-    "codeChip": "Code de l'équipe : {{inviteCode}}",
-    "changeCode": "Changer de code",
-    "heading": "Comment va s'appeler votre équipe ?",
-    "sub": "Tu seras le premier joueur de l'équipe — et capitaine ! Choisis un nom dont le reste de l'équipe pourra être fier.",
+    "heading": "Nous n'avons trouvé aucune équipe avec le code {{inviteCode}}",
+    "sub": "C'est une nouvelle équipe ? Donne-lui un nom et on la crée pour toi.",
     "nameLabel": "Nom de l'équipe",
-    "namePlaceholder": "Ex. IBK Falken P13",
-    "helper": "Les autres équipes peuvent voir ce nom sur le classement.",
-    "next": "Suivant"
-  },
-  "o1c": {
-    "heading": "Créer {{teamName}} ?",
-    "sub": "Code de l'équipe : {{inviteCode}} — partage-le avec tes coéquipiers pour qu'ils puissent rejoindre l'équipe plus tard.",
-    "tip": "Le nom et le code ne pourront plus être changés ensuite, alors vérifie bien que tout est correct !",
-    "confirm": "Oui, créer l'équipe !",
-    "editName": "Non, modifier le nom"
+    "namePlaceholder": "Ex. IBK Falken U13",
+    "codeLabel": "Code d'équipe — partage-le avec tes coéquipiers pour qu'ils puissent nous rejoindre",
+    "permanentTip": "Le nom et le code ne pourront plus être modifiés ensuite, alors vérifie bien !",
+    "createButton": "Créer l'équipe",
+    "wrongCode": "J'ai dû mal écrire le code"
   },
   "o2": {
     "heading": "Tu rejoins {{teamName}} ?",

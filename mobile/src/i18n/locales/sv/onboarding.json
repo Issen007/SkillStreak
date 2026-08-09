@@ -6,36 +6,20 @@
   },
   "o1": {
     "heading": "Vilket lag kör du för?",
-    "sub": "Fråga din tränare om lagets kod.",
+    "sub": "Fråga din tränare om lagets kod. Har ni inget lag än? Hitta på en egen kod, så hjälper vi dig starta laget.",
     "codePlaceholder": "T.ex. FALKEN24",
     "findTeamButton": "Hitta mitt lag",
     "returningUserLink": "Har du redan ett konto?"
   },
   "o1a": {
-    "heading": "Vi hittade inget lag med koden <code>{{inviteCode}}</code>",
-    "sub": "Ingen fara — välj det som stämmer för dig:",
-    "wrongCodeTitle": "Jag skrev nog fel",
-    "wrongCodeSub": "Testa koden igen",
-    "createTeamTitle": "Vårt lag har ingen kod än",
-    "createTeamSub": "Skapa ett nytt lag med den här koden",
-    "helper": "Osäker? Fråga din tränare innan du skapar ett nytt lag."
-  },
-  "o1b": {
-    "codeChip": "Lagkod: {{inviteCode}}",
-    "changeCode": "Byt kod",
-    "heading": "Vad ska ert lag heta?",
-    "sub": "Du blir lagets första spelare — och kapten! Välj ett namn som resten av laget kan vara stolta över.",
+    "heading": "Vi hittade inget lag med koden {{inviteCode}}",
+    "sub": "Är det ett nytt lag? Ge det ett namn så skapar vi det åt dig.",
     "nameLabel": "Lagnamn",
     "namePlaceholder": "T.ex. IBK Falken P13",
-    "helper": "Andra lag kan se namnet på topplistan.",
-    "next": "Nästa"
-  },
-  "o1c": {
-    "heading": "Skapa {{teamName}}?",
-    "sub": "Lagkod: {{inviteCode}} — dela den med lagkompisar så de kan gå med sen.",
-    "tip": "Namnet och koden går inte att ändra sen, så dubbelkolla att allt stämmer!",
-    "confirm": "Ja, skapa laget!",
-    "editName": "Nej, ändra namnet"
+    "codeLabel": "Lagkod — dela den med dina lagkompisar så kan de gå med",
+    "permanentTip": "Namnet och koden går inte att ändra sen, så dubbelkolla att allt stämmer!",
+    "createButton": "Skapa laget",
+    "wrongCode": "Jag skrev nog fel kod"
   },
   "o2": {
     "heading": "Ansluter du till {{teamName}}?",
