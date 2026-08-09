@@ -34,6 +34,14 @@
       "d15": "15 min",
       "d20": "20 min",
       "d30plus": "30+ min"
+    },
+    "evidenceHeading": "Miten haluat näyttää sen?",
+    "evidenceHelp": "Mitä enemmän näytät, sitä enemmän pisteitä joukkueelle.",
+    "evidencePoints": "{{count}} p",
+    "evidence": {
+      "none": "Vain kirjaa",
+      "video": "Videon kanssa",
+      "videoShared": "Videon kanssa — jaa joukkueelle"
     }
   },
   "goalBonusTakeover": {

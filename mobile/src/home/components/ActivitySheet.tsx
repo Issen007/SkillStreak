@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import type { ActivityType } from '../../api/types';
+import { EVIDENCE_MULTIPLIER } from '../../api/types';
+import type { ActivityType, EvidenceChoice } from '../../api/types';
 
 interface ActivityOption {
   activityType: ActivityType;
@@ -32,7 +33,11 @@ interface ActivitySheetProps {
   loading: boolean;
   errorText?: string | null;
   onClose: () => void;
-  onSubmit: (activityType: ActivityType, durationMinutes: number) => void;
+  onSubmit: (
+    activityType: ActivityType,
+    durationMinutes: number,
+    evidence: EvidenceChoice,
+  ) => void;
 }
 
 /** State H2 — a bottom sheet, not a form: the contract requires
@@ -49,6 +54,7 @@ export function ActivitySheet({
   const { t } = useTranslation('home');
   const [activityType, setActivityType] = useState<ActivityType | null>(null);
   const [durationMinutes, setDurationMinutes] = useState<number | null>(null);
+  const [evidence, setEvidence] = useState<EvidenceChoice>('none');
   const wasVisible = useRef(visible);
 
   const handleClose = () => {
@@ -72,6 +78,21 @@ export function ActivitySheet({
   }, [visible]);
 
   const canSubmit = activityType !== null && durationMinutes !== null && !loading;
+
+  /**
+   * docs/adr/0025 Decision 1 — each option shows what it is actually worth
+   * BEFORE the child picks one. The mechanism only changes behaviour if it
+   * is legible, and a multiplier applied after the fact reads as the app
+   * taking something away rather than offering more.
+   *
+   * Real points, not the multiplier: "180 poäng" means something to a
+   * 10-year-old in a way "×12" does not.
+   */
+  const EVIDENCE_OPTIONS = [
+    { choice: 'none', labelKey: 'none' },
+    { choice: 'video', labelKey: 'video' },
+    { choice: 'video_shared', labelKey: 'videoShared' },
+  ] as const satisfies readonly { choice: EvidenceChoice; labelKey: string }[];
 
   return (
     <Modal
@@ -124,6 +145,33 @@ export function ActivitySheet({
           </>
         ) : null}
 
+        {durationMinutes !== null ? (
+          <>
+            <Text style={styles.subheading}>{t('activitySheet.evidenceHeading')}</Text>
+            <Text style={styles.evidenceHelp}>{t('activitySheet.evidenceHelp')}</Text>
+            {EVIDENCE_OPTIONS.map((option) => {
+              const selected = option.choice === evidence;
+              const points = durationMinutes * EVIDENCE_MULTIPLIER[option.choice];
+              return (
+                <Pressable
+                  key={option.choice}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => setEvidence(option.choice)}
+                  style={[styles.evidenceRow, selected && styles.evidenceRowSelected]}
+                >
+                  <Text style={styles.evidenceLabel}>
+                    {t(`activitySheet.evidence.${option.labelKey}`)}
+                  </Text>
+                  <Text style={styles.evidencePoints}>
+                    {t('activitySheet.evidencePoints', { count: points })}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </>
+        ) : null}
+
         {errorText ? <Text style={styles.error}>{errorText}</Text> : null}
 
         <PrimaryButton
@@ -132,7 +180,7 @@ export function ActivitySheet({
           loading={loading}
           onPress={() => {
             if (activityType && durationMinutes !== null) {
-              onSubmit(activityType, durationMinutes);
+              onSubmit(activityType, durationMinutes, evidence);
             }
           }}
         />
@@ -142,6 +190,38 @@ export function ActivitySheet({
 }
 
 const styles = StyleSheet.create({
+  evidenceHelp: {
+    fontFamily: fonts.body,
+    fontSize: 12.5,
+    color: colors.textMuted,
+    marginBottom: 8,
+  },
+  evidenceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  evidenceRowSelected: {
+    borderColor: colors.flame,
+    backgroundColor: colors.pendingBg,
+  },
+  evidenceLabel: {
+    flex: 1,
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  evidencePoints: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
+    color: colors.ink,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(27,27,58,0.35)',

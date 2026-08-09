@@ -34,6 +34,14 @@
       "d15": "15 min",
       "d20": "20 min",
       "d30plus": "30+ min"
+    },
+    "evidenceHeading": "How do you want to show it?",
+    "evidenceHelp": "The more you show, the more points for the team.",
+    "evidencePoints": "{{count}} p",
+    "evidence": {
+      "none": "Just log it",
+      "video": "With a video",
+      "videoShared": "With a video — share with the team"
     }
   },
   "goalBonusTakeover": {

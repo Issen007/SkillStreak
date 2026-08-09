@@ -81,7 +81,27 @@ export interface CreateTrainingLogRequest {
   activityType: ActivityType;
   durationMinutes: number;
   challengeId?: string;
+  /** docs/adr/0025 — a published clip offered as proof of this session.
+   * Omitted means a plain tap, which is exactly today's behaviour. */
+  evidenceClipId?: string;
+  /** Whether that clip was shared with the team — the difference between
+   * tier 3 and tier 4. Ignored without an `evidenceClipId`. */
+  sharedWithTeam?: boolean;
 }
+
+/** What the player chose to offer as proof, before any clip exists yet.
+ * docs/adr/0025 Decision 1: the multiplier is shown for each of these
+ * BEFORE the choice is made, never applied afterwards. */
+export type EvidenceChoice = 'none' | 'video' | 'video_shared';
+
+/** Kept in lockstep with backend/src/training-logs/points.util.ts. A
+ * mismatch would show a child one number and pay another, which is worse
+ * than showing no number at all. */
+export const EVIDENCE_MULTIPLIER: Record<EvidenceChoice, number> = {
+  none: 1,
+  video: 12,
+  video_shared: 14,
+};
 
 export interface TrainingLogResponse {
   trainingLogId: string;

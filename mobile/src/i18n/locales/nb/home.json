@@ -34,6 +34,14 @@
       "d15": "15 min",
       "d20": "20 min",
       "d30plus": "30+ min"
+    },
+    "evidenceHeading": "Hvordan vil du vise det?",
+    "evidenceHelp": "Jo mer du viser, jo mer poeng til laget.",
+    "evidencePoints": "{{count}} p",
+    "evidence": {
+      "none": "Bare logg",
+      "video": "Med video",
+      "videoShared": "Med video — del med laget"
     }
   },
   "goalBonusTakeover": {

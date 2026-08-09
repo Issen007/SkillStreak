@@ -20,7 +20,13 @@ import { getMe, postTrainingLog } from '../api/endpoints';
 import { ApiError, isConsentRequiredError } from '../api/ApiError';
 import { clearSessionToken } from '../api/authStorage';
 import { colors } from '../theme/colors';
-import type { ActivityType, PlayerMeResponse } from '../api/types';
+import { UploadFlow } from '../clips/upload/UploadFlow';
+import type {
+  ActivityType,
+  CreateTrainingLogRequest,
+  EvidenceChoice,
+  PlayerMeResponse,
+} from '../api/types';
 
 interface HomeScreenProps {
   /** Called when `GET /players/me` (or a training-log tap) reveals the
@@ -59,6 +65,13 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
 
   const [successMoment, setSuccessMoment] = useState<SuccessMoment | null>(null);
   const [goalBonusMoment, setGoalBonusMoment] = useState<{ awardedPoints: number } | null>(null);
+  // A log waiting on its evidence clip. Held here rather than inside the
+  // sheet because the sheet closes when the upload flow takes over.
+  const [pendingEvidenceLog, setPendingEvidenceLog] = useState<{
+    activityType: ActivityType;
+    durationMinutes: number;
+    evidence: EvidenceChoice;
+  } | null>(null);
   // docs/design/streak-savers-ui.md §3 — the "streak saved!" celebration,
   // triggered once from a training-log response's `streak.streakSaverSpent
   // > 0`, inserted into the same mutually-exclusive overlay chain as
@@ -134,11 +147,38 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
     setSheetOpen(true);
   };
 
-  const handleSubmitLog = async (activityType: ActivityType, durationMinutes: number) => {
+  /**
+   * docs/adr/0025 — a video-backed log is two steps that must land as one
+   * outcome. The clip has to exist and be published before the log can
+   * reference it, so the upload runs first and the log is written from its
+   * success callback.
+   *
+   * Deliberately NOT logged optimistically before the upload: a log
+   * written first would have to be re-rated afterwards, which is exactly
+   * the "points changed after the fact" shape Decision 1 rejects. If the
+   * child abandons the upload, nothing is logged and nothing is claimed —
+   * they simply land back on the home screen and can log a plain session
+   * instead.
+   */
+  const handleSubmitLog = async (
+    activityType: ActivityType,
+    durationMinutes: number,
+    evidence: EvidenceChoice,
+  ) => {
+    if (evidence !== 'none') {
+      setSheetOpen(false);
+      setPendingEvidenceLog({ activityType, durationMinutes, evidence });
+      return;
+    }
+    await writeTrainingLog({ activityType, durationMinutes });
+  };
+
+  const writeTrainingLog = async (body: CreateTrainingLogRequest) => {
+    const { durationMinutes } = body;
     setSheetLoading(true);
     setSheetError(null);
     try {
-      const response = await postTrainingLog({ activityType, durationMinutes });
+      const response = await postTrainingLog(body);
       setSheetOpen(false);
       setSheetLoading(false);
 
@@ -337,6 +377,29 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
           onPress={() => setView('leaderboard')}
         />
       </View>
+
+      {pendingEvidenceLog ? (
+        <UploadFlow
+          teamId={me.team.teamId}
+          viewerPlayerId={me.player.id}
+          onCancel={() => setPendingEvidenceLog(null)}
+          onConsentRevoked={() => {
+            setPendingEvidenceLog(null);
+            void fetchMe();
+          }}
+          onPublished={(clipId) => {
+            const pending = pendingEvidenceLog;
+            setPendingEvidenceLog(null);
+            if (!pending || !clipId) return;
+            void writeTrainingLog({
+              activityType: pending.activityType,
+              durationMinutes: pending.durationMinutes,
+              evidenceClipId: clipId,
+              sharedWithTeam: pending.evidence === 'video_shared',
+            });
+          }}
+        />
+      ) : null}
 
       <ActivitySheet
         visible={sheetOpen}

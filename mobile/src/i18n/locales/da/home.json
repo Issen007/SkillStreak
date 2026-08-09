@@ -34,6 +34,14 @@
       "d15": "15 min",
       "d20": "20 min",
       "d30plus": "30+ min"
+    },
+    "evidenceHeading": "Hvordan vil du vise det?",
+    "evidenceHelp": "Jo mere du viser, jo flere point til holdet.",
+    "evidencePoints": "{{count}} p",
+    "evidence": {
+      "none": "Bare log det",
+      "video": "Med video",
+      "videoShared": "Med video — del med holdet"
     }
   },
   "goalBonusTakeover": {
