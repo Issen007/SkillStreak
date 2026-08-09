@@ -10,6 +10,7 @@ import { PendingJoinRow } from './components/PendingJoinRow';
 import { InviteFriendSheet } from './components/InviteFriendSheet';
 import { RosterScreen } from './RosterScreen';
 import { CaptainTransferScreen } from './CaptainTransferScreen';
+import { TeamPtLinksScreen } from './TeamPtLinksScreen';
 import { TeamPoolCard } from '../home/components/TeamPoolCard';
 import { LeaderboardScreen } from '../leaderboard/LeaderboardScreen';
 import { GoalCard } from '../goal/components/GoalCard';
@@ -372,6 +373,11 @@ export function TeamScreen({
           <Text style={styles.inviteCode}>{dashboard.inviteCode}</Text>
           <PrimaryButton label={t('k1.inviteButton')} onPress={() => setInviteSheetOpen(true)} />
         </View>
+
+        {/* Screen CAP1 (docs/design/phase8-pt-flows.md §8) — captain-only.
+            The server enforces that too (`assertIsCaptainOfTeam` inside the
+            service), so this gate is presentation, not protection. */}
+        {dashboard.viewerIsCaptain ? <TeamPtLinksScreen teamId={teamId} /> : null}
 
         <TeamPoolCard
           pointsTotal={dashboard.teamPool.pointsTotal}

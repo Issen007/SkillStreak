@@ -1,0 +1,42 @@
+{
+  "mine": {
+    "title": "Mine trenere",
+    "statusActive": "Aktiv",
+    "statusPending": "Venter på svar",
+    "statusEnded": "Avsluttet",
+    "seeingSince": "Ser treningen din siden {{date}}",
+    "pendingSince": "Spurte {{date}}",
+    "endedOn": "Avsluttet {{date}}",
+    "end": "Avslutt",
+    "yourChoice": "Det er alltid ditt valg. Du kan avslutte med en gang, uten å spørre noen.",
+    "confirmTitle": "Avslutte med {{name}}?",
+    "confirmBody": "{{name}} vil ikke lenger se treningen din.",
+    "confirmAgain": "Du kan si ja igjen senere hvis du vil.",
+    "cancel": "Avbryt",
+    "confirm": "Avslutt",
+    "ended": "Ferdig — {{name}} ser ikke treningen din lenger."
+  },
+  "captain": {
+    "title": "Trenere",
+    "invite": "Inviter en trener",
+    "memberSince": "Med siden {{date}}",
+    "remove": "Fjern",
+    "empty": "Ingen trenere er koblet til laget.",
+    "codeTitle": "Gi denne koden til treneren",
+    "codeValidity": "Koden gjelder i 24 timer.",
+    "share": "Del",
+    "done": "Ferdig",
+    "removeTitle": "Fjerne {{name}}?",
+    "removeBody": "{{name}} slutter umiddelbart å se alle spillernes trening i laget — også de som har sagt ja.",
+    "removeNoEmail": "Familiene får ingen e-post om dette.",
+    "cancel": "Avbryt",
+    "confirm": "Fjern",
+    "removed": "{{name}} er fjernet.",
+    "removedWithConsents": "{{name}} er fjernet. {{count}} godkjenninger ble avsluttet."
+  },
+  "errors": {
+    "linkGone": "Koblingen din til laget er avsluttet.",
+    "notCaptain": "Bare lagets kaptein kan gjøre dette.",
+    "generic": "Noe gikk galt. Prøv igjen."
+  }
+}

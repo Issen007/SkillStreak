@@ -1,0 +1,42 @@
+{
+  "mine": {
+    "title": "Mes entraîneurs",
+    "statusActive": "Actif",
+    "statusPending": "En attente de réponse",
+    "statusEnded": "Terminé",
+    "seeingSince": "Voit ton entraînement depuis le {{date}}",
+    "pendingSince": "Demandé le {{date}}",
+    "endedOn": "Terminé le {{date}}",
+    "end": "Terminer",
+    "yourChoice": "C'est toujours ton choix. Tu peux arrêter tout de suite, sans demander à personne.",
+    "confirmTitle": "Terminer avec {{name}} ?",
+    "confirmBody": "{{name}} ne verra plus ton entraînement.",
+    "confirmAgain": "Tu pourras dire oui à nouveau plus tard si tu veux.",
+    "cancel": "Annuler",
+    "confirm": "Terminer",
+    "ended": "C'est fait — {{name}} ne voit plus ton entraînement."
+  },
+  "captain": {
+    "title": "Entraîneurs",
+    "invite": "Inviter un entraîneur",
+    "memberSince": "Dans l'équipe depuis le {{date}}",
+    "remove": "Retirer",
+    "empty": "Aucun entraîneur n'est lié à l'équipe.",
+    "codeTitle": "Donne ce code à l'entraîneur",
+    "codeValidity": "Le code est valable 24 heures.",
+    "share": "Partager",
+    "done": "Terminé",
+    "removeTitle": "Retirer {{name}} ?",
+    "removeBody": "{{name}} cesse immédiatement de voir l'entraînement de tous les joueurs de l'équipe — même ceux qui ont dit oui.",
+    "removeNoEmail": "Les familles ne reçoivent pas d'e-mail à ce sujet.",
+    "cancel": "Annuler",
+    "confirm": "Retirer",
+    "removed": "{{name}} a été retiré.",
+    "removedWithConsents": "{{name}} a été retiré. {{count}} accords ont pris fin."
+  },
+  "errors": {
+    "linkGone": "Ton lien avec l'équipe a pris fin.",
+    "notCaptain": "Seul le capitaine de l'équipe peut faire cela.",
+    "generic": "Quelque chose s'est mal passé. Réessaie."
+  }
+}

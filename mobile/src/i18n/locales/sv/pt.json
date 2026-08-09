@@ -1,0 +1,42 @@
+{
+  "mine": {
+    "title": "Mina tränare",
+    "statusActive": "Aktiv",
+    "statusPending": "Väntar på svar",
+    "statusEnded": "Avslutad",
+    "seeingSince": "Ser din träning sedan {{date}}",
+    "pendingSince": "Frågade {{date}}",
+    "endedOn": "Avslutades {{date}}",
+    "end": "Avsluta",
+    "yourChoice": "Det är alltid ditt val. Du kan avsluta direkt, utan att fråga någon.",
+    "confirmTitle": "Avsluta med {{name}}?",
+    "confirmBody": "{{name}} kommer inte längre se din träning.",
+    "confirmAgain": "Du kan säga ja igen senare om du vill.",
+    "cancel": "Avbryt",
+    "confirm": "Avsluta",
+    "ended": "Klart — {{name}} ser inte din träning längre."
+  },
+  "captain": {
+    "title": "Tränare",
+    "invite": "Bjud in en tränare",
+    "memberSince": "Med sedan {{date}}",
+    "remove": "Ta bort",
+    "empty": "Inga tränare är kopplade till laget.",
+    "codeTitle": "Ge den här koden till tränaren",
+    "codeValidity": "Koden gäller i 24 timmar.",
+    "share": "Dela",
+    "done": "Klar",
+    "removeTitle": "Ta bort {{name}}?",
+    "removeBody": "{{name}} slutar direkt se alla spelares träning i laget — även de som sagt ja.",
+    "removeNoEmail": "Familjerna får inget mejl om det här.",
+    "cancel": "Avbryt",
+    "confirm": "Ta bort",
+    "removed": "{{name}} är borttagen.",
+    "removedWithConsents": "{{name}} är borttagen. {{count}} godkännanden avslutades."
+  },
+  "errors": {
+    "linkGone": "Din koppling till laget har avslutats.",
+    "notCaptain": "Bara lagets kapten kan göra det här.",
+    "generic": "Något gick fel. Försök igen."
+  }
+}

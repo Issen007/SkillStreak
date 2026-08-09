@@ -51,6 +51,10 @@ import type {
   UpdateProfileRequest,
   UpdateWeeklyGoalRequest,
   WeeklyGoalRow,
+  PtConsentSummary,
+  PtTeamLinkInviteResult,
+  PtTeamLinkRevokeResult,
+  PtTeamLinkRow,
 } from './types';
 
 // The only four endpoints Phase 1's Expo app talks to, per
@@ -547,6 +551,58 @@ export function ackClipChallenge(
 ): Promise<ChallengeAckResponse> {
   return apiClient.request<ChallengeAckResponse>(
     `/teams/${encodeURIComponent(teamId)}/clips/${encodeURIComponent(clipId)}/challenge-ack`,
+    { method: 'POST', auth: true },
+  );
+}
+
+// --- Fas 8: PT relationships --------------------------------------------------
+// docs/adr/0023-pt-role-and-staff-sso-rbac.md Part A. All five are
+// player-authenticated; the two team-link writes are additionally
+// captain-checked server-side (`assertIsCaptainOfTeam` inside the service,
+// no client-side gate to keep in sync).
+
+/** PL1 — the player's own PT relationships. Own rows only; there is no id
+ * in the request to tamper with. */
+export function getMyPtConsents(): Promise<PtConsentSummary[]> {
+  return apiClient.request<PtConsentSummary[]>('/players/me/pt-consents', {
+    auth: true,
+  });
+}
+
+/** ADR-0023 Decision A4 lever 1 — the child's own, immediate, no-parent-
+ * needed exit. Deliberately lower friction than granting ever was. */
+export function revokeMyPtConsent(consentId: string): Promise<{ revoked: true }> {
+  return apiClient.request<{ revoked: true }>(
+    `/players/me/pt-consents/${encodeURIComponent(consentId)}/revoke`,
+    { method: 'POST', auth: true },
+  );
+}
+
+/** CAP1 — the captain's view of who is linked to their team. */
+export function getTeamPtLinks(teamId: string): Promise<PtTeamLinkRow[]> {
+  return apiClient.request<PtTeamLinkRow[]>(
+    `/teams/${encodeURIComponent(teamId)}/pt-links`,
+    { auth: true },
+  );
+}
+
+export function createTeamPtInvite(
+  teamId: string,
+): Promise<PtTeamLinkInviteResult> {
+  return apiClient.request<PtTeamLinkInviteResult>(
+    `/teams/${encodeURIComponent(teamId)}/pt-links/invite`,
+    { method: 'POST', auth: true },
+  );
+}
+
+/** ADR-0023 Decision A4 lever 3 — cascades to every family's consent under
+ * this link, in one transaction. See CAP1's confirm copy. */
+export function revokeTeamPtLink(
+  teamId: string,
+  linkId: string,
+): Promise<PtTeamLinkRevokeResult> {
+  return apiClient.request<PtTeamLinkRevokeResult>(
+    `/teams/${encodeURIComponent(teamId)}/pt-links/${encodeURIComponent(linkId)}/revoke`,
     { method: 'POST', auth: true },
   );
 }

@@ -1,0 +1,42 @@
+{
+  "mine": {
+    "title": "Moji trenéři",
+    "statusActive": "Aktivní",
+    "statusPending": "Čeká na odpověď",
+    "statusEnded": "Ukončeno",
+    "seeingSince": "Vidí tvůj trénink od {{date}}",
+    "pendingSince": "Zeptal se {{date}}",
+    "endedOn": "Ukončeno {{date}}",
+    "end": "Ukončit",
+    "yourChoice": "Je to vždycky tvoje volba. Můžeš to ukončit hned a nikoho se neptat.",
+    "confirmTitle": "Ukončit s {{name}}?",
+    "confirmBody": "{{name}} už neuvidí tvůj trénink.",
+    "confirmAgain": "Později můžeš znovu říct ano, jestli budeš chtít.",
+    "cancel": "Zrušit",
+    "confirm": "Ukončit",
+    "ended": "Hotovo — {{name}} už tvůj trénink nevidí."
+  },
+  "captain": {
+    "title": "Trenéři",
+    "invite": "Pozvat trenéra",
+    "memberSince": "V týmu od {{date}}",
+    "remove": "Odebrat",
+    "empty": "K týmu není připojen žádný trenér.",
+    "codeTitle": "Dej tenhle kód trenérovi",
+    "codeValidity": "Kód platí 24 hodin.",
+    "share": "Sdílet",
+    "done": "Hotovo",
+    "removeTitle": "Odebrat {{name}}?",
+    "removeBody": "{{name}} okamžitě přestane vidět trénink všech hráčů v týmu — i těch, kteří souhlasili.",
+    "removeNoEmail": "Rodinám o tom nepřijde e-mail.",
+    "cancel": "Zrušit",
+    "confirm": "Odebrat",
+    "removed": "{{name}} byl odebrán.",
+    "removedWithConsents": "{{name}} byl odebrán. Ukončeno {{count}} souhlasů."
+  },
+  "errors": {
+    "linkGone": "Tvoje propojení s týmem skončilo.",
+    "notCaptain": "Tohle může udělat jen kapitán týmu.",
+    "generic": "Něco se pokazilo. Zkus to znovu."
+  }
+}

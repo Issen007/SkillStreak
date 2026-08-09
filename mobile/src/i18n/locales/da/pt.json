@@ -1,0 +1,42 @@
+{
+  "mine": {
+    "title": "Mine trænere",
+    "statusActive": "Aktiv",
+    "statusPending": "Venter på svar",
+    "statusEnded": "Afsluttet",
+    "seeingSince": "Ser din træning siden {{date}}",
+    "pendingSince": "Spurgte {{date}}",
+    "endedOn": "Afsluttet {{date}}",
+    "end": "Afslut",
+    "yourChoice": "Det er altid dit valg. Du kan afslutte med det samme uden at spørge nogen.",
+    "confirmTitle": "Afslut med {{name}}?",
+    "confirmBody": "{{name}} vil ikke længere se din træning.",
+    "confirmAgain": "Du kan sige ja igen senere, hvis du vil.",
+    "cancel": "Annullér",
+    "confirm": "Afslut",
+    "ended": "Færdig — {{name}} ser ikke din træning længere."
+  },
+  "captain": {
+    "title": "Trænere",
+    "invite": "Inviter en træner",
+    "memberSince": "Med siden {{date}}",
+    "remove": "Fjern",
+    "empty": "Ingen trænere er tilknyttet holdet.",
+    "codeTitle": "Giv denne kode til træneren",
+    "codeValidity": "Koden gælder i 24 timer.",
+    "share": "Del",
+    "done": "Færdig",
+    "removeTitle": "Fjern {{name}}?",
+    "removeBody": "{{name}} stopper straks med at se alle spilleres træning på holdet — også dem, der har sagt ja.",
+    "removeNoEmail": "Familierne får ingen mail om dette.",
+    "cancel": "Annullér",
+    "confirm": "Fjern",
+    "removed": "{{name}} er fjernet.",
+    "removedWithConsents": "{{name}} er fjernet. {{count}} godkendelser blev afsluttet."
+  },
+  "errors": {
+    "linkGone": "Din tilknytning til holdet er afsluttet.",
+    "notCaptain": "Kun holdets anfører kan gøre dette.",
+    "generic": "Noget gik galt. Prøv igen."
+  }
+}

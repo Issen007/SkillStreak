@@ -28,6 +28,7 @@ import { ErasureSuccessorScreen } from './erasure/ErasureSuccessorScreen';
 import { ErasureConfirmSheet } from './erasure/ErasureConfirmSheet';
 import { ErasureCheckEmailScreen } from './erasure/ErasureCheckEmailScreen';
 import { ErasureStatusCard } from './erasure/ErasureStatusCard';
+import { PtRelationshipsScreen } from './PtRelationshipsScreen';
 
 interface ProfileScreenProps {
   screenName: string;
@@ -662,6 +663,12 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
             onPress={() => setView('requestChange')}
           />
         </View>
+
+        {/* Screen PL1 (docs/design/phase8-pt-flows.md §7). Renders itself
+            as nothing when the player has no PT relationships — this is not
+            a concept every child needs to meet, so it appears only once one
+            actually exists. */}
+        <PtRelationshipsScreen />
 
         <SecondaryLink label={t('profileScreen.view.back')} onPress={onBack} />
         <SecondaryLink label={t('profileScreen.view.logout')} onPress={() => void handleLogout()} />

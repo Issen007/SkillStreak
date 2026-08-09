@@ -1,0 +1,42 @@
+{
+  "mine": {
+    "title": "Omat valmentajani",
+    "statusActive": "Aktiivinen",
+    "statusPending": "Odottaa vastausta",
+    "statusEnded": "Päättynyt",
+    "seeingSince": "Näkee harjoittelusi {{date}} alkaen",
+    "pendingSince": "Kysyi {{date}}",
+    "endedOn": "Päättyi {{date}}",
+    "end": "Lopeta",
+    "yourChoice": "Se on aina sinun valintasi. Voit lopettaa heti kysymättä keneltäkään.",
+    "confirmTitle": "Lopetetaanko {{name}}?",
+    "confirmBody": "{{name}} ei enää näe harjoitteluasi.",
+    "confirmAgain": "Voit sanoa kyllä myöhemmin uudelleen, jos haluat.",
+    "cancel": "Peruuta",
+    "confirm": "Lopeta",
+    "ended": "Valmista — {{name}} ei enää näe harjoitteluasi."
+  },
+  "captain": {
+    "title": "Valmentajat",
+    "invite": "Kutsu valmentaja",
+    "memberSince": "Mukana {{date}} alkaen",
+    "remove": "Poista",
+    "empty": "Joukkueeseen ei ole liitetty valmentajia.",
+    "codeTitle": "Anna tämä koodi valmentajalle",
+    "codeValidity": "Koodi on voimassa 24 tuntia.",
+    "share": "Jaa",
+    "done": "Valmis",
+    "removeTitle": "Poistetaanko {{name}}?",
+    "removeBody": "{{name}} lakkaa heti näkemästä joukkueen kaikkien pelaajien harjoittelua — myös niiden, jotka sanoivat kyllä.",
+    "removeNoEmail": "Perheille ei lähetetä tästä sähköpostia.",
+    "cancel": "Peruuta",
+    "confirm": "Poista",
+    "removed": "{{name}} poistettiin.",
+    "removedWithConsents": "{{name}} poistettiin. {{count}} hyväksyntää päättyi."
+  },
+  "errors": {
+    "linkGone": "Yhteytesi joukkueeseen on päättynyt.",
+    "notCaptain": "Vain joukkueen kapteeni voi tehdä tämän.",
+    "generic": "Jokin meni pieleen. Yritä uudelleen."
+  }
+}

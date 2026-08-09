@@ -844,6 +844,50 @@ export interface ChallengeAckResponse {
   acknowledged: true;
 }
 
+// --- Fas 8: PT (Personal Trainer) relationships -------------------------------
+// docs/adr/0023-pt-role-and-staff-sso-rbac.md Part A,
+// docs/design/phase8-pt-flows.md §7 (PL1) and §8 (CAP1).
+
+/** Only the three states a player is ever shown — `declined`/`expired` are
+ * filtered out server-side, deliberately (see the endpoint's own comment). */
+export type PtConsentStatus = 'pending_review' | 'approved' | 'revoked';
+
+/** PL1's row — the player's own view of one PT relationship. */
+export interface PtConsentSummary {
+  id: string;
+  ptDisplayName: string;
+  status: PtConsentStatus;
+  decidedAt: string | null;
+  revokedAt: string | null;
+}
+
+export type PtTeamLinkStatus = 'active' | 'revoked';
+
+/** CAP1's row — one PT's link to the captain's own team. */
+export interface PtTeamLinkRow {
+  id: string;
+  teamId: string;
+  ptStaffAccountId: string;
+  ptEmail: string;
+  ptDisplayName: string | null;
+  status: PtTeamLinkStatus;
+  createdAt: string;
+  revokedAt: string | null;
+}
+
+export interface PtTeamLinkInviteResult {
+  code: string;
+  expiresAt: string;
+}
+
+/** `cascadedConsentCount` is how many families' approved consents this
+ * revoke just ended — CAP1 shows it in the confirmation, since that blast
+ * radius is the whole reason that confirm is worded the way it is. */
+export interface PtTeamLinkRevokeResult {
+  revoked: true;
+  cascadedConsentCount: number;
+}
+
 // --- Error envelope -----------------------------------------------------------
 
 export interface ApiErrorBody {
