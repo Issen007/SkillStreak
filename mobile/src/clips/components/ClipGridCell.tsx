@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { PausedClipThumbnail } from '../../chat/components/PausedClipThumbnail';
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 import { formatClipRelativeTime } from '../../utils/formatDate';
 import { colors } from '../../theme/colors';
 import { CLIP_ASPECT_RATIO } from '../constants';
@@ -28,7 +28,6 @@ interface ClipGridCellProps {
  * target, not a small icon inside it. */
 export function ClipGridCell({ clip, width, onPress }: ClipGridCellProps) {
   const { t } = useTranslation('clips');
-  const emoji = AVATAR_CATALOG.find((a) => a.avatarId === clip.uploaderAvatarId)?.emoji ?? '🙂';
 
   return (
     <Pressable
@@ -47,7 +46,7 @@ export function ClipGridCell({ clip, width, onPress }: ClipGridCellProps) {
       </View>
 
       <View pointerEvents="none" style={styles.avatarBadge}>
-        <Text style={styles.avatarEmoji}>{emoji}</Text>
+        <Avatar avatarId={clip.uploaderAvatarId} size={13} />
       </View>
 
       {clip.taggedPlayerId ? (

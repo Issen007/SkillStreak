@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 
 interface AppHeaderProps {
   screenName: string;
@@ -17,13 +17,12 @@ interface AppHeaderProps {
 }
 
 /** Home tab's top banner: wordmark + working-title note, the player's own
- * avatar (looked up from the shared `AVATAR_CATALOG` by id — the API only
+ * avatar (rendered by the shared `<Avatar>` from its id — the API only
  * ever sends `avatarId`, never the emoji itself), and a screen-name-only
  * greeting (never the real name, per the "screen names in any player-facing
  * UI" rule). Otherwise purely presentational — no fetch, no state. */
 export function AppHeader({ screenName, avatarId, onAvatarPress }: AppHeaderProps) {
   const { t } = useTranslation('home');
-  const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
 
   return (
     <View style={styles.container}>
@@ -38,7 +37,7 @@ export function AppHeader({ screenName, avatarId, onAvatarPress }: AppHeaderProp
         disabled={!onAvatarPress}
         style={({ pressed }) => [styles.avatarCircle, pressed && styles.avatarPressed]}
       >
-        <Text style={styles.avatarEmoji}>{emoji}</Text>
+        <Avatar avatarId={avatarId} size={24} />
       </Pressable>
       <Text style={styles.greeting}>
         {/* Pilot t()/Trans wiring (docs/adr/0014-multi-language-support.md

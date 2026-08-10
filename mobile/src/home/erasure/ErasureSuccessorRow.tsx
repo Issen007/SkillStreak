@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 
 interface ErasureSuccessorRowProps {
   screenName: string;
@@ -18,7 +18,6 @@ interface ErasureSuccessorRowProps {
  * sheet instead), matching the mockup's `.teammate-row.selected`/
  * `.radio.on` treatment. */
 export function ErasureSuccessorRow({ screenName, avatarId, selected, onPress }: ErasureSuccessorRowProps) {
-  const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
   return (
     <Pressable
       accessibilityRole="button"
@@ -27,7 +26,7 @@ export function ErasureSuccessorRow({ screenName, avatarId, selected, onPress }:
       style={({ pressed }) => [styles.row, selected && styles.rowSelected, pressed && styles.pressed]}
     >
       <View style={styles.avatarCircle}>
-        <Text style={styles.avatarEmoji}>{emoji}</Text>
+        <Avatar avatarId={avatarId} size={20} />
       </View>
       <Text style={styles.name}>{screenName}</Text>
       <View style={[styles.radio, selected && styles.radioOn]} />

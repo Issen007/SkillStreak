@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 
 interface TeammateRowProps {
   screenName: string;
@@ -27,13 +27,12 @@ interface TeammateRowProps {
  * laget" section and Screen K4's transfer-target list. */
 export function TeammateRow({ screenName, avatarId, isCaptain, onPress, isSelf = false }: TeammateRowProps) {
   const { t } = useTranslation('team');
-  const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
   const tappable = !isSelf && onPress !== undefined;
 
   const content = (
     <>
       <View style={styles.avatarCircle}>
-        <Text style={styles.avatarEmoji}>{emoji}</Text>
+        <Avatar avatarId={avatarId} size={20} />
       </View>
       <Text style={styles.name}>{screenName}</Text>
       {isSelf ? <Text style={styles.selfTag}>{t('teammateRow.selfTag')}</Text> : null}

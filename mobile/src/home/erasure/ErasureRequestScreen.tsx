@@ -5,7 +5,7 @@ import { DangerButton } from '../../components/DangerButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 
 interface ErasureRequestScreenProps {
   loading: boolean;
@@ -66,9 +66,6 @@ export function ErasureRequestScreen({
 
   const isLastPlayer = viewerIsCaptain && teammateCount === 0;
   const requiresSuccessor = viewerIsCaptain && teammateCount > 0;
-  const successorEmoji = successorAvatarId
-    ? AVATAR_CATALOG.find((a) => a.avatarId === successorAvatarId)?.emoji ?? '🙂'
-    : null;
 
   return (
     <View style={styles.container}>
@@ -93,7 +90,7 @@ export function ErasureRequestScreen({
               {successorScreenName ? (
                 <>
                   <View style={styles.successorAvatar}>
-                    <Text style={styles.successorAvatarEmoji}>{successorEmoji}</Text>
+                    <Avatar avatarId={successorAvatarId} size={18} />
                   </View>
                   <Text style={styles.successorName}>{successorScreenName}</Text>
                 </>
