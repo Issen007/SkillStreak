@@ -58,21 +58,22 @@ than the marketing.
 | Request per-player consent to see a player's training | **Built** |
 | See streaks, logged sessions and badges for approved players | **Built** |
 | Sign in with Google, Microsoft or Apple | **Built** |
-| A web console to sign in to, and see your teams in | **Built** — the shell |
-| Redeeming a team code in that console (PT1) | Designed, not built |
-| Roster / consent requests in that console (PT2, PT3) | Designed, not built |
+| A web console to sign in to, and see your teams in | **Built** |
+| Redeeming a team code in that console (PT1) | **Built** |
+| Roster / consent requests in that console (PT2, PT3) | **Built** |
 | AI session generation | Designed, not built |
 | Trainer profile, reviews, paid tier | Not designed |
 
-**Where it actually stands**: the backend for the trainer role is complete
-and tested, and the screens are designed
-(`docs/design/phase8-pt-flows.md`). The console now exists as a shell —
-signing in lands you on a real page that lists your linked teams, rather
-than the page of raw JSON it showed until 2026-08-10. What is still
-missing is the screens *inside* it: you cannot yet redeem a code or
-request a player's consent from the browser. Those are the next things
-built, and they are what make this usable end to end without the project
-owner doing it for you.
+**Where it actually stands**: everything in "How you will get linked to a
+team" below now works end to end in the browser, without the project owner
+doing anything for you. Sign in, redeem a code, see the roster, ask a
+family for access, and read the training of the players whose families
+said yes.
+
+What is *not* built is the discovery half: there is no way for a team to
+find you if they do not already know who you are, and no trainer profile
+for them to look at. See "How a team reaches you" below for what exists
+today and what is still only a plan.
 
 ---
 
@@ -145,5 +146,4 @@ will agree to.
 4. Request consent for the players you will actually be working with —
    not all of them by default.
 
-Steps 3 and 4 do not have screens yet, so for now talk to the project
-owner and they will do those two for you. Step 2 you can do yourself.
+All four steps work today.

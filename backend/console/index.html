@@ -55,6 +55,19 @@
   .err { color: var(--err); }
   button.link { font: inherit; background: none; border: none; color: var(--accent);
                 cursor: pointer; padding: 0; text-decoration: underline; }
+  main button { font: inherit; font-size: 13.5px; padding: 7px 13px; cursor: pointer;
+                border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  main button:hover:not(:disabled) { border-color: var(--ink); }
+  main button:disabled { opacity: .55; cursor: default; }
+  main button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  main button.primary:hover { filter: brightness(.93); }
+  main button.link { border: none; padding: 0; background: none; }
+  /* Consent state is the most important thing on the roster screen — a
+     trainer must never have to guess whether a family said yes. */
+  .badge { display: inline-block; font-size: 12px; padding: 2px 9px; border-radius: 999px;
+           border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
 </style>
 </head>
 <body>
