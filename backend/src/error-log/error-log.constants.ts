@@ -60,11 +60,3 @@ export const ERROR_LOG_JOB_NAMES = {
   bugReportRetention: 'bug-report:retention',
   eventRegistrationRetention: 'event-registration:retention',
 } as const;
-
-/**
- * Same 5 minutes as every other scheduled job in this codebase — see
- * ClipRetentionService's own constant for the reasoning (generous headroom
- * for one run, short enough that a pod crashing mid-run doesn't wedge the
- * next tick's claim). This sweep is a single bounded DELETE.
- */
-export const ERROR_LOG_JOB_LOCK_TTL_SECONDS = 5 * 60;

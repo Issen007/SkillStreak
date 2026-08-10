@@ -5,11 +5,9 @@ import { ERROR_LOG_JOB_NAMES } from '../error-log/error-log.constants';
 import { ErrorLogService } from '../error-log/error-log.service';
 import { MailService } from '../mail/mail.service';
 import { buildUsageReportEmail } from '../mail/templates/usage-report-email.template';
+import { tryClaimScheduledJobRunOrSkip } from '../common/scheduling/scheduled-job-run.util';
 import { RedisService } from '../redis/redis.service';
-import {
-  USAGE_REPORT_JOB_LOCK_TTL_SECONDS,
-  USAGE_REPORT_JOB_NAME,
-} from './usage-metrics.constants';
+import { USAGE_REPORT_JOB_NAME } from './usage-metrics.constants';
 import { UsageMetricsService } from './usage-metrics.service';
 import { formatUsageReportSections } from './usage-report-sections';
 import { resolveUsageReportCron } from './usage-report-cron.util';
@@ -87,7 +85,7 @@ export class UsageMetricsReportService implements OnModuleInit {
     // "no recipient configured" line once per replica instead of once per
     // run, which is exactly the kind of duplicated-across-pods noise this
     // lock exists to prevent.
-    if (!(await this.tryClaimJobOrSkip(USAGE_REPORT_JOB_NAME))) {
+    if (!(await this.claimRun(USAGE_REPORT_JOB_NAME))) {
       return;
     }
 
@@ -128,33 +126,6 @@ export class UsageMetricsReportService implements OnModuleInit {
         jobName: ERROR_LOG_JOB_NAMES.usageMetricsReport,
         error,
       });
-    }
-  }
-
-  /**
-   * Identical shape to ClipRetentionService/AccountErasureSweepService's own
-   * helper, including the try/catch code-critic's review of the
-   * `replicas: 2` fix added there: a Redis hiccup must degrade to "skip this
-   * tick", logged through this app's own Logger, not reject out of the
-   * `@Cron` handler into the `cron` package's bare console.error.
-   */
-  private async tryClaimJobOrSkip(jobName: string): Promise<boolean> {
-    try {
-      const claimed = await this.redisService.tryClaimScheduledJobRun(
-        jobName,
-        USAGE_REPORT_JOB_LOCK_TTL_SECONDS,
-      );
-      if (!claimed) {
-        this.logger.debug(
-          `Skipping ${jobName} — another replica already claimed this run.`,
-        );
-      }
-      return claimed;
-    } catch (error) {
-      this.logger.warn(
-        `Skipping ${jobName} this tick — failed to check the Redis run-lock: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return false;
     }
   }
 
@@ -202,5 +173,14 @@ export class UsageMetricsReportService implements OnModuleInit {
       return null;
     }
     return raw;
+  }
+
+  /** Shared across every scheduled job — see the util's docstring. */
+  private claimRun(jobName: string): Promise<boolean> {
+    return tryClaimScheduledJobRunOrSkip(
+      this.redisService,
+      this.logger,
+      jobName,
+    );
   }
 }

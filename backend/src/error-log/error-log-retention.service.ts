@@ -2,12 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
+import { tryClaimScheduledJobRunOrSkip } from '../common/scheduling/scheduled-job-run.util';
 import { RedisService } from '../redis/redis.service';
 import { ErrorLogEntry } from './entities/error-log-entry.entity';
-import {
-  ERROR_LOG_JOB_LOCK_TTL_SECONDS,
-  ERROR_LOG_JOB_NAMES,
-} from './error-log.constants';
+import { ERROR_LOG_JOB_NAMES } from './error-log.constants';
 import { ErrorLogService } from './error-log.service';
 
 /**
@@ -42,7 +40,7 @@ export class ErrorLogRetentionService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async sweepExpiredErrorLogEntries(): Promise<void> {
     const jobName = ERROR_LOG_JOB_NAMES.errorLogRetention;
-    if (!(await this.tryClaimJobOrSkip(jobName))) {
+    if (!(await this.claimRun(jobName))) {
       return;
     }
 
@@ -71,29 +69,12 @@ export class ErrorLogRetentionService {
     }
   }
 
-  /**
-   * Identical to ClipRetentionService/AccountErasureSweepService/
-   * UsageMetricsReportService's own helper — see ClipRetentionService's
-   * docstring for why a lost claim and a failed lock check are both just
-   * "skip this tick".
-   */
-  private async tryClaimJobOrSkip(jobName: string): Promise<boolean> {
-    try {
-      const claimed = await this.redisService.tryClaimScheduledJobRun(
-        jobName,
-        ERROR_LOG_JOB_LOCK_TTL_SECONDS,
-      );
-      if (!claimed) {
-        this.logger.debug(
-          `Skipping ${jobName} — another replica already claimed this run.`,
-        );
-      }
-      return claimed;
-    } catch (error) {
-      this.logger.warn(
-        `Skipping ${jobName} this tick — failed to check the Redis run-lock: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return false;
-    }
+  /** Shared across every scheduled job — see the util's docstring. */
+  private claimRun(jobName: string): Promise<boolean> {
+    return tryClaimScheduledJobRunOrSkip(
+      this.redisService,
+      this.logger,
+      jobName,
+    );
   }
 }

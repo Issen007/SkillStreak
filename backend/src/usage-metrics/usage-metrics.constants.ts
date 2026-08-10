@@ -49,14 +49,6 @@ export const MINIMUM_USAGE_REPORT_MIN_TEAMS_PER_BUCKET = 2;
  */
 export const USAGE_REPORT_JOB_NAME = 'usage-metrics:report';
 
-// Same 5 minutes as the other two scheduled jobs in this codebase — see
-// ClipRetentionService's constant for the reasoning (generous headroom for
-// one run, short enough that a pod crashing mid-run doesn't wedge the next
-// tick's claim). This job is heavier than those sweeps (a handful of
-// aggregate queries plus one SMTP send) but nowhere near five minutes of
-// work at any plausible scale for this app.
-export const USAGE_REPORT_JOB_LOCK_TTL_SECONDS = 5 * 60;
-
 /**
  * Decision 1's fixed streak-histogram buckets, verbatim (`0`, `1-3`,
  * `4-7`, `8-14`, `15-30`, `31+`). `max: null` is the open-ended top

@@ -3,12 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
-import {
-  ERROR_LOG_JOB_LOCK_TTL_SECONDS,
-  ERROR_LOG_JOB_NAMES,
-} from '../error-log/error-log.constants';
+import { ERROR_LOG_JOB_NAMES } from '../error-log/error-log.constants';
 import { ErrorLogService } from '../error-log/error-log.service';
 import { positiveIntFromConfig } from '../error-log/error-log.util';
+import { tryClaimScheduledJobRunOrSkip } from '../common/scheduling/scheduled-job-run.util';
 import { RedisService } from '../redis/redis.service';
 import { EventRegistration } from './entities/event-registration.entity';
 import { DEFAULT_EVENT_REGISTRATION_RETENTION_DAYS } from './event-registrations.constants';
@@ -55,7 +53,7 @@ export class EventRegistrationRetentionService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async sweepExpiredRegistrations(): Promise<void> {
     const jobName = ERROR_LOG_JOB_NAMES.eventRegistrationRetention;
-    if (!(await this.tryClaimJobOrSkip(jobName))) {
+    if (!(await this.claimRun(jobName))) {
       return;
     }
 
@@ -95,30 +93,12 @@ export class EventRegistrationRetentionService {
     );
   }
 
-  /**
-   * The sixth verbatim copy of this helper. BugReportRetentionService's
-   * docstring already called five "past the point where one shared
-   * runScheduledJob helper would be better" — see the follow-up commit
-   * that extracts it; this copy exists only so the sweep itself is a
-   * reviewable change on its own.
-   */
-  private async tryClaimJobOrSkip(jobName: string): Promise<boolean> {
-    try {
-      const claimed = await this.redisService.tryClaimScheduledJobRun(
-        jobName,
-        ERROR_LOG_JOB_LOCK_TTL_SECONDS,
-      );
-      if (!claimed) {
-        this.logger.debug(
-          `Skipping ${jobName} — another replica already claimed this run.`,
-        );
-      }
-      return claimed;
-    } catch (error) {
-      this.logger.warn(
-        `Skipping ${jobName} this tick — failed to check the Redis run-lock: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return false;
-    }
+  /** Shared across every scheduled job — see the util's docstring. */
+  private claimRun(jobName: string): Promise<boolean> {
+    return tryClaimScheduledJobRunOrSkip(
+      this.redisService,
+      this.logger,
+      jobName,
+    );
   }
 }
