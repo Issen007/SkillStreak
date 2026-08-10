@@ -13,7 +13,7 @@ import {
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useTranslation } from 'react-i18next';
 
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 import { formatClipRelativeTime } from '../../utils/formatDate';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -71,7 +71,6 @@ function ClipPlayerModalContent({
 }: ClipPlayerModalContentProps) {
   const { t } = useTranslation('clips');
   const { width: windowWidth } = useWindowDimensions();
-  const emoji = AVATAR_CATALOG.find((a) => a.avatarId === clip.uploaderAvatarId)?.emoji ?? '🙂';
 
   // Muted by default, per the app-wide rule — same speaker-icon toggle as
   // everywhere else. `isPlaying`/`playerStatus` mirror `ClipCard`'s own
@@ -242,14 +241,14 @@ function ClipPlayerModalContent({
           {onTapAvatar ? (
             <Pressable onPress={onTapAvatar} accessibilityRole="button" style={styles.headerRow}>
               <View style={styles.avatarCircle}>
-                <Text style={styles.avatarEmoji}>{emoji}</Text>
+                <Avatar avatarId={clip.uploaderAvatarId} size={19} />
               </View>
               <Text style={styles.name}>{clip.uploaderScreenName}</Text>
             </Pressable>
           ) : (
             <View style={styles.headerRow}>
               <View style={styles.avatarCircle}>
-                <Text style={styles.avatarEmoji}>{emoji}</Text>
+                <Avatar avatarId={clip.uploaderAvatarId} size={19} />
               </View>
               <Text style={styles.name}>{clip.uploaderScreenName}</Text>
             </View>

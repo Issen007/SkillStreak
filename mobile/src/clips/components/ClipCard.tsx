@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 import { formatClipRelativeTime } from '../../utils/formatDate';
 import type { ClipFeedItem } from '../../api/types';
 
@@ -47,7 +47,6 @@ export function ClipCard({
   onTapDelete,
 }: ClipCardProps) {
   const { t } = useTranslation('clips');
-  const emoji = AVATAR_CATALOG.find((a) => a.avatarId === clip.uploaderAvatarId)?.emoji ?? '🙂';
 
   // Muted by default (per the flow doc's playback-mechanics judgment call —
   // a kid's phone is often on silent at practice, and this also avoids an
@@ -86,14 +85,14 @@ export function ClipCard({
       {onTapAvatar ? (
         <Pressable onPress={onTapAvatar} accessibilityRole="button" style={styles.headerRow}>
           <View style={styles.avatarCircle}>
-            <Text style={styles.avatarEmoji}>{emoji}</Text>
+            <Avatar avatarId={clip.uploaderAvatarId} size={18} />
           </View>
           <Text style={styles.name}>{clip.uploaderScreenName}</Text>
         </Pressable>
       ) : (
         <View style={styles.headerRow}>
           <View style={styles.avatarCircle}>
-            <Text style={styles.avatarEmoji}>{emoji}</Text>
+            <Avatar avatarId={clip.uploaderAvatarId} size={18} />
           </View>
           <Text style={styles.name}>{clip.uploaderScreenName}</Text>
         </View>

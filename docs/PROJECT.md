@@ -5,7 +5,7 @@
 
 > 💡 **PROJEKTET SÖKER NAMN:** Just nu letar vi efter det ultimata, moderna namnet på den här appen! Har du ett förslag som går hem hos kidsen 2026? Skapa en Issue eller var med i diskussionen! Namnidéer vi bollar just nu är bland annat *SkillFlex, FloorGrind, StreakUp, ZorroGo* och *SquadPulse*.
 
-Välkommen till **SkillStreak** (arbetstitel)! Detta är ett open-source-initiativ skapat av en innebandytränare för att vända ungdomars skärmtid (TikTok, Snapchat, Instagram) till aktiv rörelse, fysträning och innebandyutveckling på egentid.
+Välkommen till **SkillStreak**! Detta är ett open-source-initiativ skapat av en innebandytränare för att vända ungdomars skärmtid (TikTok, Snapchat, Instagram) till aktiv rörelse, fysträning och innebandyutveckling på egentid.
 
 Idag har många ungdomslag endast runt 1-3 timmars halltid i veckan plus match. Resten av tiden stjäl mobilen ofta uppmärksamheten. Den här appen vill förändra detta genom att använda samma psykologiska drivkrafter som gör apparna beroendeframkallande, men med målet att få barnen att plocka upp klubban eller köra ett fyspass i vardagen.
 

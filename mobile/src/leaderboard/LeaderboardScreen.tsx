@@ -109,6 +109,19 @@ export function LeaderboardScreen({ teamId, onBack }: LeaderboardScreenProps) {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.pageHeading}>{t('leaderboard.pageHeading')}</Text>
 
+      {/* Your own position, stated plainly and before the table. The list
+          below is only your ±10 neighbours, so without this a child has no
+          way to tell whether row one is the actual leader or just the
+          highest team near them. */}
+      {requestingTeam ? (
+        <Text style={styles.positionLine}>
+          {t('leaderboard.yourPosition', {
+            rank: requestingTeam.rank,
+            teamCount: data.teamCount,
+          })}
+        </Text>
+      ) : null}
+
       <View style={styles.tabRow}>
         <Pressable
           accessibilityRole="button"
@@ -271,6 +284,12 @@ function EffortTab({ requestingTeamEffort, effortLeaderboard, onOpenInfoSheet }:
 }
 
 const styles = StyleSheet.create({
+  positionLine: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
+    color: colors.ink,
+    marginBottom: 10,
+  },
   container: {
     paddingHorizontal: 20,
     paddingTop: 56,

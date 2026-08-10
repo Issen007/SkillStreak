@@ -23,6 +23,7 @@ import {
 import { ApiError } from '../api/ApiError';
 import type { ErasureStatusResponse, PlayerProfileResponse, TeammateEntry } from '../api/types';
 import { AVATAR_CATALOG } from '../onboarding/avatarCatalog';
+import { Avatar } from '../components/Avatar';
 import { ErasureRequestScreen } from './erasure/ErasureRequestScreen';
 import { ErasureSuccessorScreen } from './erasure/ErasureSuccessorScreen';
 import { ErasureConfirmSheet } from './erasure/ErasureConfirmSheet';
@@ -459,7 +460,7 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
                 onPress={() => setAvatarSelection(option.avatarId)}
                 style={[styles.avatarCell, selected && styles.avatarCellSelected]}
               >
-                <Text style={styles.avatarCellEmoji}>{option.emoji}</Text>
+                <Avatar avatarId={option.avatarId} size={40} />
               </Pressable>
             );
           })}
@@ -625,9 +626,7 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
 
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>{t('profileScreen.view.avatarLabel')}</Text>
-          <Text style={styles.avatarPreviewEmoji}>
-            {AVATAR_CATALOG.find((a) => a.avatarId === profile.avatarId)?.emoji ?? '🙂'}
-          </Text>
+          <Avatar avatarId={profile.avatarId} size={48} />
           <SecondaryLink
             label={t('shared.edit')}
             onPress={() => {

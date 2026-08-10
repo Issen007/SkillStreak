@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { SecondaryLink } from '../components/SecondaryLink';
 import { Toast } from '../components/Toast';
-import { AVATAR_CATALOG } from '../onboarding/avatarCatalog';
+import { Avatar } from '../components/Avatar';
 import { unblockChatPlayer } from '../api/endpoints';
 import { getCachedChatBlocks, removeCachedChatBlock } from '../api/localFlags';
 import { colors } from '../theme/colors';
@@ -70,11 +70,10 @@ export function BlockedListScreen({ teamId, onBack }: BlockedListScreenProps) {
           <Text style={styles.emptyText}>{t('ch5.empty')}</Text>
         ) : (
           blocks.map((block) => {
-            const emoji = AVATAR_CATALOG.find((a) => a.avatarId === block.avatarId)?.emoji ?? '🙂';
             return (
               <View key={block.blockedPlayerId} style={styles.row}>
                 <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarEmoji}>{emoji}</Text>
+                  <Avatar avatarId={block.avatarId} size={20} />
                 </View>
                 <Text style={styles.name}>{block.screenName}</Text>
                 <SecondaryButton

@@ -803,3 +803,89 @@ describe('WeeklyGoalService.getLeaderboard — ADR-0016 eligiblePlayerCount buck
     expect(result.effortLeaderboard).toEqual([]);
   });
 });
+
+// The ±10 scoreboard window (project owner, 2026-08-10).
+describe('WeeklyGoalService.getLeaderboard — the ±10 window', () => {
+  function buildService(rowCount: number, requestingRank: number) {
+    const rows = Array.from({ length: rowCount }, (_, index) => ({
+      rank: index + 1,
+      teamId: `team-${index + 1}`,
+      teamName: `Team ${index + 1}`,
+      pointsTotal: (rowCount - index) * 10,
+    }));
+    const playersService = {
+      assertTeamMembership: jest.fn().mockResolvedValue(undefined),
+    };
+    const teamPoolService = {
+      getLeaderboard: jest.fn().mockResolvedValue(rows),
+      getEffortLeaderboard: jest.fn().mockResolvedValue([]),
+    };
+    const service = new WeeklyGoalService(
+      undefined as never,
+      playersService as never,
+      teamPoolService as never,
+      undefined as never,
+      undefined as never,
+      undefined as never,
+      undefined as never,
+    );
+    return { service, teamId: `team-${requestingRank}` };
+  }
+
+  it('returns ten teams above, ten below, and your own — 21 rows out of a large table', async () => {
+    const { service, teamId } = buildService(500, 250);
+
+    const result = await service.getLeaderboard(teamId, 'player-1');
+
+    expect(result.leaderboard).toHaveLength(21);
+    expect(result.leaderboard[0].rank).toBe(240);
+    expect(result.leaderboard[20].rank).toBe(260);
+    expect(result.requestingTeam?.rank).toBe(250);
+    // The whole table is counted but not shipped — that is the point of
+    // windowing it server-side.
+    expect(result.teamCount).toBe(500);
+  });
+
+  // Deliberately not re-centred at the edges: a 2nd-place team sees one
+  // team above it, not eleven below to pad the row count. Inventing extra
+  // neighbours on one side would misrepresent where you actually sit.
+  it('does not pad the window when your team is near the top', async () => {
+    const { service, teamId } = buildService(500, 2);
+
+    const result = await service.getLeaderboard(teamId, 'player-1');
+
+    expect(result.leaderboard[0].rank).toBe(1);
+    expect(result.leaderboard).toHaveLength(12);
+  });
+
+  it('does not pad the window when your team is near the bottom', async () => {
+    const { service, teamId } = buildService(30, 30);
+
+    const result = await service.getLeaderboard(teamId, 'player-1');
+
+    expect(result.leaderboard[result.leaderboard.length - 1].rank).toBe(30);
+    expect(result.leaderboard).toHaveLength(11);
+  });
+
+  it('returns the whole table when it is smaller than the window', async () => {
+    const { service, teamId } = buildService(6, 3);
+
+    const result = await service.getLeaderboard(teamId, 'player-1');
+
+    expect(result.leaderboard).toHaveLength(6);
+    expect(result.teamCount).toBe(6);
+  });
+
+  // A team with no active pot is not on the board at all. Showing them the
+  // top of the table is the only sensible thing for someone who has not
+  // started scoring yet — an empty scoreboard would read as broken.
+  it('falls back to the top of the table for a team not yet in the standings', async () => {
+    const { service } = buildService(500, 1);
+
+    const result = await service.getLeaderboard('team-not-scoring', 'player-1');
+
+    expect(result.requestingTeam).toBeNull();
+    expect(result.leaderboard[0].rank).toBe(1);
+    expect(result.leaderboard).toHaveLength(21);
+  });
+});

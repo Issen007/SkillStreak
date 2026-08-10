@@ -81,6 +81,39 @@ export interface CreateTrainingLogRequest {
   activityType: ActivityType;
   durationMinutes: number;
   challengeId?: string;
+  /** docs/adr/0025 — a published clip offered as proof of this session.
+   * Omitted means a plain tap, which is exactly today's behaviour. */
+  evidenceClipId?: string;
+  /** Whether that clip was shared with the team — the difference between
+   * tier 3 and tier 4. Ignored without an `evidenceClipId`. */
+  sharedWithTeam?: boolean;
+}
+
+/** What the player chose to offer as proof, before any clip exists yet.
+ * docs/adr/0025 Decision 1: the multiplier is shown for each of these
+ * BEFORE the choice is made, never applied afterwards. */
+export type EvidenceChoice = 'none' | 'video' | 'video_shared';
+
+/** Kept in lockstep with backend/src/training-logs/points.util.ts. A
+ * mismatch would show a child one number and pay another, which is worse
+ * than showing no number at all. */
+export const EVIDENCE_MULTIPLIER: Record<EvidenceChoice, number> = {
+  none: 0.1,
+  video: 1.2,
+  video_shared: 1.4,
+};
+
+/**
+ * The same whole-points rule the backend applies — round to nearest, never
+ * below 1. Duplicated rather than fetched because the picker has to show a
+ * number *before* anything is sent, and it must be the number that will
+ * actually be paid: 15 minutes unproven is 1.5, shown and paid as 2.
+ */
+export function evidencePointsPreview(
+  durationMinutes: number,
+  choice: EvidenceChoice,
+): number {
+  return Math.max(1, Math.round(durationMinutes * EVIDENCE_MULTIPLIER[choice]));
 }
 
 export interface TrainingLogResponse {
@@ -669,7 +702,13 @@ export interface LeaderboardResponse {
     pointsTotal: number;
     rank: number;
   } | null;
+  /** The ±10 window around your own team, not the whole table — the
+   * backend slices it there so a phone never receives thousands of rows
+   * to show twenty of. */
   leaderboard: LeaderboardEntry[];
+  /** Every team in the standings, so "12 av 2166" is renderable without
+   * holding 2166 rows. */
+  teamCount: number;
   // ADR-0016 addendum (2026-07-31), additive — the "Bästa laginsats" tab
   // (Screen LB2). Same `GET .../leaderboard` call, no new request.
   // `null` when the requesting team's own `eligiblePlayerCount` is `0`

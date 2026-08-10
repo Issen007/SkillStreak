@@ -21,7 +21,10 @@ interface UploadFlowProps {
   /** Called once the clip is actually published (V7's "Till flödet") —
    * `ClipsScreen` re-fetches the feed so the new clip appears from the
    * server's own response, not a locally spliced-in guess. */
-  onPublished: () => void;
+  /** The published clip's id — needed by callers that attach it to
+   * something (docs/adr/0025's training-log evidence), ignored by the
+   * Shorts tab's own "back to the feed". */
+  onPublished: (clipId: string) => void;
 }
 
 type Step =
@@ -40,7 +43,7 @@ type Step =
       caption: string | undefined;
       taggedPlayerId: string | undefined;
     }
-  | { kind: 'success' };
+  | { kind: 'success'; clipId: string };
 
 /**
  * Owns Screens V4-V7's step state.
@@ -123,7 +126,7 @@ export function UploadFlow({ teamId, viewerPlayerId, onCancel, onConsentRevoked,
         session={sessionRef.current}
         caption={step.caption}
         taggedPlayerId={step.taggedPlayerId}
-        onSuccess={() => setStep({ kind: 'success' })}
+        onSuccess={(clipId) => setStep({ kind: 'success', clipId })}
         onEditCaption={(reason) => {
           // Back to V5 with everything intact. The session is untouched —
           // the bytes are already up, so only the metadata needs fixing.
@@ -141,5 +144,9 @@ export function UploadFlow({ teamId, viewerPlayerId, onCancel, onConsentRevoked,
     );
   }
 
-  return <V7Success onDone={onPublished} />;
+  return (
+    <V7Success
+      onDone={() => onPublished(step.kind === 'success' ? step.clipId : '')}
+    />
+  );
 }

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 
 interface TeammateStatusRowProps {
   screenName: string;
@@ -34,14 +34,13 @@ export function TeammateStatusRow({
 }: TeammateStatusRowProps) {
   const { t, i18n } = useTranslation('goal');
   const numberFormatter = new Intl.NumberFormat(i18n.language);
-  const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
   const excluded = variant === 'excluded';
   const fillPercent = targetValue > 0 ? Math.min(100, (progressValue / targetValue) * 100) : 0;
 
   return (
     <View style={styles.row}>
       <View style={[styles.avatarCircle, excluded && styles.avatarDim]}>
-        <Text style={styles.avatarEmoji}>{emoji}</Text>
+        <Avatar avatarId={avatarId} size={20} />
       </View>
       <View style={styles.info}>
         <Text style={[styles.name, excluded && styles.nameMuted]}>{screenName}</Text>

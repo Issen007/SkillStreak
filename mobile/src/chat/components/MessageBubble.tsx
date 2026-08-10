@@ -5,7 +5,7 @@ import { ClipEmbed } from './ClipEmbed';
 import { ClipUnavailablePlaceholder } from './ClipUnavailablePlaceholder';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 import { formatChatTimestamp } from '../../utils/formatDate';
 import type { ChatMessage } from '../../api/types';
 
@@ -70,7 +70,6 @@ export function MessageBubble({
   onTapClipUploader,
 }: MessageBubbleProps) {
   const { t } = useTranslation('chat');
-  const emoji = AVATAR_CATALOG.find((a) => a.avatarId === message.senderAvatarId)?.emoji ?? '🙂';
   const timestamp = formatChatTimestamp(message.createdAt);
 
   // ADR-0021 Decision 2 — checked *before* any `isOwn` branching below:
@@ -109,7 +108,7 @@ export function MessageBubble({
           for a screen reader, which can't infer it from layout. */}
       {!isOwn && !isSystem ? (
         <Pressable onPress={onTapSender} accessibilityRole="button" style={styles.senderRow}>
-          <Text style={styles.senderEmoji}>{emoji}</Text>
+          <Avatar avatarId={message.senderAvatarId} size={16} />
           <Text style={styles.senderName}>{message.senderScreenName}</Text>
         </Pressable>
       ) : null}

@@ -34,6 +34,14 @@
       "d15": "15 min",
       "d20": "20 min",
       "d30plus": "30+ min"
+    },
+    "evidenceHeading": "Hur vill du visa det?",
+    "evidenceHelp": "Ju mer du visar, desto mer poäng till laget.",
+    "evidencePoints": "{{count}} p",
+    "evidence": {
+      "none": "Bara logga",
+      "video": "Med video",
+      "videoShared": "Med video — dela med laget"
     }
   },
   "goalBonusTakeover": {
@@ -222,6 +230,7 @@
       "body2": "Om ett lag är litet räknar vi lite försiktigt, så att några enstaka riktigt bra dagar inte råkar ge förstaplatsen av en slump. Ju fler spelare ett lag har, desto mer litar vi på deras eget snitt.",
       "ownTeamLine": "Ditt lag: {{pointsPerPlayer}} p/spelare med {{playerCount}} spelare → {{adjustedScore}} p när vi räknar rättvist.",
       "gotIt": "Okej, jag fattar!"
-    }
+    },
+    "yourPosition": "Din plats: {{rank}} av {{teamCount}} lag"
   }
 }

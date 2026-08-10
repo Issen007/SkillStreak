@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 
 interface PendingJoinRowProps {
   screenName: string;
@@ -27,13 +27,12 @@ export function PendingJoinRow({
   onReject,
 }: PendingJoinRowProps) {
   const { t } = useTranslation('team');
-  const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
   const busy = approving || rejecting;
 
   return (
     <View style={styles.row}>
       <View style={styles.avatarCircle}>
-        <Text style={styles.avatarEmoji}>{emoji}</Text>
+        <Avatar avatarId={avatarId} size={20} />
       </View>
       <Text style={styles.name}>{screenName}</Text>
       <Pressable

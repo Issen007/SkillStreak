@@ -18,7 +18,21 @@ import { TeamPoolService } from '../team-pool/team-pool.service';
 import { WeeklyGoalService } from '../weekly-goal/weekly-goal.service';
 import { CreateTrainingLogDto } from './dto/create-training-log.dto';
 import { TrainingLogEntry } from './entities/training-log-entry.entity';
-import { pointsForTrainingLog } from './points.util';
+import { EvidenceTier, pointsForTrainingLog } from './points.util';
+import {
+  VideoClip,
+  VideoClipStatus,
+} from '../video-clips/entities/video-clip.entity';
+import {
+  EvidenceClipAlreadyUsedException,
+  EvidenceClipNotUsableException,
+} from '../common/errors/exceptions';
+
+// docs/adr/0025 Decision 3 — how close to the session a clip has to be to
+// count as proof of it. Two hours is generous for "filmed it, logged it
+// afterwards" and short enough that yesterday's clip cannot be recycled.
+// Flagged in the ADR as a guess rather than a researched number.
+const EVIDENCE_CLIP_MAX_AGE_MS = 2 * 60 * 60 * 1000;
 
 export interface TrainingLogResponse {
   trainingLogId: string;
@@ -61,7 +75,65 @@ export class TrainingLogsService {
     private readonly redisService: RedisService,
     @InjectRepository(TrainingLogEntry)
     private readonly trainingLogEntryRepository: Repository<TrainingLogEntry>,
+    @InjectRepository(VideoClip)
+    private readonly videoClipRepository: Repository<VideoClip>,
   ) {}
+
+  /**
+   * docs/adr/0025 Decision 3 — what "video-verified" is allowed to mean.
+   *
+   * Three requirements, and the third is the one that stops the obvious
+   * abuse: the clip must be PUBLISHED (so it passed ADR-0010 Decision 3's
+   * real size/content-type and metadata-strip checks — an upload that never
+   * completed proves nothing), it must belong to THIS player, and it must
+   * have been created near this session. Without the window, one old clip
+   * could verify every future log forever.
+   *
+   * Deliberately does NOT claim the video shows the activity. Confirming
+   * that needs ADR-0018's tagging work, which is blocked on a model
+   * decision. This is proof a real clip was made around the time claimed —
+   * materially stronger than a checkbox, materially weaker than
+   * verification, and the copy must not overstate it.
+   */
+  private async resolveEvidenceTier(
+    playerId: string,
+    dto: CreateTrainingLogDto,
+  ): Promise<EvidenceTier> {
+    if (!dto.evidenceClipId) {
+      return EvidenceTier.CLICK_ONLY;
+    }
+
+    const clip = await this.videoClipRepository.findOne({
+      where: {
+        id: dto.evidenceClipId,
+        uploaderPlayerId: playerId,
+        status: VideoClipStatus.PUBLISHED,
+      },
+    });
+    if (!clip) {
+      throw new EvidenceClipNotUsableException();
+    }
+
+    const ageMs = Date.now() - clip.createdAt.getTime();
+    if (ageMs > EVIDENCE_CLIP_MAX_AGE_MS) {
+      throw new EvidenceClipNotUsableException();
+    }
+
+    // One clip verifies one log. Without this, a single video pays out
+    // indefinitely — the exact "more ways to claim points" outcome
+    // BACKLOG.md's anti-gaming note says any implementation must be checked
+    // against.
+    const alreadyUsed = await this.trainingLogEntryRepository.findOne({
+      where: { evidenceClipId: dto.evidenceClipId },
+    });
+    if (alreadyUsed) {
+      throw new EvidenceClipAlreadyUsedException();
+    }
+
+    return dto.sharedWithTeam
+      ? EvidenceTier.VIDEO_SHARED_WITH_TEAM
+      : EvidenceTier.VIDEO;
+  }
 
   async logTraining(
     playerId: string,
@@ -72,6 +144,11 @@ export class TrainingLogsService {
     const player = await this.playersService.findByIdOrThrow(playerId);
     assertConsentApproved(player.parentalConsentStatus);
     assertTeamJoinApproved(player.teamJoinStatus);
+
+    // Resolved before the transaction: it is a read-only validation, and a
+    // rejected clip should cost the player nothing (no streak transition,
+    // no pot write, no lock held while we look at storage metadata).
+    const evidenceTier = await this.resolveEvidenceTier(playerId, dto);
 
     const today = stockholmDateString();
 
@@ -106,6 +183,8 @@ export class TrainingLogsService {
             loggedAt: new Date(),
             activityType: dto.activityType,
             durationMinutes: dto.durationMinutes,
+            evidenceClipId: dto.evidenceClipId ?? null,
+            evidenceTier,
             challengeId: dto.challengeId ?? null,
           }),
         );
@@ -145,7 +224,7 @@ export class TrainingLogsService {
         let updatedPot = await this.teamPoolService.addPoints(
           manager,
           pot.id,
-          pointsForTrainingLog(dto.durationMinutes),
+          pointsForTrainingLog(dto.durationMinutes, evidenceTier),
         );
 
         // ADR-0005 Decision 3: the goal-completion bonus, checked

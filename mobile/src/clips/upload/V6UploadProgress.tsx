@@ -17,7 +17,7 @@ interface V6UploadProgressProps {
   session: ClipUploadSession | null;
   caption: string | undefined;
   taggedPlayerId: string | undefined;
-  onSuccess: () => void;
+  onSuccess: (clipId: string) => void;
   /** Called when `complete` rejects the caption — the only screen that can
    * fix it is V5, and the player's text has to survive the trip. */
   onEditCaption: (reason: string) => void;
@@ -73,7 +73,7 @@ export function V6UploadProgress({
       setError(null);
       try {
         await completeClipUpload(teamId, clipId, { caption, taggedPlayerId });
-        onSuccess();
+        onSuccess(clipId);
       } catch (err) {
         if (isConsentRequiredError(err)) {
           onConsentRevoked();

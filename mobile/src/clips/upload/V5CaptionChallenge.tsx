@@ -7,7 +7,7 @@ import { PrimaryButton } from '../../components/PrimaryButton';
 import { SecondaryLink } from '../../components/SecondaryLink';
 import { getTeammates } from '../../api/endpoints';
 import { ApiError, isConsentRequiredError } from '../../api/ApiError';
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 import type { TeammateEntry } from '../../api/types';
@@ -184,7 +184,6 @@ export function V5CaptionChallenge({
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {teammates.map((teammate) => {
-            const emoji = AVATAR_CATALOG.find((a) => a.avatarId === teammate.avatarId)?.emoji ?? '🙂';
             const selected = teammate.playerId === taggedPlayerId;
             return (
               <Pressable
@@ -197,7 +196,7 @@ export function V5CaptionChallenge({
                 style={styles.chip}
               >
                 <View style={[styles.chipAvatar, selected && styles.chipAvatarSelected]}>
-                  <Text style={styles.chipEmoji}>{emoji}</Text>
+                  <Avatar avatarId={teammate.avatarId} size={24} />
                 </View>
                 <Text style={styles.chipName} numberOfLines={1}>
                   {teammate.screenName}

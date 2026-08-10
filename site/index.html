@@ -153,6 +153,17 @@ a:focus-visible, button:focus-visible {
   padding-inline: clamp(20px, 5vw, 64px);
 }
 
+/* ------------------------------------------------------- lang switch */
+.lang-switch { display:flex; gap:2px; margin-left:auto; margin-right:12px; }
+.lang-switch button {
+  font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .04em;
+  padding: 6px 9px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line, rgba(0,0,0,.14));
+  background: transparent; color: inherit; opacity: .62;
+}
+.lang-switch button.is-active { opacity: 1; border-color: currentColor; }
+@media (max-width: 720px) { .lang-switch { margin-right: 8px; } }
+
 /* ---------------------------------------------------------------- nav */
 .topnav {
   position: fixed;
@@ -1362,7 +1373,7 @@ footer .foot-row {
   <footer>
     <div class="wrap">
       <div class="foot-row">
-        <span>SkillStreak (arbetstitel) — byggt av en innebandytränare, med barnens trygghet först.</span>
+        <span>SkillStreak — byggt av en innebandytränare, med barnens trygghet först.</span>
         <span>Tidig betaversion. Funktioner och innehåll kan ändras.</span>
       </div>
     </div>
@@ -2331,5 +2342,6 @@ footer .foot-row {
   })();
 })();
 </script>
+<script src="/i18n.js"></script>
 </body>
 </html>

@@ -34,6 +34,14 @@
       "d15": "15 Min.",
       "d20": "20 Min.",
       "d30plus": "30+ Min."
+    },
+    "evidenceHeading": "Wie willst du es zeigen?",
+    "evidenceHelp": "Je mehr du zeigst, desto mehr Punkte für das Team.",
+    "evidencePoints": "{{count}} P",
+    "evidence": {
+      "none": "Nur eintragen",
+      "video": "Mit Video",
+      "videoShared": "Mit Video — mit dem Team teilen"
     }
   },
   "goalBonusTakeover": {
@@ -222,6 +230,7 @@
       "body2": "Wenn ein Team klein ist, rechnen wir etwas vorsichtiger, damit ein paar richtig gute Tage nicht zufällig den ersten Platz bringen. Je mehr Spieler ein Team hat, desto mehr vertrauen wir seinem eigenen Durchschnitt.",
       "ownTeamLine": "Euer Team: {{pointsPerPlayer}} P/Spieler mit {{playerCount}} Spielern → {{adjustedScore}} P, fair berechnet.",
       "gotIt": "Okay, verstanden!"
-    }
+    },
+    "yourPosition": "Dein Platz: {{rank}} von {{teamCount}} Teams"
   }
 }

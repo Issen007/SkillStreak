@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 import { formatSwedishDate } from '../../utils/formatDate';
 import type { ConsentStatus } from '../../api/types';
 
@@ -40,7 +40,6 @@ export function RosterRow({
   onPress,
 }: RosterRowProps) {
   const { t } = useTranslation('team');
-  const emoji = AVATAR_CATALOG.find((a) => a.avatarId === avatarId)?.emoji ?? '🙂';
   const isPending = consentStatus === 'pending';
 
   return (
@@ -51,7 +50,7 @@ export function RosterRow({
       style={({ pressed }) => [styles.row, pressed && isPending && styles.pressed]}
     >
       <View style={styles.avatarCircle}>
-        <Text style={styles.avatarEmoji}>{emoji}</Text>
+        <Avatar avatarId={avatarId} size={22} />
       </View>
       <View style={styles.textBlock}>
         <View style={styles.nameRow}>

@@ -468,6 +468,34 @@ export class SessionReissueRateLimitedException extends AppException {
 // docs/adr/0012-profile-page-and-contact-email-change.md — the profile
 // page's contact-email change flow.
 
+export class EvidenceClipNotUsableException extends AppException {
+  constructor() {
+    // docs/adr/0025 Decision 3. Deliberately does not distinguish "no such
+    // clip" from "not yours" from "too old" — same generic posture as every
+    // other code lookup in this app, and none of those distinctions is
+    // actionable for the player anyway: the answer is always "record a new
+    // one".
+    super(
+      'evidence_clip_not_usable',
+      'That clip cannot be used as proof of this session.',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}
+
+export class EvidenceClipAlreadyUsedException extends AppException {
+  constructor() {
+    // One clip verifies one log — otherwise a single video pays out
+    // indefinitely, which is exactly the "more ways to claim points"
+    // outcome the points redesign is supposed to prevent.
+    super(
+      'evidence_clip_already_used',
+      'That clip has already been used for another session.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
 export class ContactChangeAlreadyConfirmedException extends AppException {
   constructor() {
     // A confirmed contact change is already inside its 24h grace period.

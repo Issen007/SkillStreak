@@ -8,6 +8,7 @@ import { TextField } from '../../components/TextField';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 import { AVATAR_CATALOG } from '../avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 
 interface O3NameAvatarProps {
   initialScreenName: string;
@@ -76,7 +77,7 @@ export function O3NameAvatar({
               onPress={() => setAvatarId(option.avatarId)}
               style={[styles.avatarCell, selected && styles.avatarCellSelected]}
             >
-              <Text style={styles.avatarEmoji}>{option.emoji}</Text>
+              <Avatar avatarId={option.avatarId} size={34} />
             </Pressable>
           );
         })}

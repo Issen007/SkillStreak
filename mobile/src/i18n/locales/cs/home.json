@@ -34,6 +34,14 @@
       "d15": "15 min",
       "d20": "20 min",
       "d30plus": "30+ min"
+    },
+    "evidenceHeading": "Jak to chceš ukázat?",
+    "evidenceHelp": "Čím víc ukážeš, tím víc bodů pro tým.",
+    "evidencePoints": "{{count}} b",
+    "evidence": {
+      "none": "Jen zapsat",
+      "video": "S videem",
+      "videoShared": "S videem — sdílet s týmem"
     }
   },
   "goalBonusTakeover": {
@@ -222,6 +230,7 @@
       "body2": "Pokud je tým malý, počítáme trochu opatrněji, aby pár opravdu dobrých dní náhodou nepřineslo první místo. Čím více hráčů tým má, tím víc věříme jejich vlastnímu průměru.",
       "ownTeamLine": "Váš tým: {{pointsPerPlayer}} b/hráče s {{playerCount}} hráči → {{adjustedScore}} b při férovém výpočtu.",
       "gotIt": "Dobře, rozumím!"
-    }
+    },
+    "yourPosition": "Tvoje pozice: {{rank}} z {{teamCount}} týmů"
   }
 }

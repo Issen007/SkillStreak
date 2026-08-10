@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { PausedClipThumbnail } from './PausedClipThumbnail';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { AVATAR_CATALOG } from '../../onboarding/avatarCatalog';
+import { Avatar } from '../../components/Avatar';
 import { formatClipRelativeTime } from '../../utils/formatDate';
 import type { ClipFeedItem } from '../../api/types';
 
@@ -17,7 +17,6 @@ interface ClipPickerCardProps {
  * this clip immediately, closing the sheet. Paused-first-frame, muted, no
  * play/pause control of its own — this is a picker, not a player. */
 export function ClipPickerCard({ clip, onSelect }: ClipPickerCardProps) {
-  const emoji = AVATAR_CATALOG.find((a) => a.avatarId === clip.uploaderAvatarId)?.emoji ?? '🙂';
 
   return (
     <Pressable onPress={onSelect} accessibilityRole="button" style={styles.card}>
@@ -25,7 +24,7 @@ export function ClipPickerCard({ clip, onSelect }: ClipPickerCardProps) {
         <PausedClipThumbnail playbackUrl={clip.playbackUrl} style={styles.thumb} />
       </View>
       <View style={styles.metaRow}>
-        <Text style={styles.avatarEmoji}>{emoji}</Text>
+        <Avatar avatarId={clip.uploaderAvatarId} size={15} />
         <Text style={styles.uploaderName} numberOfLines={1}>
           {clip.uploaderScreenName}
         </Text>
