@@ -98,10 +98,23 @@ export type EvidenceChoice = 'none' | 'video' | 'video_shared';
  * mismatch would show a child one number and pay another, which is worse
  * than showing no number at all. */
 export const EVIDENCE_MULTIPLIER: Record<EvidenceChoice, number> = {
-  none: 1,
-  video: 12,
-  video_shared: 14,
+  none: 0.1,
+  video: 1.2,
+  video_shared: 1.4,
 };
+
+/**
+ * The same whole-points rule the backend applies — round to nearest, never
+ * below 1. Duplicated rather than fetched because the picker has to show a
+ * number *before* anything is sent, and it must be the number that will
+ * actually be paid: 15 minutes unproven is 1.5, shown and paid as 2.
+ */
+export function evidencePointsPreview(
+  durationMinutes: number,
+  choice: EvidenceChoice,
+): number {
+  return Math.max(1, Math.round(durationMinutes * EVIDENCE_MULTIPLIER[choice]));
+}
 
 export interface TrainingLogResponse {
   trainingLogId: string;

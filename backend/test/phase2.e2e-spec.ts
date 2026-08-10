@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { pointsForTrainingLog } from '../src/training-logs/points.util';
 import { AppExceptionFilter } from '../src/common/errors/http-exception.filter';
 import { PlayerTokenService } from '../src/auth/player-token.service';
 import { ParentalConsentStatus } from '../src/players/player-consent-status.enum';
@@ -843,7 +844,16 @@ describe('Phase 2 API (e2e)', () => {
       const pot = await dataSource
         .getRepository(TeamSeasonPot)
         .findOneOrFail({ where: { id: potId } });
-      expect(pot.pointsTotal).toBe(130);
+      // Base points now depend on the evidence tier (ADR-0025); all three
+      // logs here are unproven taps. The BONUS is unchanged at 65 — it is
+      // computed from team-wide minutes, not points, which is why the
+      // evidence change does not touch it.
+      expect(pot.pointsTotal).toBe(
+        pointsForTrainingLog(30) +
+          pointsForTrainingLog(30) +
+          pointsForTrainingLog(5) +
+          65,
+      );
 
       // The persisted bonus fields are visible on GET weekly-goal, for a
       // teammate who opens the app after the fact.
@@ -891,7 +901,7 @@ describe('Phase 2 API (e2e)', () => {
         .getRepository(TeamSeasonPot)
         .findOneOrFail({ where: { id: potId } });
       // Base points still land (50), just no bonus.
-      expect(pot.pointsTotal).toBe(50);
+      expect(pot.pointsTotal).toBe(pointsForTrainingLog(50));
     });
 
     it('concurrency: N simultaneous crossing-adjacent logs award the bonus exactly once', async () => {
@@ -1001,7 +1011,13 @@ describe('Phase 2 API (e2e)', () => {
       const pot = await dataSource
         .getRepository(TeamSeasonPot)
         .findOneOrFail({ where: { id: potId } });
-      expect(pot.pointsTotal).toBe(totalMinutes + awardedPoints);
+      // The bonus is minute-derived and unchanged; only the base points
+      // per log moved with ADR-0025.
+      expect(pot.pointsTotal).toBe(
+        CONCURRENT_PLAYER_COUNT * pointsForTrainingLog(DURATION_MINUTES) +
+          pointsForTrainingLog(DURATION_MINUTES) +
+          awardedPoints,
+      );
 
       const goal = await dataSource
         .getRepository(Challenge)

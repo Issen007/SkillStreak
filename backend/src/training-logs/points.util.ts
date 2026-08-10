@@ -25,30 +25,44 @@ export enum EvidenceTier {
 }
 
 /**
- * The multipliers, **re-based** from the project owner's spec
- * (click 0.1 / selfie 1 / video 1.2 / shared 1.4) so that no existing
- * behaviour loses value — approved 2026-08-09.
+ * The multipliers, **literal, exactly as the project owner specified**
+ * (confirmed 2026-08-10 with a worked example: a 3x20-minute week logged as
+ * one public share, one photo and one bare report pays 40 + 20 + 2 = 62).
  *
- * Every ratio the owner specified is preserved exactly: a team-shared video
- * is still worth 14× an unverified tap, as 1.4 is to 0.1. What changed is
- * the base point: applying 0.1 literally would have cut today's only
- * mechanism by 90% overnight, so a child who kept doing exactly what the
- * app has rewarded since launch would watch a 60-point session become 6.
- * That is the difference between "new ways to earn more" and "the app took
- * my points away", and this audience is 9-13.
+ * These were briefly re-based to x1/x10/x12/x14 on 2026-08-09, on two
+ * arguments. One of them — that ADR-0005's weekly-goal thresholds would
+ * need retuning — **was wrong**: weekly goals count minutes or sessions
+ * (WeeklyGoalTargetMetric's `*-minuter`/`*-pass` split, ADR-0015) and have
+ * never read points at all. The other argument stands and is now an
+ * accepted cost: an unproven session drops from 60 points to 6, a real
+ * devaluation of the only mechanism the app has ever had, chosen knowingly
+ * so that proof is what earns.
  *
- * Integers, not floats: points land in `TeamSeasonPot.pointsTotal` and are
- * compared against ADR-0005's weekly-goal thresholds, and fractional team
- * points would be both surprising in the UI and a rounding argument nobody
- * needs. The re-basing makes that free — every multiplier is a whole
- * number, so no rounding rule is required at all.
+ * What IS points-based, and does move with this: `TeamSeasonPot
+ * .goalThreshold` (the VM-Guld pot target, ADR-0008). Retuning it is a
+ * separate, live task — see ADR-0025's open questions.
  */
 const MULTIPLIER_BY_TIER: Record<EvidenceTier, number> = {
-  [EvidenceTier.CLICK_ONLY]: 1,
-  [EvidenceTier.SELFIE]: 10,
-  [EvidenceTier.VIDEO]: 12,
-  [EvidenceTier.VIDEO_SHARED_WITH_TEAM]: 14,
+  [EvidenceTier.CLICK_ONLY]: 0.1,
+  [EvidenceTier.SELFIE]: 1,
+  [EvidenceTier.VIDEO]: 1.2,
+  [EvidenceTier.VIDEO_SHARED_WITH_TEAM]: 1.4,
 };
+
+/**
+ * Fractional multipliers mean fractional products — 15 minutes x 0.1 is
+ * 1.5 — and team points must stay whole: they land in
+ * TeamSeasonPot.pointsTotal and are read by children off a leaderboard.
+ *
+ * Round to nearest, floor of 1 (owner's choice, 2026-08-10). The floor is
+ * the part that matters: without it a 5-minute unproven session pays zero,
+ * and "you trained and got nothing" is a worse message for a 9-year-old
+ * than any rounding inaccuracy. A session that happened is always worth
+ * something.
+ */
+function toWholePoints(raw: number): number {
+  return Math.max(1, Math.round(raw));
+}
 
 /**
  * Points for one training log.
@@ -59,15 +73,16 @@ const MULTIPLIER_BY_TIER: Record<EvidenceTier, number> = {
  * ADR-0025 is that revisit: the rate is still per-minute, now scaled by what
  * the player actually offered as proof.
  *
- * **The absolute scale is 10× what it was.** ADR-0005's goal thresholds and
- * ADR-0008's leaderboard are tuned against the old numbers and move with
- * this — see the ADR's first open question.
+ * **An unproven session is now worth a tenth of what it was.** ADR-0008's
+ * VM-Guld pot threshold is tuned against the old numbers and needs
+ * retuning; ADR-0005's weekly goals do NOT — they count minutes and
+ * sessions, never points.
  */
 export function pointsForTrainingLog(
   durationMinutes: number,
   tier: EvidenceTier = EvidenceTier.CLICK_ONLY,
 ): number {
-  return durationMinutes * MULTIPLIER_BY_TIER[tier];
+  return toWholePoints(durationMinutes * MULTIPLIER_BY_TIER[tier]);
 }
 
 /** Exposed so the client can show what each option is worth *before* the

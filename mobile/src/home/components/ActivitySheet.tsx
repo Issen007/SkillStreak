@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { EVIDENCE_MULTIPLIER } from '../../api/types';
+import { evidencePointsPreview } from '../../api/types';
 import type { ActivityType, EvidenceChoice } from '../../api/types';
 
 interface ActivityOption {
@@ -151,7 +151,7 @@ export function ActivitySheet({
             <Text style={styles.evidenceHelp}>{t('activitySheet.evidenceHelp')}</Text>
             {EVIDENCE_OPTIONS.map((option) => {
               const selected = option.choice === evidence;
-              const points = durationMinutes * EVIDENCE_MULTIPLIER[option.choice];
+              const points = evidencePointsPreview(durationMinutes, option.choice);
               return (
                 <Pressable
                   key={option.choice}

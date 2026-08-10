@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { pointsForTrainingLog } from '../src/training-logs/points.util';
 import { AppExceptionFilter } from '../src/common/errors/http-exception.filter';
 import { ParentalConsentStatus } from '../src/players/player-consent-status.enum';
 import { TeamJoinStatus } from '../src/players/team-join-status.enum';
@@ -301,7 +302,12 @@ describe('Phase 1 API (e2e)', () => {
         streakSaverSpent: 0,
         streakSaverEarned: false,
       });
-      expect(first.teamPool.pointsTotal).toBe(15);
+      // Computed from the real formula rather than hardcoded: the
+      // multipliers are pinned by points.util.spec.ts, and this test is
+      // about the pot accumulating what was awarded, not about what the
+      // formula returns. Both logs here are unproven taps (no evidence),
+      // so each is worth round(minutes x 0.1), floored at 1.
+      expect(first.teamPool.pointsTotal).toBe(pointsForTrainingLog(15));
 
       const secondResponse = await request(app.getHttpServer())
         .post('/api/v1/training-logs')
@@ -319,7 +325,9 @@ describe('Phase 1 API (e2e)', () => {
         streakSaverSpent: 0,
         streakSaverEarned: false,
       });
-      expect(second.teamPool.pointsTotal).toBe(35);
+      expect(second.teamPool.pointsTotal).toBe(
+        pointsForTrainingLog(15) + pointsForTrainingLog(20),
+      );
 
       const meResponse = await request(app.getHttpServer())
         .get('/api/v1/players/me')
@@ -333,7 +341,9 @@ describe('Phase 1 API (e2e)', () => {
         longestStreakCount: 1,
         alreadyLoggedToday: true,
       });
-      expect(me.teamPool.pointsTotal).toBe(35);
+      expect(me.teamPool.pointsTotal).toBe(
+        pointsForTrainingLog(15) + pointsForTrainingLog(20),
+      );
       // Fas 2.7: the leaderboard is genuinely cross-team/global (by design
       // — ADR-0008), so this suite shares Postgres with every other e2e
       // fixture team ever created; only shape/plausibility is asserted

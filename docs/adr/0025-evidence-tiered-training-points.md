@@ -7,6 +7,32 @@ chose the re-based numbers (Decision 2), deferred the selfie tier
 (Decision 5), and resolved the tier-3 question that building surfaced —
 see the amendment below. Tier 5 remains unbuilt and gated.
 
+**Amendment, 2026-08-10 — the multipliers are literal after all, and the
+weekly-goal argument for re-basing was wrong.**
+
+Decision 2 re-based the multipliers on two arguments. The second one —
+that ADR-0005's weekly-goal thresholds would need retuning — **was simply
+incorrect**, and is withdrawn: weekly goals count minutes or sessions
+(`WeeklyGoalTargetMetric`'s `*-minuter`/`*-pass` split, ADR-0015) and have
+never read points at all. The project owner's model and the existing code
+already agreed on that; only this ADR was confused.
+
+With that argument gone, the owner confirmed the literal multipliers with
+a worked example — a 3×20-minute week logged as one public share, one
+photo and one bare report pays 40 + 20 + 2 = **62** — and accepted the
+remaining cost knowingly: an unproven session is now worth a tenth of what
+it was. That devaluation is the mechanism, not a side effect. The example
+is asserted directly in `points.util.spec.ts`.
+
+Fractional multipliers need a whole-points rule: **round to nearest, floor
+of 1**. The floor is the part that matters — without it a short unproven
+session pays zero, and "you trained and got nothing" is a worse message
+for a 9-year-old than any rounding inaccuracy.
+
+**What actually does need retuning**: `TeamSeasonPot.goalThreshold`, the
+VM-Guld pot target (ADR-0008) — the only genuinely points-based threshold
+in the app. Still open.
+
 **Amendment, 2026-08-09 — tiers 3 and 4 differ by intent, not visibility.**
 Building this exposed a gap the design missed: every published clip in
 this app is already visible to the whole team, so "video, not shared"

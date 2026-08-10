@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { pointsForTrainingLog } from '../src/training-logs/points.util';
 import { AppExceptionFilter } from '../src/common/errors/http-exception.filter';
 import { ParentalConsentStatus } from '../src/players/player-consent-status.enum';
 import { TeamJoinStatus } from '../src/players/team-join-status.enum';
@@ -171,7 +172,13 @@ describe('Training-log concurrency (e2e)', () => {
 
     // ...but every one of the N logs still landed in the team pool — no
     // lost updates from TeamPoolService's atomic increment.
-    const expectedPoints = CONCURRENT_REQUEST_COUNT * DURATION_MINUTES;
+    // Every concurrent log is an unproven tap, so each contributes
+    // pointsForTrainingLog(DURATION_MINUTES) — computed rather than
+    // hardcoded, since the multipliers themselves are pinned by
+    // points.util.spec.ts and this test is about none of the concurrent
+    // credits being lost.
+    const expectedPoints =
+      CONCURRENT_REQUEST_COUNT * pointsForTrainingLog(DURATION_MINUTES);
     const highestReportedPoolTotal = Math.max(
       ...bodies.map((b) => b.teamPool.pointsTotal),
     );
