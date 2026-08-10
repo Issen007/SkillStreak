@@ -21,9 +21,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 // There is no `unsubscribed_at`. Unsubscribing DELETES the row: keeping a
 // tombstone would mean holding someone's email address specifically after
 // they asked us to stop, which is the opposite of what they asked for.
-export class AddEventRegistrationInvite1786800000000
-  implements MigrationInterface
-{
+export class AddEventRegistrationInvite1786800000000 implements MigrationInterface {
   name = 'AddEventRegistrationInvite1786800000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
