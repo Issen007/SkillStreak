@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { ERROR_LOG_JOB_NAMES } from '../error-log/error-log.constants';
 import { ErrorLogService } from '../error-log/error-log.service';
 import { PlayersService } from '../players/players.service';
+import { tryClaimScheduledJobRunOrSkip } from '../common/scheduling/scheduled-job-run.util';
 import { RedisService } from '../redis/redis.service';
 import { AccountErasureService } from './account-erasure.service';
 import { AccountErasureRequest } from './entities/account-erasure-request.entity';
@@ -11,7 +12,6 @@ import { AccountErasureRequest } from './entities/account-erasure-request.entity
 // as ClipRetentionService's identical constant: generous headroom for a
 // daily sweep, short enough that a crashed pod's stale claim doesn't
 // matter by the next day's tick.
-const SCHEDULED_JOB_LOCK_TTL_SECONDS = 5 * 60;
 
 function groupByTeam(
   rows: AccountErasureRequest[],
@@ -73,7 +73,7 @@ export class AccountErasureSweepService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async sweep(): Promise<void> {
     const jobName = ERROR_LOG_JOB_NAMES.accountErasureSweep;
-    if (!(await this.tryClaimJobOrSkip(jobName))) {
+    if (!(await this.claimRun(jobName))) {
       return;
     }
 
@@ -118,40 +118,6 @@ export class AccountErasureSweepService {
     }
   }
 
-  /**
-   * code-critic's review of the replicas:2 fix caught this: with no
-   * try/catch here, a Redis hiccup would reject out of the `@Cron` handler
-   * uncaught — `@nestjs/schedule`'s underlying `cron` package does catch
-   * that (the process doesn't crash), but only via a raw `console.error`,
-   * not this app's own `Logger`, making a real Redis-connectivity problem
-   * here quietly less visible than every other degraded-but-non-fatal
-   * failure path in this codebase (see the per-batch try/catch a few lines
-   * below for the existing convention this matches). Treated the same as
-   * "another replica already claimed this run" either way — skip this
-   * tick, don't crash the whole sweep over a transient lock-check failure
-   * — but now logged through `this.logger.warn` so it shows up like
-   * everything else.
-   */
-  private async tryClaimJobOrSkip(jobName: string): Promise<boolean> {
-    try {
-      const claimed = await this.redisService.tryClaimScheduledJobRun(
-        jobName,
-        SCHEDULED_JOB_LOCK_TTL_SECONDS,
-      );
-      if (!claimed) {
-        this.logger.debug(
-          `Skipping ${jobName} — another replica already claimed this run.`,
-        );
-      }
-      return claimed;
-    } catch (error) {
-      this.logger.warn(
-        `Skipping ${jobName} this tick — failed to check the Redis run-lock: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return false;
-    }
-  }
-
   private async processTeamBatch(
     teamId: string,
     batchRows: AccountErasureRequest[],
@@ -183,5 +149,14 @@ export class AccountErasureSweepService {
         batchPlayerIds,
       );
     }
+  }
+
+  /** Shared across every scheduled job — see the util's docstring. */
+  private claimRun(jobName: string): Promise<boolean> {
+    return tryClaimScheduledJobRunOrSkip(
+      this.redisService,
+      this.logger,
+      jobName,
+    );
   }
 }

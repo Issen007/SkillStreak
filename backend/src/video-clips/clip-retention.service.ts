@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, Repository } from 'typeorm';
 import { ERROR_LOG_JOB_NAMES } from '../error-log/error-log.constants';
 import { ErrorLogService } from '../error-log/error-log.service';
+import { tryClaimScheduledJobRunOrSkip } from '../common/scheduling/scheduled-job-run.util';
 import { RedisService } from '../redis/redis.service';
 import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
 import { ObjectStorageService } from './object-storage.service';
@@ -14,7 +15,6 @@ import { DEFAULT_CLIP_PENDING_UPLOAD_TTL_MINUTES } from './video-clip.constants'
 // is generous headroom for either sweep (both are simple find-then-delete
 // loops over a bounded row set) while staying short enough that a pod
 // crashing mid-sweep doesn't wedge the *next* day's/hour's claim for long.
-const SCHEDULED_JOB_LOCK_TTL_SECONDS = 5 * 60;
 
 /**
  * docs/adr/0010-video-storage-and-serving.md Decision 5 — two in-process
@@ -72,7 +72,7 @@ export class ClipRetentionService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async sweepExpiredPublishedClips(): Promise<void> {
     const jobName = ERROR_LOG_JOB_NAMES.clipRetentionPublished;
-    if (!(await this.tryClaimJobOrSkip(jobName))) {
+    if (!(await this.claimRun(jobName))) {
       return;
     }
     try {
@@ -101,7 +101,7 @@ export class ClipRetentionService {
   @Cron(CronExpression.EVERY_HOUR)
   async sweepAbandonedPendingUploads(): Promise<void> {
     const jobName = ERROR_LOG_JOB_NAMES.clipRetentionPendingUpload;
-    if (!(await this.tryClaimJobOrSkip(jobName))) {
+    if (!(await this.claimRun(jobName))) {
       return;
     }
     try {
@@ -138,38 +138,6 @@ export class ClipRetentionService {
     await this.errorLogService.record({ source: 'job', jobName, error });
   }
 
-  /**
-   * code-critic's review of the replicas:2 fix caught this: with no
-   * try/catch here, a Redis hiccup would reject out of the `@Cron` handler
-   * uncaught — `@nestjs/schedule`'s underlying `cron` package does catch
-   * that (the process doesn't crash), but only via a raw `console.error`,
-   * not this app's own `Logger`, making a real Redis-connectivity problem
-   * here quietly less visible than every other degraded-but-non-fatal
-   * failure path in this codebase. Treated the same as "another replica
-   * already claimed this run" either way — skip this tick, don't crash a
-   * whole sweep over a transient lock-check failure — but now logged
-   * through `this.logger.warn` so it shows up like everything else.
-   */
-  private async tryClaimJobOrSkip(jobName: string): Promise<boolean> {
-    try {
-      const claimed = await this.redisService.tryClaimScheduledJobRun(
-        jobName,
-        SCHEDULED_JOB_LOCK_TTL_SECONDS,
-      );
-      if (!claimed) {
-        this.logger.debug(
-          `Skipping ${jobName} — another replica already claimed this run.`,
-        );
-      }
-      return claimed;
-    } catch (error) {
-      this.logger.warn(
-        `Skipping ${jobName} this tick — failed to check the Redis run-lock: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return false;
-    }
-  }
-
   private pendingUploadTtlMinutes(): number {
     const raw = this.configService.get<string>(
       'CLIP_PENDING_UPLOAD_TTL_MINUTES',
@@ -195,5 +163,14 @@ export class ClipRetentionService {
         );
       }
     }
+  }
+
+  /** Shared across every scheduled job — see the util's docstring. */
+  private claimRun(jobName: string): Promise<boolean> {
+    return tryClaimScheduledJobRunOrSkip(
+      this.redisService,
+      this.logger,
+      jobName,
+    );
   }
 }

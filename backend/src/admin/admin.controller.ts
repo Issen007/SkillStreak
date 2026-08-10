@@ -73,10 +73,14 @@ import { UpdateBugReportStatusDto } from './dto/update-bug-report-status.dto';
  * stated plainly here because an earlier version of this comment said
  * "instead of", which would mislead the next reader of exactly this code.
  *
- * **Still not built here, deliberately**: any static serving of an admin
- * web page. Note that if that ever lands, the `admin-planning-docs` mount
- * path must stay disjoint from whatever directory it serves — see
- * AdminPlanningDocsService's docstring for why that is structural.
+ * **The admin web page is served from main.ts, not here** (added
+ * 2026-08-10) — `backend/console/` is mounted read-only at /console by
+ * `useStaticAssets`. The constraint this docstring used to state as a
+ * warning is satisfied rather than pending: that directory holds only the
+ * console's own files and is disjoint from the `admin-planning-docs`
+ * mount, whose contents are readable only through this guard plus step-up.
+ * See AdminPlanningDocsService's docstring for why that separation is
+ * structural, and keep it that way if the console ever moves.
  */
 @Controller('api/v1/admin')
 @UseGuards(AdminAuthGuard)
