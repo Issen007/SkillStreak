@@ -41,6 +41,10 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 
 COPY --from=build /app/dist ./dist
+# The staff console's static files. Served by the API at /console because
+# the SameSite=Strict staff cookie requires same-origin (see main.ts) — not
+# because it belongs to the backend conceptually.
+COPY console ./console
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 

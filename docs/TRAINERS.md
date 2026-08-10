@@ -58,17 +58,21 @@ than the marketing.
 | Request per-player consent to see a player's training | **Built** |
 | See streaks, logged sessions and badges for approved players | **Built** |
 | Sign in with Google, Microsoft or Apple | **Built** |
-| A web console to do any of it in | **Not built** — see below |
+| A web console to sign in to, and see your teams in | **Built** — the shell |
+| Redeeming a team code in that console (PT1) | Designed, not built |
+| Roster / consent requests in that console (PT2, PT3) | Designed, not built |
 | AI session generation | Designed, not built |
 | Trainer profile, reviews, paid tier | Not designed |
 
-**The honest blocker**: the backend for the trainer role is complete and
-tested, and the screens are designed
-(`docs/design/phase8-pt-flows.md`) — but there is no staff web console to
-put them in yet. Signing in today succeeds and then shows you a page of
-raw JSON, because there is nothing on the other side. That console is the
-next thing that has to exist before any of this is usable by a real
-trainer.
+**Where it actually stands**: the backend for the trainer role is complete
+and tested, and the screens are designed
+(`docs/design/phase8-pt-flows.md`). The console now exists as a shell —
+signing in lands you on a real page that lists your linked teams, rather
+than the page of raw JSON it showed until 2026-08-10. What is still
+missing is the screens *inside* it: you cannot yet redeem a code or
+request a player's consent from the browser. Those are the next things
+built, and they are what make this usable end to end without the project
+owner doing it for you.
 
 ---
 
@@ -134,11 +138,12 @@ will agree to.
 ## Getting started
 
 1. Ask the team's captain for a trainer code.
-2. Sign in with Google, Microsoft or Apple — no separate password, no
-   registration form. The account is created on first sign-in.
+2. Sign in with Google, Microsoft or Apple at the console — no separate
+   password, no registration form. The account is created on first
+   sign-in. **This works today.**
 3. Redeem the code.
 4. Request consent for the players you will actually be working with —
    not all of them by default.
 
-Steps 2 and 3 need the web console that does not exist yet. Until it
-does, talk to the project owner directly.
+Steps 3 and 4 do not have screens yet, so for now talk to the project
+owner and they will do those two for you. Step 2 you can do yourself.

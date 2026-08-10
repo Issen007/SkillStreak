@@ -14,6 +14,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { CookieOptions, Request, Response } from 'express';
 import { StaffAuthProvider } from './entities/staff-account.entity';
 import {
+  STAFF_CONSOLE_PATH,
   STAFF_PENDING_AUTH_COOKIE_NAME,
   STAFF_PENDING_AUTH_COOKIE_PATH,
   STAFF_SESSION_COOKIE_NAME,
@@ -105,9 +106,11 @@ export class StaffAuthController {
   // Apple requires `response_mode=form_post` whenever `name`/`email` scope
   // is requested (see StaffAuthService's SCOPE_BY_PROVIDER) — its callback
   // arrives as a POST with a form-encoded body, not a GET redirect.
+  // No @HttpCode here: with @Res() injected Nest hands the response over
+  // entirely, and handleCallback now answers 302 rather than 200. The
+  // decorator was already inert, but it would now describe the wrong code.
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post(':provider/callback')
-  @HttpCode(HttpStatus.OK)
   async callbackPost(
     @Param('provider') providerParam: string,
     @Req() req: Request,
@@ -197,7 +200,21 @@ export class StaffAuthController {
       path: STAFF_SESSION_COOKIE_PATH,
       maxAge: SESSION_COOKIE_MAX_AGE_MS,
     });
-    res.status(HttpStatus.OK).json({ ok: true });
+    // Hand the browser to the console rather than answering with JSON.
+    // A human arrives here by finishing a sign-in at Google/Microsoft/Apple,
+    // so `{"ok":true}` was a literal dead end for the only caller this
+    // endpoint has.
+    //
+    // The target is a fixed server-side constant, never anything read from
+    // the request — a `?next=` parameter here would be an open redirect on
+    // the one endpoint that has just minted a session.
+    //
+    // `SameSite=Strict` survives this: the redirect is a cross-site
+    // navigation, so the browser will *not* attach the cookie when loading
+    // /console/ itself — but that page is static and needs no session. The
+    // fetches it then makes to /api/v1/* are same-origin XHR from our own
+    // origin, which Strict does allow.
+    res.redirect(HttpStatus.FOUND, STAFF_CONSOLE_PATH);
   }
 
   private parseProvider(providerParam: string): StaffAuthProvider {

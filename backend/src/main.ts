@@ -1,11 +1,15 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Validate at the boundary (incoming requests), per CLAUDE.md — reject
   // unknown fields rather than silently accepting/ignoring them (e.g. a
@@ -73,6 +77,30 @@ async function bootstrap() {
   // feature. Every other route in this app remains Bearer-token-only and
   // never reads req.cookies at all.
   app.use(cookieParser());
+
+  // The staff console (admin + PT), served by the API itself rather than by
+  // the `site` Deployment. That is not a packaging convenience — the
+  // staff_session cookie is SameSite=Strict and deliberately outside the
+  // CORS block above, so the console only authenticates at all if it is
+  // same-origin with the API.
+  //
+  // ADR-0022's security review requires this static root to be disjoint
+  // from the admin-planning-docs mount (/srv/admin-planning): those files
+  // are readable only through AdminAuthGuard + step-up, and a static
+  // handler rooted anywhere above them would serve them to anonymous
+  // callers. `console/` is its own directory containing nothing else.
+  // One path for both cases on purpose: `backend/console` sits beside
+  // `backend/dist` in a checkout, and the image copies it to /app/console
+  // beside /app/dist, so `../console` from __dirname resolves in each.
+  const consoleRoot = join(__dirname, '..', 'console');
+  if (existsSync(join(consoleRoot, 'index.html'))) {
+    app.useStaticAssets(consoleRoot, { prefix: '/console' });
+  } else {
+    // Not fatal: the API's own routes are unaffected, and a missing console
+    // should not take the backend down. Say so loudly, though — otherwise
+    // the only symptom is a 404 after a successful sign-in.
+    console.warn('Staff console assets not found — /console will 404.');
+  }
 
   await app.listen(process.env.PORT ?? 3000);
 }
