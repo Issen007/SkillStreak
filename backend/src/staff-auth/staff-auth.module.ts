@@ -10,6 +10,7 @@ import { StaffAuthGuard } from './guards/staff-auth.guard';
 import { PendingStaffAuthService } from './pending-staff-auth.service';
 import { StaffAuthController } from './staff-auth.controller';
 import { StaffAuthService } from './staff-auth.service';
+import { StaffSessionViewService } from './staff-session-view.service';
 import { StaffOidcClientsService } from './staff-oidc-clients.service';
 import { StaffSessionTokenService } from './staff-session-token.service';
 
@@ -35,6 +36,7 @@ import { StaffSessionTokenService } from './staff-session-token.service';
   ],
   controllers: [StaffAuthController],
   providers: [
+    StaffSessionViewService,
     StaffOidcClientsService,
     PendingStaffAuthService,
     StaffSessionTokenService,

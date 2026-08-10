@@ -862,33 +862,54 @@
       .then(function () { location.reload(); });
   };
 
-  /* Role is discovered by asking, not assumed: GET /admin/session succeeds
-   * only for an admin, so a 403/401 there means this account is a PT (or
-   * has no access at all, which the API decides — not this page). */
+  /* Role comes from GET /staff-auth/session, which answers 200 whether or
+   * not you are signed in.
+   *
+   * This used to probe GET /admin/session and read a 401 as "signed out".
+   * It worked, and it cost an error row on every signed-out page load —
+   * the admin Errors tab filled with the console asking a question it was
+   * designed to ask. An expected answer should not travel as an exception.
+   *
+   * Nothing here is a security boundary: every /admin and /pt route keeps
+   * its own guard, and those guards decide access. This only decides which
+   * navigation to draw. */
   function start() {
-    api.get('/api/v1/admin/session').then(function (session) {
-      state.role = 'admin';
-      state.session = session;
-      el('who').textContent = session.displayName || '';
-      var env = el('env');
-      env.textContent = session.environment || '—';
-      env.className = 'env' + (/prod/i.test(session.environment || '') ? ' prod' : '');
-      show('shell');
-      go((location.hash || '').replace('#', '') || 'stats');
-    }).catch(function (e) {
-      if (e && e.unauthenticated) { show('login'); return; }
-      // Authenticated but not an admin — try the PT surface.
-      api.get('/api/v1/pt/team-links').then(function () {
-        state.role = 'pt';
-        el('who').textContent = 'Trainer';
-        el('env').textContent = '—';
-        show('shell');
-        go('teams');
-      }).catch(function () {
+    api.get('/api/v1/staff-auth/session').then(function (session) {
+      if (!session.authenticated) {
         show('login');
-        el('loginNote').textContent =
-          'That account is signed in but has no staff access yet.';
-      });
+        return;
+      }
+
+      state.role = session.role === 'admin' ? 'admin' : 'pt';
+      el('who').textContent =
+        session.displayName || (state.role === 'admin' ? '' : 'Trainer');
+      show('shell');
+
+      if (state.role === 'admin') {
+        /* Only admins ask for this, and only once we know they are one —
+         * so the call can no longer 401 and can no longer log an error. */
+        api.get('/api/v1/admin/session').then(function (adminSession) {
+          var env = el('env');
+          env.textContent = adminSession.environment || '—';
+          env.className =
+            'env' + (/prod/i.test(adminSession.environment || '') ? ' prod' : '');
+        }).catch(function () {
+          /* The badge is decoration; failing to draw it must not stop the
+           * console loading. */
+          el('env').textContent = '—';
+        });
+        go((location.hash || '').replace('#', '') || 'stats');
+      } else {
+        el('env').textContent = '—';
+        go((location.hash || '').replace('#', '') || 'teams');
+      }
+    }).catch(function () {
+      /* The one endpoint that should never fail did. Showing sign-in is
+       * the only honest option — pretending to be signed in would produce
+       * a console where every tab errors. */
+      show('login');
+      el('loginNote').textContent =
+        'Could not reach the server. Try again in a moment.';
     });
   }
 
