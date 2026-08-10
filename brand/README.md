@@ -2,8 +2,15 @@
 
 ## Icon
 
-Source: `temp/images/fireicon2.png` — the internally-voted favourite,
-1024×1024 RGBA with transparent corners and a black rounded plate.
+Source: `temp/images/newlogo.png` — **2048×2048** RGBA, a flame with the
+`S` formed by its own internal shading and a white outline, on a black
+rounded plate.
+
+(This replaced `fireicon2.png`, which was the first pick. That one was
+1024×1024 and carried the `S` as a separate thin serif letterform, which
+disappeared below ~48px. The current mark reads noticeably better small,
+because the legibility comes from the silhouette rather than from a
+letter drawn on top of it.)
 
 `brand/icon/` holds every size the two stores and the web actually ask
 for, generated from that source with Lanczos downscaling.
@@ -18,27 +25,18 @@ sticker/    1024 and 512
 
 ### Two honest limits on this set
 
-**1. Nothing here is higher resolution than the source, and nothing can
-be.** Upscaling a 1024px raster does not add detail — it invents it, and
-it looks like it. What matters in practice is that **every standard target
-is at or below 1024**: the App Store icon is exactly 1024, Play's listing
-icon is 512, and adaptive icons are 432. So the set is complete for app
-and web use without needing anything the source doesn't have.
+**1. Nothing here is higher resolution than the 2048 source.** Upscaling
+a raster invents detail rather than adding it. At 2048 that ceiling is
+comfortably above every target: the App Store icon is 1024, Play's listing
+icon 512, adaptive icons 432 — and stickers up to 2048 are now covered
+natively, which the previous 1024 source could not do.
 
-Above 1024 — large stickers, print, a banner — needs either true vector
-artwork or a re-render from whatever produced the original. Ask for a
-2048px or 4096px original before committing to anything physical.
+Print larger than 2048 still wants true vector artwork.
 
-**2. The mark does not hold up below about 48px.** At 32px the flame still
-reads, but the `S` nearly vanishes: it is a thin serif letterform on a
-busy gradient inside a black plate. The favicons are generated and usable,
-but a favicon is a 16-32px object and this one is carrying detail it
-cannot show at that size.
-
-Worth a small design decision rather than a silent compromise — either a
-simplified favicon variant (flame silhouette only, no `S`), or a heavier
-`S` with more contrast against the flame. Both are cheap; shipping the
-current one at 16px is the option that quietly looks worst.
+**2. Small sizes are usable but tight.** At 32px the flame silhouette
+reads clearly and the `S` survives as a light swirl. It is legible rather
+than crisp — normal for a detailed mark at favicon size, and much better
+than the previous icon managed.
 
 ### The adaptive icon's safe zone
 
