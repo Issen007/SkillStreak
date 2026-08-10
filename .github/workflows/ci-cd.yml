@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main, prerelease]
+    branches: [main, review]
   push:
-    branches: [main, prerelease]
+    branches: [main, review]
   # Lets a manual re-run happen without needing an empty/throwaway commit
   # just to get push: to fire again — came up repeatedly while chasing a
   # sequence of CI/deploy-only fixes (no code change, e.g. a GitHub secret
@@ -604,7 +604,7 @@ jobs:
   internal-images:
     name: Build and Push Internal Test Images
     runs-on: ubuntu-latest
-    # `prerelease` only ever deploys to the internal microk8s cluster on
+    # `review` only ever deploys to the internal microk8s cluster on
     # ubuntu01 (192.168.55.x, no public DNS/TLS) — never the public
     # isstech-2 cluster, which only ever runs what's built from `main` (see
     # the `deploy`/`release` jobs above). This job's only reason to exist:
@@ -618,8 +618,18 @@ jobs:
     # deploys these — it polls this branch's latest commit, not this job
     # directly; this job's only responsibility is to make the
     # prerelease-<sha> images exist on GHCR for it to find.
+    #
+    # The `prerelease-` tag prefix is kept even though the branch is now
+    # `review` (the `prerelease` branch was deleted 2026-08-10, with
+    # `review` taking over as the single integration branch). It names the
+    # BUILD CHANNEL — "an internal pre-release build" — not the branch, and
+    # keeping it means the images already on GHCR, the version string a
+    # running pod reports at /health, and the poller's tag construction all
+    # stay valid. Rename it only together with
+    # tools/local-release-poller/poll-and-deploy.sh, which is installed on
+    # ubuntu01 and has to be re-copied there by hand.
     needs: [backend-test, compose-smoke-test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/prerelease'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/review'
     permissions:
       contents: read
       packages: write

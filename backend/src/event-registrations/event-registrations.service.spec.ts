@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { EventRegistration } from './entities/event-registration.entity';
@@ -13,6 +14,7 @@ describe('EventRegistrationsService', () => {
   let execute: jest.Mock;
   let find: jest.Mock;
   let del: jest.Mock;
+  let update: jest.Mock;
 
   const dto = {
     name: '  Anna Svensson  ',
@@ -27,6 +29,7 @@ describe('EventRegistrationsService', () => {
     values = jest.fn().mockReturnThis();
     find = jest.fn().mockResolvedValue([]);
     del = jest.fn().mockResolvedValue({ affected: 1 });
+    update = jest.fn().mockResolvedValue({ affected: 2 });
 
     const queryBuilder = {
       insert: jest.fn().mockReturnThis(),
@@ -45,6 +48,14 @@ describe('EventRegistrationsService', () => {
             createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
             find,
             delete: del,
+            update,
+            findOne: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn().mockReturnValue('https://api.skillstreak.xyz/'),
           },
         },
       ],
@@ -111,5 +122,71 @@ describe('EventRegistrationsService', () => {
     await service.list();
 
     expect(find).toHaveBeenCalledWith({ order: { createdAt: 'DESC' } });
+  });
+
+  describe('the send list', () => {
+    it('exposes invite state and a usable unsubscribe URL per row', async () => {
+      find.mockResolvedValue([
+        {
+          id: 'r1',
+          name: 'Anna',
+          email: 'anna@example.se',
+          interest: EventRegistrationInterest.CURIOUS,
+          note: null,
+          locale: EventRegistrationLocale.SV,
+          campaign: null,
+          createdAt: new Date('2026-08-10T09:00:00Z'),
+          inviteSentAt: null,
+          unsubscribeCode: 'abc123',
+        },
+      ]);
+
+      const [row] = await service.list();
+
+      expect(row.inviteSentAt).toBeNull();
+      // The trailing slash on APP_PUBLIC_URL must not produce a double
+      // slash — this link goes into real email, where it cannot be fixed.
+      expect(row.unsubscribeUrl).toBe(
+        'https://api.skillstreak.xyz/api/v1/event-registrations/unsubscribe/abc123',
+      );
+    });
+
+    it('marks only the ids given, and only ones not already invited', async () => {
+      await service.markInvited(['a', 'b']);
+
+      const [criteria, patch] = update.mock.calls[0] as [
+        Record<string, unknown>,
+        { inviteSentAt: Date },
+      ];
+      // Re-marking would rewrite the date of an invitation actually sent
+      // earlier, and that date is the only record of when someone was
+      // contacted.
+      expect(Object.keys(criteria).sort()).toEqual(['id', 'inviteSentAt']);
+      expect(patch.inviteSentAt).toBeInstanceOf(Date);
+    });
+
+    it('does not issue an update for an empty id list', async () => {
+      await expect(service.markInvited([])).resolves.toEqual({ marked: 0 });
+      expect(update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('unsubscribing', () => {
+    it('deletes the row rather than flagging it', async () => {
+      await expect(service.unsubscribe('code-1')).resolves.toEqual({
+        removed: true,
+      });
+      // A tombstone would mean keeping the address specifically after
+      // someone asked us to stop.
+      expect(del).toHaveBeenCalledWith({ unsubscribeCode: 'code-1' });
+    });
+
+    it('reports an unknown code without throwing', async () => {
+      del.mockResolvedValue({ affected: 0 });
+
+      await expect(service.unsubscribe('nope')).resolves.toEqual({
+        removed: false,
+      });
+    });
   });
 });

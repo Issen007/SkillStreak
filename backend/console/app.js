@@ -37,6 +37,32 @@
     del: function (path) { return request('DELETE', path); }
   };
 
+  /* The send-list filters. `todo` is first and is the default, because
+   * "who have I not contacted yet" is the question this page is opened to
+   * answer once invitations start going out. */
+  var SIGNUP_FILTERS = {
+    todo: {
+      label: 'To invite',
+      match: function (row) { return !row.inviteSentAt; }
+    },
+    invited: {
+      label: 'Already invited',
+      match: function (row) { return !!row.inviteSentAt; }
+    },
+    all: { label: 'Everyone', match: function () { return true; } }
+  };
+
+  function interestSummary(rows) {
+    var counts = {};
+    rows.forEach(function (row) {
+      counts[row.interest] = (counts[row.interest] || 0) + 1;
+    });
+    var parts = Object.keys(counts).map(function (key) {
+      return (INTEREST_LABEL[key] || key) + ': ' + counts[key];
+    });
+    return parts.length ? parts.join(' · ') : 'Nobody yet.';
+  }
+
   var INTEREST_LABEL = {
     curious: 'Just curious',
     invest: 'Investment',
@@ -167,24 +193,30 @@
    * row on screen, so a download endpoint would be a second copy of the
    * same authorisation decision.
    *
+   * Carries `UnsubscribeUrl` per row on purpose: the first round of
+   * invitations is mailed by hand from this file, and every message to a
+   * consent-based list needs a way off it. A mail merge is not an excuse
+   * for omitting one, so the column travels with the addresses.
+   *
    * `'` is prefixed to any cell starting with = + - @ on purpose. Notes and
    * campaign strings are typed by strangers on a public form, and a
    * spreadsheet treats a leading `=` as a formula — so an unescaped export
    * turns a text field into code execution on the machine of whoever opens
    * it. Quoting alone does not prevent that; the leading apostrophe does.
    */
-  function downloadCsv(rows) {
+  function downloadCsv(rows, filter) {
     function cell(value) {
       var text = String(value == null ? '' : value);
       if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
       return '"' + text.replace(/"/g, '""') + '"';
     }
     var header = ['Registered', 'Name', 'Email', 'Interest', 'Language',
-                  'Campaign', 'Note'];
+                  'Campaign', 'Note', 'Invited', 'UnsubscribeUrl'];
     var lines = [header.map(cell).join(',')].concat(rows.map(function (row) {
       return [row.createdAt, row.name, row.email,
               INTEREST_LABEL[row.interest] || row.interest, row.locale,
-              row.campaign || '', row.note || ''].map(cell).join(',');
+              row.campaign || '', row.note || '', row.inviteSentAt || '',
+              row.unsubscribeUrl || ''].map(cell).join(',');
     }));
     // BOM so Excel opens UTF-8 correctly — å/ä/ö are guaranteed here.
     var blob = new Blob(['﻿' + lines.join('\r\n')],
@@ -192,7 +224,7 @@
     var url = URL.createObjectURL(blob);
     var link = document.createElement('a');
     link.href = url;
-    link.download = 'skillstreak-demo-signups.csv';
+    link.download = 'skillstreak-demo-signups-' + (filter || 'all') + '.csv';
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -234,45 +266,91 @@
     /* Demo-event signups. Adult marketing data, kept in its own admin tab
      * with no path to anything about a player — see the entity docstring
      * for why that separation is structural rather than tidiness. */
-    signups: function (view) {
-      api.get('/api/v1/admin/event-registrations').then(function (rows) {
-        var byInterest = {};
-        rows.forEach(function (row) {
-          byInterest[row.interest] = (byInterest[row.interest] || 0) + 1;
-        });
-        var summary = Object.keys(byInterest).map(function (key) {
-          return esc(INTEREST_LABEL[key] || key) + ': ' + esc(byInterest[key]);
-        }).join(' · ');
+    /* Demo-event signups, and the send list built from them.
+     *
+     * The filter is the point, not decoration: the first round of invites
+     * is mailed by hand from the exported CSV, so what an admin needs is
+     * "who have I not contacted yet", not "everyone who ever signed up".
+     * The CSV follows whatever is on screen, so exporting the send list
+     * and mailing exactly that set is one action. */
+    signups: function (view, filterArg) {
+      var filter = SIGNUP_FILTERS[filterArg] ? filterArg : 'todo';
+      api.get('/api/v1/admin/event-registrations').then(function (all) {
+        var rows = all.filter(SIGNUP_FILTERS[filter].match);
+        var pending = all.filter(SIGNUP_FILTERS.todo.match).length;
 
         view.innerHTML =
           '<h2>Demo signups</h2>' +
           '<div class="card">' +
-            '<p style="margin:0 0 4px"><strong>' + esc(rows.length) +
-            '</strong> registered</p>' +
-            '<p class="muted" style="margin:0">' + (summary || 'Nobody yet.') + '</p>' +
-            (rows.length
-              ? '<p style="margin:12px 0 0"><button id="exportCsv">Download CSV</button></p>'
-              : '') +
+            '<p style="margin:0 0 4px"><strong>' + esc(all.length) +
+            '</strong> registered · <strong>' + esc(pending) +
+            '</strong> still to invite</p>' +
+            '<p class="muted" style="margin:0 0 12px">' +
+            esc(interestSummary(all)) + '</p>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+              Object.keys(SIGNUP_FILTERS).map(function (key) {
+                return '<button data-go="signups/' + key + '"' +
+                  (key === filter ? ' class="primary"' : '') + '>' +
+                  esc(SIGNUP_FILTERS[key].label) + '</button>';
+              }).join('') +
+            '</div>' +
           '</div>' +
-          '<div class="card"><table>' +
-            '<tr><th>When</th><th>Name</th><th>Email</th><th>Interest</th>' +
-            '<th>Campaign</th><th>Note</th><th></th></tr>' +
+          '<div class="card">' +
+            '<p style="margin:0 0 12px">' +
+              '<button id="exportCsv"' + (rows.length ? '' : ' disabled') +
+              '>Download CSV (' + esc(rows.length) + ')</button> ' +
+              (filter === 'todo' && rows.length
+                ? '<button id="markInvited">Mark these ' + esc(rows.length) +
+                  ' as invited</button>'
+                : '') +
+            '</p>' +
+            '<p id="signupMsg" class="muted" style="margin:0 0 12px"></p>' +
+            '<table><tr><th>When</th><th>Name</th><th>Email</th>' +
+            '<th>Interest</th><th>Lang</th><th>Campaign</th>' +
+            '<th>Invited</th><th></th></tr>' +
             (rows.length ? rows.map(function (row) {
               return '<tr><td>' + esc(row.createdAt.slice(0, 10)) + '</td><td>' +
                 esc(row.name) + '</td><td>' + esc(row.email) + '</td><td>' +
                 esc(INTEREST_LABEL[row.interest] || row.interest) + '</td><td>' +
-                esc(row.campaign || '—') + '</td><td>' + esc(row.note || '') +
+                esc(row.locale) + '</td><td>' + esc(row.campaign || '—') +
+                '</td><td>' + (row.inviteSentAt
+                  ? esc(row.inviteSentAt.slice(0, 10))
+                  : '<span class="muted">not yet</span>') +
                 '</td><td style="text-align:right"><button data-remove="' +
                 esc(row.id) + '">Remove</button></td></tr>';
             }).join('')
-              : '<tr><td colspan="7" class="muted">No signups yet.</td></tr>') +
-          '</table></div>' +
-          '<p class="muted">Held on consent, so &ldquo;remove&rdquo; deletes ' +
-          'the row outright rather than hiding it. Nothing on this page is ' +
-          'connected to any player or team.</p>';
+              : '<tr><td colspan="8" class="muted">Nothing here.</td></tr>') +
+            '</table></div>' +
+          '<p class="muted">The CSV carries a personal unsubscribe link per ' +
+          'row — put it in whatever you send, including a mail merge. ' +
+          'Held on consent, so &ldquo;remove&rdquo; deletes the row outright. ' +
+          'Nothing on this page is connected to any player or team.</p>';
 
         var exportButton = document.getElementById('exportCsv');
-        if (exportButton) exportButton.onclick = function () { downloadCsv(rows); };
+        if (exportButton) {
+          exportButton.onclick = function () { downloadCsv(rows, filter); };
+        }
+
+        var markButton = document.getElementById('markInvited');
+        if (markButton) {
+          markButton.onclick = function () {
+            var msg = document.getElementById('signupMsg');
+            markButton.disabled = true;
+            msg.textContent = 'Marking…';
+            /* Marks exactly the ids on screen, never "everything unsent":
+             * somebody registering between the export and the mailing was
+             * not actually invited, and sweeping them into "contacted"
+             * would mean they never hear from us at all. */
+            api.post('/api/v1/admin/event-registrations/mark-invited', {
+              ids: rows.map(function (row) { return row.id; })
+            }).then(function () { go('signups/todo'); })
+              .catch(function (e) {
+                markButton.disabled = false;
+                msg.className = 'err';
+                msg.textContent = errorMessage(e);
+              });
+          };
+        }
 
         Array.prototype.forEach.call(
           view.querySelectorAll('[data-remove]'),
@@ -282,7 +360,7 @@
               button.textContent = 'Removing…';
               api.del('/api/v1/admin/event-registrations/' +
                       encodeURIComponent(button.getAttribute('data-remove')))
-                .then(function () { go('signups'); })
+                .then(function () { go('signups/' + filter); })
                 .catch(function (e) {
                   button.disabled = false;
                   button.textContent = 'Remove';

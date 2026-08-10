@@ -8,6 +8,7 @@ import { EventRegistrationRetentionService } from './event-registration-retentio
 import { EventRegistration } from './entities/event-registration.entity';
 import { EventRegistrationsController } from './event-registrations.controller';
 import { EventRegistrationsService } from './event-registrations.service';
+import { UnsubscribeController } from './unsubscribe.controller';
 
 /**
  * Demo-event registrations — a marketing list of adults, kept structurally
@@ -32,6 +33,7 @@ import { EventRegistrationsService } from './event-registrations.service';
   controllers: [
     EventRegistrationsController,
     AdminEventRegistrationsController,
+    UnsubscribeController,
   ],
   providers: [EventRegistrationsService, EventRegistrationRetentionService],
 })

@@ -1,5 +1,16 @@
-import { Controller, Delete, Get, Param, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AdminAuthGuard } from '../staff-auth/guards/admin-auth.guard';
+import { MarkInvitedDto } from './dto/mark-invited.dto';
 import {
   EventRegistrationRow,
   EventRegistrationsService,
@@ -22,6 +33,21 @@ export class AdminEventRegistrationsController {
   @Get()
   list(): Promise<EventRegistrationRow[]> {
     return this.eventRegistrationsService.list();
+  }
+
+  /**
+   * Records that these people have been invited, so the send list shrinks.
+   *
+   * Exists because the first round of invitations is mailed by hand from
+   * the exported CSV. Without it the list would show everyone again on the
+   * next round and the whole list would be mailed twice — the fastest way
+   * to teach recipients to mark us as spam, which damages the sending
+   * domain the parental-consent email depends on.
+   */
+  @Post('mark-invited')
+  @HttpCode(HttpStatus.OK)
+  markInvited(@Body() dto: MarkInvitedDto): Promise<{ marked: number }> {
+    return this.eventRegistrationsService.markInvited(dto.ids);
   }
 
   /**
