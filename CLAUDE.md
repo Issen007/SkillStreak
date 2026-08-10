@@ -117,19 +117,40 @@ i18n rather than hardcoded Swedish or English text.
 
 **Never merge into `main` and never push directly to `main`** — this
 applies to Claude Code and to every subagent in `.claude/agents/`, with no
-exception, even under direct instruction to do so. The `prerelease` →
-`main` merge is always the project owner's own action.
+exception, even under direct instruction to do so. The `review` → `main`
+merge is always the project owner's own action.
 
-**`prerelease` is the integration branch, added 2026-07-26.** Feature
-branches merge into `prerelease` (not directly into `main`) once they're
+**`review` is the single integration branch, as of 2026-08-10.** Feature
+branches merge into `review` (never directly into `main`) once they're
 done — Claude Code may merge these itself, via a plain `git merge` +
-`git push` rather than a GitHub PR, since the `gh` CLI token available to
-this project's Claude Code sessions cannot create or merge pull requests
-(a real, repeatedly-confirmed limitation, not a policy choice). This is
-fine specifically because it's `prerelease`, not `main` — the rule above
-is unconditional and unaffected. When `prerelease` has accumulated enough
-finished work, the project owner merges `prerelease` → `main` themselves;
-that merge is what triggers the versioning/release pipeline below.
+`git push`. This is fine specifically because it's `review`, not `main` —
+the rule above is unconditional and unaffected.
+
+When `review` has accumulated enough finished work, Claude Code **may
+open the `review` → `main` PR** and should hand over the link; the project
+owner merges it. That merge is what triggers the versioning/release
+pipeline below.
+
+*(Corrected 2026-08-10: this section previously said the `gh` CLI token
+"cannot create or merge pull requests — a real, repeatedly-confirmed
+limitation". `gh pr create` succeeded first try, opening PR #50, so the
+creation half of that claim is simply false and was stopping sessions
+from trying. Merging is untested and stays out of bounds anyway — by the
+rule at the top of this section, not by any token limitation. If PR
+creation ever does fail, record the actual error here rather than
+restoring the blanket claim.)*
+
+**`prerelease` is retired** (project owner's decision, 2026-08-10). It was
+the integration branch from 2026-07-26 until then, and the two branches
+had drifted into doing the same job. Nothing should push to it any more.
+Three places still needed changing when it went, all done in the same
+commit — if a fourth ever turns up, it belongs on this list: the CI
+`push`/`pull_request` triggers, the `internal-images` job's ref check,
+and `tools/local-release-poller/poll-and-deploy.sh`'s `BRANCH`. The
+`prerelease-<sha>` **image tag** deliberately kept its name — it labels
+the build *channel* ("an internal pre-release build"), not the branch, so
+images already on GHCR and the version a running pod reports at `/health`
+stay meaningful.
 
 **Merging to `main` auto-versions and releases.** `.github/workflows/
 ci-cd.yml`'s `release` job (triggered on push to `main`) bumps the version
@@ -156,13 +177,13 @@ for that script and its systemd unit files.
 
 `.github/workflows/ci-cd.yml` runs backend lint/build/test, a mobile
 typecheck/expo-doctor pass, a Dockerfile build check, and a
-docker-compose smoke test on every PR into `main` (and now into
-`prerelease` too, per the branch strategy above). The workflow file only
+docker-compose smoke test on every PR into `main` (and into `review` too,
+per the branch strategy above). The workflow file only
 runs the checks — making them a *required* status check that blocks
 merging is a GitHub branch-protection setting on the repo itself, not
 something version-controlled here. That still needs to be turned on
 (Settings → Branches → branch protection rules for `main` and
-`prerelease`) for "always tested before merge" to actually be enforced,
+`review`) for "always tested before merge" to actually be enforced,
 not just advisory.
 
 ## Environment parity — every URL/link must match wherever it's deployed
@@ -170,7 +191,7 @@ not just advisory.
 This project runs in exactly two places, per the Git workflow rule above:
 **production** (`main` → the public `skillstreak` cluster, real
 `https://skillstreak.xyz`/`api.skillstreak.xyz`/`try.skillstreak.xyz`
-domains) and **internal test** (`prerelease` → the `ubuntu01` microk8s
+domains) and **internal test** (`review` → the `ubuntu01` microk8s
 cluster, LAN-only `192.168.55.x` addresses, no public DNS/TLS). Any change
 that touches a URL, hostname, link, QR code, deep link, CORS origin, or
 similar environment-specific value must work correctly in **both** places,
