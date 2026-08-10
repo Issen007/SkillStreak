@@ -37,7 +37,13 @@
 set -euo pipefail
 
 REPO="Issen007/SkillStreak"
-BRANCH="prerelease"
+# The single integration branch (was `prerelease` until 2026-08-10, when
+# `review` took over that role). The image TAG prefix below is still
+# `prerelease-` on purpose: it names the build channel, not the branch, so
+# images already on GHCR and the version string a running pod reports at
+# /health all stay valid. Keep this in step with the `internal-images` job
+# in .github/workflows/ci-cd.yml — they must agree on both branch and tag.
+BRANCH="review"
 NAMESPACE="skillstreak"
 KUBE_CONTEXT="microk8s"
 STATE_DIR="${STATE_DIR:-$HOME/.local/state/skillstreak-poller}"
