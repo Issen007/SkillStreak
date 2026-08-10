@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkillStreak — Staff</title>
+<link rel="icon" href="/console/favicon.png">
+<style>
+  :root {
+    --ink: #1b1d21; --muted: #6a7078; --line: #d9dde2; --bg: #f4f6f8;
+    --card: #fff; --accent: #1f6feb; --ok: #17803d; --warn: #9a6700; --err: #c1432f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  /* Login ---------------------------------------------------------- */
+  .login { max-width: 360px; margin: 12vh auto; text-align: center; padding: 0 20px; }
+  .login h1 { font-size: 20px; margin: 0 0 4px; }
+  .login p { color: var(--muted); font-size: 13.5px; margin: 0 0 22px; }
+  .sso { display: block; width: 100%; margin-bottom: 10px; padding: 11px 14px;
+         font: inherit; background: #fff; border: 1px solid var(--line);
+         border-radius: 8px; cursor: pointer; text-decoration: none; color: inherit; }
+  .sso:hover { border-color: var(--ink); }
+  .note { font-size: 12.5px; color: var(--muted); margin-top: 16px; }
+  /* Shell ---------------------------------------------------------- */
+  .shell { display: none; }
+  .shell.is-on { display: block; }
+  header {
+    display: flex; align-items: center; gap: 16px; background: #fff;
+    border-bottom: 1px solid var(--line); padding: 10px 18px;
+  }
+  header .brand { font-weight: 700; }
+  header .env { font-size: 11px; font-weight: 700; letter-spacing: .06em;
+                padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); }
+  header .env.prod { color: var(--err); border-color: var(--err); }
+  header .who { margin-left: auto; color: var(--muted); font-size: 13px; }
+  nav { display: flex; gap: 2px; padding: 8px 18px; background: #fff;
+        border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  nav button { font: inherit; font-size: 13.5px; padding: 6px 12px; border-radius: 8px;
+               border: 1px solid transparent; background: transparent; cursor: pointer; color: var(--muted); }
+  nav button.is-active { background: var(--bg); border-color: var(--line); color: var(--ink); font-weight: 600; }
+  main { padding: 20px 18px 60px; max-width: 1000px; }
+  h2 { font-size: 17px; margin: 0 0 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+          padding: 16px 18px; margin-bottom: 14px; }
+  .muted { color: var(--muted); font-size: 13.5px; }
+  .stub { border-style: dashed; }
+  .stub h3 { margin: 0 0 6px; font-size: 15px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
+       color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 8px; border-bottom: 1px solid #eef1f4; }
+  .err { color: var(--err); }
+  button.link { font: inherit; background: none; border: none; color: var(--accent);
+                cursor: pointer; padding: 0; text-decoration: underline; }
+  main button { font: inherit; font-size: 13.5px; padding: 7px 13px; cursor: pointer;
+                border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  main button:hover:not(:disabled) { border-color: var(--ink); }
+  main button:disabled { opacity: .55; cursor: default; }
+  main button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  main button.primary:hover { filter: brightness(.93); }
+  main button.link { border: none; padding: 0; background: none; }
+  /* Consent state is the most important thing on the roster screen — a
+     trainer must never have to guess whether a family said yes. */
+  .badge { display: inline-block; font-size: 12px; padding: 2px 9px; border-radius: 999px;
+           border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
+</style>
+</head>
+<body>
+
+<!-- AD0' — the sign-in screen. Three SSO buttons and nothing else: there is
+     no password to collect, and no role picker, because the role is derived
+     server-side from ADMIN_EMAILS rather than chosen by whoever signs in. -->
+<section class="login" id="login">
+  <h1>SkillStreak — Staff</h1>
+  <p>Admin and trainer console</p>
+  <a class="sso" href="/api/v1/staff-auth/google/login">Continue with Google</a>
+  <a class="sso" href="/api/v1/staff-auth/microsoft/login">Continue with Microsoft</a>
+  <a class="sso" href="/api/v1/staff-auth/apple/login">Continue with Apple</a>
+  <p class="note" id="loginNote">You need an account that already has access.</p>
+</section>
+
+<div class="shell" id="shell">
+  <header>
+    <span class="brand">SkillStreak</span>
+    <span class="env" id="env">—</span>
+    <span class="who" id="who"></span>
+    <button class="link" id="logout" style="margin-left:14px">Sign out</button>
+  </header>
+  <nav id="nav"></nav>
+  <main id="view"></main>
+</div>
+
+<script src="/console/app.js"></script>
+</body>
+</html>
