@@ -123,14 +123,22 @@ merge is always the project owner's own action.
 **`review` is the single integration branch, as of 2026-08-10.** Feature
 branches merge into `review` (never directly into `main`) once they're
 done — Claude Code may merge these itself, via a plain `git merge` +
-`git push` rather than a GitHub PR, since the `gh` CLI token available to
-this project's Claude Code sessions cannot create or merge pull requests
-(a real, repeatedly-confirmed limitation, not a policy choice). This is
-fine specifically because it's `review`, not `main` — the rule above is
-unconditional and unaffected. When `review` has accumulated enough
-finished work, the project owner opens a PR from `review` → `main` and
-merges it themselves; that merge is what triggers the versioning/release
+`git push`. This is fine specifically because it's `review`, not `main` —
+the rule above is unconditional and unaffected.
+
+When `review` has accumulated enough finished work, Claude Code **may
+open the `review` → `main` PR** and should hand over the link; the project
+owner merges it. That merge is what triggers the versioning/release
 pipeline below.
+
+*(Corrected 2026-08-10: this section previously said the `gh` CLI token
+"cannot create or merge pull requests — a real, repeatedly-confirmed
+limitation". `gh pr create` succeeded first try, opening PR #50, so the
+creation half of that claim is simply false and was stopping sessions
+from trying. Merging is untested and stays out of bounds anyway — by the
+rule at the top of this section, not by any token limitation. If PR
+creation ever does fail, record the actual error here rather than
+restoring the blanket claim.)*
 
 **`prerelease` is retired** (project owner's decision, 2026-08-10). It was
 the integration branch from 2026-07-26 until then, and the two branches
