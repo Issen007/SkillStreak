@@ -133,6 +133,13 @@ sound as written. Three findings:
 Net: backend-developer may build Part A as amended, once Part B's account
 mechanism exists per this ADR's own sequencing.
 
+**Amendment, 2026-08-10 — Part C: a player account may link to a trainer
+account.** Appended at the end of this file, and **not yet reviewed**: it
+adds one join table, one linking flow and one exclusion rule on top of
+Parts A and B, changes no decision above, and is blocking on its own
+`security-reviewer` pass (it touches auth *and* child data). See
+"Amendment — 2026-08-10: Part C" below.
+
 ## Context
 
 Two verbatim requests from the project owner, across separate messages,
@@ -1428,3 +1435,648 @@ property ADR-0019 already achieved twice.
     verification pass before PT signup opens (Decision B3); the legal read
     on the two open Art. 8 self-approval questions (this ADR's, and
     ADR-0019's) together, if pursued.
+
+## Amendment — 2026-08-10: Part C — a player account may link to a trainer account, and what identity assurance can and cannot buy
+
+**Status of this amendment: Proposed, 2026-08-10. Nothing in Part C may be
+built before a blocking `security-reviewer` pass.** This is not a
+formality inherited from the rest of the ADR: Part C touches
+authentication (a second, differently-initiated path into the OIDC flow
+that provisions `StaffAccount` rows) *and* child data (the people who will
+use it are 16- and 17-year-olds who hold live player accounts, and the
+whole point of Decision C6 is a hole in Decision A2's direction-of-
+invitation invariant). Per CLAUDE.md's standing rule, that combination is
+blocking on its own. The pass should be at Part A's weight (ADR-0019's),
+and should treat Decisions C3, C6 and C7 as its centre of gravity.
+
+**Requested by the project owner, 2026-08-10, verbatim**: *"A person who
+creates an account as a user and is older than 16 should be able to
+connect/convert their account to a Trainer account if they want to."* The
+owner separately raised identity verification (BankID/Freja, and what
+happens for people outside Sweden) — answered in Decision C9.
+
+**The age threshold of 16 is the project owner's own decision, made
+2026-08-10, and is not re-argued here.** 16- and 17-year-old assistant
+coaches are ordinary in Swedish youth floorball, and a hard 18 would
+exclude leaders that clubs already trust with the same children in a
+gymnasium every week. What *is* argued below is what that number can and
+cannot be relied on to mean (Decision C5), which is a different question
+from whether it is the right number.
+
+Part C adds no new role. A trainer here is the same `pt`-role
+`StaffAccount` Decision B1 already defines, reached by a second route.
+Every existing decision in Parts A and B stands unchanged; Part C adds one
+join table, one flow, and one exclusion rule, and changes no existing
+column, endpoint or guard.
+
+### The fact everything below is shaped around
+
+`Player.birthYear` is a self-declared `smallint`
+(`backend/src/players/entities/player.entity.ts:34`), typed in during
+onboarding and bounded only by `@IsInt()/@Min()/@Max()` in
+`backend/src/onboarding/dto/create-player.dto.ts` — nothing verifies it,
+and nothing ever could without collecting far more from a nine-year-old
+than this app is willing to hold. Any age threshold built on it is a field
+a twelve-year-old can fill in with 1995.
+
+**Therefore: the age bar is not the safety control, and this amendment
+must not be read as if it were.** What actually makes a trainer safe in
+this design today is Decision A2's captain's code — a real person, running
+a real team, vouching out of band for a specific human they know. That
+vouching carries the weight; the age bar is a secondary filter that
+catches honest mistakes and casual curiosity, and stops nobody who is
+willing to lie. Every downstream decision here is sized to that reality:
+nothing is granted by the link itself, and the checks that matter stay
+where Part A already put them.
+
+One mitigating fact, verified rather than assumed: `birthYear` has no
+update path anywhere in the backend today (`profile.service.ts` reads it,
+nothing writes it after `OnboardingService`), so a child who declared an
+honest year cannot flip their own eligibility later without abandoning the
+account and re-onboarding — which costs them the streak, the badges and
+the team membership that are the entire point of the app. That is a weak
+disincentive, not a control, and **`birthYear` must stay non-editable**;
+adding an edit path later would silently turn eligibility into a
+self-service toggle and would need its own review.
+
+### Decision — C1: link, do not convert
+
+**Decided: the two accounts coexist and are joined by an edge. Nothing is
+converted, migrated, merged or destroyed.**
+
+"Convert" was considered and rejected on two grounds, the first practical
+and the second structural:
+
+- **A player account is not a container that can be emptied and refilled.**
+  `Player` is the anchor for `currentStreakCount`/`longestStreakCount`/
+  `lastTrainedDate`, `bankedStreakSaverCount`, every `TrainingLogEntry`,
+  every `BadgeAward`, `isCaptain` (with its one-captain-per-team partial
+  unique index), team-pool contributions, chat authorship and the whole
+  ADR-0013 erasure machinery. Converting means deleting or orphaning all
+  of it — for a 16-year-old who is exactly the kind of long-tenured user
+  this app most wants to keep.
+- **The merged case is ordinary, not exotic.** An assistant coach who also
+  plays, and logs their own training, is the normal shape of a
+  16-year-old leader in this sport. One person, two roles, both intact, is
+  the honest model. A conversion would force a false choice on the most
+  engaged users in the app.
+- **The two entities are different shapes on purpose.** `Player` is
+  child-shaped: consent gating, `birthYear`, the `PlayerPrivateInfo` split,
+  erasure rights, an 8-locale UI. `StaffAccount` is adult-shaped:
+  SSO-provisioned, no consent flow, no private-info table, no erasure flow
+  (Decision A7). A conversion would have to either drag the child-shaped
+  scaffolding into the staff world or throw it away. A join row does
+  neither.
+
+**No column is added to `Player`.** The link lives in its own table for the
+same reason `real_name` lives in `PlayerPrivateInfo` (ADR-0002 addendum
+§1): `Player` is queried by leaderboards, feeds and badge lookups, and an
+identity-joining `staff_account_id` sitting in that table is exactly the
+kind of field a careless future `SELECT *` should not be able to return.
+
+Naming note, per this codebase's own practice: user-facing copy says
+*tränare*/trainer (`docs/TRAINERS.md`), the schema says `pt`. **Do not
+rename `StaffAccountRole.PT`** — Part C introduces no new role, and a
+rename would be a migration that buys nothing.
+
+### Decision — C2: `StaffAccountPlayerLink` — one join table, one active link per player account
+
+```
+StaffAccountPlayerLink
+  id                      uuid, PK
+  staff_account_id        uuid, FK -> staff_account.id, ON DELETE CASCADE
+  player_id               uuid, FK -> player.id, ON DELETE CASCADE
+  eligibility_birth_year  smallint, not null
+                             -- snapshot of Player.birthYear as it read at
+                                link time. Audit only, never re-checked as
+                                authority: it records what the app
+                                believed, which is the only honest thing
+                                this column can claim (see Decision C5)
+  linked_at               timestamptz, not null
+  unlinked_at             timestamptz, nullable
+  unlinked_reason         enum, nullable: player_unlinked / staff_unlinked /
+                                          staff_account_revoked
+  created_at              timestamptz, not null
+  -- partial unique index on (player_id) WHERE unlinked_at IS NULL — one
+  -- active trainer identity per player account, ever. Same mechanism as
+  -- idx_player_one_captain_per_team / idx_pt_team_link_one_active_per_team_pt
+  -- (a partial unique index, not application logic alone), and the same
+  -- "history stays, only one row is ever active" shape PtTeamLink already
+  -- uses: re-linking after an unlink creates a new row.
+```
+
+**Deliberately *not* unique on `staff_account_id`.** A `Player` row is
+single-team by construction (`Player.teamId` is scalar), so a human who
+plays for two teams holds two player accounts, and one trainer identity
+legitimately links to both. Forcing one would be wrong on the facts — and
+worse, it would create a reason to unlink one account, which is precisely
+the move Decision C6's exclusion is trying not to incentivise.
+
+**Only a `pt`-role `StaffAccount` may hold a link.** If the SSO identity
+completing the flow resolves to an account whose email is on
+`ADMIN_EMAILS`, the link is refused (`409 staff_account_not_linkable`);
+the account is still provisioned as `admin` per Decision B1's existing
+behaviour, it simply gains no link. Admin already reads any consented
+relationship (Decision B4) and is the project owner, so a link would buy
+nothing and would only muddy Decision C6's exclusion. Named as a residual,
+not hidden: **Decision C6's exclusion is meaningless for an `admin`
+account**, which is fine for exactly the reason Decision B4 already gives.
+
+### Decision — C3: the link is established by completing an SSO handshake started from an authenticated player session — reusing the existing callback, adding no new registered redirect URI
+
+**Decided mechanism, four moving parts, all of which already exist:**
+
+1. `POST /api/v1/players/me/trainer-link/start` — `JwtAuthGuard`, ordinary
+   player session. Checks eligibility (Decision C5) and that no active
+   link exists, then mints a **link-intent token**: 256 bits from
+   `crypto.randomBytes(32).toString('hex')` (the `consent_token` shape, not
+   `generateHumanCode` — nobody types this), stored **in Redis** with a
+   10-minute TTL against `{ playerId, tokenVersion }`, single-use via the
+   same atomic get-and-delete `RedisService.redeemPtTeamLinkInviteCode`
+   already uses. Redis is correct here under ADR-0002's rule: an intent in
+   flight is rebuildable by pressing the button again, and is never the
+   only copy of anything durable. Returns `{ authorizeUrl, expiresAt }`.
+2. The app opens `authorizeUrl` in a system browser. **`GET /api/v1/staff-
+   auth/:provider/link?intent=...`** consumes the intent token, resolves
+   the `playerId`, and writes it into the **existing signed
+   `staff_auth_pending` cookie** alongside `state`/PKCE/`nonce` — the same
+   place, and for the same reason, Decision B2/ADR-0022 Decision 10 put the
+   step-up flag there rather than in a query parameter: *a caller must not
+   be able to assert its own intent at the callback*.
+3. **The existing `GET/POST /api/v1/staff-auth/:provider/callback` handles
+   it — no new redirect URI, in any provider console, in any
+   environment.** This is load-bearing under CLAUDE.md's environment-parity
+   rule: every redirect URI is hand-registered per provider per
+   environment (Decision B6), so a flow that needed a second one would
+   triple that manual surface and create a new way for production and
+   internal to diverge. The callback distinguishes a link flow from an
+   ordinary login solely by what the signed pending cookie carries.
+4. On success the callback provisions/refreshes the `StaffAccount` exactly
+   as today, re-reads the player (rejecting if the row is gone or
+   `tokenVersion` has moved on — a mid-flow session reissue *should*
+   invalidate this), applies Decision C6's exclusion, and inserts the link
+   row.
+
+**The player JWT never enters the browser.** That is the whole reason for
+the intent token: it is single-use, 10 minutes long, bound to one
+`playerId`, and useless for anything other than this one insert. The
+session itself stays in `expo-secure-store` where it lives today.
+
+**Step-up (`prompt=login` + `max_age=0` + verified `auth_time`,
+`StaffAuthService`) is considered and deliberately *not* required for
+linking.** It exists and works, so this is a real choice rather than an
+omission. The argument: the link grants zero access (Decision C4), so the
+worst outcome of a link completed through an already-live IdP session is
+"my account got linked to an identity I did not mean to link", which is
+reversible in one tap (Decision C7). Meanwhile the player-side half of the
+proof is already strong — an explicit in-app action, holding a live player
+session. Requiring step-up would also collide immediately with the open
+Apple question `docs/internal/ACTION_PLAN.md`'s Phase 8 UX pass (§12)
+already raised, and this amendment declines to resolve that question as a
+side effect of an unrelated feature. `state`/PKCE/`nonce` remain required,
+unchanged, per Decision B6.
+
+**Environment-parity consequence, named rather than discovered later**:
+Decision B3 already establishes that no live OAuth handshake works on
+`ubuntu01`, so **the trainer-link flow is not end-to-end testable there
+either**, and `mint-dev-staff-session.ts` does not help — it mints a
+session, not a link. Recommend extending that same offline script (or a
+sibling) to insert a `StaffAccountPlayerLink` row directly, for exactly
+Decision B3's argument: an offline script has no network endpoint anyone
+can forget to disable. **Do not build a live "link without SSO" bypass
+route.**
+
+**Mobile cost, stated because it is real**: `mobile/package.json` today
+contains no `expo-web-browser` and no `expo-auth-session` — this app has
+never opened an external browser. Linking needs one
+(`WebBrowser.openAuthSessionAsync`, the boring standard). That is a new
+dependency on the mobile side and belongs in frontend-developer's estimate.
+
+### Decision — C4: linking grants zero team access — a captain's code is still required, exactly as for an outsider
+
+**The link is an identity edge and nothing else.** Completing it creates no
+`PtTeamLink` and no `PtPlayerConsent`. A newly-linked trainer is, in
+capability terms, indistinguishable from someone who signed in with Google
+five seconds ago and has never met a team — which is exactly Decision B1's
+existing default-zero-access posture, unchanged.
+
+This falls out of the design rather than needing enforcement, and that is
+the point: `PtDataService` resolves everything from `PtTeamLink` and
+`PtPlayerConsent` (verified — `pt-data.service.ts` reads no other
+relationship table), so **Part C requires no change to `PtDataService`,
+`PtConsentService`, `PtAuthGuard` or any Decision A5 allow-list.** A new
+table that no read path consults cannot widen a read path.
+
+The converse also holds and should be said out loud in the UI copy: **being
+a trainer grants the *player* account nothing.** No extra teammate
+visibility, no roster powers, no exemption from anything. The two
+identities do not lend each other authority in either direction.
+
+### Decision — C5: the age bar is `Player.birthYear >= 16`, computed the same coarse way as the 13+ band — and is explicitly a secondary filter
+
+**Mechanism**: a sibling of the existing util, not a new pattern —
+`backend/src/common/age/trainer-link-age.util.ts`, exporting
+`TRAINER_LINK_MIN_AGE_YEARS = 16` and
+`isTrainerLinkAge(birthYear: number): boolean` computed as
+`new Date().getUTCFullYear() - birthYear >= 16`. Same rolling-offset
+reasoning as `isSelfVerificationAge` (no fixed cutoff to maintain), and the
+same deliberate coarseness: an August-born and a January-born
+16-year-old are treated identically, matching every other age decision in
+this app. Checked at `trainer-link/start` **and** re-checked at callback,
+because a 10-minute-old eligibility decision is cheap to re-derive and
+free to get right.
+
+**What this number can be relied on to mean: that the account holder typed
+a birth year at least sixteen years ago.** Nothing more. Restating the
+opening section because it is the single most misreadable thing in Part C:
+`birthYear` is self-declared, so this bar filters honesty and inattention,
+not intent.
+
+**What therefore must never be built on top of it:**
+
+- **No surface, anywhere, may describe a linked trainer as verified, adult,
+  or checked.** Not in the app, not in the trainer console, and above all
+  not in Decision A3's family-facing consent email, which is the one place
+  a parent actually makes a trust decision. That email names the trainer's
+  display name and email and lets the family judge — it must keep doing
+  exactly that and claim nothing further.
+- **No authorization decision may read the link as an age assertion.** The
+  gates stay where Part A put them: an active `PtTeamLink` (a captain
+  vouched) and an approved `PtPlayerConsent` (a family agreed).
+- **A 16-year-old with a player account is still a child data subject in
+  this app's own terms.** The link changes nothing about their player
+  account's consent state, its erasure rights, its `PlayerPrivateInfo`
+  handling, or the 13+ self-verification band they may already sit in. No
+  field on `Player` changes. A person can simultaneously be a trainer to
+  one team and a consent-gated child on their own.
+
+Raising the bar later is a one-constant change plus a decision about
+existing links. Lowering it, or trusting it further, is not a constant
+change — it is a new review.
+
+### Decision — C6: a person must never hold an active trainer link to a team they are a player in — enforced in one live resolver, not as a policy note
+
+**The hole this closes, stated concretely**: without it, a captain hands
+the invite code to a teammate who has just linked, and Decision A2's
+direction-of-invitation invariant — *a team invites an outsider in* — is
+bypassed from **inside** the team. The sharpest instance is a captain who
+links their own account and redeems their own code, granting themselves the
+team-aggregate tier plus the standing right to email every teammate's
+family a consent request. Per-player parental consent (Decision A3) still
+gates every byte of actual training data, so this is a hole rather than a
+catastrophe — but it is a cheap one to close, and leaving Decision A2's
+invariant true only from one direction would be an odd thing to write down
+and not fix.
+
+**Where the check belongs — the actual design question.** Today, "does this
+PT hold an active link to this team" is answered independently in three
+places: `PtDataService.getTeamAggregateViewsForPt`,
+`PtConsentService.assertActiveTeamLink`, and implicitly by the unique index
+in `PtTeamLinksService.redeemInvite`. Three answers to one question is
+three places for an exclusion to be forgotten.
+
+**Decided: introduce a single resolver — `PtTeamLinksService
+.findActiveLink(ptStaffAccountId, teamId)` and `.listActiveLinks(
+ptStaffAccountId)` — make all three call sites go through it, and put the
+exclusion inside it**, as a `NOT EXISTS` against `staff_account_player_link`
+joined to `player.team_id`, evaluated on every request. That is structural
+in the sense this codebase already uses the word (Decision A5's "no method
+returns player data without the check", ADR-0019 Decision 6's "never trust
+a cached grant"): a consumer cannot express the unsafe query, because
+there is only one function that answers the question.
+
+**Why a live resolver and not only a check at redeem time.** Three
+orderings are all reachable, and a redeem-time check catches one of them:
+link-then-redeem (caught), redeem-then-link (missed), and
+redeem-then-transfer-into-that-team-months-later (missed). A live check
+catches all three and needs no backfill job.
+
+**Also add fail-fast refusals at both write points, for the error message
+rather than the guarantee**: `redeemInvite` → `403 pt_link_is_own_team`;
+the link callback → `409 trainer_link_conflicts_with_active_team_link`.
+Refuse, never auto-revoke — silently ending a `PtTeamLink` as a side
+effect of an unrelated action is the kind of surprise this project has
+consistently refused to build.
+
+**Rejected: a Postgres trigger or exclusion constraint.** It is a
+cross-table condition, so it would need a trigger, and a trigger is
+invisible to the next contributor reading the entity file. The live
+resolver sits exactly where this codebase already keeps its
+relationship checks.
+
+**Honest limits, both of them, because a rule that reads stronger than it
+is would be worse than no rule:**
+
+1. **The exclusion only binds people who actually link.** A teammate who
+   never links is indistinguishable from an outsider — the app has no way
+   to know a `StaffAccount` and a `Player` are the same human unless that
+   human says so. Part C creates the link *and* the only means of
+   detecting the case; it does not create the case.
+2. **Unlinking dodges it.** Someone can unlink, redeem, and re-link — or
+   simply never link. **Do not build an unlink cooldown or a
+   "cannot unlink while holding team links" rule to chase this**: it adds
+   friction for honest users against a bypass that is trivially reachable
+   by doing nothing at all, and the thing actually being protected (the
+   team-aggregate tier: screen names plus a consent-status flag) is, per
+   Decision A6's own accepted residual, no more than a teammate's roster
+   view already shows them.
+
+The exclusion is structural hygiene that keeps Decision A2's invariant true
+in both directions for anyone acting in good faith. **It is not a security
+boundary, and the security-reviewer should read it as such.** The boundary
+remains Decision A3.
+
+### Decision — C7: unlink, account erasure, and player deletion
+
+**Unlink is immediate, unconditional, and available to both sides** — the
+posture Decision A4 already sets for every relationship in this ADR, and
+ADR-0010/0013/0006 set for the app generally.
+
+- **Player side**: `POST /api/v1/players/me/trainer-link/unlink`
+  (`JwtAuthGuard`, ownership-checked). Sets `unlinked_at`,
+  `unlinked_reason = 'player_unlinked'`. No counter-party, no waiting.
+- **Trainer side**: `POST /api/v1/pt/player-links/:id/unlink`
+  (`PtAuthGuard`, own row only), `unlinked_reason = 'staff_unlinked'`.
+- **`GET /api/v1/pt/player-links`** returns the caller's own links only
+  (screen name, team id, linked-at). No new data class: it is their own
+  player account.
+
+**Unlinking does not touch `PtTeamLink` or `PtPlayerConsent`, in either
+direction.** A trainer who unlinks their player account is still the same
+trainer with the same vouched-for team links and the same family-approved
+consents; those have their own three revocation levers (Decision A4) and
+must not be silently unwound by an identity-management action. Stated
+explicitly so nobody later "tidies up" by cascading it. The one
+consequence — that unlinking also lifts Decision C6's exclusion — is named
+in C6 and accepted there.
+
+**Account erasure (ADR-0013): free, no new code path, no new entry in
+Decision 6's per-entity table.** `player_id` is `ON DELETE CASCADE`, and
+`AccountErasureService` deletes the `Player` row directly
+(`account-erasure.service.ts:562`), so the link row goes with it — the same
+property ADR-0019's three tables and Part A's two tables already have. The
+`StaffAccount` **survives**, correctly: it is an adult's own account,
+provisioned from their own SSO identity, holding no child data of its own
+(Decision A7 already defers staff self-deletion as a separate, differently
+shaped question — unchanged here).
+
+**Player deletion by any other path** (last-player-deletes-team, ADR-0013
+Decision 5) behaves identically, via the same FK.
+
+**`StaffAccount.revoked_at` set**: the link row stays but is inert, since
+every consumer resolves through the staff account. Recommend
+`unlinked_reason = 'staff_account_revoked'` be set at the same time for
+legibility, by whoever sets `revoked_at` — an operational nicety, not a
+correctness requirement.
+
+**One thing for the security-reviewer to re-confirm rather than inherit**:
+`PtAuthGuard` performs no per-request `StaffAccount` lookup and does not
+check `revoked_at` (verified — `pt-auth.guard.ts`, and Decision B2 argues
+this deliberately), so a revoked `pt` session stays usable until the 24h
+cookie expires. Part C does not change that and its reasoning still holds
+(the link grants nothing, and every real read re-checks a live
+relationship). It is flagged only because the population of `pt` accounts
+is about to include teenagers who are teammates of the children involved,
+which is a different mental image than "an external professional" and
+deserves a fresh look rather than a quiet inheritance.
+
+### Decision — C8: what the app shows — and what it must not show to a player who is not eligible
+
+Handed to ux-designer as constraints, not screens.
+
+**Eligible (declared age >= 16, no active link)**: an entry point on the
+profile screen — the honest version is a question, not a promotion. It
+leads to a screen that explains, before any button: that this creates a
+separate trainer identity, that the player account and its streak are
+untouched, and that **being a trainer gives you no access to any team until
+a team's captain gives you a code** (Decision C4, stated up front rather
+than discovered as a disappointment). Then one action, which opens the
+browser handshake, and a confirmation naming the linked email.
+
+**Not eligible (declared age < 16)**: **render nothing at all.** Not a
+disabled row, not "available from 16", not an explanatory tooltip. The
+reasoning is specific and is the whole point: the single input that gates
+this is the single input the child controls, so a visible-but-locked
+control on a ten-year-old's profile is an advertisement for lying about
+your birth year. This mirrors the existing precedent that the PT surface
+"renders nothing at all until a PT relationship exists"
+(`docs/internal/ACTION_PLAN.md`, Phase 8 UX pass) — absence, not a locked
+door.
+
+**Linked**: the linked email, when it was linked, an unlink control, and a
+pointer to the trainer surface. **Keep it distinct from
+`PtRelationshipsScreen`**, which is the player's view of *trainers who can
+see them* — conflating "trainers watching me" with "I am a trainer" in one
+list would be a genuinely confusing screen for a 16-year-old who is both.
+
+**Never shown on the player side**: any team's trainer-side data, any other
+trainer's identity, any claim of verification, and any hint that the link
+confers access.
+
+**Locale**: the player-app side of this is one of the app's 8
+`PlayerLocale`s like everything else there. Whether the trainer console
+itself is English-only remains the open split flagged in the Phase 8 UX
+pass (§11.5) — **not decided here.**
+
+### Decision — C9: identity assurance — model it as an assurance record, verify the capability not the account, and build none of it yet
+
+Four questions get run together whenever "verification" comes up, and the
+first job of this decision is to keep them apart:
+
+| Question | Answered by | Answered today? |
+|---|---|---|
+| Who controls this mailbox? | SSO (Decision B1) | Yes |
+| Is this person an adult? | age assurance | **No** |
+| Which real legal person is this? | eID / document check | No |
+| Should this person be near children? | background check | **No, and cannot be** |
+
+**SSO answers only the first, and the ADR should say so plainly enough that
+nobody later mistakes it for more.** Children hold Google and Apple
+accounts routinely — school-issued and family-managed accounts are the
+norm, not the exception. **Sign-in with Google is authentication, not age
+assurance, and not identity assurance.** Decision A3's existing "why no
+independent PT-identity verification beyond SSO" paragraph is correct as
+written and stands; this decision only makes the boundary explicit and
+says what the upgrade path looks like when the project wants one.
+
+**C9a — model it as an assurance record, not a boolean `isAdult`.** A
+boolean makes every future move a migration: adding a country, swapping
+providers, raising the bar, or accepting a new credential type all change
+what the boolean *means* without changing its type, which is the worst
+version of a schema. Recommended shape, to be built when first needed:
+
+```
+StaffIdentityAssurance
+  id                  uuid, PK
+  staff_account_id    uuid, FK -> staff_account.id, ON DELETE CASCADE
+  method              enum: sso_only | eid_broker | document_liveness |
+                            eudi_wallet
+  provider            varchar, nullable   -- 'signicat', 'criipto',
+                                             'stripe_identity', ...
+  scheme              varchar, nullable   -- 'se-bankid', 'no-bankid',
+                                             'dk-mitid', 'freja', 'itsme',
+                                             'idin', ...
+  level               enum: none | self_declared | substantial | high
+                              -- eIDAS-shaped vocabulary on purpose: it is
+                                 the one assurance ladder every European
+                                 scheme already maps onto
+  subject_country     char(2), nullable
+  verified_at         timestamptz, not null
+  expires_at          timestamptz, nullable
+  external_reference  varchar, nullable   -- the provider's own check id,
+                                             for audit and dispute only
+  created_at          timestamptz, not null
+```
+
+**Load-bearing exclusion: this table records *that* a check passed and at
+what level — never the identity attributes themselves.** No personnummer,
+no document image, no date of birth, no verified legal name. Those would
+be a large new category of sensitive personal data on a system whose entire
+design story is minimisation (ADR-0002 §1, ADR-0011), and this app has no
+use for them: every downstream decision it makes is "did this person clear
+bar X", not "who exactly are they". If a verified legal name is ever wanted
+for display to families, that is a separate decision needing its own
+argument and ADR-0011-style encryption — not a field to slip in here.
+
+With this shape, EUDI is one more `method` value and one more broker
+scheme, not a rewrite. That is the entire reason to prefer it over a
+boolean.
+
+**C9b — verify the capability, not the account.** Do not ask at signup.
+Ask at the moment the person is about to gain access to a child's data.
+Concretely, the right trigger is **redeeming a team code** (Decision A2
+step 1) — that is the first moment anything at all becomes visible (the
+team-aggregate tier: roster screen names and consent status), and it fires
+once per team rather than once per child. Requesting per-player consent
+(Decision A3) is the alternative trigger and is strictly later and noisier.
+
+Why this ordering matters practically: Decision B1 provisions a `pt`
+account for *any* successful SSO login, so the population of staff accounts
+will be dominated by people who signed in, saw an empty screen, and never
+came back. Most of them never reach a team code, so most are never asked
+and no check is ever paid for that did not matter. Gating at signup would
+invert that.
+
+**C9c — vendor shape, when it is turned on.**
+
+- **An identity broker is the right first integration, not a direct
+  BankID one.** Signicat and Criipto are the obvious candidates: one
+  integration, then enable schemes per country as coaches actually appear
+  there — Swedish BankID, Norwegian BankID, Freja, MitID, FTN, itsme,
+  iDIN. Signicat advertises access to dozens of European eID schemes
+  through a single integration and is explicitly positioning the same
+  integration to carry wallets as they roll out. One honest note for a
+  build-vs-buy read: **Criipto was acquired by BankID BankAxept in 2024**,
+  so it is no longer an independent Danish broker — that may be a
+  reassurance or a concentration risk depending on the owner's view, but
+  it should not be discovered after signing.
+- **Document scan + liveness is the anywhere-in-the-world fallback**
+  (Stripe Identity, Persona, Veriff, Onfido). List pricing sits in the low
+  single-digit euros per check — roughly $1.50 for Stripe Identity, under
+  a dollar for Veriff's base check, $2–5 for Persona, before volume
+  negotiation. **Say the cost plainly, because cost is the reflexive
+  objection and it does not survive contact with the numbers**: a project
+  verifying tens of coaches a year is looking at a total annual spend in
+  the tens of euros. Cost is not a reason to skip this. The reason to defer
+  is that there is currently nothing to verify.
+- **EUDI Wallet is the direction to design *for*, not to depend on or wait
+  for.** Verified status as of this writing: eIDAS 2.0 obliges all 27 EU
+  member states to make a wallet available to citizens and residents by
+  **24 December 2026**, with EEA states (Norway, Iceland, Liechtenstein) a
+  year behind, and acceptance obligations on regulated private-sector
+  entities from **December 2027**. Readiness is uneven — fewer than a third
+  of member states currently meet the readiness benchmark, with France,
+  Italy and Poland ahead and the Netherlands among those signalling reduced
+  scope at launch. So: a real standards track with real dates, and nothing
+  a small app should block on in 2026. The assurance-record shape (C9a) is
+  precisely what makes that a non-event later.
+
+**C9d — recommendation: build none of this now.** No table, no vendor, no
+integration. **The captain's code *is* the assurance mechanism today, and
+this ADR should say that out loud rather than leave it implicit** — a
+person who runs a real team vouched for a specific human they know, which
+for a club-internal assistant coach is a stronger signal than any document
+scan would give and is the only signal an identity check cannot supply. The
+moment to revisit is when a trainer can reach a team *without* being
+vouched for by one — a self-service trainer directory, or the
+reputation/marketplace direction `docs/TRAINERS.md` already flags as
+undesigned. An empty table built early is not cheaper than the migration it
+was meant to avoid.
+
+**C9e — what none of this solves, stated plainly because it is the most
+important sentence in this decision.** **Verified identity tells you *who*
+someone is. It tells you nothing about whether they should be near
+children.** That is a background check — in Sweden an extract from
+belastningsregistret for work with children, which the *individual*
+requests from Polismyndigheten and shows to the club, and which the club
+checks; elsewhere it has a different name and a different process
+everywhere. **SkillStreak cannot perform it, cannot obtain it, and must
+never imply it has.** BankID would not change that by a single degree.
+
+What the app should do instead:
+
+- **State the limit openly, in the two places it matters**: the
+  trainer-facing copy (`docs/TRAINERS.md` already models the right voice
+  with its "stated plainly" status box) and Decision A3's family consent
+  email. Something with the plain meaning of: *SkillStreak confirms this
+  person's sign-in, and nothing else. We do not run background checks. The
+  club, and you, decide who works with your child.*
+- **Leave the judgement with the club and the family, and keep the levers
+  that make that judgement enforceable** — which Part A already has:
+  captain-controlled team links, per-child family consent, and three
+  independent immediate revocations (Decision A4).
+- **Never ship a "verified trainer" badge or checkmark.** A family will
+  read any such mark as vetting, and this app cannot back that reading.
+  This is a hard constraint on ux-designer's trainer surfaces, not a
+  preference.
+
+### Explicitly NOT decided by this amendment
+
+- **Whether the age bar should later differ by market**, or move at all —
+  16 is the owner's decision and any change is a fresh one.
+- **Whether an `admin` `StaffAccount` may link to a player account** —
+  recommended refused (Decision C2); reversing that is a small follow-up
+  if the owner wants it for their own testing.
+- **Whether the trainer console is English-only or follows the player
+  app's 8 locales** — the Phase 8 UX pass's open §11.5 split, untouched
+  here.
+- **Anything about a trainer's own account lifecycle** — staff
+  self-deletion remains deferred exactly as Decision A7 left it.
+- **Whether a linked trainer's *player* account should be treated
+  differently anywhere in the app** — no, and Part C adds no mechanism
+  that would let it.
+- **Any paid, reputation, marketplace or directory dimension** — untouched
+  (Context; `docs/TRAINERS.md`'s own status paragraph).
+- **The open Art. 8 self-consent question** (Decision A3) — unchanged and
+  still open; a 16-year-old linking a trainer account is *not* an instance
+  of it, since linking involves no processing of any other child's data.
+
+### Hand-off for Part C
+
+- **security-reviewer** — **blocking, before any implementation**, at Part
+  A's weight. Centre of gravity: Decision C3's intent-token flow (single
+  use, TTL, `tokenVersion` re-check, the pending-cookie binding, and that
+  the player JWT genuinely never leaves the app), Decision C6's exclusion
+  (that the single resolver really is the only path, and that its stated
+  limits are the true ones), Decision C7's erasure/unlink behaviour, and
+  the `PtAuthGuard` `revoked_at` question flagged there.
+- **backend-developer** — one migration (`staff_account_player_link` plus
+  its partial unique index), `trainer-link-age.util.ts`, the three player
+  endpoints, the two PT endpoints, the `/link` initiate route, the callback
+  branch, **and the refactor of the three active-link call sites onto the
+  single resolver in Decision C6 — which is the part most likely to be
+  skipped and is the part the exclusion depends on.** Extend the offline
+  dev script for `ubuntu01` per Decision C3.
+- **frontend-developer** — `expo-web-browser` (new dependency), the profile
+  entry point and its complete absence below the age bar (Decision C8), the
+  link/unlink flows, and keeping the trainer identity visually distinct
+  from `PtRelationshipsScreen`.
+- **ux-designer** — the copy, which is where most of this decision's risk
+  actually lives: the pre-link explanation that says "this grants you
+  nothing yet" before the button, the confirmation, and the plain-language
+  limit statement in Decision C9e for both the trainer surface and the
+  family consent email. **No verification badge, no checkmark, no
+  "verified" anywhere.**
+- **project owner** — confirm Decision C2's admin refusal, and decide
+  whether the C9e limit statement should also appear in
+  `docs/legal/` alongside the existing published documents.
