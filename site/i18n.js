@@ -25,6 +25,18 @@
 
   var TRANSLATIONS = {
     en: {
+      /* --- trainer CTA --------------------------------------------------- */
+      'Vill du vara tränare i SkillStreak?': 'Do you want to be a trainer in SkillStreak?',
+      'Du sätter veckans mål och ser vad som faktiskt händer mellan träningarna — vem som kört, vem som har en streak igång, och vem som tyst slutat dyka upp. Det sista är det man annars märker alldeles för sent.':
+        'You set the weekly goal and see what actually happens between sessions — who trained, who has a streak running, and who has quietly stopped showing up. That last one is what you otherwise notice far too late.',
+      'Du kommer in genom att en lagkapten bjuder in dig — du kan aldrig söka upp ett lag själv. Och du ser en spelares träning först när just den familjen sagt ja. Det kostar dig något som tränare, och det är också hela skälet till att en förälder säger ja.':
+        'You get in when a team captain invites you — you can never search for a team yourself. And you see a player\u2019s training only once that family has said yes. That costs you something as a coach, and it is also the whole reason a parent says yes at all.',
+      'Vi är inte öppna för nya tränare än.': 'We are not open to new trainers yet.',
+      'Skriv upp dig, så hör vi av oss när det går.':
+        'Put your name down and we will get in touch when we are.',
+      'Skriv upp mig som tränare': 'Put me on the list',
+      'Läs vad tränarrollen ser': 'Read what the trainer role sees',
+
       /* --- demo-event signup ------------------------------------------- */
       'Visning': 'Live demo',
       'Kom på visningen': 'Come to the live demo',
