@@ -230,6 +230,7 @@
       "body2": "Hvis et lag er lite, regner vi litt forsiktig, så noen få veldig gode dager ikke tilfeldigvis gir førsteplassen. Jo flere spillere et lag har, jo mer stoler vi på deres eget snitt.",
       "ownTeamLine": "Laget deres: {{pointsPerPlayer}} p/spiller med {{playerCount}} spillere → {{adjustedScore}} p når vi regner rettferdig.",
       "gotIt": "Ok, skjønner!"
-    }
+    },
+    "yourPosition": "Din plass: {{rank}} av {{teamCount}} lag"
   }
 }

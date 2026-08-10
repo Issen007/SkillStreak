@@ -154,7 +154,10 @@ describe('Fas 2.9: self-service team creation (e2e)', () => {
       const season = await dataSource
         .getRepository(Season)
         .findOneOrFail({ where: { id: pot.seasonId } });
-      expect(season.label).toMatch(/^(Vår|Höst) \d{4}$/);
+      // A season is a full calendar year since 2026-08-10 (project owner:
+      // points accumulate all year and reset on 1 Jan), replacing the
+      // original Vår/Höst half-year grid.
+      expect(season.label).toMatch(/^\d{4}$/);
       expect(season.startDate <= season.endDate).toBe(true);
 
       // The invite code they typed is the team's permanent one — not

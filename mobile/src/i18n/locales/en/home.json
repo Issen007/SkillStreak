@@ -230,6 +230,7 @@
       "body2": "If a team is small, we count a bit carefully, so a few really good days don't accidentally hand first place to chance. The more players a team has, the more we trust their own average.",
       "ownTeamLine": "Your team: {{pointsPerPlayer}} pts/player with {{playerCount}} players → {{adjustedScore}} pts once we count fairly.",
       "gotIt": "Okay, got it!"
-    }
+    },
+    "yourPosition": "Your position: {{rank}} of {{teamCount}} teams"
   }
 }

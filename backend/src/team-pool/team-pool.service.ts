@@ -6,7 +6,7 @@ import { Team } from '../teams/entities/team.entity';
 import { Player } from '../players/entities/player.entity';
 import { ParentalConsentStatus } from '../players/player-consent-status.enum';
 import { TeamJoinStatus } from '../players/team-join-status.enum';
-import { computeHalfYearSeason } from './half-year-season.util';
+import { computeSeason } from './season.util';
 import { Season } from './entities/season.entity';
 import { DEFAULT_TEAM_SEASON_POT_GOAL_THRESHOLD } from './team-season-pot-defaults';
 import { TeamSeasonPot } from './entities/team-season-pot.entity';
@@ -112,9 +112,7 @@ export class TeamPoolService {
     manager: EntityManager,
     teamId: string,
   ): Promise<{ season: Season; pot: TeamSeasonPot }> {
-    const { label, startDate, endDate } = computeHalfYearSeason(
-      stockholmDateString(),
-    );
+    const { label, startDate, endDate } = computeSeason(stockholmDateString());
 
     const seasonRepository = manager.getRepository(Season);
     const season = await seasonRepository.save(

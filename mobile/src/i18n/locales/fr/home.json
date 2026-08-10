@@ -230,6 +230,7 @@
       "body2": "Si une équipe est petite, on calcule un peu prudemment, pour que quelques journées vraiment excellentes ne donnent pas la première place par hasard. Plus une équipe a de joueurs, plus on fait confiance à sa propre moyenne.",
       "ownTeamLine": "Votre équipe : {{pointsPerPlayer}} pts/joueur avec {{playerCount}} joueurs → {{adjustedScore}} pts une fois calculé équitablement.",
       "gotIt": "D'accord, compris !"
-    }
+    },
+    "yourPosition": "Ta place : {{rank}} sur {{teamCount}} équipes"
   }
 }

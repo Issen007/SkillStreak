@@ -230,6 +230,7 @@
       "body2": "Hvis et hold er lille, regner vi lidt forsigtigt, så nogle få rigtig gode dage ikke tilfældigt giver førstepladsen. Jo flere spillere et hold har, jo mere stoler vi på deres eget gennemsnit.",
       "ownTeamLine": "Jeres hold: {{pointsPerPlayer}} p/spiller med {{playerCount}} spillere → {{adjustedScore}} p når vi regner fair.",
       "gotIt": "Okay, forstået!"
-    }
+    },
+    "yourPosition": "Din plads: {{rank}} af {{teamCount}} hold"
   }
 }

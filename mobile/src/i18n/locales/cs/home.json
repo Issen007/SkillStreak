@@ -230,6 +230,7 @@
       "body2": "Pokud je tým malý, počítáme trochu opatrněji, aby pár opravdu dobrých dní náhodou nepřineslo první místo. Čím více hráčů tým má, tím víc věříme jejich vlastnímu průměru.",
       "ownTeamLine": "Váš tým: {{pointsPerPlayer}} b/hráče s {{playerCount}} hráči → {{adjustedScore}} b při férovém výpočtu.",
       "gotIt": "Dobře, rozumím!"
-    }
+    },
+    "yourPosition": "Tvoje pozice: {{rank}} z {{teamCount}} týmů"
   }
 }

@@ -230,6 +230,7 @@
       "body2": "Jos joukkue on pieni, laskemme vähän varovaisemmin, jotta muutama todella hyvä päivä ei anna ensimmäistä sijaa sattumalta. Mitä enemmän pelaajia joukkueessa on, sitä enemmän luotamme heidän omaan keskiarvoonsa.",
       "ownTeamLine": "Joukkueenne: {{pointsPerPlayer}} p/pelaaja, {{playerCount}} pelaajaa → {{adjustedScore}} p reilusti laskettuna.",
       "gotIt": "Selvä juttu!"
-    }
+    },
+    "yourPosition": "Sijasi: {{rank}} / {{teamCount}} joukkuetta"
   }
 }

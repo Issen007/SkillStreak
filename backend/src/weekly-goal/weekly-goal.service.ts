@@ -238,6 +238,45 @@ export interface EffortLeaderboardEntry {
   isRequestingTeam: boolean;
 }
 
+/**
+ * How many teams either side of your own the scoreboard shows (project
+ * owner, 2026-08-10: "you will see the 10 teams ahead of you with their
+ * points and the 10 teams behind you").
+ */
+export const LEADERBOARD_NEIGHBOUR_COUNT = 10;
+
+/**
+ * The ±10 slice around the requesting team, plus the honest edge cases.
+ *
+ * **Why the server does this rather than the client**: the standings
+ * already hold thousands of teams in a real database, and shipping every
+ * row to a child's phone so it can display twenty of them is a waste of
+ * their data and a needless spread of other teams' numbers. Full
+ * visibility being *acceptable* (the owner's own point — there are few
+ * enough teams that ranking is not sensitive) is not the same as it being
+ * worth transmitting.
+ *
+ * A team with no active pot — not on the board at all — gets the top of
+ * the table rather than an empty list, which is the only sensible thing to
+ * show someone who has not started scoring yet.
+ */
+function windowAroundRequestingTeam(
+  rows: LeaderboardEntry[],
+  teamId: string,
+): LeaderboardEntry[] {
+  const index = rows.findIndex((row) => row.teamId === teamId);
+  if (index === -1) {
+    return rows.slice(0, LEADERBOARD_NEIGHBOUR_COUNT * 2 + 1);
+  }
+  // Deliberately NOT re-centred when near an edge: a team ranked 2nd sees
+  // one team above and ten below, not eleven below to pad the count. The
+  // window means "your neighbours", and inventing extra neighbours on one
+  // side to hit a row count would misrepresent where you actually sit.
+  const start = Math.max(0, index - LEADERBOARD_NEIGHBOUR_COUNT);
+  const end = index + LEADERBOARD_NEIGHBOUR_COUNT + 1;
+  return rows.slice(start, end);
+}
+
 export interface LeaderboardResponse {
   requestingTeam: {
     teamId: string;
@@ -245,7 +284,12 @@ export interface LeaderboardResponse {
     pointsTotal: number;
     rank: number;
   } | null;
+  /** The ±LEADERBOARD_NEIGHBOUR_COUNT window around the requesting team,
+   * not the whole table — see windowAroundRequestingTeam. */
   leaderboard: LeaderboardEntry[];
+  /** Every team in the standings, so a client can render "rank of N"
+   * without holding N rows. */
+  teamCount: number;
   // ADR-0016 Decision 5 (additive, existing fields above unchanged).
   // Null when the requesting team's own eligiblePlayerCount is 0, same
   // posture as requestingTeam's own null case.
@@ -849,7 +893,7 @@ export class WeeklyGoalService {
     await this.playersService.assertTeamMembership(requesterId, teamId);
 
     const rows = await this.teamPoolService.getLeaderboard();
-    const leaderboard: LeaderboardEntry[] = rows.map((row) => ({
+    const fullLeaderboard: LeaderboardEntry[] = rows.map((row) => ({
       rank: row.rank,
       teamId: row.teamId,
       teamName: row.teamName,
@@ -857,7 +901,8 @@ export class WeeklyGoalService {
       isRequestingTeam: row.teamId === teamId,
     }));
 
-    const mine = leaderboard.find((row) => row.isRequestingTeam);
+    const mine = fullLeaderboard.find((row) => row.isRequestingTeam);
+    const leaderboard = windowAroundRequestingTeam(fullLeaderboard, teamId);
 
     // ADR-0016 Decision 5 (additive) — the shrinkage-adjusted effort view,
     // computed alongside the raw-total view above rather than a second
@@ -893,6 +938,9 @@ export class WeeklyGoalService {
           }
         : null,
       leaderboard,
+      // Total teams in the standings, so the client can say "12 av 2166"
+      // without receiving 2166 rows to count.
+      teamCount: fullLeaderboard.length,
       requestingTeamEffort: mineEffort
         ? {
             teamId: mineEffort.teamId,

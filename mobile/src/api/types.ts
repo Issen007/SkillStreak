@@ -702,7 +702,13 @@ export interface LeaderboardResponse {
     pointsTotal: number;
     rank: number;
   } | null;
+  /** The ±10 window around your own team, not the whole table — the
+   * backend slices it there so a phone never receives thousands of rows
+   * to show twenty of. */
   leaderboard: LeaderboardEntry[];
+  /** Every team in the standings, so "12 av 2166" is renderable without
+   * holding 2166 rows. */
+  teamCount: number;
   // ADR-0016 addendum (2026-07-31), additive — the "Bästa laginsats" tab
   // (Screen LB2). Same `GET .../leaderboard` call, no new request.
   // `null` when the requesting team's own `eligiblePlayerCount` is `0`

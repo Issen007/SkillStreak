@@ -230,6 +230,7 @@
       "body2": "Wenn ein Team klein ist, rechnen wir etwas vorsichtiger, damit ein paar richtig gute Tage nicht zufällig den ersten Platz bringen. Je mehr Spieler ein Team hat, desto mehr vertrauen wir seinem eigenen Durchschnitt.",
       "ownTeamLine": "Euer Team: {{pointsPerPlayer}} P/Spieler mit {{playerCount}} Spielern → {{adjustedScore}} P, fair berechnet.",
       "gotIt": "Okay, verstanden!"
-    }
+    },
+    "yourPosition": "Dein Platz: {{rank}} von {{teamCount}} Teams"
   }
 }
