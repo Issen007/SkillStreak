@@ -33,7 +33,16 @@
 
   var api = {
     get: function (path) { return request('GET', path); },
-    post: function (path, body) { return request('POST', path, body); }
+    post: function (path, body) { return request('POST', path, body); },
+    del: function (path) { return request('DELETE', path); }
+  };
+
+  var INTEREST_LABEL = {
+    curious: 'Just curious',
+    invest: 'Investment',
+    contribute: 'Wants to help build',
+    trainer: 'Wants to be a trainer',
+    other: 'Other'
   };
 
   /* Wire error codes → what a trainer should actually read. Anything not
@@ -84,6 +93,7 @@
   var TABS = {
     admin: [
       { id: 'stats', label: 'Statistics' },
+      { id: 'signups', label: 'Demo signups' },
       { id: 'errors', label: 'Errors' },
       { id: 'bugs', label: 'Bug reports' },
       { id: 'planning', label: 'Planning' }
@@ -144,6 +154,49 @@
     if (route && route !== state.tab) go(route);
   });
 
+  function alertInline(afterElement, message) {
+    var note = document.createElement('div');
+    note.className = 'err';
+    note.style.fontSize = '13px';
+    note.textContent = message;
+    afterElement.parentNode.appendChild(note);
+  }
+
+  /**
+   * CSV built here rather than server-side — the admin already has every
+   * row on screen, so a download endpoint would be a second copy of the
+   * same authorisation decision.
+   *
+   * `'` is prefixed to any cell starting with = + - @ on purpose. Notes and
+   * campaign strings are typed by strangers on a public form, and a
+   * spreadsheet treats a leading `=` as a formula — so an unescaped export
+   * turns a text field into code execution on the machine of whoever opens
+   * it. Quoting alone does not prevent that; the leading apostrophe does.
+   */
+  function downloadCsv(rows) {
+    function cell(value) {
+      var text = String(value == null ? '' : value);
+      if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
+      return '"' + text.replace(/"/g, '""') + '"';
+    }
+    var header = ['Registered', 'Name', 'Email', 'Interest', 'Language',
+                  'Campaign', 'Note'];
+    var lines = [header.map(cell).join(',')].concat(rows.map(function (row) {
+      return [row.createdAt, row.name, row.email,
+              INTEREST_LABEL[row.interest] || row.interest, row.locale,
+              row.campaign || '', row.note || ''].map(cell).join(',');
+    }));
+    // BOM so Excel opens UTF-8 correctly — å/ä/ö are guaranteed here.
+    var blob = new Blob(['﻿' + lines.join('\r\n')],
+                        { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'skillstreak-demo-signups.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function backLink(route, label) {
     return '<p><button class="link" data-go="' + esc(route) + '">← ' +
            esc(label) + '</button></p>';
@@ -175,6 +228,69 @@
           '<tr><th>Metric</th><th>Value</th></tr>' + rows + '</table></div>' +
           '<p class="muted">Aggregates only — ADR-0020 suppresses anything that could ' +
           'resolve to a single team or player.</p>';
+      }).catch(function (e) { fail(view, e); });
+    },
+
+    /* Demo-event signups. Adult marketing data, kept in its own admin tab
+     * with no path to anything about a player — see the entity docstring
+     * for why that separation is structural rather than tidiness. */
+    signups: function (view) {
+      api.get('/api/v1/admin/event-registrations').then(function (rows) {
+        var byInterest = {};
+        rows.forEach(function (row) {
+          byInterest[row.interest] = (byInterest[row.interest] || 0) + 1;
+        });
+        var summary = Object.keys(byInterest).map(function (key) {
+          return esc(INTEREST_LABEL[key] || key) + ': ' + esc(byInterest[key]);
+        }).join(' · ');
+
+        view.innerHTML =
+          '<h2>Demo signups</h2>' +
+          '<div class="card">' +
+            '<p style="margin:0 0 4px"><strong>' + esc(rows.length) +
+            '</strong> registered</p>' +
+            '<p class="muted" style="margin:0">' + (summary || 'Nobody yet.') + '</p>' +
+            (rows.length
+              ? '<p style="margin:12px 0 0"><button id="exportCsv">Download CSV</button></p>'
+              : '') +
+          '</div>' +
+          '<div class="card"><table>' +
+            '<tr><th>When</th><th>Name</th><th>Email</th><th>Interest</th>' +
+            '<th>Campaign</th><th>Note</th><th></th></tr>' +
+            (rows.length ? rows.map(function (row) {
+              return '<tr><td>' + esc(row.createdAt.slice(0, 10)) + '</td><td>' +
+                esc(row.name) + '</td><td>' + esc(row.email) + '</td><td>' +
+                esc(INTEREST_LABEL[row.interest] || row.interest) + '</td><td>' +
+                esc(row.campaign || '—') + '</td><td>' + esc(row.note || '') +
+                '</td><td style="text-align:right"><button data-remove="' +
+                esc(row.id) + '">Remove</button></td></tr>';
+            }).join('')
+              : '<tr><td colspan="7" class="muted">No signups yet.</td></tr>') +
+          '</table></div>' +
+          '<p class="muted">Held on consent, so &ldquo;remove&rdquo; deletes ' +
+          'the row outright rather than hiding it. Nothing on this page is ' +
+          'connected to any player or team.</p>';
+
+        var exportButton = document.getElementById('exportCsv');
+        if (exportButton) exportButton.onclick = function () { downloadCsv(rows); };
+
+        Array.prototype.forEach.call(
+          view.querySelectorAll('[data-remove]'),
+          function (button) {
+            button.onclick = function () {
+              button.disabled = true;
+              button.textContent = 'Removing…';
+              api.del('/api/v1/admin/event-registrations/' +
+                      encodeURIComponent(button.getAttribute('data-remove')))
+                .then(function () { go('signups'); })
+                .catch(function (e) {
+                  button.disabled = false;
+                  button.textContent = 'Remove';
+                  alertInline(button, errorMessage(e));
+                });
+            };
+          }
+        );
       }).catch(function (e) { fail(view, e); });
     },
 
@@ -416,11 +532,7 @@
             .catch(function (e) {
               button.disabled = false;
               button.textContent = 'Ask for access';
-              var note = document.createElement('div');
-              note.className = 'err';
-              note.style.fontSize = '13px';
-              note.textContent = errorMessage(e);
-              button.parentNode.appendChild(note);
+              alertInline(button, errorMessage(e));
             });
         };
       }

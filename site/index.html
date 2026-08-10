@@ -906,6 +906,7 @@ footer .foot-row {
     <li><a href="#trygghet">Trygghet</a></li>
     <li><a href="#funktioner">Funktioner</a></li>
     <li><a href="#tranare">Tränare</a></li>
+    <li><a href="#visning">Visning</a></li>
     <li><a href="/download.html">Skaffa appen</a></li>
   </ul>
   <a class="btn btn-flame" href="#demo">Skapa konto gratis</a>
@@ -1357,6 +1358,61 @@ footer .foot-row {
     </div>
   </section>
 
+  <!-- Demo-event registration. Adult-facing: this collects a name and an
+       email from grown-ups who want to see the app, and is deliberately
+       kept apart from anything the app knows about children (see the
+       event_registration entity in the backend for why that separation is
+       structural). No tracking pixel, no third-party form embed — it posts
+       to our own API, and attribution is the plain ?campaign= parameter on
+       whichever link brought the visitor here. -->
+  <section class="section-pad on-paper-dim" id="visning">
+    <div class="wrap" style="max-width:640px;">
+      <h2 class="reveal">Kom på visningen</h2>
+      <p class="reveal">
+        I början av september visar vi SkillStreak live — hur en träning
+        loggas, hur laget jagar VM-guldet ihop, och hur trygghetsreglerna
+        faktiskt fungerar. Vi ses över Google Meet, och du får länken via
+        mejl när tiden är spikad.
+      </p>
+      <form class="reveal" id="signupForm" novalidate>
+        <div style="display:grid;gap:12px;">
+          <label>Namn
+            <input class="wz-input" id="suName" type="text" maxlength="120" autocomplete="name" required>
+          </label>
+          <label>E-post
+            <input class="wz-input" id="suEmail" type="email" maxlength="254" autocomplete="email" required>
+          </label>
+          <label>Vad är ditt intresse?
+            <select class="wz-input" id="suInterest">
+              <option value="curious">Jag är bara nyfiken</option>
+              <option value="trainer">Jag vill bli tränare i appen</option>
+              <option value="contribute">Jag vill vara med och bygga</option>
+              <option value="invest">Jag vill veta mer om investering</option>
+              <option value="other">Annat</option>
+            </select>
+          </label>
+          <label>Något särskilt du vill se? (frivilligt)
+            <textarea class="wz-input" id="suNote" rows="3" maxlength="500"></textarea>
+          </label>
+          <label style="display:flex;gap:10px;align-items:flex-start;font-size:.95rem;">
+            <input type="checkbox" id="suConsent" style="margin-top:.3rem;">
+            <span>Ja, spara mitt namn och min mejladress så ni kan bjuda in mig. Vi använder dem bara till det här, och du kan be oss radera dem när som helst.</span>
+          </label>
+          <!-- Honeypot: never shown to a person, never focusable. A bot that
+               fills in every field fills in this one too, and the server
+               then answers as if the signup worked. -->
+          <div aria-hidden="true" style="position:absolute;left:-9999px;">
+            <label>Webbplats<input id="suWebsite" type="text" tabindex="-1" autocomplete="off"></label>
+          </div>
+          <div>
+            <button class="btn btn-flame" type="submit" id="suSubmit">Anmäl mig</button>
+          </div>
+          <p id="suMsg" style="margin:0;min-height:1.2em;"></p>
+        </div>
+      </form>
+    </div>
+  </section>
+
   <section class="section-pad cta-band" id="demo">
     <div class="wrap" style="max-width:720px;">
       <h2 class="reveal">Se det själv innan ni bestämmer er.</h2>
@@ -1379,6 +1435,102 @@ footer .foot-row {
     </div>
   </footer>
 </main>
+
+<script>
+/* Demo-event signup.
+ *
+ * Posts to our own API (window.__API_BASE__, baked per environment at
+ * image build time by site/Dockerfile — the same mechanism download.html
+ * uses, so this works on both the public cluster and the LAN one without
+ * a runtime environment check).
+ *
+ * Language is read from document.documentElement.lang, which i18n.js
+ * already keeps current — no second source of truth for "which language
+ * is this visitor reading".
+ */
+(function () {
+  var form = document.getElementById('signupForm');
+  if (!form) return;
+
+  var MESSAGES = {
+    sv: {
+      missing: 'Fyll i namn och e-post.',
+      consent: 'Vi behöver ditt ja för att få spara uppgifterna.',
+      sending: 'Skickar…',
+      ok: 'Tack! Du får en inbjudan med Meet-länken när tiden är spikad.',
+      failed: 'Det gick inte just nu. Försök gärna igen om en stund.'
+    },
+    en: {
+      missing: 'Please fill in your name and email.',
+      consent: 'We need your yes before we can store your details.',
+      sending: 'Sending…',
+      ok: 'Thank you! You will get an invitation with the Meet link once the time is set.',
+      failed: 'That did not work just now. Please try again in a moment.'
+    }
+  };
+
+  function t(key) {
+    var lang = document.documentElement.getAttribute('lang') === 'en' ? 'en' : 'sv';
+    return MESSAGES[lang][key];
+  }
+
+  // Attribution without a tracker: whichever campaign link they followed.
+  function campaign() {
+    try {
+      var value = new URLSearchParams(window.location.search).get('campaign');
+      return value ? value.slice(0, 64) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    var msg = document.getElementById('suMsg');
+    var submit = document.getElementById('suSubmit');
+    var name = document.getElementById('suName').value.trim();
+    var email = document.getElementById('suEmail').value.trim();
+
+    msg.style.color = '';
+    if (!name || !email) { msg.textContent = t('missing'); return; }
+    if (!document.getElementById('suConsent').checked) {
+      msg.textContent = t('consent');
+      return;
+    }
+
+    var note = document.getElementById('suNote').value.trim();
+    var body = {
+      name: name,
+      email: email,
+      interest: document.getElementById('suInterest').value,
+      locale: document.documentElement.getAttribute('lang') === 'en' ? 'en' : 'sv',
+      privacyAccepted: true
+    };
+    if (note) body.note = note;
+    var source = campaign();
+    if (source) body.campaign = source;
+    var honey = document.getElementById('suWebsite').value;
+    if (honey) body.website = honey;
+
+    submit.disabled = true;
+    msg.textContent = t('sending');
+
+    fetch(window.__API_BASE__ + '/api/v1/event-registrations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (response) {
+      if (!response.ok) throw new Error(String(response.status));
+      form.reset();
+      msg.textContent = t('ok');
+    }).catch(function () {
+      msg.textContent = t('failed');
+    }).finally(function () {
+      submit.disabled = false;
+    });
+  });
+})();
+</script>
 
 <script>
 (function () {

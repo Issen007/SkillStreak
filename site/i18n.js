@@ -25,6 +25,25 @@
 
   var TRANSLATIONS = {
     en: {
+      /* --- demo-event signup ------------------------------------------- */
+      'Visning': 'Live demo',
+      'Kom på visningen': 'Come to the live demo',
+      'I början av september visar vi SkillStreak live — hur en träning\n        loggas, hur laget jagar VM-guldet ihop, och hur trygghetsreglerna\n        faktiskt fungerar. Vi ses över Google Meet, och du får länken via\n        mejl när tiden är spikad.':
+        'In early September we are showing SkillStreak live — how a session gets logged, how a team chases its World Championship gold together, and how the safety rules actually work. We meet over Google Meet, and you get the link by email once the time is set.',
+      'Namn': 'Name',
+      'E-post': 'Email',
+      'Vad är ditt intresse?': 'What brings you here?',
+      'Jag är bara nyfiken': 'Just curious',
+      'Jag vill bli tränare i appen': 'I want to be a trainer in the app',
+      'Jag vill vara med och bygga': 'I want to help build it',
+      'Jag vill veta mer om investering': 'I want to know more about investing',
+      'Annat': 'Something else',
+      'Något särskilt du vill se? (frivilligt)': 'Anything in particular you want to see? (optional)',
+      'Ja, spara mitt namn och min mejladress så ni kan bjuda in mig. Vi använder dem bara till det här, och du kan be oss radera dem när som helst.':
+        'Yes, keep my name and email so you can invite me. We use them only for this, and you can ask us to delete them at any time.',
+      'Anmäl mig': 'Sign me up',
+      'Webbplats': 'Website',
+
       /* --- banner + nav ------------------------------------------------ */
       '🧪 Det här är bara ett TEST — skapa inte ett riktigt konto med riktiga uppgifter. Allt kan raderas när som helst.':
         '🧪 This is only a TEST — do not create a real account with real details. Everything may be deleted at any time.',
