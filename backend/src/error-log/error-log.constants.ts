@@ -58,6 +58,7 @@ export const ERROR_LOG_JOB_NAMES = {
   usageMetricsReport: 'usage-metrics:report',
   errorLogRetention: 'error-log:retention',
   bugReportRetention: 'bug-report:retention',
+  eventRegistrationRetention: 'event-registration:retention',
 } as const;
 
 /**

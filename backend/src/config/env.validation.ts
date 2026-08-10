@@ -276,6 +276,13 @@ class EnvironmentVariables {
   // default".
   @IsOptional()
   BUG_REPORT_RETENTION_DAYS?: string;
+
+  // How long a demo-event registration is kept before the daily sweep
+  // deletes it (default 365 — see
+  // DEFAULT_EVENT_REGISTRATION_RETENTION_DAYS). Same @IsOptional()-alone
+  // and same positiveIntFromConfig parsing as the knobs above.
+  @IsOptional()
+  EVENT_REGISTRATION_RETENTION_DAYS?: string;
 }
 
 // Fails fast on boot rather than surfacing a confusing runtime error the

@@ -5,14 +5,19 @@ export const EVENT_REGISTRATION_NOTE_MAX_LENGTH = 500;
 export const EVENT_REGISTRATION_CAMPAIGN_MAX_LENGTH = 64;
 
 /**
- * How long a registration is kept.
+ * How long a registration is kept before the daily sweep deletes it.
  *
  * This is a marketing list of adults, held on consent — so it needs a
  * stated retention period rather than living forever by default. A year
  * covers the demo itself plus a follow-up season; anything older has no
- * purpose left and should go.
+ * purpose left, and "we might want it someday" is not a purpose that
+ * consent was given for.
  *
- * Not yet enforced by a sweep (see the module docstring) — the admin
- * delete endpoint is what satisfies an erasure request today.
+ * Longer than the 90 days the error log and bug reports get, and
+ * deliberately so: those are operational debugging data with no reason to
+ * outlive their usefulness, while this is a person who asked to hear from
+ * us and would reasonably expect that to last more than a quarter.
+ *
+ * Overridable via EVENT_REGISTRATION_RETENTION_DAYS.
  */
-export const EVENT_REGISTRATION_RETENTION_DAYS = 365;
+export const DEFAULT_EVENT_REGISTRATION_RETENTION_DAYS = 365;
