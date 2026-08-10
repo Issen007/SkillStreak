@@ -119,6 +119,7 @@
   var TABS = {
     admin: [
       { id: 'stats', label: 'Statistics' },
+      { id: 'graphs', label: 'Graphs' },
       { id: 'signups', label: 'Demo signups' },
       { id: 'errors', label: 'Errors' },
       { id: 'bugs', label: 'Bug reports' },
@@ -132,7 +133,7 @@
   /* Detail routes belong to a tab without being one. Without this, opening
    * a team unlit the only nav item a trainer has, which reads as "you have
    * navigated out of the app". */
-  var ROUTE_TAB = { team: 'teams', player: 'teams' };
+  var ROUTE_TAB = { team: 'teams', player: 'teams', graphs: 'graphs' };
 
   function tabForRoute(route) {
     var root = String(route).split('/')[0];
@@ -246,6 +247,101 @@
     });
   }
 
+
+  /* ---- charts -------------------------------------------------------
+   *
+   * Hand-drawn inline SVG. The console has no bundler and the deployment
+   * blocks external scripts, so a charting library is not available — and
+   * for two chart types it would be more dependency than drawing.
+   *
+   * Both use a 0-based y-axis on purpose. A chart that starts the axis at
+   * the minimum value makes a flat week look like a rally, which is the
+   * single easiest way to mislead yourself with your own numbers.
+   */
+  var CHART_W = 640;
+  var CHART_H = 160;
+  var CHART_PAD = { top: 10, right: 8, bottom: 22, left: 34 };
+
+  function niceMax(value) {
+    if (value <= 5) return 5;
+    var magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+    return Math.ceil(value / magnitude) * magnitude;
+  }
+
+  function lineChart(points, label) {
+    if (!points.length) return '<p class="muted">No data yet.</p>';
+    var max = niceMax(Math.max.apply(null, points.map(function (p) { return p.value; })) || 1);
+    var innerW = CHART_W - CHART_PAD.left - CHART_PAD.right;
+    var innerH = CHART_H - CHART_PAD.top - CHART_PAD.bottom;
+    var stepX = points.length > 1 ? innerW / (points.length - 1) : 0;
+
+    var coords = points.map(function (point, index) {
+      return {
+        x: CHART_PAD.left + index * stepX,
+        y: CHART_PAD.top + innerH - (point.value / max) * innerH,
+        point: point
+      };
+    });
+
+    var path = coords.map(function (c, i) {
+      return (i === 0 ? 'M' : 'L') + c.x.toFixed(1) + ' ' + c.y.toFixed(1);
+    }).join(' ');
+    var area = path + ' L' + coords[coords.length - 1].x.toFixed(1) + ' ' +
+      (CHART_PAD.top + innerH) + ' L' + coords[0].x.toFixed(1) + ' ' +
+      (CHART_PAD.top + innerH) + ' Z';
+
+    /* <title> per point rather than a hover script: it is the browser's own
+     * tooltip, works on keyboard focus, and needs no event wiring. */
+    var dots = coords.map(function (c) {
+      return '<circle cx="' + c.x.toFixed(1) + '" cy="' + c.y.toFixed(1) +
+        '" r="2.5" fill="var(--accent)"><title>' + esc(c.point.day) + ': ' +
+        esc(c.point.value) + '</title></circle>';
+    }).join('');
+
+    return '<svg viewBox="0 0 ' + CHART_W + ' ' + CHART_H + '" width="100%" ' +
+      'role="img" aria-label="' + esc(label) + '" style="display:block">' +
+      '<line x1="' + CHART_PAD.left + '" y1="' + (CHART_PAD.top + innerH) +
+        '" x2="' + (CHART_W - CHART_PAD.right) + '" y2="' + (CHART_PAD.top + innerH) +
+        '" stroke="var(--line)"/>' +
+      '<text x="2" y="' + (CHART_PAD.top + 4) + '" font-size="10" fill="var(--muted)">' + esc(max) + '</text>' +
+      '<text x="2" y="' + (CHART_PAD.top + innerH) + '" font-size="10" fill="var(--muted)">0</text>' +
+      '<path d="' + area + '" fill="var(--accent)" opacity="0.12"/>' +
+      '<path d="' + path + '" fill="none" stroke="var(--accent)" stroke-width="2"/>' +
+      dots +
+      '<text x="' + CHART_PAD.left + '" y="' + (CHART_H - 6) + '" font-size="10" fill="var(--muted)">' +
+        esc(points[0].day) + '</text>' +
+      '<text x="' + (CHART_W - CHART_PAD.right) + '" y="' + (CHART_H - 6) +
+        '" font-size="10" fill="var(--muted)" text-anchor="end">' +
+        esc(points[points.length - 1].day) + '</text>' +
+      '</svg>';
+  }
+
+  function barChart(entries, label) {
+    if (!entries.length) return '<p class="muted">No clicks recorded yet.</p>';
+    var max = niceMax(Math.max.apply(null, entries.map(function (e) { return e.value; })) || 1);
+    return '<div role="img" aria-label="' + esc(label) + '">' +
+      entries.map(function (entry) {
+        var pct = (entry.value / max) * 100;
+        return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
+          '<span style="width:150px;font-size:13px">' + esc(entry.label) + '</span>' +
+          '<span style="flex:1;background:var(--bg);border-radius:4px;height:16px;overflow:hidden">' +
+            '<span style="display:block;height:100%;width:' + pct.toFixed(1) +
+            '%;background:var(--accent)"></span></span>' +
+          '<strong style="width:52px;text-align:right;font-size:13px">' + esc(entry.value) + '</strong>' +
+          '</div>';
+      }).join('') + '</div>';
+  }
+
+  var LINK_LABEL = {
+    demo_signup: 'Demo signup',
+    try_it: 'Try it in browser',
+    get_app: 'Get the app',
+    trainers: 'Trainers page',
+    coaches_section: 'Coaches section',
+    github: 'GitHub',
+    other: 'Other'
+  };
+
   var VIEWS = {
     /* Wired end to end, to prove the shell actually authenticates and
      * reads real data rather than only looking like it does. */
@@ -266,6 +362,73 @@
     /* Demo-event signups. Adult marketing data, kept in its own admin tab
      * with no path to anything about a player — see the entity docstring
      * for why that separation is structural rather than tidiness. */
+    /* Link clicks and app-wide activity, drawn. Everything on this screen
+     * is app-wide — there is no team or player dimension in the payload,
+     * by ADR-0020 Decision 5, so there is nothing here to filter down to
+     * an individual child even if someone wanted to. */
+    graphs: function (view, daysArg) {
+      var days = Number(daysArg) > 0 ? Number(daysArg) : 30;
+      api.get('/api/v1/admin/analytics?days=' + days).then(function (data) {
+        var activeToday = data.activePerDay.length
+          ? data.activePerDay[data.activePerDay.length - 1].value : 0;
+        var activePeak = data.activePerDay.reduce(function (max, p) {
+          return Math.max(max, p.value);
+        }, 0);
+
+        view.innerHTML =
+          '<h2>Graphs</h2>' +
+          '<div class="card">' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+              [7, 30, 90].map(function (option) {
+                return '<button data-go="graphs/' + option + '"' +
+                  (option === days ? ' class="primary"' : '') + '>Last ' +
+                  option + ' days</button>';
+              }).join('') +
+            '</div>' +
+          '</div>' +
+
+          '<div class="card">' +
+            '<h3 style="margin:0 0 2px;font-size:15px">Players</h3>' +
+            '<p class="muted" style="margin:0 0 14px"><strong>' +
+              esc(data.totalPlayers) + '</strong> accounts in total · <strong>' +
+              esc(activeToday) + '</strong> active today · busiest day <strong>' +
+              esc(activePeak) + '</strong></p>' +
+            '<p style="margin:0 0 4px;font-size:13px"><strong>Active players per day</strong> ' +
+              '<span class="muted">— logged at least one session</span></p>' +
+            lineChart(data.activePerDay, 'Active players per day') +
+          '</div>' +
+
+          '<div class="card">' +
+            '<p style="margin:0 0 4px;font-size:13px"><strong>New accounts per day</strong></p>' +
+            lineChart(data.signupsPerDay, 'New player accounts per day') +
+          '</div>' +
+
+          '<div class="card">' +
+            '<h3 style="margin:0 0 2px;font-size:15px">Link clicks</h3>' +
+            '<p class="muted" style="margin:0 0 14px"><strong>' +
+              esc(data.totalClicks) + '</strong> clicks over ' + esc(days) +
+              ' days on the public site.</p>' +
+            barChart(data.linkClicks.map(function (series) {
+              return {
+                label: LINK_LABEL[series.link] || series.link,
+                value: series.total
+              };
+            }), 'Clicks per link') +
+            (data.linkClicks.length
+              ? '<p style="margin:18px 0 4px;font-size:13px"><strong>' +
+                esc(LINK_LABEL[data.linkClicks[0].link] || data.linkClicks[0].link) +
+                '</strong> <span class="muted">— the most clicked, per day</span></p>' +
+                lineChart(data.linkClicks[0].daily, 'Clicks per day for the most clicked link')
+              : '') +
+          '</div>' +
+
+          '<p class="muted">Counts only. No cookies, no third-party ' +
+          'analytics, and nothing identifying a visitor — a click is a ' +
+          'number against a link and a date, so these charts cannot be ' +
+          'narrowed to a person or a team.</p>';
+      }).catch(function (e) { fail(view, e); });
+    },
+
     /* Demo-event signups, and the send list built from them.
      *
      * The filter is the point, not decoration: the first round of invites

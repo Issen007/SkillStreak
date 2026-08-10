@@ -10,6 +10,7 @@
   // origin — same "PLACEHOLDER + sed at build time" convention already
   // used for k8s/api-deployment.yaml's image field.
   window.__API_BASE__ = "__API_BASE_URL__";
+  window.__TRY_IT_URL__ = "__TRY_IT_URL__";
 </script>
 <style>
 @font-face {
@@ -1435,6 +1436,57 @@ footer .foot-row {
     </div>
   </footer>
 </main>
+
+<script>
+/* Click counting — first-party, and deliberately as little as possible.
+ *
+ * Sends one enum value to our own API. No cookie, no id, no referrer, no
+ * third-party script: the request has no field for those, so "we do not
+ * track individuals" is a property of the shape rather than a promise.
+ *
+ * `keepalive` so the count survives the navigation the click causes;
+ * without it the browser cancels an in-flight fetch on unload and the most
+ * interesting clicks — the ones that lead somewhere — are the ones lost.
+ * Failures are swallowed: a missed count must never delay or block a link.
+ */
+(function () {
+  var LINKS = [
+    ['#visning', 'demo_signup'],
+    ['/download.html', 'get_app'],
+    ['#tranare', 'coaches_section']
+  ];
+
+  function report(link) {
+    try {
+      fetch(window.__API_BASE__ + '/api/v1/analytics/clicks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link: link }),
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) { /* never let counting break a link */ }
+  }
+
+  document.addEventListener('click', function (event) {
+    var anchor = event.target.closest && event.target.closest('a[href]');
+    if (!anchor) return;
+    var href = anchor.getAttribute('href') || '';
+
+    if (window.__TRY_IT_URL__ && href.indexOf(window.__TRY_IT_URL__) === 0) {
+      report('try_it');
+      return;
+    }
+    for (var i = 0; i < LINKS.length; i++) {
+      if (href.indexOf(LINKS[i][0]) !== -1) { report(LINKS[i][1]); return; }
+    }
+  }, true);
+
+  // The signup form submitting is the click that actually matters, and it
+  // is a button rather than a link, so the delegate above never sees it.
+  var form = document.getElementById('signupForm');
+  if (form) form.addEventListener('submit', function () { report('demo_signup'); });
+})();
+</script>
 
 <script>
 /* Demo-event signup.
