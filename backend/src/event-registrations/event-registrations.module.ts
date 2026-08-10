@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ErrorLogModule } from '../error-log/error-log.module';
+import { MailModule } from '../mail/mail.module';
 import { RedisModule } from '../redis/redis.module';
 import { StaffAuthModule } from '../staff-auth/staff-auth.module';
 import { AdminEventRegistrationsController } from './admin-event-registrations.controller';
@@ -29,6 +30,7 @@ import { UnsubscribeController } from './unsubscribe.controller';
     StaffAuthModule,
     RedisModule,
     ErrorLogModule,
+    MailModule,
   ],
   controllers: [
     EventRegistrationsController,

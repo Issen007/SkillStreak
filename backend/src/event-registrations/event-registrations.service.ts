@@ -2,7 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
+import {
+  renderDemoInviteEmail,
+  renderSignupConfirmationEmail,
+} from '../mail/templates/event-demo-emails.template';
+import { MailService } from '../mail/mail.service';
 import { CreateEventRegistrationDto } from './dto/create-event-registration.dto';
+import { SendDemoInvitesDto } from './dto/send-demo-invites.dto';
+import { buildDemoInviteIcs } from './ics.util';
 import {
   EventRegistration,
   EventRegistrationLocale,
@@ -27,6 +34,26 @@ export interface EventRegistrationRow {
   unsubscribeUrl: string;
 }
 
+/**
+ * Formats the start time for a reader.
+ *
+ * `Europe/Stockholm` is fixed rather than taken from the recipient: the
+ * demo happens in Sweden at a Swedish time, and the honest way to say that
+ * to someone abroad is to name the timezone, not to silently convert into
+ * theirs and leave them guessing whether it was converted.
+ */
+function formatWhen(startsAt: Date, locale: EventRegistrationLocale): string {
+  const formatted = new Intl.DateTimeFormat(
+    locale === EventRegistrationLocale.EN ? 'en-GB' : 'sv-SE',
+    {
+      dateStyle: 'full',
+      timeStyle: 'short',
+      timeZone: 'Europe/Stockholm',
+    },
+  ).format(startsAt);
+  return `${formatted} (Stockholm)`;
+}
+
 @Injectable()
 export class EventRegistrationsService {
   private readonly logger = new Logger(EventRegistrationsService.name);
@@ -35,6 +62,7 @@ export class EventRegistrationsService {
     @InjectRepository(EventRegistration)
     private readonly registrations: Repository<EventRegistration>,
     private readonly configService: ConfigService,
+    private readonly mailService: MailService,
   ) {}
 
   /**
@@ -80,7 +108,124 @@ export class EventRegistrationsService {
       .orIgnore()
       .execute();
 
+    // Fire-and-forget on purpose. A confirmation email is a nicety; the
+    // registration is the thing that matters, and an SMTP outage must not
+    // turn a working form into a broken one. Failures are logged, not
+    // surfaced — the person has been registered either way.
+    void this.sendConfirmation(email);
+
     return { registered: true };
+  }
+
+  private async sendConfirmation(email: string): Promise<void> {
+    try {
+      const row = await this.registrations.findOne({ where: { email } });
+      // Absent means the insert was ignored as a duplicate: this address
+      // was already on the list and has already had a confirmation. Not an
+      // error, and not a reason to send a second one.
+      if (!row) return;
+
+      const rendered = renderSignupConfirmationEmail({
+        locale: row.locale,
+        unsubscribeUrl: this.unsubscribeUrl(row.unsubscribeCode),
+      });
+      await this.mailService.sendMail({
+        to: row.email,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Could not send demo-signup confirmation: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Mails the invitation to everyone who has not had one.
+   *
+   * **One message per recipient, never a BCC blast.** Each carries that
+   * person's own unsubscribe link, which a shared BCC cannot do — and a
+   * BCC header that leaks the whole list is one mistake away.
+   *
+   * Sequential rather than concurrent: SMTP relays rate-limit, and a demo
+   * list is tens of addresses, so there is nothing to gain and a
+   * throttling ban to lose.
+   *
+   * `invite_sent_at` is stamped **per recipient, immediately after that
+   * send succeeds**. Stamping the whole batch at the end would mean a
+   * crash halfway through re-mails everyone already contacted on the next
+   * run; stamping before the send would silently skip anyone the relay
+   * rejected.
+   */
+  async sendInvites(
+    dto: SendDemoInvitesDto,
+  ): Promise<{ sent: number; failed: number; skipped: number }> {
+    const all = await this.registrations.find({ order: { createdAt: 'ASC' } });
+    const targets = dto.resend
+      ? all
+      : all.filter((row) => row.inviteSentAt === null);
+
+    const startsAt = new Date(dto.startsAt);
+    const stamp = new Date();
+    let sent = 0;
+    let failed = 0;
+
+    for (const row of targets) {
+      try {
+        const rendered = renderDemoInviteEmail({
+          locale: row.locale,
+          name: row.name,
+          whenText: formatWhen(startsAt, row.locale),
+          meetUrl: dto.meetUrl,
+          message: dto.message?.trim() ? dto.message.trim() : null,
+          unsubscribeUrl: this.unsubscribeUrl(row.unsubscribeCode),
+        });
+
+        await this.mailService.sendMail({
+          to: row.email,
+          subject: rendered.subject,
+          html: rendered.html,
+          text: rendered.text,
+          attachments: [
+            {
+              filename: 'skillstreak-demo.ics',
+              contentType: 'text/calendar; charset=utf-8; method=PUBLISH',
+              content: buildDemoInviteIcs({
+                uid: `demo-${row.id}@skillstreak.xyz`,
+                startsAt,
+                durationMinutes: dto.durationMinutes,
+                summary: 'SkillStreak',
+                description: dto.meetUrl,
+                url: dto.meetUrl,
+                stamp,
+              }),
+            },
+          ],
+        });
+
+        await this.registrations.update(
+          { id: row.id },
+          { inviteSentAt: new Date() },
+        );
+        sent += 1;
+      } catch (error) {
+        // One bad address must not abandon the rest of the list. The row
+        // keeps inviteSentAt null, so the next run retries exactly the
+        // ones that failed and nobody else.
+        failed += 1;
+        this.logger.error(
+          `Demo invite failed for one recipient — left unsent for the next run: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    return { sent, failed, skipped: all.length - targets.length };
   }
 
   /** Admin-only. Newest first — the list is read as "who signed up today". */

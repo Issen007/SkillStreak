@@ -301,9 +301,35 @@
               '>Download CSV (' + esc(rows.length) + ')</button> ' +
               (filter === 'todo' && rows.length
                 ? '<button id="markInvited">Mark these ' + esc(rows.length) +
-                  ' as invited</button>'
+                  ' as invited</button> ' +
+                  '<button id="showSend" class="primary">Send invites by ' +
+                  'email…</button>'
                 : '') +
             '</p>' +
+            /* Hidden until asked for: this button mails real people, and a
+             * form sitting permanently open next to a list of addresses is
+             * an easy thing to submit by accident. */
+            '<div id="sendForm" class="card stub" style="display:none">' +
+              '<h3 style="margin:0 0 4px;font-size:15px">Send the invitation</h3>' +
+              '<p class="muted" style="margin:0 0 12px">Goes to the ' +
+              esc(rows.length) + ' people listed below, one message each, ' +
+              'every one carrying its own unsubscribe link. Anyone already ' +
+              'invited is skipped.</p>' +
+              '<div style="display:grid;gap:10px;max-width:420px">' +
+                '<label>Google Meet link<input id="sendMeet" type="url" ' +
+                'placeholder="https://meet.google.com/abc-defg-hij" ' +
+                'style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit"></label>' +
+                '<label>Starts (your local time)<input id="sendStart" ' +
+                'type="datetime-local" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit"></label>' +
+                '<label>Length in minutes<input id="sendMinutes" type="number" ' +
+                'value="30" min="5" max="480" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit"></label>' +
+                '<label>Anything to add? (optional)<textarea id="sendMessage" ' +
+                'rows="3" maxlength="1000" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit"></textarea></label>' +
+                '<div><button id="sendGo" class="primary">Send to ' +
+                esc(rows.length) + ' people</button></div>' +
+                '<p id="sendMsg" class="muted" style="margin:0"></p>' +
+              '</div>' +
+            '</div>' +
             '<p id="signupMsg" class="muted" style="margin:0 0 12px"></p>' +
             '<table><tr><th>When</th><th>Name</th><th>Email</th>' +
             '<th>Interest</th><th>Lang</th><th>Campaign</th>' +
@@ -349,6 +375,52 @@
                 msg.className = 'err';
                 msg.textContent = errorMessage(e);
               });
+          };
+        }
+
+        var showSend = document.getElementById('showSend');
+        if (showSend) {
+          showSend.onclick = function () {
+            document.getElementById('sendForm').style.display = '';
+            showSend.disabled = true;
+          };
+        }
+
+        var sendGo = document.getElementById('sendGo');
+        if (sendGo) {
+          sendGo.onclick = function () {
+            var msg = document.getElementById('sendMsg');
+            var meet = document.getElementById('sendMeet').value.trim();
+            var startLocal = document.getElementById('sendStart').value;
+            if (!meet || !startLocal) {
+              msg.className = 'err';
+              msg.textContent = 'A Meet link and a start time are both needed.';
+              return;
+            }
+            sendGo.disabled = true;
+            msg.className = 'muted';
+            msg.textContent = 'Sending — one message at a time, so this takes a moment…';
+            api.post('/api/v1/admin/event-registrations/send-invites', {
+              meetUrl: meet,
+              // datetime-local has no timezone; new Date() reads it as
+              // local time and toISOString converts, which is what the
+              // server expects.
+              startsAt: new Date(startLocal).toISOString(),
+              durationMinutes: Number(document.getElementById('sendMinutes').value) || 30,
+              message: document.getElementById('sendMessage').value.trim() || undefined
+            }).then(function (result) {
+              msg.className = result.failed ? 'err' : 'muted';
+              msg.textContent = 'Sent ' + result.sent + ', failed ' +
+                result.failed + ', skipped ' + result.skipped +
+                (result.failed
+                  ? '. The failures kept their unsent state and will be retried next time.'
+                  : '.');
+              setTimeout(function () { go('signups/todo'); }, 2500);
+            }).catch(function (e) {
+              sendGo.disabled = false;
+              msg.className = 'err';
+              msg.textContent = errorMessage(e);
+            });
           };
         }
 
