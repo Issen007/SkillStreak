@@ -14,9 +14,12 @@ video clip feed, self-service team creation. Don't treat this repo as a
 blank slate; read those two docs before assuming what does or doesn't
 exist yet, since both are updated far more often than this file.
 
-The project itself is still unnamed ("SkillStreak" is a working title —
-see docs/PROJECT.md's banner for name candidates). Don't hardcode the
-working title into code/config in a way that's painful to rename later.
+**The app is called SkillStreak** — confirmed by the project owner
+2026-08-10, no longer a working title. The bundle identifier and package
+name (`xyz.skillstreak.app`, in `mobile/app.json`) encode it and are
+permanent from first store publish, so this is settled rather than merely
+current. The earlier caution about not hardcoding the working title is
+withdrawn: hardcode it freely.
 
 ## What this is
 

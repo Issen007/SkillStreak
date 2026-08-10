@@ -40,15 +40,14 @@ android.package      = "xyz.skillstreak.app"
 Not "hard to change" — genuinely impossible without shipping a different
 app and losing every install and review.
 
-They are freely changeable *right now*, and stay changeable through as many
-internal test builds as you like. But **the app's real name has to be
-decided before the first submission**, because these strings encode it and
-because the store listing name is chosen at the same moment.
+**The name is decided: SkillStreak** (project owner, 2026-08-10), so these
+values are confirmed rather than provisional and the store listing name
+follows from it. They derive from `skillstreak.xyz`, a domain you own,
+which is the right shape for a bundle ID.
 
-That is the single blocking decision in this whole document. The chosen
-value is derived from `skillstreak.xyz`, a domain you actually own — which
-is the right shape for a bundle ID — but the name itself is still marked as
-a working title in `docs/PROJECT.md`.
+Nothing in this document is name-blocked any more. The permanence note
+above still matters — change them now if you are ever going to, because
+after the first publish you cannot.
 
 ---
 
