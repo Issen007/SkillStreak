@@ -1475,10 +1475,22 @@ footer .foot-row {
   }
 
   // Attribution without a tracker: whichever campaign link they followed.
+  //
+  // Reads the fragment as well as the query string on purpose. The correct
+  // link is `/?campaign=x#visning`, but `/#visning?campaign=x` is the
+  // version a human writes, and there the browser puts everything after
+  // the `#` in the fragment, so location.search is empty and the tag is
+  // silently lost. Losing attribution because someone typed a URL in the
+  // obvious order is a worse outcome than parsing both.
   function campaign() {
     try {
-      var value = new URLSearchParams(window.location.search).get('campaign');
-      return value ? value.slice(0, 64) : null;
+      var fromQuery = new URLSearchParams(window.location.search).get('campaign');
+      if (fromQuery) return fromQuery.slice(0, 64);
+      var hash = window.location.hash || '';
+      var queryStart = hash.indexOf('?');
+      if (queryStart === -1) return null;
+      var fromHash = new URLSearchParams(hash.slice(queryStart + 1)).get('campaign');
+      return fromHash ? fromHash.slice(0, 64) : null;
     } catch (e) {
       return null;
     }
