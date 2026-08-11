@@ -64,7 +64,23 @@ export interface PtConsentRequestResult {
  * live row's `display_name` and `email` are overwritten from the ID token
  * on every Google/Microsoft login.
  */
-function consentTrainerName(
+/**
+ * The trainer's email as the parent saw it, on the same terms as the name
+ * beside it.
+ *
+ * Freezing the name and resolving the email live was worse than freezing
+ * neither: the review screen showed a name from the moment of the request
+ * next to an address read out of a row that every Google/Microsoft login
+ * overwrites, so the two could disagree about the same person.
+ */
+export function consentTrainerEmail(
+  row: { ptEmailSnapshot: string | null },
+  liveAccount: { email?: string } | null,
+): string {
+  return row.ptEmailSnapshot ?? liveAccount?.email ?? '';
+}
+
+export function consentTrainerName(
   row: {
     ptDisplayNameSnapshot: string | null;
     ptEmailSnapshot: string | null;
@@ -80,11 +96,6 @@ function consentTrainerName(
     fallback
   );
 }
-
-/** Test-only alias. The helper stays module-private — exporting it under
- *  its own name would invite call sites outside this file, and the whole
- *  point is that exactly one place decides which name a parent sees. */
-export const consentTrainerNameForTest = consentTrainerName;
 
 // docs/adr/0023-pt-role-and-staff-sso-rbac.md Decision A3 (the per-
 // relationship consent gate) and Decision A4 (its three-lever
@@ -273,6 +284,12 @@ export class PtConsentService {
           // consent record is evidence of what someone agreed to at a
           // moment, so the things it is evidence about must not be
           // re-resolved from a row that every login overwrites.
+          // PtAuthGuard now does a per-request StaffAccount lookup and
+          // throws StaffAccountGoneException for a missing row, so this
+          // account exists by the time the request reaches here. The
+          // optional chaining is kept for the compiler, not as a real
+          // branch — and the entity's "new rows always carry all three"
+          // is therefore true.
           ptDisplayNameSnapshot: ptStaffAccount?.displayName ?? null,
           ptEmailSnapshot: ptStaffAccount?.email ?? null,
           ptRoleAtRequest: ptStaffAccount?.role ?? null,
@@ -297,7 +314,7 @@ export class PtConsentService {
       isSelfVerificationAge(player.birthYear),
       parentContact,
       consentTrainerName(saved, ptStaffAccount, 'okänd tränare'),
-      ptStaffAccount?.email ?? '',
+      consentTrainerEmail(saved, ptStaffAccount),
       code,
     );
 
@@ -368,7 +385,7 @@ export class PtConsentService {
     return {
       screenName: player.screenName,
       ptDisplayName: consentTrainerName(row, ptStaffAccount),
-      ptEmail: ptStaffAccount?.email ?? '',
+      ptEmail: consentTrainerEmail(row, ptStaffAccount),
     };
   }
 

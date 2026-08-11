@@ -249,6 +249,17 @@
   function renderLangSwitch() {
     var host = el('langSwitch');
     if (!host) return;
+    /* Only on the trainer surface. The admin pillars are deliberately
+     * untranslated — "suppression floor", "step-up" have no settled
+     * Swedish — so offering the toggle there produced a half-Swedish
+     * console rather than a Swedish one. The code and the comment
+     * claiming "only the trainer surface" now agree. */
+    if (state.mode !== 'pt') {
+      host.innerHTML = '';
+      host.style.display = 'none';
+      return;
+    }
+    host.style.display = '';
     host.innerHTML = ['sv', 'en'].map(function (lang) {
       return '<button data-lang="' + lang + '"' +
         (state.lang === lang ? ' class="is-on"' : '') + '>' +
@@ -440,7 +451,7 @@
   };
 
   function metricLabel(metric) {
-    var table = METRIC_LABEL[state.lang] || METRIC_LABEL.en;
+    var table = METRIC_LABEL[effectiveLang()] || METRIC_LABEL.en;
     return table[metric] || metric;
   }
 
@@ -625,10 +636,24 @@
    */
   var LANG_KEY = 'skillstreak.console.lang';
 
+  /**
+   * Keys are matched against whole text nodes, so a key that is also a
+   * plausible piece of SERVER DATA would rewrite it. A child's screen name
+   * is the one string in this app that must render exactly as they chose
+   * it, so bare generic words — "Open", "All", "Player", "Training",
+   * "Trainer", "of", "min" — were removed after a review pointed out that
+   * a screen name equal to any of them would be translated.
+   *
+   * Every key below is either a full sentence or a phrase no screen name,
+   * team name or drill title would plausibly be. Where a short word was
+   * genuinely needed in the copy, the view wraps it in its own <span> with
+   * a longer, unambiguous key rather than a bare word.
+   */
   var SV = {
     /* nav */
     'My teams': 'Mina lag',
     'Drill library': 'Övningsbank',
+    'My teams': 'Mina lag',
     /* teams / PT1 */
     'Add a team': 'Lägg till ett lag',
     'A captain generates an 8-character code and gives it to you. You cannot search for teams — the invitation only ever travels in that direction.':
@@ -643,10 +668,8 @@
     'points in the team pot': 'poäng i lagets pott',
     'This week': 'Den här veckan',
     'No weekly goal running.': 'Inget veckomål igång.',
-    'Players': 'Spelare',
     'Screen names only. You see a player’s training after their family says yes — each child is a separate decision.':
       'Bara skärmnamn. Du ser en spelares träning först när familjen sagt ja — varje barn är ett eget beslut.',
-    'Player': 'Spelare',
     'Access': 'Åtkomst',
     'Shared with you': 'Delas med dig',
     'Waiting for a parent': 'Väntar på förälder',
@@ -658,25 +681,23 @@
     'You are not linked to this team.': 'Du är inte kopplad till det här laget.',
     'A captain can revoke a trainer link at any time, and does not have to give a reason.':
       'En lagkapten kan ta bort en tränarkoppling när som helst, utan att förklara varför.',
-    'player': 'spelare',
-    'players': 'spelare',
+    'players on the roster': 'spelare i truppen',
+    'Players in this team': 'Spelare i laget',
+    'out of': 'av',
+    'ending on': 'slutar',
     'shared with you': 'delas med dig',
     'waiting for a parent': 'väntar på förälder',
     /* player detail */
-    'Training': 'Träning',
     'When': 'När',
     'Activity': 'Aktivitet',
     'Minutes': 'Minuter',
     'Nothing logged yet.': 'Inget loggat än.',
-    'Badges': 'Märken',
     'No badges yet.': 'Inga märken än.',
     'No real name, no contact details, no clips, no chat, and nowhere this player has been. That is the whole of what a trainer is shown.':
       'Inget riktigt namn, inga kontaktuppgifter, inga klipp, ingen chatt, och aldrig var spelaren har varit. Det är allt en tränare ser.',
     /* drills */
     'Coach-authored training material. It carries no clips, no training logs and no player data — drills are files in the repository, read by a person before they merge.':
       'Träningsmaterial skrivet av tränare. Det innehåller inga klipp, inga träningsloggar och inga spelaruppgifter — övningarna är filer som en människa läser innan de publiceras.',
-    'All': 'Alla',
-    'Open': 'Öppna',
     'Nothing here yet. Drills are added to the repository and arrive with the next release.':
       'Inget här än. Övningar läggs till i repot och dyker upp vid nästa release.',
     'Teknik': 'Teknik', 'Fys': 'Fys', 'Skott': 'Skott',
@@ -684,11 +705,7 @@
     /* shared */
     'Loading…': 'Laddar…',
     'Sign out': 'Logga ut',
-    'Trainer': 'Tränare',
-    'of': 'av',
     'ending': 'slutar',
-    'sessions': 'pass',
-    'min': 'min',
     'år': 'år'
   };
 
@@ -703,6 +720,13 @@
     return state.role === 'pt' ? 'sv' : 'en';
   }
 
+  /** The language actually in force: Swedish only on the trainer surface,
+   *  whatever is stored. An admin who once picked SV as a trainer should
+   *  not get a half-Swedish admin console back. */
+  function effectiveLang() {
+    return state.mode === 'pt' ? state.lang : 'en';
+  }
+
   function setLang(lang) {
     try { localStorage.setItem(LANG_KEY, lang); } catch (e) { /* ignore */ }
     state.lang = lang;
@@ -712,7 +736,7 @@
   /** Translate. Untranslated strings fall through as English, which is
    *  visible and honest rather than a blank or an identifier. */
   function t(text) {
-    if (state.lang !== 'sv') return text;
+    if (effectiveLang() !== 'sv') return text;
     return SV[text] || text;
   }
 
@@ -735,7 +759,7 @@
    * not shift.
    */
   function translateTree(root) {
-    if (!root || state.lang !== 'sv') return;
+    if (!root || effectiveLang() !== 'sv') return;
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     var node;
     while ((node = walker.nextNode())) {
@@ -1653,13 +1677,13 @@
             '</strong> points in the team pot</p>' +
             (goal
               ? '<p class="muted" style="margin:0"><span>This week</span>: ' + esc(goal.title) +
-                ' — ' + esc(goal.teamProgressValue) + ' <span>of</span> ' +
+                ' — ' + esc(goal.teamProgressValue) + ' <span>out of</span> ' +
                 esc(goal.targetValue) + ' ' + esc(metricLabel(goal.targetMetric)) +
-                ', <span>ending</span> ' + esc(goal.endDate) + '</p>'
+                ', <span>ending on</span> ' + esc(goal.endDate) + '</p>'
               : '<p class="muted" style="margin:0">No weekly goal running.</p>') +
           '</div>' +
           '<div class="card">' +
-            '<h3 style="margin:0 0 4px;font-size:15px"><span>Players</span> (' +
+            '<h3 style="margin:0 0 4px;font-size:15px"><span>Players in this team</span> (' +
             esc(team.rosterSize) + ')</h3>' +
             '<p class="muted" style="margin:0 0 12px">Screen names only. You ' +
             'see a player&rsquo;s training after their family says yes — ' +
@@ -1726,8 +1750,7 @@
     return '<div class="card">' +
       '<h3 style="margin:0 0 4px;font-size:15px">' + esc(team.teamName) + '</h3>' +
       '<p class="muted" style="margin:0 0 10px">' +
-      esc(team.rosterSize) + ' <span>' +
-      esc(team.rosterSize === 1 ? 'player' : 'players') + '</span> · ' +
+      esc(team.rosterSize) + ' <span>players on the roster</span> · ' +
       esc(approved) + ' <span>shared with you</span>' +
       (waiting ? ' · ' + esc(waiting) + ' <span>waiting for a parent</span>' : '') +
       '</p>' +

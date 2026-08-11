@@ -1,4 +1,4 @@
-import { consentTrainerNameForTest } from './pt-consent.service';
+import { consentTrainerEmail, consentTrainerName } from './pt-consent.service';
 import { EntityManager } from 'typeorm';
 import {
   PtConsentAlreadyActiveException,
@@ -544,14 +544,14 @@ describe('PtConsentService: the trainer identity a parent approved', () => {
     };
     const live = { displayName: 'Someone Else', email: 'other@example.se' };
 
-    expect(consentTrainerNameForTest(row, live)).toBe('Anna Trainer');
+    expect(consentTrainerName(row, live)).toBe('Anna Trainer');
   });
 
   it('falls back to the live row only for consents predating the columns', () => {
     const row = { ptDisplayNameSnapshot: null, ptEmailSnapshot: null };
     const live = { displayName: 'Legacy Trainer', email: 'legacy@example.se' };
 
-    expect(consentTrainerNameForTest(row, live)).toBe('Legacy Trainer');
+    expect(consentTrainerName(row, live)).toBe('Legacy Trainer');
   });
 
   it('uses the snapshotted email when a provider never gave a name', () => {
@@ -562,12 +562,32 @@ describe('PtConsentService: the trainer identity a parent approved', () => {
       ptEmailSnapshot: 'apple-user@example.se',
     };
 
-    expect(consentTrainerNameForTest(row, null)).toBe('apple-user@example.se');
+    expect(consentTrainerName(row, null)).toBe('apple-user@example.se');
   });
 
   it('never renders an empty name to a child deciding whether to end it', () => {
     const row = { ptDisplayNameSnapshot: null, ptEmailSnapshot: null };
 
-    expect(consentTrainerNameForTest(row, null, '—')).toBe('—');
+    expect(consentTrainerName(row, null, '—')).toBe('—');
+  });
+
+  it('freezes the email on the same terms as the name beside it', () => {
+    // Freezing one and resolving the other live was worse than freezing
+    // neither: the review screen could show a name from the moment of the
+    // request next to an address from a row every login overwrites.
+    const row = {
+      ptDisplayNameSnapshot: 'Anna Trainer',
+      ptEmailSnapshot: 'anna@example.se',
+    };
+    const live = { displayName: 'Anna Nynamn', email: 'anna.new@example.se' };
+
+    expect(consentTrainerName(row, live)).toBe('Anna Trainer');
+    expect(consentTrainerEmail(row, live)).toBe('anna@example.se');
+  });
+
+  it('falls back to the live email only for rows predating the column', () => {
+    expect(
+      consentTrainerEmail({ ptEmailSnapshot: null }, { email: 'x@example.se' }),
+    ).toBe('x@example.se');
   });
 });

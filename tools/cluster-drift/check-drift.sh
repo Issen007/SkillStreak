@@ -56,12 +56,17 @@ live_env_names() {
   kube get deploy "$1" -o jsonpath='{range .spec.template.spec.containers[0].env[*]}{.name}{"\n"}{end}' 2>/dev/null | sort -u
 }
 
+# All THREE probe kinds plus containerPort. startupProbe was missed on the
+# first pass and is the most lethal of the three: a wrong readiness port
+# keeps a pod out of the Service, a wrong startup port means the pod never
+# becomes ready at all — and `sort -u` collapses the set, so a startupProbe
+# drifting alone would have printed "ok".
 repo_ports() {
   grep -oE 'containerPort: [0-9]+|port: [0-9]+' "$1" | awk '{print $2}' | sort -u
 }
 
 live_ports() {
-  kube get deploy "$1" -o go-template='{{range .spec.template.spec.containers}}{{range .ports}}{{.containerPort}}{{"\n"}}{{end}}{{if .readinessProbe}}{{.readinessProbe.httpGet.port}}{{"\n"}}{{end}}{{if .livenessProbe}}{{.livenessProbe.httpGet.port}}{{"\n"}}{{end}}{{end}}' 2>/dev/null | sort -u
+  kube get deploy "$1" -o go-template='{{range .spec.template.spec.containers}}{{range .ports}}{{.containerPort}}{{"\n"}}{{end}}{{if .readinessProbe}}{{.readinessProbe.httpGet.port}}{{"\n"}}{{end}}{{if .livenessProbe}}{{.livenessProbe.httpGet.port}}{{"\n"}}{{end}}{{if .startupProbe}}{{.startupProbe.httpGet.port}}{{"\n"}}{{end}}{{end}}' 2>/dev/null | sort -u
 }
 
 check_deployment() {

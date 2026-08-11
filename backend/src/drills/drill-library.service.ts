@@ -232,9 +232,27 @@ export function findContactDetail(body: string): string | null {
   if (/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(body)) {
     return 'an email address';
   }
-  // Seven or more digits, allowing the spaces, dashes and parentheses a
-  // phone number is normally written with. Long enough not to catch a
-  // year, a rep count or a duration.
-  if (/(?:\+?\d[\s\-()]*){7,}/.test(body)) return 'a phone number';
+  // Phone numbers, without eating ordinary drill prose.
+  //
+  // The first version was `(?:\+?\d[\s\-()]*){7,}`, which rejected far more
+  // than phone numbers: a run of seven digits separated by spaces or
+  // dashes is completely normal here, so "Tillagd 2026-08-11" and "30 30
+  // 30 30 30 30 sekunder" were both refused. A rejected drill is a missing
+  // row and a warning nobody reads, so over-eagerness fails INVISIBLY —
+  // the opposite of the asymmetry that comment claimed.
+  //
+  // The second attempt stripped whitespace before matching, which
+  // reintroduced the same fault by a different route: "30 30 30 30 30 30"
+  // compacts to twelve consecutive digits. Space-separated digits are
+  // interval and station lists, and must not be joined.
+  //
+  // So: an international number, a solid run of 8+ digits, or Swedish
+  // grouping — each matched against the text as written.
+  if (/\+\d[\d\s-]{7,}/.test(body)) return 'a phone number';
+  if (/(?<!\d)\d{8,}(?!\d)/.test(body)) return 'a phone number';
+  if (/\b0\d{1,3}[-\s]\d{2,3}[-\s]?\d{2}[-\s]?\d{2}\b/.test(body)) {
+    return 'a phone number';
+  }
+
   return null;
 }
