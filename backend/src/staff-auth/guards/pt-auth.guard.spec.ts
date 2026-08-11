@@ -52,8 +52,32 @@ describe('PtAuthGuard', () => {
     await expect(guard.canActivate(context)).resolves.toBe(true);
   });
 
-  it('rejects an admin-role session (this guard is pt-only)', async () => {
+  /**
+   * Changed 2026-08-11. This used to assert an admin was refused outright.
+   *
+   * Letting an admin through grants nothing, which is the same property
+   * this guard's own docstring is built on: a session here carries no
+   * ambient authority until Part A's consent chain grants something
+   * specific, and every one of those grants is re-checked live against
+   * (staffAccountId, teamId/playerId). An admin with no PtTeamLink reaches
+   * an empty list.
+   *
+   * What it buys: the project owner can be invited to a real team from
+   * their own account, instead of needing a second Google identity to see
+   * half of their own console.
+   */
+  it('allows an admin-role session through, which grants nothing by itself', async () => {
     const guard = buildGuard(StaffAccountRole.ADMIN);
+    const { context } = buildContext({ staff_session: 'valid-token' });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('still refuses a role it does not recognise', async () => {
+    // Two named roles, not "anything holding a session" — so a future role
+    // added for some unrelated purpose does not silently inherit the
+    // trainer surface.
+    const guard = buildGuard('auditor' as StaffAccountRole);
     const { context } = buildContext({ staff_session: 'valid-token' });
 
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(

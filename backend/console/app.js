@@ -146,7 +146,21 @@
   }
 
   var el = function (id) { return document.getElementById(id); };
-  var state = { role: null, session: null, tab: null };
+  /**
+   * `role` is what the server says this account IS. `mode` is which surface
+   * is currently being looked at.
+   *
+   * They differ only for an admin, who may also act as a trainer. That is
+   * a view switch and nothing more: the server grants a trainer nothing
+   * until a captain issues an invite code and a parent approves each child,
+   * both re-checked live per request. An admin in trainer mode sees exactly
+   * what that account has been *given*, which starts at nothing.
+   */
+  var state = { role: null, mode: null, session: null, tab: null };
+
+  function canSwitchMode() {
+    return state.role === 'admin';
+  }
 
   /* Which tabs a role sees. The server enforces all of it — every /admin
    * route is behind AdminAuthGuard regardless of what this array says, so
@@ -185,10 +199,53 @@
     el('shell').classList.toggle('is-on', which === 'shell');
   }
 
+  /**
+   * The Admin / Trainer switch, drawn only for accounts that can do both.
+   *
+   * A view switch, not a privilege switch — the server does not know or
+   * care which mode is selected, and being in trainer mode neither adds nor
+   * removes anything. That is worth stating on screen too, because a
+   * control labelled "mode" invites the assumption that it grants
+   * something.
+   */
+  function renderModeSwitch() {
+    var host = el('modeSwitch');
+    if (!host) return;
+    if (!canSwitchMode()) {
+      host.innerHTML = '';
+      host.style.display = 'none';
+      return;
+    }
+    host.style.display = '';
+    host.innerHTML =
+      '<div class="mode" role="group" aria-label="View mode">' +
+        ['admin', 'pt'].map(function (mode) {
+          return '<button data-mode="' + mode + '"' +
+            (state.mode === mode ? ' class="is-on"' : '') + '>' +
+            (mode === 'admin' ? 'Admin' : 'Trainer') + '</button>';
+        }).join('') +
+      '</div>';
+
+    Array.prototype.forEach.call(
+      host.querySelectorAll('[data-mode]'),
+      function (button) {
+        button.onclick = function () {
+          var mode = button.getAttribute('data-mode');
+          if (mode === state.mode) return;
+          state.mode = mode;
+          /* Land on that surface's first tab rather than trying to map the
+           * current one across — the two have no tabs in common. */
+          go(TABS[mode][0].id);
+        };
+      }
+    );
+  }
+
   function renderNav() {
+    renderModeSwitch();
     var nav = el('nav');
     nav.innerHTML = '';
-    (TABS[state.role] || []).forEach(function (tab) {
+    (TABS[state.mode] || []).forEach(function (tab) {
       var b = document.createElement('button');
       b.innerHTML = '<span class="ico" aria-hidden="true">' + esc(tab.ico || '') +
         '</span><span>' + esc(tab.label) + '</span>';
@@ -1141,6 +1198,9 @@
       }
 
       state.role = session.role === 'admin' ? 'admin' : 'pt';
+      /* Admins start in admin mode; a trainer has only one surface, so for
+       * them mode and role are always the same thing. */
+      state.mode = state.role;
       el('who').textContent =
         session.displayName || (state.role === 'admin' ? '' : 'Trainer');
       show('shell');

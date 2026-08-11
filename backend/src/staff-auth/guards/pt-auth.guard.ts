@@ -23,7 +23,28 @@ export class PtAuthGuard implements CanActivate {
     await this.staffAuthGuard.canActivate(context);
     const request = context.switchToHttp().getRequest<Request>();
 
-    if (request.staffRole !== StaffAccountRole.PT) {
+    // Admins may also act as a trainer. This grants NOTHING on its own,
+    // which is the same property this guard's own comment above relies on:
+    // a session on this side carries no ambient authority until Part A's
+    // consent chain grants something specific, and every one of those
+    // grants is checked live against (staffAccountId, teamId/playerId).
+    //
+    // So an admin reaching a /pt route sees exactly what an admin has been
+    // *given* — which, with no PtTeamLink, is an empty list. The gates that
+    // matter are unchanged: a captain (a Player, via PtTeamLinksController)
+    // still has to issue an invite code, and a parent still has to approve
+    // each individual child.
+    //
+    // Added 2026-08-11 so the project owner can test the trainer surface
+    // from their own account and be invited to a real team, rather than
+    // needing a second Google account to see half the console.
+    //
+    // The honest residual: an admin with database access could read an
+    // invite code out of Postgres. That is true of any admin today and is
+    // not a capability this adds — an admin cannot mint one, because code
+    // generation is behind JwtAuthGuard and a captain's own player id.
+    const role = request.staffRole;
+    if (role !== StaffAccountRole.PT && role !== StaffAccountRole.ADMIN) {
       throw new StaffAccountNotPtException();
     }
 

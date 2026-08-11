@@ -129,6 +129,23 @@
   }
   nav button .ico { width: 15px; text-align: center; flex: none; opacity: .85; }
 
+  /* Admin / Trainer switch. A segmented control rather than a toggle: a
+     toggle implies on/off, and neither of these is the absence of the
+     other. */
+  .mode {
+    display: flex; background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: var(--radius-sm); padding: 2px; margin: 0 2px 12px;
+  }
+  .mode button {
+    flex: 1; font: inherit; font-size: 12.5px; padding: 5px 8px; cursor: pointer;
+    border: none; background: transparent; color: var(--ink-2);
+    border-radius: 6px; transition: background .12s, color .12s;
+  }
+  .mode button.is-on {
+    background: var(--surface); color: var(--ink); font-weight: 600;
+    box-shadow: var(--shadow);
+  }
+
   .aside-foot { margin-top: auto; padding: 10px 8px 2px; border-top: 1px solid var(--line); }
   /* The button rules below are scoped to `main`, so the sidebar's own
      button needs saying explicitly — otherwise it renders as a raw
@@ -253,6 +270,7 @@
 <div class="shell" id="shell">
   <aside>
     <span class="brand"><span class="dot">🔥</span>SkillStreak</span>
+    <div id="modeSwitch" style="display:none"></div>
     <nav id="nav"></nav>
     <div class="aside-foot">
       <span class="who" id="who"></span>
