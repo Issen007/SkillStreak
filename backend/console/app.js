@@ -402,6 +402,48 @@
 
 
 
+  /**
+   * Weekly-goal target metrics, which arrive as raw enum values
+   * (`total-pass`, `drill-minuter`). Rendering those straight was ugly in
+   * both languages and meaningless to a trainer — and they cannot go
+   * through the text-node translator, because they are DATA rather than
+   * copy, so they are mapped explicitly here.
+   *
+   * Unknown values fall through to the raw string rather than to a blank:
+   * a metric added server-side should look unfinished, not absent.
+   */
+  var METRIC_LABEL = {
+    en: {
+      'fitness-minuter': 'fitness minutes',
+      'drill-minuter': 'drill minutes',
+      'running-minuter': 'running minutes',
+      'other-minuter': 'other minutes',
+      'total-minuter': 'minutes in total',
+      'fitness-pass': 'fitness sessions',
+      'drill-pass': 'drill sessions',
+      'running-pass': 'running sessions',
+      'other-pass': 'other sessions',
+      'total-pass': 'sessions in total'
+    },
+    sv: {
+      'fitness-minuter': 'konditionsminuter',
+      'drill-minuter': 'teknikminuter',
+      'running-minuter': 'löpminuter',
+      'other-minuter': 'övriga minuter',
+      'total-minuter': 'minuter totalt',
+      'fitness-pass': 'konditionspass',
+      'drill-pass': 'teknikpass',
+      'running-pass': 'löppass',
+      'other-pass': 'övriga pass',
+      'total-pass': 'pass totalt'
+    }
+  };
+
+  function metricLabel(metric) {
+    var table = METRIC_LABEL[state.lang] || METRIC_LABEL.en;
+    return table[metric] || metric;
+  }
+
   var DRILL_FOCUSES = ['teknik', 'fys', 'skott', 'passning', 'spelforstaelse'];
   var FOCUS_LABEL = {
     teknik: 'Teknik', fys: 'Fys', skott: 'Skott',
@@ -1501,7 +1543,7 @@
             (goal
               ? '<p class="muted" style="margin:0"><span>This week</span>: ' + esc(goal.title) +
                 ' — ' + esc(goal.teamProgressValue) + ' <span>of</span> ' +
-                esc(goal.targetValue) + ' ' + esc(goal.targetMetric) +
+                esc(goal.targetValue) + ' ' + esc(metricLabel(goal.targetMetric)) +
                 ', <span>ending</span> ' + esc(goal.endDate) + '</p>'
               : '<p class="muted" style="margin:0">No weekly goal running.</p>') +
           '</div>' +
