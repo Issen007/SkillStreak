@@ -1071,3 +1071,55 @@ and ADR-0027 Decision 10 use:
    advice on Swedish reporting obligations, and a realistic answer to "who
    reviews a flag and how fast," before any detector is built. It is the
    long-lead item; starting it now costs nothing while Phase 1 ships.
+
+
+## Amendment, 2026-08-11 — the cluster exists, and Open Question 2 is closed
+
+`skillstreak-gpu` was provisioned and surveyed. The hardware questions
+this ADR left open are answered from the cluster itself rather than
+estimated:
+
+| | |
+|---|---|
+| Workers | 3 × (4 vCPU, 8 GB RAM, **1 GPU**) |
+| GPU | **NVIDIA A2, 15 356 MiB VRAM**, compute 8.6 |
+| Platform | Talos, k8s v1.35.4, Cilium, Cinder CSI, cert-manager |
+
+**The binding constraint is 8 GB of host RAM per node, not VRAM** — which
+inverts the assumption the model-choice section was written under. 15 GB
+of VRAM is generous for a 7–8 B model at 4-bit (~5 GB, leaving room for
+KV cache); 8 GB of system memory is tight for staging weights on the way
+to the card. Decision 9's measurement list stands, with that added as the
+first thing to watch.
+
+Two operational facts that the ADR could not have known and that stopped
+the first probe attempt outright:
+
+- **`runtimeClassName: nvidia` is required.** Without it a pod starts
+  normally and cannot see the GPU at all — the symptom is `nvidia-smi:
+  executable file not found`, which reads as a broken image rather than a
+  missing runtime.
+- **PodSecurity `restricted` is enforced**, so every pod needs
+  `runAsNonRoot`, `allowPrivilegeEscalation: false`,
+  `capabilities.drop: ["ALL"]` and `seccompProfile: RuntimeDefault`.
+
+Both are now encoded in `k8s-ai/gpu-probe.yaml`, which is committed
+precisely so "can a pod here see a GPU" is a command rather than an
+investigation. Verified working against the real cluster.
+
+**Decision 12's `cluster-identity` ConfigMap is applied**, and the
+namespace is `skillstreak-ai` rather than `skillstreak` — so an apply
+aimed at the wrong cluster fails on a missing namespace instead of landing
+somewhere plausible. Worth noting that `skillstreak-gpu` was the *current*
+kubectl context during this work, which is exactly the shape of the
+2026-07-30 incident; every command in `k8s-ai/README.md` passes
+`--context` explicitly.
+
+**Still the first blocker, and it is infrastructure rather than code**:
+this cluster has no ingress and no LoadBalancer service, so the app has no
+route to it. Open Question 1's Elastic IP concern was right, and it has
+not moved.
+
+Cost note for when the resources stop being free: **Phase 1 needs one
+GPU.** The other two are headroom for Phase 2's video work, not a
+requirement for the training-plan generator.

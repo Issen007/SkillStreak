@@ -1,0 +1,46 @@
+# "Can a pod on this cluster actually see a GPU?" as a command rather than
+# an investigation.
+#
+# Both of the things this asserts caught me out on the first attempt, and
+# will catch out anyone deploying here:
+#
+#   1. Without `runtimeClassName: nvidia` the container starts fine and
+#      `nvidia-smi` is simply not in PATH — it looks like a broken image,
+#      not a missing runtime.
+#   2. Without all four securityContext fields the pod is refused by
+#      PodSecurity `restricted` before it starts at all.
+#
+# Run:
+#   kubectl --context skillstreak-gpu apply -f k8s-ai/gpu-probe.yaml
+#   kubectl --context skillstreak-gpu -n skillstreak-ai logs gpu-probe
+#   kubectl --context skillstreak-gpu delete -f k8s-ai/gpu-probe.yaml
+#
+# Expected on this hardware (verified 2026-08-11):
+#   NVIDIA A2, 15356 MiB, 570.211.01, 8.6
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-probe
+  namespace: skillstreak-ai
+spec:
+  runtimeClassName: nvidia
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: probe
+      image: nvidia/cuda:12.4.1-base-ubuntu22.04
+      command:
+        - nvidia-smi
+        - --query-gpu=name,memory.total,driver_version,compute_cap
+        - --format=csv,noheader
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        limits:
+          nvidia.com/gpu: 1
