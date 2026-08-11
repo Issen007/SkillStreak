@@ -63,6 +63,19 @@
     return parts.length ? parts.join(' · ') : 'Nobody yet.';
   }
 
+  /* Exception class names → what an operator should read. The class is
+   * how the "why" travels, since the wire message is deliberately
+   * identical for every 401. */
+  var ERROR_NAME_LABEL = {
+    StaffSessionMissingException: 'Not signed in',
+    StaffSessionExpiredException: 'Session timed out',
+    StaffSessionInvalidException: 'Bad signature — check STAFF_JWT_SECRET',
+    StaffAccountGoneException: 'Account row missing',
+    StaffAccountRevokedException: 'Account revoked',
+    StaffAccountNotAdminException: 'Not an admin',
+    StaffAccountNotPtException: 'Not a trainer'
+  };
+
   var INTEREST_LABEL = {
     curious: 'Just curious',
     invest: 'Investment',
@@ -611,12 +624,19 @@
       api.get('/api/v1/admin/errors').then(function (r) {
         var rows = (r.entries || r.rows || []).slice(0, 50).map(function (x) {
           return '<tr><td>' + esc(x.occurredAt) + '</td><td>' + esc(x.source) +
-                 '</td><td>' + esc(x.statusCode || '') + '</td><td>' + esc(x.message) + '</td></tr>';
+                 '</td><td>' + esc(x.statusCode || '') + '</td><td>' +
+                 esc(ERROR_NAME_LABEL[x.errorName] || x.errorName || '') +
+                 '</td><td>' + esc(x.message) + '</td></tr>';
         }).join('');
         view.innerHTML = '<h2>Errors</h2><div class="card"><table>' +
-          '<tr><th>When</th><th>Source</th><th>Status</th><th>Message</th></tr>' +
-          (rows || '<tr><td colspan="4" class="muted">Nothing logged.</td></tr>') +
-          '</table></div>';
+          '<tr><th>When</th><th>Source</th><th>Status</th><th>Why</th><th>Message</th></tr>' +
+          (rows || '<tr><td colspan="5" class="muted">Nothing logged.</td></tr>') +
+          '</table></div>' +
+          '<p class="muted">Every 401 answers the caller with the same ' +
+          'generic message on purpose — telling someone &ldquo;expired&rdquo; ' +
+          'rather than &ldquo;invalid&rdquo; would confirm their token was ' +
+          'correctly signed. The <strong>Why</strong> column is where the ' +
+          'difference is kept.</p>';
       }).catch(function (e) { fail(view, e); });
     },
 

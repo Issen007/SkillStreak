@@ -650,6 +650,41 @@ export class StaffUnauthorizedException extends AppException {
   }
 }
 
+/**
+ * The three ways a staff session fails, as distinct classes.
+ *
+ * Added 2026-08-11. Every 401 in the admin Errors tab used to read
+ * "Missing or invalid staff session.", which conflates situations an
+ * operator would act on differently: nobody signed in, a session that
+ * timed out, and a token whose signature does not verify — the last of
+ * which usually means STAFF_JWT_SECRET differs from the one that minted
+ * it, i.e. a deployment fault rather than a user problem.
+ *
+ * **The wire contract is deliberately unchanged.** All three keep
+ * `staff_unauthorized` and the same generic message, and the distinction
+ * lives only in `error_log_entry.error_name`, which the admin API already
+ * exposes.
+ *
+ * That is a security decision, not laziness. Telling an unauthenticated
+ * caller "expired" rather than "invalid" reveals that their token's
+ * SIGNATURE verified — which hands anyone probing STAFF_JWT_SECRET a
+ * free oracle for when they have guessed it. The operator needs the
+ * distinction; the caller must not have it.
+ */
+export class StaffSessionMissingException extends StaffUnauthorizedException {}
+
+export class StaffSessionExpiredException extends StaffUnauthorizedException {}
+
+export class StaffSessionInvalidException extends StaffUnauthorizedException {}
+
+/**
+ * A validly-signed, unexpired session for a StaffAccount row that no
+ * longer exists — hard-deleted straight in Postgres, say. Distinct from
+ * the three above because it means the token was fine and the *account*
+ * is gone, which points at the database rather than at the caller.
+ */
+export class StaffAccountGoneException extends StaffUnauthorizedException {}
+
 export class StaffAccountRevokedException extends AppException {
   constructor() {
     // AdminAuthGuard's per-request revocation check (security-reviewer's

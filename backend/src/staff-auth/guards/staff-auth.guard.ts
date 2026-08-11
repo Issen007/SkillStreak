@@ -1,6 +1,10 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Request } from 'express';
-import { StaffUnauthorizedException } from '../../common/errors/exceptions';
+import {
+  StaffSessionExpiredException,
+  StaffSessionInvalidException,
+  StaffSessionMissingException,
+} from '../../common/errors/exceptions';
 import { StaffAccountRole } from '../entities/staff-account.entity';
 import { STAFF_SESSION_COOKIE_NAME } from '../staff-cookies';
 import { StaffSessionTokenService } from '../staff-session-token.service';
@@ -38,7 +42,7 @@ export class StaffAuthGuard implements CanActivate {
     const token = request.cookies?.[STAFF_SESSION_COOKIE_NAME] as
       string | undefined;
     if (!token) {
-      throw new StaffUnauthorizedException();
+      throw new StaffSessionMissingException();
     }
 
     try {
@@ -46,10 +50,18 @@ export class StaffAuthGuard implements CanActivate {
       request.staffAccountId = payload.sub;
       request.staffRole = payload.role;
       request.staffStepUpAt = payload.stepUpAt;
-    } catch {
-      throw new StaffUnauthorizedException(
-        'Staff session is invalid or expired.',
-      );
+    } catch (error) {
+      // Same code and same message either way — the difference reaches the
+      // operator through error_log_entry.error_name, never through the
+      // response. See the exception classes for why: telling a caller
+      // "expired" rather than "invalid" would confirm their signature
+      // verified, which is an oracle for STAFF_JWT_SECRET.
+      //
+      // jsonwebtoken names its errors rather than typing them, and
+      // @nestjs/jwt passes them through unchanged.
+      throw error instanceof Error && error.name === 'TokenExpiredError'
+        ? new StaffSessionExpiredException()
+        : new StaffSessionInvalidException();
     }
 
     return true;
