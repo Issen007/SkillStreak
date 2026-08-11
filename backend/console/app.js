@@ -1123,6 +1123,117 @@
       }).catch(function (e) { fail(view, e); });
     },
 
+    /* PR campaigns — the execution record for the copy in
+     * docs/CAMPAIGNS.md, with each campaign's signups counted by its tag.
+     *
+     * Campaigns that produced nothing still show, with a 0. Hiding them
+     * would make the board a list of successes, and the ones that brought
+     * nobody are exactly the ones worth looking at. */
+    campaigns: function (view) {
+      api.get('/api/v1/admin/pr-campaigns').then(function (rows) {
+        var posted = rows.filter(function (r) { return r.status === 'posted'; });
+        var signups = rows.reduce(function (n, r) { return n + r.signups; }, 0);
+
+        view.innerHTML =
+          '<h2>Campaigns</h2>' +
+          '<div class="tiles">' +
+            tile(rows.length, plural(rows.length, 'campaign')) +
+            tile(posted.length, 'posted') +
+            tile(signups, 'signups attributed') +
+          '</div>' +
+          '<div class="card">' +
+            '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+              '<button id="newCampaign" class="primary">New campaign</button>' +
+              '<span class="muted" style="flex:1;min-width:220px">Copy for all ' +
+              'four audiences lives in docs/CAMPAIGNS.md — this tracks what ' +
+              'actually went out.</span>' +
+            '</div>' +
+            '<div id="campaignForm" style="display:none;margin-top:16px"></div>' +
+          '</div>' +
+          '<div class="card">' +
+            (rows.length
+              ? '<table><tr><th>Campaign</th><th>Tag</th><th>Channel</th>' +
+                '<th>Audience</th><th>Lang</th><th>Status</th><th>Signups</th>' +
+                '<th></th></tr>' +
+                rows.map(campaignRow).join('') + '</table>'
+              : '<p class="muted">No campaigns yet. The first one is ' +
+                'probably the summer-project post.</p>') +
+          '</div>';
+
+        document.getElementById('newCampaign').onclick = function () {
+          showCampaignForm(null);
+        };
+        wireCampaignButtons(view, rows);
+      }).catch(function (e) { fail(view, e); });
+    },
+
+    /* Link clicks and app-wide activity, drawn. Everything on this screen
+     * is app-wide — there is no team or player dimension in the payload,
+     * by ADR-0020 Decision 5, so there is nothing here to filter down to
+     * an individual child even if someone wanted to. */
+    graphs: function (view, daysArg) {
+      var days = Number(daysArg) > 0 ? Number(daysArg) : 30;
+      api.get('/api/v1/admin/analytics?days=' + days).then(function (data) {
+        var activeToday = data.activePerDay.length
+          ? data.activePerDay[data.activePerDay.length - 1].value : 0;
+        var activePeak = data.activePerDay.reduce(function (max, p) {
+          return Math.max(max, p.value);
+        }, 0);
+
+        view.innerHTML =
+          '<h2>Graphs</h2>' +
+          '<div class="card">' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+              [7, 30, 90].map(function (option) {
+                return '<button data-go="graphs/' + option + '"' +
+                  (option === days ? ' class="primary"' : '') + '>Last ' +
+                  option + ' days</button>';
+              }).join('') +
+            '</div>' +
+          '</div>' +
+
+          '<div class="card">' +
+            '<h3 style="margin:0 0 2px;font-size:15px">Players</h3>' +
+            '<p class="muted" style="margin:0 0 14px"><strong>' +
+              esc(data.totalPlayers) + '</strong> accounts in total · <strong>' +
+              esc(activeToday) + '</strong> active today · busiest day <strong>' +
+              esc(activePeak) + '</strong></p>' +
+            '<p style="margin:0 0 4px;font-size:13px"><strong>Active players per day</strong> ' +
+              '<span class="muted">— logged at least one session</span></p>' +
+            lineChart(data.activePerDay, 'Active players per day') +
+          '</div>' +
+
+          '<div class="card">' +
+            '<p style="margin:0 0 4px;font-size:13px"><strong>New accounts per day</strong></p>' +
+            lineChart(data.signupsPerDay, 'New player accounts per day') +
+          '</div>' +
+
+          '<div class="card">' +
+            '<h3 style="margin:0 0 2px;font-size:15px">Link clicks</h3>' +
+            '<p class="muted" style="margin:0 0 14px"><strong>' +
+              esc(data.totalClicks) + '</strong> clicks over ' + esc(days) +
+              ' days on the public site.</p>' +
+            barChart(data.linkClicks.map(function (series) {
+              return {
+                label: LINK_LABEL[series.link] || series.link,
+                value: series.total
+              };
+            }), 'Clicks per link') +
+            (data.linkClicks.length
+              ? '<p style="margin:18px 0 4px;font-size:13px"><strong>' +
+                esc(LINK_LABEL[data.linkClicks[0].link] || data.linkClicks[0].link) +
+                '</strong> <span class="muted">— the most clicked, per day</span></p>' +
+                lineChart(data.linkClicks[0].daily, 'Clicks per day for the most clicked link')
+              : '') +
+          '</div>' +
+
+          '<p class="muted">Counts only. No cookies, no third-party ' +
+          'analytics, and nothing identifying a visitor — a click is a ' +
+          'number against a link and a date, so these charts cannot be ' +
+          'narrowed to a person or a team.</p>';
+      }).catch(function (e) { fail(view, e); });
+    },
+
     /* Demo-event signups, and the send list built from them.
      *
      * The filter is the point, not decoration: the first round of invites
