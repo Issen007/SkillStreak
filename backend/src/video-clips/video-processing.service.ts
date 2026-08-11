@@ -140,7 +140,24 @@ export class VideoProcessingService {
       '-map',
       '0:v:0',
       ...(hasAudioStream ? ['-map', '0:a:0'] : []),
+      // Global container metadata — where the GPS atoms ADR-0010 Decision 3
+      // found actually live.
       '-map_metadata',
+      '-1',
+      // Per-stream tags. `-map_metadata -1` is global ONLY, and stream-level
+      // tags ride along with `-c copy` from the input's own streams. The
+      // location atoms ADR-0010 named are global, so this is belt-and-braces
+      // rather than a known leak — added 2026-08-11 from ADR-0027's security
+      // review (finding 7) while the flags were being looked at anyway.
+      '-map_metadata:s',
+      '-1',
+      // Chapters are touched by NEITHER of the above: with -map_chapters
+      // unspecified, ffmpeg copies them from the first input that has any.
+      // Phone video has none today, so this changes nothing now — but it is
+      // the flag that stops a future second input (ADR-0027's music track,
+      // an .m4a that may well carry chapters) from writing free text into a
+      // child's clip, unseen by any filter.
+      '-map_chapters',
       '-1',
       '-c',
       'copy',
