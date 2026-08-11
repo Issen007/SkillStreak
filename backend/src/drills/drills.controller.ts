@@ -7,9 +7,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CurrentStaffAccountId } from '../pt/current-staff-account-id.decorator';
+import { CurrentStaffRole } from '../pt/current-staff-role.decorator';
+import { StaffAccountRole } from '../staff-auth/entities/staff-account.entity';
 import { PtTeamLinksService } from '../pt/pt-team-links.service';
 import { PtAuthGuard } from '../staff-auth/guards/pt-auth.guard';
-import { PtNoActiveTeamLinkException } from '../common/errors/exceptions';
+import { DrillLibraryForbiddenException } from '../common/errors/exceptions';
 import {
   Drill,
   DrillLibraryService,
@@ -42,20 +44,22 @@ export class DrillsController {
   @Get()
   async list(
     @CurrentStaffAccountId() staffAccountId: string,
+    @CurrentStaffRole() role: StaffAccountRole | undefined,
     @Query('ageBand') ageBand?: string,
     @Query('focus') focus?: string,
     @Query('locale') locale?: string,
   ): Promise<DrillSummary[]> {
-    await this.assertMayRead(staffAccountId);
+    await this.assertMayRead(staffAccountId, role);
     return this.drillLibraryService.list({ ageBand, focus, locale });
   }
 
   @Get(':slug')
   async findOne(
     @CurrentStaffAccountId() staffAccountId: string,
+    @CurrentStaffRole() role: StaffAccountRole | undefined,
     @Param('slug') slug: string,
   ): Promise<Drill> {
-    await this.assertMayRead(staffAccountId);
+    await this.assertMayRead(staffAccountId, role);
     const drill = this.drillLibraryService.findBySlug(slug);
     if (!drill) throw new NotFoundException('No such drill.');
     return drill;
@@ -68,8 +72,21 @@ export class DrillsController {
    * outlives its reason" is the shape of bug this project keeps finding,
    * and it costs one indexed count to not have it here.
    */
-  private async assertMayRead(staffAccountId: string): Promise<void> {
+  private async assertMayRead(
+    staffAccountId: string,
+    role: StaffAccountRole | undefined,
+  ): Promise<void> {
+    // ADR-0029 Decision 4's `or is admin` branch, missed on the first
+    // build — which made this a broken tab for the project owner, whose
+    // normal state is an admin holding no team link. It failed closed, so
+    // it was never a security problem, only a wrong one.
+    //
+    // The role claim decides what to SHOW, never what to allow: PtAuthGuard
+    // has already established that this caller is staff, is not revoked,
+    // and holds one of the two roles. This branch only chooses which of two
+    // permitted populations the caller is in.
+    if (role === StaffAccountRole.ADMIN) return;
     if (await this.ptTeamLinksService.hasAnyActiveLink(staffAccountId)) return;
-    throw new PtNoActiveTeamLinkException();
+    throw new DrillLibraryForbiddenException();
   }
 }

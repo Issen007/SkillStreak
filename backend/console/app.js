@@ -384,6 +384,88 @@
       '</div>';
   }
 
+
+  /* ---- statistics rendering ------------------------------------------ */
+
+  /** A hover/focus explainer. The marker is a real button so it is
+   *  keyboard reachable, not a span with a title attribute. */
+  function info(text) {
+    return '<span class="info"><button type="button" aria-label="What is this?">i</button>' +
+      '<span role="tooltip">' + esc(text) + '</span></span>';
+  }
+
+  function pct(value) {
+    return typeof value === 'number' ? Math.round(value) + '%' : '—';
+  }
+
+  function row(label, value, explain) {
+    return '<tr><td>' + esc(label) + (explain ? info(explain) : '') +
+      '</td><td style="text-align:right"><strong>' + value + '</strong></td></tr>';
+  }
+
+  /** Every enum value is always present in the payload, including zeros —
+   *  an absent key would be ambiguous between "none" and "not measured". */
+  function statusRows(label, byStatus) {
+    if (!byStatus) return '';
+    return Object.keys(byStatus).map(function (key, index) {
+      return row((index === 0 ? label + ': ' : '') + key.replace(/_/g, ' '),
+                 esc(byStatus[key]), null);
+    }).join('');
+  }
+
+  function histogramCard(title, bars, explain) {
+    if (!bars || !bars.length) return '';
+    var max = Math.max.apply(null, bars.map(function (b) { return b.count; })) || 1;
+    return '<div class="card"><h3 style="margin:0 0 10px;font-size:15px">' +
+      esc(title) + info(explain) + '</h3>' +
+      bars.map(function (bar) {
+        return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">' +
+          '<span style="width:88px;font-size:13px">' + esc(bar.bucket) + '</span>' +
+          '<span style="flex:1;background:var(--bg);border-radius:4px;height:14px;overflow:hidden">' +
+            '<span style="display:block;height:100%;width:' +
+            ((bar.count / max) * 100).toFixed(1) + '%;background:var(--accent)"></span></span>' +
+          '<strong style="width:44px;text-align:right;font-size:13px">' +
+            esc(bar.count) + '</strong></div>';
+      }).join('') + '</div>';
+  }
+
+  function listCard(title, entries, toCells, explain) {
+    if (!entries || !entries.length) return '';
+    return '<div class="card"><h3 style="margin:0 0 10px;font-size:15px">' +
+      esc(title) + info(explain) + '</h3><table>' +
+      entries.map(function (entry) {
+        var cells = toCells(entry);
+        return '<tr><td>' + cells[0] + '</td><td style="text-align:right">' +
+          '<strong>' + cells[1] + '</strong></td></tr>';
+      }).join('') + '</table></div>';
+  }
+
+  function weeklyCard(title, weeks) {
+    if (!weeks || !weeks.length) return '';
+    return '<div class="card"><h3 style="margin:0 0 8px;font-size:15px">' +
+      esc(title) + '</h3>' +
+      lineChart(weeks.map(function (w) {
+        return { day: w.weekStart || w.week || '', value: w.count ?? 0 };
+      }), title + ' per week') + '</div>';
+  }
+
+  /**
+   * Says which of ADR-0020's two very different situations produced an
+   * empty breakdown. Without this the console cannot tell "every group was
+   * withheld by the floor" from "there are no teams" — opposite facts an
+   * operator acts on differently.
+   */
+  function bucketNote(metric, floor) {
+    if (!metric) return '';
+    if (metric.byTeamSizeBucket && metric.byTeamSizeBucket.length) return '';
+    return '<p class="muted" style="margin:12px 0 0">' +
+      (metric.foldedIntoAppWide
+        ? 'Not broken out by team size this period — no group had ' +
+          esc(floor) + ' teams in it, so they are all counted in the ' +
+          'app-wide figures above. Nothing was dropped.'
+        : 'No teams to break out yet.') + '</p>';
+  }
+
   /* ---- campaigns ----------------------------------------------------- */
 
   function tile(value, label) {
@@ -619,131 +701,142 @@
   var VIEWS = {
     /* Wired end to end, to prove the shell actually authenticates and
      * reads real data rather than only looking like it does. */
+    /* Statistics — ADR-0020's usage metrics, rendered.
+     *
+     * This used to print every top-level NUMBER in the payload, which was
+     * exactly two config values (windowDays, minTeamsPerBucket) and none
+     * of the actual metrics, since all of those are nested. So the tab
+     * showed its own settings and called it statistics.
+     *
+     * Every figure here is app-wide. There is no team or player dimension
+     * in the payload to render even if this file wanted one. */
     stats: function (view) {
       api.get('/api/v1/admin/usage-metrics').then(function (m) {
-        var rows = Object.keys(m).filter(function (k) {
-          return typeof m[k] === 'number';
-        }).map(function (k) {
-          return '<tr><td>' + esc(k) + '</td><td>' + esc(m[k]) + '</td></tr>';
-        }).join('');
-        view.innerHTML = '<h2>Statistics</h2><div class="card"><table>' +
-          '<tr><th>Metric</th><th>Value</th></tr>' + rows + '</table></div>' +
-          '<p class="muted">Aggregates only — ADR-0020 suppresses anything that could ' +
-          'resolve to a single team or player.</p>';
-      }).catch(function (e) { fail(view, e); });
-    },
-
-    /* Demo-event signups. Adult marketing data, kept in its own admin tab
-     * with no path to anything about a player — see the entity docstring
-     * for why that separation is structural rather than tidiness. */
-    /* PR campaigns — the execution record for the copy in
-     * docs/CAMPAIGNS.md, with each campaign's signups counted by its tag.
-     *
-     * Campaigns that produced nothing still show, with a 0. Hiding them
-     * would make the board a list of successes, and the ones that brought
-     * nobody are exactly the ones worth looking at. */
-    campaigns: function (view) {
-      api.get('/api/v1/admin/pr-campaigns').then(function (rows) {
-        var posted = rows.filter(function (r) { return r.status === 'posted'; });
-        var signups = rows.reduce(function (n, r) { return n + r.signups; }, 0);
+        var funnel = (m.adoptionFunnel || {}).appWide || {};
+        var recency = m.activityRecency || {};
+        var streaks = m.streakHealth || {};
+        var goals = (m.weeklyGoalEngagement || {}).appWide || {};
+        var pot = m.teamPoolGrowth || {};
 
         view.innerHTML =
-          '<h2>Campaigns</h2>' +
+          '<h2>Statistics</h2>' +
+
           '<div class="tiles">' +
-            tile(rows.length, plural(rows.length, 'campaign')) +
-            tile(posted.length, 'posted') +
-            tile(signups, 'signups attributed') +
-          '</div>' +
-          '<div class="card">' +
-            '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
-              '<button id="newCampaign" class="primary">New campaign</button>' +
-              '<span class="muted" style="flex:1;min-width:220px">Copy for all ' +
-              'four audiences lives in docs/CAMPAIGNS.md — this tracks what ' +
-              'actually went out.</span>' +
-            '</div>' +
-            '<div id="campaignForm" style="display:none;margin-top:16px"></div>' +
-          '</div>' +
-          '<div class="card">' +
-            (rows.length
-              ? '<table><tr><th>Campaign</th><th>Tag</th><th>Channel</th>' +
-                '<th>Audience</th><th>Lang</th><th>Status</th><th>Signups</th>' +
-                '<th></th></tr>' +
-                rows.map(campaignRow).join('') + '</table>'
-              : '<p class="muted">No campaigns yet. The first one is ' +
-                'probably the summer-project post.</p>') +
-          '</div>';
-
-        document.getElementById('newCampaign').onclick = function () {
-          showCampaignForm(null);
-        };
-        wireCampaignButtons(view, rows);
-      }).catch(function (e) { fail(view, e); });
-    },
-
-    /* Link clicks and app-wide activity, drawn. Everything on this screen
-     * is app-wide — there is no team or player dimension in the payload,
-     * by ADR-0020 Decision 5, so there is nothing here to filter down to
-     * an individual child even if someone wanted to. */
-    graphs: function (view, daysArg) {
-      var days = Number(daysArg) > 0 ? Number(daysArg) : 30;
-      api.get('/api/v1/admin/analytics?days=' + days).then(function (data) {
-        var activeToday = data.activePerDay.length
-          ? data.activePerDay[data.activePerDay.length - 1].value : 0;
-        var activePeak = data.activePerDay.reduce(function (max, p) {
-          return Math.max(max, p.value);
-        }, 0);
-
-        view.innerHTML =
-          '<h2>Graphs</h2>' +
-          '<div class="card">' +
-            '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-              [7, 30, 90].map(function (option) {
-                return '<button data-go="graphs/' + option + '"' +
-                  (option === days ? ' class="primary"' : '') + '>Last ' +
-                  option + ' days</button>';
-              }).join('') +
-            '</div>' +
+            tile(funnel.totalPlayers ?? 0, 'players in total') +
+            tile(recency.playersActiveLast7Days ?? 0, 'active last 7 days') +
+            tile(pct(recency.percentActiveInWindow), 'active this window') +
+            tile(pct(funnel.percentWithAtLeastOneTrainingLog),
+                 'have ever logged') +
           '</div>' +
 
           '<div class="card">' +
-            '<h3 style="margin:0 0 2px;font-size:15px">Players</h3>' +
-            '<p class="muted" style="margin:0 0 14px"><strong>' +
-              esc(data.totalPlayers) + '</strong> accounts in total · <strong>' +
-              esc(activeToday) + '</strong> active today · busiest day <strong>' +
-              esc(activePeak) + '</strong></p>' +
-            '<p style="margin:0 0 4px;font-size:13px"><strong>Active players per day</strong> ' +
-              '<span class="muted">— logged at least one session</span></p>' +
-            lineChart(data.activePerDay, 'Active players per day') +
+            '<h3 style="margin:0 0 10px;font-size:15px">How this report is scoped' +
+              info('The window is how far back every figure below looks. ' +
+                   'Nothing here is per-team or per-player — the payload has ' +
+                   'no such dimension to render.') +
+            '</h3>' +
+            '<table>' +
+              row('Window', esc(m.windowDays) + ' days',
+                  'How many days back these figures cover. Changing it ' +
+                  'changes every number on this page.') +
+              row('Generated', esc((m.generatedAt || '').slice(0, 16).replace('T', ' ')),
+                  'When this snapshot was computed. It is not live — the ' +
+                  'report is produced on a schedule.') +
+              row('Suppression floor', esc(m.minTeamsPerBucket) + ' teams',
+                  'The privacy floor. A team-size group is only broken out ' +
+                  'separately once it contains at least this many teams — ' +
+                  'below that, those teams are counted in the app-wide ' +
+                  'number only, never dropped. It stops a figure about "the ' +
+                  'one 8-player team" from being a figure about that team.') +
+            '</table>' +
           '</div>' +
 
           '<div class="card">' +
-            '<p style="margin:0 0 4px;font-size:13px"><strong>New accounts per day</strong></p>' +
-            lineChart(data.signupsPerDay, 'New player accounts per day') +
+            '<h3 style="margin:0 0 10px;font-size:15px">Getting started' +
+              info('Where accounts sit in the funnel from created, through ' +
+                   'a parent approving, to actually training.') +
+            '</h3>' +
+            '<table>' +
+              row('Players', esc(funnel.totalPlayers ?? 0), null) +
+              row('Have logged at least once',
+                  esc(funnel.playersWithAtLeastOneTrainingLog ?? 0) +
+                  ' (' + pct(funnel.percentWithAtLeastOneTrainingLog) + ')',
+                  'The number that matters most early on: an account that ' +
+                  'never logs anything is a signup, not a user.') +
+              statusRows('Parental consent', funnel.playersByParentalConsentStatus) +
+              statusRows('Team join', funnel.playersByTeamJoinStatus) +
+            '</table>' +
+            bucketNote(m.adoptionFunnel, m.minTeamsPerBucket) +
           '</div>' +
 
           '<div class="card">' +
-            '<h3 style="margin:0 0 2px;font-size:15px">Link clicks</h3>' +
-            '<p class="muted" style="margin:0 0 14px"><strong>' +
-              esc(data.totalClicks) + '</strong> clicks over ' + esc(days) +
-              ' days on the public site.</p>' +
-            barChart(data.linkClicks.map(function (series) {
-              return {
-                label: LINK_LABEL[series.link] || series.link,
-                value: series.total
-              };
-            }), 'Clicks per link') +
-            (data.linkClicks.length
-              ? '<p style="margin:18px 0 4px;font-size:13px"><strong>' +
-                esc(LINK_LABEL[data.linkClicks[0].link] || data.linkClicks[0].link) +
-                '</strong> <span class="muted">— the most clicked, per day</span></p>' +
-                lineChart(data.linkClicks[0].daily, 'Clicks per day for the most clicked link')
-              : '') +
+            '<h3 style="margin:0 0 10px;font-size:15px">Still coming back' +
+              info('Activity recency. "This window" uses the same window as ' +
+                   'the rest of the report, so it moves if the window does.') +
+            '</h3>' +
+            '<table>' +
+              row('Active last 7 days',
+                  esc(recency.playersActiveLast7Days ?? 0) + ' (' +
+                  pct(recency.percentActiveLast7Days) + ')', null) +
+              row('Active this window',
+                  esc(recency.playersActiveInWindow ?? 0) + ' (' +
+                  pct(recency.percentActiveInWindow) + ')', null) +
+            '</table>' +
           '</div>' +
 
-          '<p class="muted">Counts only. No cookies, no third-party ' +
-          'analytics, and nothing identifying a visitor — a click is a ' +
-          'number against a link and a date, so these charts cannot be ' +
-          'narrowed to a person or a team.</p>';
+          histogramCard('Current streaks', streaks.currentStreakHistogram,
+            'How many players sit at each streak length right now. A pile-up ' +
+            'at zero means people are starting and stopping.') +
+          histogramCard('Longest streaks ever', streaks.longestStreakHistogram,
+            'The best each player has ever reached — it only goes up, so it ' +
+            'shows what the app has managed at its best.') +
+
+          '<div class="card">' +
+            '<h3 style="margin:0 0 10px;font-size:15px">Weekly goals' +
+              info('Counted per goal that ran to the end of its own week ' +
+                   'without being cancelled. Cancellations are shown ' +
+                   'separately on purpose — otherwise cancelling every goal ' +
+                   'that was going badly would make the completion rate look ' +
+                   'better.') +
+            '</h3>' +
+            '<table>' +
+              row('Goals concluded', esc(goals.concludedGoalCount ?? 0), null) +
+              row('Completed', esc(goals.completedGoalCount ?? 0) + ' (' +
+                  pct(goals.percentCompleted) + ')', null) +
+              row('Cancelled', esc(goals.cancelledGoalCount ?? 0),
+                  'Excluded from the rate above, never hidden.') +
+            '</table>' +
+            bucketNote(m.weeklyGoalEngagement, m.minTeamsPerBucket) +
+          '</div>' +
+
+          '<div class="card">' +
+            '<h3 style="margin:0 0 10px;font-size:15px">Team pots' +
+              info('The median rather than the average, so one unusually ' +
+                   'busy team does not move the number.') +
+            '</h3>' +
+            '<table>' +
+              row('Active pots', esc(pot.activePotCount ?? 0), null) +
+              row('Median points per week', esc(pot.medianPointsPerWeek ?? 0), null) +
+            '</table>' +
+          '</div>' +
+
+          listCard('What they train', m.trainingTypeMix, function (e) {
+            return [esc(e.activityType), esc(e.logCount) + ' (' +
+                    pct(e.percentOfLogs) + ')'];
+          }, 'Share of all logged sessions by activity type.') +
+
+          listCard('Badges awarded', m.badgeMix, function (e) {
+            return [esc(e.badgeKey || e.badgeId), esc(e.awardCount)];
+          }, 'Which badges are actually being earned. A badge nobody earns ' +
+             'is either too hard or invisible.') +
+
+          weeklyCard('Clips uploaded', (m.socialUsage || {}).clipUploadsPerWeek) +
+          weeklyCard('Chat messages', (m.socialUsage || {}).chatMessagesPerWeek) +
+
+          '<p class="muted">Aggregates only. ADR-0020 keeps a floor under ' +
+          'every breakdown so no figure can resolve to a single team or ' +
+          'child — which is why some sections say a group was folded into ' +
+          'the app-wide number instead of being shown separately.</p>';
       }).catch(function (e) { fail(view, e); });
     },
 
