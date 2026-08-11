@@ -232,5 +232,11 @@
       "gotIt": "Okay, forstået!"
     },
     "yourPosition": "Din plads: {{rank}} af {{teamCount}} hold"
+  },
+  "evidenceFallbackSheet": {
+    "heading": "Videoen blev ikke færdig",
+    "body": "Din træning er der stadig. Vil du logge den uden video? Du får færre point, men passet tæller.",
+    "logAnyway": "Log uden video",
+    "tryAgain": "Prøv igen"
   }
 }

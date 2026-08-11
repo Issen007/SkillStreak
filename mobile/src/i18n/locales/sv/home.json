@@ -232,5 +232,11 @@
       "gotIt": "Okej, jag fattar!"
     },
     "yourPosition": "Din plats: {{rank}} av {{teamCount}} lag"
+  },
+  "evidenceFallbackSheet": {
+    "heading": "Videon blev inte klar",
+    "body": "Din träning finns kvar. Vill du logga den utan video? Du får färre poäng, men passet räknas.",
+    "logAnyway": "Logga utan video",
+    "tryAgain": "Försök igen"
   }
 }

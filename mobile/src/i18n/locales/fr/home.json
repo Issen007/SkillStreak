@@ -232,5 +232,11 @@
       "gotIt": "D'accord, compris !"
     },
     "yourPosition": "Ta place : {{rank}} sur {{teamCount}} équipes"
+  },
+  "evidenceFallbackSheet": {
+    "heading": "La vidéo n'est pas passée",
+    "body": "Ta séance est toujours là. L'enregistrer sans vidéo ? Tu auras moins de points, mais elle compte.",
+    "logAnyway": "Enregistrer sans vidéo",
+    "tryAgain": "Réessayer"
   }
 }

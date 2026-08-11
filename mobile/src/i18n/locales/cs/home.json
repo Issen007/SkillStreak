@@ -232,5 +232,11 @@
       "gotIt": "Dobře, rozumím!"
     },
     "yourPosition": "Tvoje pozice: {{rank}} z {{teamCount}} týmů"
+  },
+  "evidenceFallbackSheet": {
+    "heading": "Video se nedokončilo",
+    "body": "Tvůj trénink tu pořád je. Zapsat ho bez videa? Dostaneš méně bodů, ale počítá se.",
+    "logAnyway": "Zapsat bez videa",
+    "tryAgain": "Zkusit znovu"
   }
 }

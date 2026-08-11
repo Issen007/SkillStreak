@@ -232,5 +232,11 @@
       "gotIt": "Okay, got it!"
     },
     "yourPosition": "Your position: {{rank}} of {{teamCount}} teams"
+  },
+  "evidenceFallbackSheet": {
+    "heading": "The video didn't finish",
+    "body": "Your session is still here. Log it without the video? You get fewer points, but it counts.",
+    "logAnyway": "Log without video",
+    "tryAgain": "Try again"
   }
 }
