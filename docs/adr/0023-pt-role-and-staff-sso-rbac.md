@@ -2080,3 +2080,58 @@ What the app should do instead:
 - **project owner** — confirm Decision C2's admin refusal, and decide
   whether the C9e limit statement should also appear in
   `docs/legal/` alongside the existing published documents.
+
+
+## Amendment, 2026-08-11 — `PtAuthGuard` now does a per-request account lookup; Decision B2's omission had expired
+
+Decision B2 justified `PtAuthGuard` having no per-request `StaffAccount`
+lookup on the grounds that a `pt` session "carries no ambient authority
+whatsoever by construction ... until Part A's own consent chain
+(PtTeamLink/PtPlayerConsent, **not built by this task**) grants something
+specific". The parenthesis was the load-bearing part, and it stopped being
+true when Part A shipped.
+
+**The gap that left.** `StaffAccount.revokedAt` was read in exactly two
+places — `AdminAuthGuard` and `StaffSessionViewService` — and nowhere in
+`src/pt/`. A trainer holding an `approved` `PtPlayerConsent` therefore kept
+full access to a named child's screen name, both streak counters, complete
+`TrainingLogEntry` history and badges **after being revoked**, indefinitely:
+`refreshExistingAccount` explicitly did not check `revokedAt` either, so it
+minted fresh sessions and the 24h expiry never bounded it.
+
+That matters more than an ordinary stale-session window because of who
+holds the other levers. Team-link revocation belongs to the captain and
+consent revocation to the parent or child; `revoked_at` is the **operator's
+only unilateral lever**, and `StaffAccount.revokedAt`'s own docstring
+describes it as ending "every current and future session immediately". On
+the half of the system that touches children's training data, it did
+nothing at all.
+
+**Fixed**: `PtAuthGuard` now performs the same lookup `AdminAuthGuard`
+always has, rejecting a revoked account and a missing row; and
+`completeLogin` refuses to issue a session to a revoked account.
+Decision B2's cost argument for omitting it — "the high-volume player
+request path" — never applied here: `/pt` is a handful of adults at human
+frequency, the same shape as `/admin`.
+
+**Found by** the security review of the admin-as-trainer change. That
+change was itself sound — the reviewer confirmed all four `/pt` routes
+authorise on a live relationship and none on role — but it restated
+B2's premise, which is how the staleness surfaced. Worth recording,
+because the finding was not in the diff under review.
+
+**Decision B4 correction**: it specifies the two guards as "each adding
+exactly one extra check: `staffRole === 'admin'` or `staffRole === 'pt'`
+respectively". `PtAuthGuard` now admits either role, and adds the
+revocation lookup. Both members of `StaffAccountRole` are currently in
+that allow-list, so the role check constrains nothing today — it is a
+guard rail for a third role, and the code says so rather than implying a
+live constraint.
+
+**Still open, recorded rather than fixed**: `PtPlayerConsent` snapshots the
+parent's contact but not the trainer's name, email or role, and all three
+are re-read live from `StaffAccount` — which is overwritten on every
+login. So the name a parent approved can silently change. The reviewer
+recommends `pt_display_name_snapshot` / `pt_email_snapshot` /
+`pt_role_at_request`, and a decision on whether an `ADMIN` account may hold
+PT relationships in production at all, or only on `ubuntu01`.

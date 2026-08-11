@@ -48,7 +48,62 @@ NAMESPACE="skillstreak"
 KUBE_CONTEXT="microk8s"
 STATE_DIR="${STATE_DIR:-$HOME/.local/state/skillstreak-poller}"
 STATE_FILE="$STATE_DIR/current-sha"
+# A durable record of how this run went, so a failure is discoverable
+# without reading the journal. See report_failure/report_success below.
+STATUS_FILE="$STATE_DIR/last-status"
+FAILURE_COUNT_FILE="$STATE_DIR/consecutive-failures"
 ROLLOUT_TIMEOUT="180s"
+
+# --- failure visibility ------------------------------------------------------
+#
+# Added 2026-08-11, after this poller failed every five minutes for about a
+# WEEK without anyone noticing. STAFF_JWT_SECRET had become required, the
+# internal cluster's Deployment did not reference it, every rollout timed
+# out, and the only signal was a systemd unit going red on a machine nobody
+# was watching. The old pod kept serving, so the cluster looked alive while
+# being eight days stale.
+#
+# The lesson is the same one the account-erasure sweep taught the same day:
+# a job that fails silently and retries forever is indistinguishable from a
+# job that has nothing to do. So this records BOTH outcomes durably, counts
+# consecutive failures, and escalates the journal priority once it is
+# clearly not a transient blip.
+
+report_status() {
+  # $1 = ok|fail, $2 = message
+  mkdir -p "$STATE_DIR"
+  printf '%s\t%s\t%s\n' "$(date -Is)" "$1" "$2" > "$STATUS_FILE"
+}
+
+report_failure() {
+  local message="$1"
+  local count=1
+  if [ -f "$FAILURE_COUNT_FILE" ]; then
+    count=$(( $(cat "$FAILURE_COUNT_FILE" 2>/dev/null || echo 0) + 1 ))
+  fi
+  echo "$count" > "$FAILURE_COUNT_FILE"
+  report_status fail "$message (consecutive failures: ${count})"
+
+  # `<3>` is syslog priority err, so `journalctl -p err -u
+  # skillstreak-poller` shows only real problems. Three consecutive
+  # failures is ~15 minutes — past any plausible transient, and the point
+  # at which someone should look.
+  if [ "$count" -ge 3 ]; then
+    echo "<3>skillstreak-poller: ${count} consecutive failures — ${message}" >&2
+  else
+    echo "skillstreak-poller: ${message} (failure ${count}, will retry)" >&2
+  fi
+}
+
+report_success() {
+  rm -f "$FAILURE_COUNT_FILE"
+  report_status ok "$1"
+}
+
+# Anything that exits non-zero from here on is a failure worth recording —
+# `set -e` above means a failed kubectl aborts the script, and without this
+# trap that abort would leave no durable trace at all.
+trap 'report_failure "run failed at line $LINENO"' ERR
 
 mkdir -p "$STATE_DIR"
 
@@ -62,6 +117,9 @@ import sys, json
 print(json.load(sys.stdin)['sha'])
 ")" || {
   echo "Could not reach the GitHub commits API this run — will retry next tick."
+  # Counted as a failure: one is noise, but a day of them means this box
+  # lost its route to GitHub and is quietly frozen.
+  report_failure "could not reach the GitHub commits API"
   exit 0
 }
 
@@ -72,6 +130,7 @@ fi
 
 if [ "$latest_sha" = "$current_sha" ]; then
   echo "Already at ${latest_sha} — nothing to do."
+  report_success "already at ${latest_sha}"
   exit 0
 fi
 
@@ -106,4 +165,5 @@ kubectl --context "$KUBE_CONTEXT" rollout status "deployment/api" -n "$NAMESPACE
 kubectl --context "$KUBE_CONTEXT" rollout status "deployment/site" -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT"
 
 echo "$latest_sha" > "$STATE_FILE"
+report_success "deployed ${latest_sha}"
 echo "Deployed ${latest_sha} successfully."

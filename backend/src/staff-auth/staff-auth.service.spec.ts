@@ -1,4 +1,5 @@
 import {
+  StaffAccountRevokedException,
   StaffOAuthCallbackRejectedException,
   StaffOAuthPendingAuthInvalidException,
   StaffOAuthStateMismatchException,
@@ -647,10 +648,16 @@ describe('StaffAuthService', () => {
         name: 'Revoked',
       });
 
-      await service.completeLogin(StaffAuthProvider.GOOGLE, 'pending-cookie', {
-        state: 's',
-        code: 'c',
-      });
+      // Changed 2026-08-11: a revoked account is no longer handed a
+      // session at all. The property this test exists for — that a
+      // successful login never quietly un-revokes an account — is still
+      // asserted below, and is now joined by the stronger one.
+      await expect(
+        service.completeLogin(StaffAuthProvider.GOOGLE, 'pending-cookie', {
+          state: 's',
+          code: 'c',
+        }),
+      ).rejects.toBeInstanceOf(StaffAccountRevokedException);
 
       expect(staffAccountRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ revokedAt }),

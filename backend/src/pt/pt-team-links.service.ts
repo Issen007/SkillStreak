@@ -156,6 +156,32 @@ export class PtTeamLinksService {
   /** Captain-facing list of every PT link (active and historical) on their
    * own team — needed so a captain has real ids to act on for the revoke
    * endpoint below. */
+  /**
+   * "Has a team ever invited this trainer, and is that still true?"
+   *
+   * Added for ADR-0029 Decision 4, which gates the drill library on it.
+   * The point is that a trainer becomes a reader by the same act that
+   * already makes them useful — a team invited them — so ADR-0023
+   * Decision B1's property survives verbatim: a freshly signed-up account
+   * is indistinguishable in capability from someone who never signed up.
+   *
+   * Deliberately answers only yes/no and names no team. The caller is
+   * deciding whether to show adult-authored text, not what to show about
+   * anybody's team.
+   *
+   * **If ADR-0023 Part C ships, this moves inside its `findActiveLink` /
+   * `listActiveLinks` resolver** rather than remaining a fourth
+   * independent answer to "does this PT hold an active link" — which is
+   * exactly the duplication C6 exists to collapse. Recorded here so the
+   * move is obvious to whoever builds C6.
+   */
+  async hasAnyActiveLink(ptStaffAccountId: string): Promise<boolean> {
+    const count = await this.ptTeamLinkRepository.count({
+      where: { ptStaffAccountId, status: PtTeamLinkStatus.ACTIVE },
+    });
+    return count > 0;
+  }
+
   async listForTeam(
     requesterId: string,
     teamId: string,

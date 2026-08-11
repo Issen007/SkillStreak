@@ -102,6 +102,53 @@ export class PtPlayerConsent {
   })
   recipientContactSnapshot!: string | null;
 
+  /**
+   * Who the parent actually said yes to, frozen at request time.
+   *
+   * The recipient's contact was already snapshotted above; the *trainer's*
+   * identity was not, and every parent- and child-facing render resolved
+   * `displayName ?? email` live from `StaffAccount`. Both columns are
+   * overwritten from the ID token on every Google/Microsoft login and the
+   * role is recomputed from ADMIN_EMAILS on every login, so the name a
+   * parent approved could silently become a different name — and nothing
+   * recorded whether the person was acting as a trainer or as the
+   * operator.
+   *
+   * Added 2026-08-11 from ADR-0027's security review, finding 3. Same
+   * reasoning as `recipientContactSnapshot` directly above: a consent
+   * record is evidence of what someone agreed to at a moment, so the
+   * things it is evidence *about* must not be re-resolved later.
+   *
+   * Nullable only for rows that predate the column. New rows always carry
+   * all three.
+   */
+  @Column({
+    name: 'pt_display_name_snapshot',
+    type: 'varchar',
+    length: 200,
+    nullable: true,
+  })
+  ptDisplayNameSnapshot!: string | null;
+
+  @Column({
+    name: 'pt_email_snapshot',
+    type: 'varchar',
+    length: 254,
+    nullable: true,
+  })
+  ptEmailSnapshot!: string | null;
+
+  /** `admin` or `pt` at the moment of the request — an admin may hold PT
+   *  relationships since 2026-08-11, and a parent should not have to guess
+   *  which capacity they consented to. */
+  @Column({
+    name: 'pt_role_at_request',
+    type: 'varchar',
+    length: 16,
+    nullable: true,
+  })
+  ptRoleAtRequest!: string | null;
+
   @Column({ name: 'decided_at', type: 'timestamptz', nullable: true })
   decidedAt!: Date | null;
 

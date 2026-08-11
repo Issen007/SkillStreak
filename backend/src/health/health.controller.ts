@@ -1,4 +1,5 @@
 import { Controller, Get, HttpCode, HttpStatus } from '@nestjs/common';
+import { DrillLibraryService } from '../drills/drill-library.service';
 
 interface HealthResponse {
   status: 'ok';
@@ -16,6 +17,21 @@ interface HealthResponse {
    * reports about itself is the check that would have caught it.
    */
   version: string;
+  /**
+   * How many drill files this process actually loaded (ADR-0029).
+   *
+   * The endpoint's own comment below says nothing about the *environment*
+   * belongs here, and this does not contravene it: like `version`, this is
+   * a fact about the ARTIFACT rather than about the deployment. The
+   * library ships inside the image, and `backend/.dockerignore` excludes
+   * `*.md` — so "did this build actually carry the drills" is precisely
+   * the question a running pod should be able to answer, and precisely the
+   * one that would otherwise surface as an empty shelf with a green CI.
+   *
+   * A count of adult-authored training files discloses nothing: no child
+   * data, no environment detail, no configuration.
+   */
+  drills: number;
 }
 
 // Liveness check only — no DB/Redis calls here on purpose. This confirms the
@@ -28,6 +44,8 @@ interface HealthResponse {
 // open endpoint.
 @Controller('health')
 export class HealthController {
+  constructor(private readonly drillLibraryService: DrillLibraryService) {}
+
   @Get()
   @HttpCode(HttpStatus.OK)
   check(): HealthResponse {
@@ -35,6 +53,10 @@ export class HealthController {
     // stamped by the image build (Dockerfile's APP_VERSION arg), so it
     // describes the artifact actually running, which a version committed
     // in a file cannot.
-    return { status: 'ok', version: process.env.APP_VERSION ?? 'dev' };
+    return {
+      status: 'ok',
+      version: process.env.APP_VERSION ?? 'dev',
+      drills: this.drillLibraryService.list().length,
+    };
   }
 }

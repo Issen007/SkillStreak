@@ -997,3 +997,23 @@ export class BugReportNotFoundException extends AppException {
     );
   }
 }
+
+/**
+ * The drill library's own refusal, rather than reusing
+ * PtNoActiveTeamLinkException.
+ *
+ * That exception's message names "the requested player's team" — there is
+ * no player on this surface, so it described something that does not
+ * exist. A trainer with no team link is also not in an error state: they
+ * are simply not a reader yet, which is the "absence, not a locked door"
+ * posture ADR-0023 asks for.
+ */
+export class DrillLibraryForbiddenException extends AppException {
+  constructor() {
+    super(
+      'drill_library_requires_team_link',
+      'The drill library opens once a team has invited you.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}

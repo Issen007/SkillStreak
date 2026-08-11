@@ -1,0 +1,19 @@
+# The deploy-time analogue of `GET /health`'s version stamp.
+#
+# ADR-0028 Decision 12. Every apply against this cluster asserts this
+# ConfigMap first; if it says anything other than `skillstreak-gpu`, the
+# apply is pointed at the wrong cluster and must stop. A running pod can
+# be asked what it is (that is what /health is for) — this is how a
+# COMMAND can be asked what it is about to change, before it changes it.
+#
+#   kubectl --context skillstreak-gpu -n skillstreak-ai \
+#     get configmap cluster-identity -o jsonpath='{.data.cluster}'
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-identity
+  namespace: skillstreak-ai
+data:
+  cluster: skillstreak-gpu
+  purpose: "Self-hosted inference (ADR-0028). No child data is ever stored here."

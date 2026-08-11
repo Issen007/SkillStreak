@@ -1,0 +1,17 @@
+# Deliberately NOT `skillstreak`.
+#
+# ADR-0028 Decision 12: two clusters means two contexts, and the
+# 2026-07-30 incident in CLAUDE.md was production running an image built
+# for the other environment. A distinct namespace means a `kubectl apply`
+# aimed at the wrong cluster fails on a missing namespace rather than
+# silently landing somewhere plausible.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: skillstreak-ai
+  labels:
+    # This cluster enforces `restricted`. Stating it here means the
+    # namespace carries the same bar rather than inheriting whatever a
+    # future cluster default happens to be.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest

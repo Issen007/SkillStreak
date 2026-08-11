@@ -232,5 +232,11 @@
       "gotIt": "Selvä juttu!"
     },
     "yourPosition": "Sijasi: {{rank}} / {{teamCount}} joukkuetta"
+  },
+  "evidenceFallbackSheet": {
+    "heading": "Video ei valmistunut",
+    "body": "Harjoituksesi on yhä tallessa. Kirjataanko se ilman videota? Saat vähemmän pisteitä, mutta se lasketaan.",
+    "logAnyway": "Kirjaa ilman videota",
+    "tryAgain": "Yritä uudelleen"
   }
 }

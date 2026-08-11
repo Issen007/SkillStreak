@@ -11,6 +11,7 @@ import { TeamPoolCard } from './components/TeamPoolCard';
 import { WaitingCard } from './components/WaitingCard';
 import { TrainedButton } from './components/TrainedButton';
 import { ActivitySheet } from './components/ActivitySheet';
+import { EvidenceFallbackSheet } from './components/EvidenceFallbackSheet';
 import { SuccessOverlay } from './components/SuccessOverlay';
 import { GoalBonusTakeover } from './components/GoalBonusTakeover';
 import { Toast } from '../components/Toast';
@@ -67,6 +68,25 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
   const [goalBonusMoment, setGoalBonusMoment] = useState<{ awardedPoints: number } | null>(null);
   // A log waiting on its evidence clip. Held here rather than inside the
   // sheet because the sheet closes when the upload flow takes over.
+  /**
+   * A session whose upload did not finish.
+   *
+   * Before this existed, abandoning the upload threw the session away
+   * entirely: the child trained, chose "with video", hit a flaky
+   * connection, and landed back on the home screen with nothing logged and
+   * no explanation. "You trained and got nothing" is the exact message
+   * ADR-0025's floor-of-1 rule exists to avoid, and a bad connection is
+   * not the child's fault.
+   *
+   * The evidence rule is untouched — this logs at the click-only tier,
+   * because no clip exists. It offers the honest lesser outcome instead of
+   * silently discarding the work.
+   */
+  const [abandonedEvidenceLog, setAbandonedEvidenceLog] = useState<{
+    activityType: ActivityType;
+    durationMinutes: number;
+  } | null>(null);
+
   const [pendingEvidenceLog, setPendingEvidenceLog] = useState<{
     activityType: ActivityType;
     durationMinutes: number;
@@ -382,7 +402,20 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
         <UploadFlow
           teamId={me.team.teamId}
           viewerPlayerId={me.player.id}
-          onCancel={() => setPendingEvidenceLog(null)}
+          onCancel={() => {
+            // The child backed out, or the upload failed. Their session is
+            // still real, so offer to keep it rather than silently
+            // dropping it — see EvidenceFallbackSheet below.
+            setAbandonedEvidenceLog(
+              pendingEvidenceLog
+                ? {
+                    activityType: pendingEvidenceLog.activityType,
+                    durationMinutes: pendingEvidenceLog.durationMinutes,
+                  }
+                : null,
+            );
+            setPendingEvidenceLog(null);
+          }}
           onConsentRevoked={() => {
             setPendingEvidenceLog(null);
             void fetchMe();
@@ -400,6 +433,31 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
           }}
         />
       ) : null}
+
+      <EvidenceFallbackSheet
+        visible={abandonedEvidenceLog !== null}
+        onTryAgain={() => {
+          const retry = abandonedEvidenceLog;
+          setAbandonedEvidenceLog(null);
+          if (retry) {
+            // Back to the upload with the same session, rather than making
+            // them re-pick the activity and duration they already chose.
+            setPendingEvidenceLog({ ...retry, evidence: 'video' });
+          }
+        }}
+        onLogAnyway={() => {
+          const fallback = abandonedEvidenceLog;
+          setAbandonedEvidenceLog(null);
+          if (!fallback) return;
+          // No evidenceClipId, so the server resolves this to CLICK_ONLY.
+          // The client never claims a tier; it only ever supplies proof.
+          void writeTrainingLog({
+            activityType: fallback.activityType,
+            durationMinutes: fallback.durationMinutes,
+          });
+        }}
+        onDismiss={() => setAbandonedEvidenceLog(null)}
+      />
 
       <ActivitySheet
         visible={sheetOpen}

@@ -22,10 +22,31 @@
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined
     }).then(function (r) {
-      if (r.status === 401) throw { unauthenticated: true };
       if (!r.ok) {
-        return r.json().then(function (b) { throw b; },
-                             function () { throw { status: r.status }; });
+        return r.json().then(function (body) {
+          /* Not every 401 is a sign-out, and treating them alike logged the
+           * operator out of a working session.
+           *
+           * ADR-0022 Decision 10's step-up gate answers 401 with the code
+           * `reauth_required` on the three planning/* endpoints — the
+           * session is valid and STAYS valid, every other admin endpoint
+           * keeps working, and the exception's own comment says the console
+           * "must render AD5's inline re-auth prompt over a preserved
+           * console state rather than treating this as a sign-out".
+           *
+           * This helper used to throw `{unauthenticated:true}` on status
+           * alone, before reading the body, so the code was discarded and
+           * the planning tab dropped straight to the login screen. The body
+           * has to be read first; the status alone does not carry enough. */
+          if (r.status === 401 && body?.error?.code !== 'reauth_required') {
+            throw { unauthenticated: true };
+          }
+          throw body;
+        }, function () {
+          /* No JSON body to read — a proxy or gateway error rather than one
+           * of ours. A bare 401 here really is "signed out". */
+          throw r.status === 401 ? { unauthenticated: true } : { status: r.status };
+        });
       }
       return r.status === 204 ? null : r.json();
     });
@@ -125,7 +146,21 @@
   }
 
   var el = function (id) { return document.getElementById(id); };
-  var state = { role: null, session: null, tab: null };
+  /**
+   * `role` is what the server says this account IS. `mode` is which surface
+   * is currently being looked at.
+   *
+   * They differ only for an admin, who may also act as a trainer. That is
+   * a view switch and nothing more: the server grants a trainer nothing
+   * until a captain issues an invite code and a parent approves each child,
+   * both re-checked live per request. An admin in trainer mode sees exactly
+   * what that account has been *given*, which starts at nothing.
+   */
+  var state = { role: null, mode: null, session: null, tab: null, lang: 'en' };
+
+  function canSwitchMode() {
+    return state.role === 'admin';
+  }
 
   /* Which tabs a role sees. The server enforces all of it — every /admin
    * route is behind AdminAuthGuard regardless of what this array says, so
@@ -138,17 +173,22 @@
       { id: 'campaigns', label: 'Campaigns', ico: '📣' },
       { id: 'errors', label: 'Errors', ico: '⚠️' },
       { id: 'bugs', label: 'Bug reports', ico: '🐛' },
-      { id: 'planning', label: 'Planning', ico: '🗺️' }
+      { id: 'planning', label: 'Planning', ico: '🗺️' },
+      { id: 'drills', label: 'Drill library', ico: '📗' }
     ],
     pt: [
-      { id: 'teams', label: 'My teams', ico: '🏑' }
+      { id: 'teams', label: 'My teams', ico: '🏑' },
+      { id: 'drills', label: 'Drill library', ico: '📗' }
     ]
   };
 
   /* Detail routes belong to a tab without being one. Without this, opening
    * a team unlit the only nav item a trainer has, which reads as "you have
    * navigated out of the app". */
-  var ROUTE_TAB = { team: 'teams', player: 'teams', graphs: 'graphs' };
+  var ROUTE_TAB = {
+    team: 'teams', player: 'teams', graphs: 'graphs', drill: 'drills',
+    bugs: 'bugs'
+  };
 
   function tabForRoute(route) {
     var root = String(route).split('/')[0];
@@ -164,10 +204,73 @@
     el('shell').classList.toggle('is-on', which === 'shell');
   }
 
+  /**
+   * The Admin / Trainer switch, drawn only for accounts that can do both.
+   *
+   * A view switch, not a privilege switch — the server does not know or
+   * care which mode is selected, and being in trainer mode neither adds nor
+   * removes anything. That is worth stating on screen too, because a
+   * control labelled "mode" invites the assumption that it grants
+   * something.
+   */
+  function renderModeSwitch() {
+    var host = el('modeSwitch');
+    if (!host) return;
+    if (!canSwitchMode()) {
+      host.innerHTML = '';
+      host.style.display = 'none';
+      return;
+    }
+    host.style.display = '';
+    host.innerHTML =
+      '<div class="mode" role="group" aria-label="View mode">' +
+        ['admin', 'pt'].map(function (mode) {
+          return '<button data-mode="' + mode + '"' +
+            (state.mode === mode ? ' class="is-on"' : '') + '>' +
+            (mode === 'admin' ? 'Admin' : 'Trainer') + '</button>';
+        }).join('') +
+      '</div>';
+
+    Array.prototype.forEach.call(
+      host.querySelectorAll('[data-mode]'),
+      function (button) {
+        button.onclick = function () {
+          var mode = button.getAttribute('data-mode');
+          if (mode === state.mode) return;
+          state.mode = mode;
+          /* Land on that surface's first tab rather than trying to map the
+           * current one across — the two have no tabs in common. */
+          go(TABS[mode][0].id);
+        };
+      }
+    );
+  }
+
+  function renderLangSwitch() {
+    var host = el('langSwitch');
+    if (!host) return;
+    host.innerHTML = ['sv', 'en'].map(function (lang) {
+      return '<button data-lang="' + lang + '"' +
+        (state.lang === lang ? ' class="is-on"' : '') + '>' +
+        lang.toUpperCase() + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(
+      host.querySelectorAll('[data-lang]'),
+      function (button) {
+        button.onclick = function () {
+          var lang = button.getAttribute('data-lang');
+          if (lang !== state.lang) setLang(lang);
+        };
+      }
+    );
+  }
+
   function renderNav() {
+    renderModeSwitch();
+    renderLangSwitch();
     var nav = el('nav');
     nav.innerHTML = '';
-    (TABS[state.role] || []).forEach(function (tab) {
+    (TABS[state.mode] || []).forEach(function (tab) {
       var b = document.createElement('button');
       b.innerHTML = '<span class="ico" aria-hidden="true">' + esc(tab.ico || '') +
         '</span><span>' + esc(tab.label) + '</span>';
@@ -190,12 +293,45 @@
     var render = VIEWS[parts[0]];
     if (!render) { view.innerHTML = ''; return; }
     render(view, decodeURIComponent(parts[1] || ''));
+    /* Views render asynchronously (they await an API call), so the
+     * initial pass catches the loading state and a MutationObserver
+     * catches the real content when it lands. */
+    translateTree(view);
   }
+
+  /* One observer for the lifetime of the page rather than one per render:
+   * re-creating it on every navigation was the obvious first shape and
+   * leaks an observer each time. */
+  var viewObserver = new MutationObserver(function () {
+    translateTree(el('view'));
+    translateTree(el('nav'));
+  });
+
+  viewObserver.observe(document.body, { childList: true, subtree: true });
 
   window.addEventListener('hashchange', function () {
     var route = location.hash.replace('#', '');
     if (route && route !== state.tab) go(route);
   });
+
+  /**
+   * The tab a step-up round trip should come back to, consumed once.
+   *
+   * Read-and-clear rather than read: leaving it set would drag the operator
+   * back to Planning on every subsequent sign-in, which is a worse bug than
+   * the one it fixes and much harder to notice.
+   */
+  function returnTo() {
+    try {
+      var tab = sessionStorage.getItem('skillstreak.returnTo');
+      sessionStorage.removeItem('skillstreak.returnTo');
+      return tab && TABS.admin.some(function (t) { return t.id === tab; })
+        ? tab
+        : null;
+    } catch (e) {
+      return null;
+    }
+  }
 
   function alertInline(afterElement, message) {
     var note = document.createElement('div');
@@ -247,8 +383,8 @@
   }
 
   function backLink(route, label) {
-    return '<p><button class="link" data-go="' + esc(route) + '">← ' +
-           esc(label) + '</button></p>';
+    return '<p><button class="link" data-go="' + esc(route) + '">←&nbsp;' +
+           '<span>' + esc(label) + '</span></button></p>';
   }
 
   /* Delegated, so re-rendering innerHTML never leaves a dead handler. */
@@ -264,6 +400,312 @@
   }
 
 
+
+
+  var DRILL_FOCUSES = ['teknik', 'fys', 'skott', 'passning', 'spelforstaelse'];
+  var FOCUS_LABEL = {
+    teknik: 'Teknik', fys: 'Fys', skott: 'Skott',
+    passning: 'Passning', spelforstaelse: 'Spelförståelse'
+  };
+
+  function drillCard(drill) {
+    return '<div class="card">' +
+      '<h3 style="margin:0 0 4px;font-size:15px">' + esc(drill.title) + '</h3>' +
+      '<p class="muted" style="margin:0 0 10px">' +
+        esc(FOCUS_LABEL[drill.focus] || drill.focus) + ' · ' +
+        esc(drill.ageBand) + ' år · ' + esc(drill.durationMinutes) + ' min · ' +
+        esc(drill.author) + '</p>' +
+      '<button data-go="drill/' + esc(drill.slug) + '">Open</button>' +
+      '</div>';
+  }
+
+
+
+  /* ---- bug triage ----------------------------------------------------- */
+
+  var BUG_STATUSES = ['open', 'triaged', 'closed'];
+  var BUG_STATUS_LABEL = { open: 'Open', triaged: 'Triaged', closed: 'Closed' };
+  var BUG_STATUS_CLASS = { open: 'warn', triaged: 'accent', closed: 'ok' };
+
+  function countSuffix(counts) {
+    var total = BUG_STATUSES.reduce(function (sum, st) {
+      return sum + (typeof counts[st] === 'number' ? counts[st] : 0);
+    }, 0);
+    return total ? ' (' + total + ')' : '';
+  }
+
+  function bugRow(row) {
+    var reporter = row.reporter
+      ? esc(row.reporter.screenName) + '<br><span class="muted">' +
+        esc(row.reporter.teamName) + '</span>'
+      /* The reporter's row is gone — an erasure takes their reports with
+       * it, so this is a referential edge rather than an error. */
+      : '<span class="muted">no longer on the app</span>';
+
+    return '<tr><td>' + esc((row.createdAt || '').slice(0, 10)) + '</td><td>' +
+      reporter + '</td><td>' + esc(row.screen) + '</td><td>' +
+      esc(row.category.replace(/_/g, ' ')) +
+      (row.description ? '<br><span class="muted">' + esc(row.description) +
+        '</span>' : '') +
+      '</td><td class="muted">' + esc(row.platform) + ' ' + esc(row.appVersion) +
+      (row.osVersion ? '<br>' + esc(row.osVersion) : '') + '</td><td>' +
+      '<span class="badge ' + (BUG_STATUS_CLASS[row.status] || '') + '">' +
+      esc(row.status) + '</span></td><td style="text-align:right;white-space:nowrap">' +
+      BUG_STATUSES.filter(function (st) { return st !== row.status; })
+        .map(function (st) {
+          return '<button data-bug="' + esc(row.id) + '" data-status="' +
+            st + '">' + esc(BUG_STATUS_LABEL[st]) + '</button> ';
+        }).join('') +
+      '</td></tr>';
+  }
+
+  function wireBugButtons(view, filter) {
+    Array.prototype.forEach.call(
+      view.querySelectorAll('[data-bug]'),
+      function (button) {
+        button.onclick = function () {
+          var was = button.textContent;
+          button.disabled = true;
+          button.textContent = '…';
+          api.patch('/api/v1/admin/bug-reports/' +
+                    encodeURIComponent(button.getAttribute('data-bug')),
+                    { status: button.getAttribute('data-status') })
+            .then(function () { go(filter ? 'bugs/' + filter : 'bugs'); })
+            .catch(function (e) {
+              button.disabled = false;
+              button.textContent = was;
+              alertInline(button, errorMessage(e));
+            });
+        };
+      }
+    );
+  }
+
+  /* ---- statistics rendering ------------------------------------------ */
+
+  /** A hover/focus explainer. The marker is a real button so it is
+   *  keyboard reachable, not a span with a title attribute. */
+  function info(text) {
+    return '<span class="info"><button type="button" aria-label="What is this?">i</button>' +
+      '<span role="tooltip">' + esc(text) + '</span></span>';
+  }
+
+  function pct(value) {
+    return typeof value === 'number' ? Math.round(value) + '%' : '—';
+  }
+
+  function row(label, value, explain) {
+    return '<tr><td>' + esc(label) + (explain ? info(explain) : '') +
+      '</td><td style="text-align:right"><strong>' + value + '</strong></td></tr>';
+  }
+
+  /** Every enum value is always present in the payload, including zeros —
+   *  an absent key would be ambiguous between "none" and "not measured". */
+  function statusRows(label, byStatus) {
+    if (!byStatus) return '';
+    return Object.keys(byStatus).map(function (key, index) {
+      return row((index === 0 ? label + ': ' : '') + key.replace(/_/g, ' '),
+                 esc(byStatus[key]), null);
+    }).join('');
+  }
+
+  function histogramCard(title, bars, explain) {
+    if (!bars || !bars.length) return '';
+    var max = Math.max.apply(null, bars.map(function (b) { return b.count; })) || 1;
+    return '<div class="card"><h3 style="margin:0 0 10px;font-size:15px">' +
+      esc(title) + info(explain) + '</h3>' +
+      bars.map(function (bar) {
+        return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">' +
+          '<span style="width:88px;font-size:13px">' + esc(bar.bucket) + '</span>' +
+          '<span style="flex:1;background:var(--bg);border-radius:4px;height:14px;overflow:hidden">' +
+            '<span style="display:block;height:100%;width:' +
+            ((bar.count / max) * 100).toFixed(1) + '%;background:var(--accent)"></span></span>' +
+          '<strong style="width:44px;text-align:right;font-size:13px">' +
+            esc(bar.count) + '</strong></div>';
+      }).join('') + '</div>';
+  }
+
+  function listCard(title, entries, toCells, explain) {
+    if (!entries || !entries.length) return '';
+    return '<div class="card"><h3 style="margin:0 0 10px;font-size:15px">' +
+      esc(title) + info(explain) + '</h3><table>' +
+      entries.map(function (entry) {
+        var cells = toCells(entry);
+        return '<tr><td>' + cells[0] + '</td><td style="text-align:right">' +
+          '<strong>' + cells[1] + '</strong></td></tr>';
+      }).join('') + '</table></div>';
+  }
+
+  function weeklyCard(title, weeks) {
+    if (!weeks || !weeks.length) return '';
+    return '<div class="card"><h3 style="margin:0 0 8px;font-size:15px">' +
+      esc(title) + '</h3>' +
+      lineChart(weeks.map(function (w) {
+        return { day: w.weekStart || w.week || '', value: w.count ?? 0 };
+      }), title + ' per week') + '</div>';
+  }
+
+  /**
+   * Says which of ADR-0020's two very different situations produced an
+   * empty breakdown. Without this the console cannot tell "every group was
+   * withheld by the floor" from "there are no teams" — opposite facts an
+   * operator acts on differently.
+   */
+  function bucketNote(metric, floor) {
+    if (!metric) return '';
+    if (metric.byTeamSizeBucket && metric.byTeamSizeBucket.length) return '';
+    return '<p class="muted" style="margin:12px 0 0">' +
+      (metric.foldedIntoAppWide
+        ? 'Not broken out by team size this period — no group had ' +
+          esc(floor) + ' teams in it, so they are all counted in the ' +
+          'app-wide figures above. Nothing was dropped.'
+        : 'No teams to break out yet.') + '</p>';
+  }
+
+
+  /* ---- language -------------------------------------------------------
+   *
+   * The console shipped English-only, which is fine for the operator and
+   * wrong for the people it was built for: SkillStreak's trainers are
+   * Swedish youth-floorball coaches, and the trainer surface is the half
+   * they live in.
+   *
+   * Keyed by the English source string, exactly like site/i18n.js — the
+   * views are built as HTML strings, so a key-per-string scheme would mean
+   * touching every line and a missing key would render an identifier to a
+   * coach. Falling back to English is visible and honest instead.
+   *
+   * Only the TRAINER surface is translated. The admin pillars are the
+   * project owner's own tooling, full of terms that have no settled
+   * Swedish ("suppression floor", "step-up") and would read worse
+   * translated than left alone. Said out loud so the gap looks deliberate
+   * rather than unfinished.
+   */
+  var LANG_KEY = 'skillstreak.console.lang';
+
+  var SV = {
+    /* nav */
+    'My teams': 'Mina lag',
+    'Drill library': 'Övningsbank',
+    /* teams / PT1 */
+    'Add a team': 'Lägg till ett lag',
+    'A captain generates an 8-character code and gives it to you. You cannot search for teams — the invitation only ever travels in that direction.':
+      'En lagkapten skapar en kod på 8 tecken och ger den till dig. Du kan inte söka efter lag — inbjudan går alltid åt det hållet.',
+    'Redeem code': 'Använd kod',
+    'No teams yet. Redeem a code above to get started.':
+      'Inga lag än. Använd en kod ovan för att komma igång.',
+    'Open team': 'Öppna laget',
+    'A team code is exactly 8 characters.': 'En lagkod är exakt 8 tecken.',
+    'Redeeming…': 'Använder koden…',
+    /* team detail / PT2 */
+    'points in the team pot': 'poäng i lagets pott',
+    'This week': 'Den här veckan',
+    'No weekly goal running.': 'Inget veckomål igång.',
+    'Players': 'Spelare',
+    'Screen names only. You see a player’s training after their family says yes — each child is a separate decision.':
+      'Bara skärmnamn. Du ser en spelares träning först när familjen sagt ja — varje barn är ett eget beslut.',
+    'Player': 'Spelare',
+    'Access': 'Åtkomst',
+    'Shared with you': 'Delas med dig',
+    'Waiting for a parent': 'Väntar på förälder',
+    'Not shared': 'Delas inte',
+    'View training': 'Se träningen',
+    'Ask for access': 'Be om åtkomst',
+    'Asked — it is their decision': 'Frågad — det är deras beslut',
+    'Asking…': 'Frågar…',
+    'You are not linked to this team.': 'Du är inte kopplad till det här laget.',
+    'A captain can revoke a trainer link at any time, and does not have to give a reason.':
+      'En lagkapten kan ta bort en tränarkoppling när som helst, utan att förklara varför.',
+    'player': 'spelare',
+    'players': 'spelare',
+    'shared with you': 'delas med dig',
+    'waiting for a parent': 'väntar på förälder',
+    /* player detail */
+    'Training': 'Träning',
+    'When': 'När',
+    'Activity': 'Aktivitet',
+    'Minutes': 'Minuter',
+    'Nothing logged yet.': 'Inget loggat än.',
+    'Badges': 'Märken',
+    'No badges yet.': 'Inga märken än.',
+    'No real name, no contact details, no clips, no chat, and nowhere this player has been. That is the whole of what a trainer is shown.':
+      'Inget riktigt namn, inga kontaktuppgifter, inga klipp, ingen chatt, och aldrig var spelaren har varit. Det är allt en tränare ser.',
+    /* drills */
+    'Coach-authored training material. It carries no clips, no training logs and no player data — drills are files in the repository, read by a person before they merge.':
+      'Träningsmaterial skrivet av tränare. Det innehåller inga klipp, inga träningsloggar och inga spelaruppgifter — övningarna är filer som en människa läser innan de publiceras.',
+    'All': 'Alla',
+    'Open': 'Öppna',
+    'Nothing here yet. Drills are added to the repository and arrive with the next release.':
+      'Inget här än. Övningar läggs till i repot och dyker upp vid nästa release.',
+    'Teknik': 'Teknik', 'Fys': 'Fys', 'Skott': 'Skott',
+    'Passning': 'Passning', 'Spelförståelse': 'Spelförståelse',
+    /* shared */
+    'Loading…': 'Laddar…',
+    'Sign out': 'Logga ut',
+    'Trainer': 'Tränare',
+    'of': 'av',
+    'ending': 'slutar',
+    'sessions': 'pass',
+    'min': 'min',
+    'år': 'år'
+  };
+
+  function readLang() {
+    try {
+      var stored = localStorage.getItem(LANG_KEY);
+      if (stored === 'sv' || stored === 'en') return stored;
+    } catch (e) { /* private mode */ }
+    /* Trainers default to Swedish, the operator to English — the roles
+     * genuinely read different languages, and defaulting on role is
+     * kinder than making every coach find a toggle. */
+    return state.role === 'pt' ? 'sv' : 'en';
+  }
+
+  function setLang(lang) {
+    try { localStorage.setItem(LANG_KEY, lang); } catch (e) { /* ignore */ }
+    state.lang = lang;
+    go(state.tab);
+  }
+
+  /** Translate. Untranslated strings fall through as English, which is
+   *  visible and honest rather than a blank or an identifier. */
+  function t(text) {
+    if (state.lang !== 'sv') return text;
+    return SV[text] || text;
+  }
+
+  /**
+   * Translates a rendered subtree in place, by text node.
+   *
+   * The first attempt routed translation through esc(), which was exactly
+   * backwards: esc() only receives DYNAMIC values — team names, screen
+   * names, numbers — which are the strings that must never be translated,
+   * while the static copy sits inline in template literals and never
+   * passes through it at all. The nav translated and nothing else did.
+   *
+   * Walking text nodes after render is what site/i18n.js already does, for
+   * the same reason: the views are HTML strings, and a key-per-string
+   * scheme would mean touching every line of every view.
+   *
+   * Matching on the trimmed source string makes untranslatable content
+   * safe by construction — a Swedish team name matches no key and is left
+   * alone. Whitespace is preserved around the replacement so layout does
+   * not shift.
+   */
+  function translateTree(root) {
+    if (!root || state.lang !== 'sv') return;
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    var node;
+    while ((node = walker.nextNode())) {
+      var raw = node.nodeValue;
+      var trimmed = raw.trim();
+      if (!trimmed) continue;
+      var translated = SV[trimmed];
+      if (translated && translated !== trimmed) {
+        node.nodeValue = raw.replace(trimmed, translated);
+      }
+    }
+  }
 
   /* ---- campaigns ----------------------------------------------------- */
 
@@ -500,131 +942,142 @@
   var VIEWS = {
     /* Wired end to end, to prove the shell actually authenticates and
      * reads real data rather than only looking like it does. */
+    /* Statistics — ADR-0020's usage metrics, rendered.
+     *
+     * This used to print every top-level NUMBER in the payload, which was
+     * exactly two config values (windowDays, minTeamsPerBucket) and none
+     * of the actual metrics, since all of those are nested. So the tab
+     * showed its own settings and called it statistics.
+     *
+     * Every figure here is app-wide. There is no team or player dimension
+     * in the payload to render even if this file wanted one. */
     stats: function (view) {
       api.get('/api/v1/admin/usage-metrics').then(function (m) {
-        var rows = Object.keys(m).filter(function (k) {
-          return typeof m[k] === 'number';
-        }).map(function (k) {
-          return '<tr><td>' + esc(k) + '</td><td>' + esc(m[k]) + '</td></tr>';
-        }).join('');
-        view.innerHTML = '<h2>Statistics</h2><div class="card"><table>' +
-          '<tr><th>Metric</th><th>Value</th></tr>' + rows + '</table></div>' +
-          '<p class="muted">Aggregates only — ADR-0020 suppresses anything that could ' +
-          'resolve to a single team or player.</p>';
-      }).catch(function (e) { fail(view, e); });
-    },
-
-    /* Demo-event signups. Adult marketing data, kept in its own admin tab
-     * with no path to anything about a player — see the entity docstring
-     * for why that separation is structural rather than tidiness. */
-    /* PR campaigns — the execution record for the copy in
-     * docs/CAMPAIGNS.md, with each campaign's signups counted by its tag.
-     *
-     * Campaigns that produced nothing still show, with a 0. Hiding them
-     * would make the board a list of successes, and the ones that brought
-     * nobody are exactly the ones worth looking at. */
-    campaigns: function (view) {
-      api.get('/api/v1/admin/pr-campaigns').then(function (rows) {
-        var posted = rows.filter(function (r) { return r.status === 'posted'; });
-        var signups = rows.reduce(function (n, r) { return n + r.signups; }, 0);
+        var funnel = (m.adoptionFunnel || {}).appWide || {};
+        var recency = m.activityRecency || {};
+        var streaks = m.streakHealth || {};
+        var goals = (m.weeklyGoalEngagement || {}).appWide || {};
+        var pot = m.teamPoolGrowth || {};
 
         view.innerHTML =
-          '<h2>Campaigns</h2>' +
+          '<h2>Statistics</h2>' +
+
           '<div class="tiles">' +
-            tile(rows.length, plural(rows.length, 'campaign')) +
-            tile(posted.length, 'posted') +
-            tile(signups, 'signups attributed') +
-          '</div>' +
-          '<div class="card">' +
-            '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
-              '<button id="newCampaign" class="primary">New campaign</button>' +
-              '<span class="muted" style="flex:1;min-width:220px">Copy for all ' +
-              'four audiences lives in docs/CAMPAIGNS.md — this tracks what ' +
-              'actually went out.</span>' +
-            '</div>' +
-            '<div id="campaignForm" style="display:none;margin-top:16px"></div>' +
-          '</div>' +
-          '<div class="card">' +
-            (rows.length
-              ? '<table><tr><th>Campaign</th><th>Tag</th><th>Channel</th>' +
-                '<th>Audience</th><th>Lang</th><th>Status</th><th>Signups</th>' +
-                '<th></th></tr>' +
-                rows.map(campaignRow).join('') + '</table>'
-              : '<p class="muted">No campaigns yet. The first one is ' +
-                'probably the summer-project post.</p>') +
-          '</div>';
-
-        document.getElementById('newCampaign').onclick = function () {
-          showCampaignForm(null);
-        };
-        wireCampaignButtons(view, rows);
-      }).catch(function (e) { fail(view, e); });
-    },
-
-    /* Link clicks and app-wide activity, drawn. Everything on this screen
-     * is app-wide — there is no team or player dimension in the payload,
-     * by ADR-0020 Decision 5, so there is nothing here to filter down to
-     * an individual child even if someone wanted to. */
-    graphs: function (view, daysArg) {
-      var days = Number(daysArg) > 0 ? Number(daysArg) : 30;
-      api.get('/api/v1/admin/analytics?days=' + days).then(function (data) {
-        var activeToday = data.activePerDay.length
-          ? data.activePerDay[data.activePerDay.length - 1].value : 0;
-        var activePeak = data.activePerDay.reduce(function (max, p) {
-          return Math.max(max, p.value);
-        }, 0);
-
-        view.innerHTML =
-          '<h2>Graphs</h2>' +
-          '<div class="card">' +
-            '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-              [7, 30, 90].map(function (option) {
-                return '<button data-go="graphs/' + option + '"' +
-                  (option === days ? ' class="primary"' : '') + '>Last ' +
-                  option + ' days</button>';
-              }).join('') +
-            '</div>' +
+            tile(funnel.totalPlayers ?? 0, 'players in total') +
+            tile(recency.playersActiveLast7Days ?? 0, 'active last 7 days') +
+            tile(pct(recency.percentActiveInWindow), 'active this window') +
+            tile(pct(funnel.percentWithAtLeastOneTrainingLog),
+                 'have ever logged') +
           '</div>' +
 
           '<div class="card">' +
-            '<h3 style="margin:0 0 2px;font-size:15px">Players</h3>' +
-            '<p class="muted" style="margin:0 0 14px"><strong>' +
-              esc(data.totalPlayers) + '</strong> accounts in total · <strong>' +
-              esc(activeToday) + '</strong> active today · busiest day <strong>' +
-              esc(activePeak) + '</strong></p>' +
-            '<p style="margin:0 0 4px;font-size:13px"><strong>Active players per day</strong> ' +
-              '<span class="muted">— logged at least one session</span></p>' +
-            lineChart(data.activePerDay, 'Active players per day') +
+            '<h3 style="margin:0 0 10px;font-size:15px">How this report is scoped' +
+              info('The window is how far back every figure below looks. ' +
+                   'Nothing here is per-team or per-player — the payload has ' +
+                   'no such dimension to render.') +
+            '</h3>' +
+            '<table>' +
+              row('Window', esc(m.windowDays) + ' days',
+                  'How many days back these figures cover. Changing it ' +
+                  'changes every number on this page.') +
+              row('Generated', esc((m.generatedAt || '').slice(0, 16).replace('T', ' ')),
+                  'When this snapshot was computed. It is not live — the ' +
+                  'report is produced on a schedule.') +
+              row('Suppression floor', esc(m.minTeamsPerBucket) + ' teams',
+                  'The privacy floor. A team-size group is only broken out ' +
+                  'separately once it contains at least this many teams — ' +
+                  'below that, those teams are counted in the app-wide ' +
+                  'number only, never dropped. It stops a figure about "the ' +
+                  'one 8-player team" from being a figure about that team.') +
+            '</table>' +
           '</div>' +
 
           '<div class="card">' +
-            '<p style="margin:0 0 4px;font-size:13px"><strong>New accounts per day</strong></p>' +
-            lineChart(data.signupsPerDay, 'New player accounts per day') +
+            '<h3 style="margin:0 0 10px;font-size:15px">Getting started' +
+              info('Where accounts sit in the funnel from created, through ' +
+                   'a parent approving, to actually training.') +
+            '</h3>' +
+            '<table>' +
+              row('Players', esc(funnel.totalPlayers ?? 0), null) +
+              row('Have logged at least once',
+                  esc(funnel.playersWithAtLeastOneTrainingLog ?? 0) +
+                  ' (' + pct(funnel.percentWithAtLeastOneTrainingLog) + ')',
+                  'The number that matters most early on: an account that ' +
+                  'never logs anything is a signup, not a user.') +
+              statusRows('Parental consent', funnel.playersByParentalConsentStatus) +
+              statusRows('Team join', funnel.playersByTeamJoinStatus) +
+            '</table>' +
+            bucketNote(m.adoptionFunnel, m.minTeamsPerBucket) +
           '</div>' +
 
           '<div class="card">' +
-            '<h3 style="margin:0 0 2px;font-size:15px">Link clicks</h3>' +
-            '<p class="muted" style="margin:0 0 14px"><strong>' +
-              esc(data.totalClicks) + '</strong> clicks over ' + esc(days) +
-              ' days on the public site.</p>' +
-            barChart(data.linkClicks.map(function (series) {
-              return {
-                label: LINK_LABEL[series.link] || series.link,
-                value: series.total
-              };
-            }), 'Clicks per link') +
-            (data.linkClicks.length
-              ? '<p style="margin:18px 0 4px;font-size:13px"><strong>' +
-                esc(LINK_LABEL[data.linkClicks[0].link] || data.linkClicks[0].link) +
-                '</strong> <span class="muted">— the most clicked, per day</span></p>' +
-                lineChart(data.linkClicks[0].daily, 'Clicks per day for the most clicked link')
-              : '') +
+            '<h3 style="margin:0 0 10px;font-size:15px">Still coming back' +
+              info('Activity recency. "This window" uses the same window as ' +
+                   'the rest of the report, so it moves if the window does.') +
+            '</h3>' +
+            '<table>' +
+              row('Active last 7 days',
+                  esc(recency.playersActiveLast7Days ?? 0) + ' (' +
+                  pct(recency.percentActiveLast7Days) + ')', null) +
+              row('Active this window',
+                  esc(recency.playersActiveInWindow ?? 0) + ' (' +
+                  pct(recency.percentActiveInWindow) + ')', null) +
+            '</table>' +
           '</div>' +
 
-          '<p class="muted">Counts only. No cookies, no third-party ' +
-          'analytics, and nothing identifying a visitor — a click is a ' +
-          'number against a link and a date, so these charts cannot be ' +
-          'narrowed to a person or a team.</p>';
+          histogramCard('Current streaks', streaks.currentStreakHistogram,
+            'How many players sit at each streak length right now. A pile-up ' +
+            'at zero means people are starting and stopping.') +
+          histogramCard('Longest streaks ever', streaks.longestStreakHistogram,
+            'The best each player has ever reached — it only goes up, so it ' +
+            'shows what the app has managed at its best.') +
+
+          '<div class="card">' +
+            '<h3 style="margin:0 0 10px;font-size:15px">Weekly goals' +
+              info('Counted per goal that ran to the end of its own week ' +
+                   'without being cancelled. Cancellations are shown ' +
+                   'separately on purpose — otherwise cancelling every goal ' +
+                   'that was going badly would make the completion rate look ' +
+                   'better.') +
+            '</h3>' +
+            '<table>' +
+              row('Goals concluded', esc(goals.concludedGoalCount ?? 0), null) +
+              row('Completed', esc(goals.completedGoalCount ?? 0) + ' (' +
+                  pct(goals.percentCompleted) + ')', null) +
+              row('Cancelled', esc(goals.cancelledGoalCount ?? 0),
+                  'Excluded from the rate above, never hidden.') +
+            '</table>' +
+            bucketNote(m.weeklyGoalEngagement, m.minTeamsPerBucket) +
+          '</div>' +
+
+          '<div class="card">' +
+            '<h3 style="margin:0 0 10px;font-size:15px">Team pots' +
+              info('The median rather than the average, so one unusually ' +
+                   'busy team does not move the number.') +
+            '</h3>' +
+            '<table>' +
+              row('Active pots', esc(pot.activePotCount ?? 0), null) +
+              row('Median points per week', esc(pot.medianPointsPerWeek ?? 0), null) +
+            '</table>' +
+          '</div>' +
+
+          listCard('What they train', m.trainingTypeMix, function (e) {
+            return [esc(e.activityType), esc(e.logCount) + ' (' +
+                    pct(e.percentOfLogs) + ')'];
+          }, 'Share of all logged sessions by activity type.') +
+
+          listCard('Badges awarded', m.badgeMix, function (e) {
+            return [esc(e.badgeKey || e.badgeId), esc(e.awardCount)];
+          }, 'Which badges are actually being earned. A badge nobody earns ' +
+             'is either too hard or invisible.') +
+
+          weeklyCard('Clips uploaded', (m.socialUsage || {}).clipUploadsPerWeek) +
+          weeklyCard('Chat messages', (m.socialUsage || {}).chatMessagesPerWeek) +
+
+          '<p class="muted">Aggregates only. ADR-0020 keeps a floor under ' +
+          'every breakdown so no figure can resolve to a single team or ' +
+          'child — which is why some sections say a group was folded into ' +
+          'the app-wide number instead of being shown separately.</p>';
       }).catch(function (e) { fail(view, e); });
     },
 
@@ -826,18 +1279,49 @@
       }).catch(function (e) { fail(view, e); });
     },
 
-    bugs: function (view) {
-      api.get('/api/v1/admin/bug-reports').then(function (r) {
-        var rows = (r.reports || r.rows || []).map(function (x) {
-          return '<tr><td>' + esc(x.createdAt) + '</td><td>' + esc(x.screenName) +
-                 '</td><td>' + esc(x.category) + '</td><td>' + esc(x.status) +
-                 '</td><td>' + esc(x.description || '') + '</td></tr>';
-        }).join('');
-        view.innerHTML = '<h2>Bug reports</h2><div class="card"><table>' +
-          '<tr><th>When</th><th>Reporter</th><th>Category</th><th>Status</th><th>What happened</th></tr>' +
-          (rows || '<tr><td colspan="5" class="muted">No reports.</td></tr>') +
-          '</table></div>';
-      }).catch(function (e) { fail(view, e); });
+    /* Bug reports, with triage. The list existed; changing a status meant
+     * a psql prompt, which is the exact thing ADR-0022 built this console
+     * to replace.
+     *
+     * Transitions are unrestricted (open <-> triaged <-> closed) because
+     * Decision 7 argued that deliberately: there is one operator and no
+     * audit trail, and a mis-clicked "Closed" that cannot be undone from
+     * the UI sends that operator straight back to psql. */
+    bugs: function (view, filterArg) {
+      var status = BUG_STATUSES.indexOf(filterArg) >= 0 ? filterArg : '';
+      api.get('/api/v1/admin/bug-reports' +
+              (status ? '?status=' + encodeURIComponent(status) : ''))
+        .then(function (r) {
+          var rows = r.reports || [];
+          var counts = r.countsByStatus || r.counts || {};
+
+          view.innerHTML =
+            '<h2>Bug reports</h2>' +
+            '<div class="card">' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+                '<button data-go="bugs"' + (status ? '' : ' class="primary"') +
+                '>All' + countSuffix(counts) + '</button>' +
+                BUG_STATUSES.map(function (st) {
+                  return '<button data-go="bugs/' + st + '"' +
+                    (st === status ? ' class="primary"' : '') + '>' +
+                    esc(BUG_STATUS_LABEL[st]) +
+                    (typeof counts[st] === 'number' ? ' (' + esc(counts[st]) + ')' : '') +
+                    '</button>';
+                }).join('') +
+              '</div>' +
+            '</div>' +
+            '<div class="card">' +
+              (rows.length
+                ? '<table><tr><th>When</th><th>Reporter</th><th>Where</th>' +
+                  '<th>What</th><th>Build</th><th>Status</th><th></th></tr>' +
+                  rows.map(bugRow).join('') + '</table>'
+                : '<p class="muted">Nothing here. An empty queue and a ' +
+                  'broken reporting flow look identical, so it is worth ' +
+                  'filing one from the app occasionally to be sure.</p>') +
+            '</div>';
+
+          wireBugButtons(view, status);
+        }).catch(function (e) { fail(view, e); });
     },
 
     planning: function (view) {
@@ -851,13 +1335,92 @@
         view.innerHTML = '<h2>Planning</h2>' + body;
       }).catch(function (e) {
         if (e && e.error && e.error.code === 'reauth_required') {
-          view.innerHTML = '<h2>Planning</h2><div class="card"><p>This section needs you to confirm it is you.</p>' +
-            '<p class="muted">You will come straight back here.</p>' +
-            '<a class="sso" style="max-width:260px" href="/api/v1/staff-auth/google/step-up">Sign in again</a></div>';
+          view.innerHTML = '<h2>Planning</h2><div class="card">' +
+            '<p>This section needs you to confirm it is you.</p>' +
+            '<p class="muted">Your session stays signed in — this is an ' +
+            'extra check for the planning documents only. You will come ' +
+            'back to this tab.</p>' +
+            '<button id="stepUp" class="primary">Confirm it is me</button></div>';
+          /* Remember where to return. The step-up round trip ends at the
+           * callback, which redirects to a FIXED /console/ path — that is
+           * deliberate (a ?next= there would be an open redirect on the one
+           * endpoint that just minted a session), so the return tab is
+           * remembered on this side instead. Without it the copy above
+           * promised something the flow did not do. */
+          document.getElementById('stepUp').onclick = function () {
+            try { sessionStorage.setItem('skillstreak.returnTo', 'planning'); }
+            catch (err) { /* private mode — you just land on the default tab */ }
+            window.location.href = '/api/v1/staff-auth/google/step-up';
+          };
           return;
         }
         fail(view, e);
       });
+    },
+
+    /* The coach drill library (ADR-0029 Mechanism 1).
+     *
+     * Adult-authored training material, and nothing else — no child's
+     * clip, name, streak or words appears here or can be reached from
+     * here. There is no drill table, so there is no row to join to a
+     * player in the first place.
+     *
+     * Visible to a trainer holding an active team link, and to admins. */
+    drills: function (view, filterArg) {
+      var focus = DRILL_FOCUSES.indexOf(filterArg) >= 0 ? filterArg : '';
+      api.get('/api/v1/drills' + (focus ? '?focus=' + encodeURIComponent(focus) : ''))
+        .then(function (rows) {
+          view.innerHTML =
+            '<h2>Drill library</h2>' +
+            '<div class="card">' +
+              /* Reworded 2026-08-11 from the security review: this used
+               * to promise "no names", which only a human reading the diff
+               * enforces. "No clips, no logs, no player data" IS
+               * structural — there is no table here to join to a child —
+               * so the copy now claims exactly that and is honest about
+               * where the rest comes from. */
+              '<p class="muted" style="margin:0 0 12px">Coach-authored ' +
+              'training material. It carries no clips, no training logs and ' +
+              'no player data — drills are files in the repository, read by ' +
+              'a person before they merge.</p>' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+                '<button data-go="drills"' + (focus ? '' : ' class="primary"') +
+                '>All</button>' +
+                DRILL_FOCUSES.map(function (f) {
+                  return '<button data-go="drills/' + f + '"' +
+                    (f === focus ? ' class="primary"' : '') + '>' +
+                    esc(FOCUS_LABEL[f] || f) + '</button>';
+                }).join('') +
+              '</div>' +
+            '</div>' +
+            (rows.length
+              ? rows.map(drillCard).join('')
+              : '<div class="card"><p class="muted">Nothing here yet. Drills ' +
+                'are added to the repository and arrive with the next ' +
+                'release.</p></div>');
+        }).catch(function (e) { fail(view, e); });
+    },
+
+    /* One drill. The body is Markdown a human wrote, rendered as escaped
+     * plain text in a <pre> — deliberately not parsed into HTML. A
+     * Markdown renderer would be a dependency, a new injection surface,
+     * and a way for file content to become markup; none of that is worth
+     * paying for prose that reads perfectly well as text. */
+    drill: function (view, slug) {
+      api.get('/api/v1/drills/' + encodeURIComponent(slug)).then(function (d) {
+        view.innerHTML =
+          backLink('drills', 'Drill library') +
+          '<h2>' + esc(d.title) + '</h2>' +
+          '<div class="card">' +
+            '<p class="muted" style="margin:0 0 12px">' +
+              esc(FOCUS_LABEL[d.focus] || d.focus) + ' · ' + esc(d.ageBand) +
+              ' år · ' + esc(d.durationMinutes) + ' min · ' + esc(d.author) +
+              (d.sourceNote ? ' · ' + esc(d.sourceNote) : '') +
+            '</p>' +
+            '<pre style="white-space:pre-wrap;font:inherit;margin:0">' +
+              esc(d.body) + '</pre>' +
+          '</div>';
+      }).catch(function (e) { fail(view, e); });
     },
 
     /* PT1 — redeem a code, and the list of teams it produces.
@@ -936,13 +1499,14 @@
             '<p style="margin:0 0 4px"><strong>' + esc(team.teamPool.pointsTotal) +
             '</strong> points in the team pot</p>' +
             (goal
-              ? '<p class="muted" style="margin:0">This week: ' + esc(goal.title) +
-                ' — ' + esc(goal.teamProgressValue) + ' of ' + esc(goal.targetValue) +
-                ' ' + esc(goal.targetMetric) + ', ending ' + esc(goal.endDate) + '</p>'
+              ? '<p class="muted" style="margin:0"><span>This week</span>: ' + esc(goal.title) +
+                ' — ' + esc(goal.teamProgressValue) + ' <span>of</span> ' +
+                esc(goal.targetValue) + ' ' + esc(goal.targetMetric) +
+                ', <span>ending</span> ' + esc(goal.endDate) + '</p>'
               : '<p class="muted" style="margin:0">No weekly goal running.</p>') +
           '</div>' +
           '<div class="card">' +
-            '<h3 style="margin:0 0 4px;font-size:15px">Players (' +
+            '<h3 style="margin:0 0 4px;font-size:15px"><span>Players</span> (' +
             esc(team.rosterSize) + ')</h3>' +
             '<p class="muted" style="margin:0 0 12px">Screen names only. You ' +
             'see a player&rsquo;s training after their family says yes — ' +
@@ -1009,9 +1573,11 @@
     return '<div class="card">' +
       '<h3 style="margin:0 0 4px;font-size:15px">' + esc(team.teamName) + '</h3>' +
       '<p class="muted" style="margin:0 0 10px">' +
-      esc(plural(team.rosterSize, 'player')) + ' · ' + esc(approved) +
-      ' shared with you' +
-      (waiting ? ' · ' + esc(waiting) + ' waiting for a parent' : '') + '</p>' +
+      esc(team.rosterSize) + ' <span>' +
+      esc(team.rosterSize === 1 ? 'player' : 'players') + '</span> · ' +
+      esc(approved) + ' <span>shared with you</span>' +
+      (waiting ? ' · ' + esc(waiting) + ' <span>waiting for a parent</span>' : '') +
+      '</p>' +
       '<button class="primary" data-go="team/' + esc(team.teamId) + '">Open team</button>' +
       '</div>';
   }
@@ -1087,6 +1653,10 @@
       }
 
       state.role = session.role === 'admin' ? 'admin' : 'pt';
+      /* Admins start in admin mode; a trainer has only one surface, so for
+       * them mode and role are always the same thing. */
+      state.mode = state.role;
+      state.lang = readLang();
       el('who').textContent =
         session.displayName || (state.role === 'admin' ? '' : 'Trainer');
       show('shell');
@@ -1104,7 +1674,7 @@
            * console loading. */
           el('env').textContent = '—';
         });
-        go((location.hash || '').replace('#', '') || 'graphs');
+        go(returnTo() || (location.hash || '').replace('#', '') || 'graphs');
       } else {
         el('env').textContent = '—';
         go((location.hash || '').replace('#', '') || 'teams');

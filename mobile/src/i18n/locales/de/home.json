@@ -232,5 +232,11 @@
       "gotIt": "Okay, verstanden!"
     },
     "yourPosition": "Dein Platz: {{rank}} von {{teamCount}} Teams"
+  },
+  "evidenceFallbackSheet": {
+    "heading": "Das Video wurde nicht fertig",
+    "body": "Dein Training ist noch da. Ohne Video eintragen? Du bekommst weniger Punkte, aber es zählt.",
+    "logAnyway": "Ohne Video eintragen",
+    "tryAgain": "Nochmal versuchen"
   }
 }

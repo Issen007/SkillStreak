@@ -5,6 +5,7 @@ import { Request } from 'express';
 import { CallbackParamsType, IdTokenClaims, generators } from 'openid-client';
 import { Repository } from 'typeorm';
 import {
+  StaffAccountRevokedException,
   StaffOAuthCallbackRejectedException,
   StaffOAuthPendingAuthInvalidException,
   StaffOAuthStateMismatchException,
@@ -216,6 +217,15 @@ export class StaffAuthService {
 
     const account = await this.provisionOrRefreshAccount(provider, claims);
 
+    // A revoked account is not handed a credential, however valid the
+    // OIDC round trip was. Both guards reject it per request, so this is
+    // not the only barrier — but issuing a session to an account someone
+    // deliberately suspended is the kind of thing that reads as working
+    // until the day a guard is refactored.
+    if (account.revokedAt) {
+      throw new StaffAccountRevokedException();
+    }
+
     // The step-up proof travels on the session this callback issues, not on
     // the StaffAccount row — see StaffJwtPayload.stepUpAt.
     const sessionToken = this.staffSessionTokenService.issueFor(
@@ -311,15 +321,18 @@ export class StaffAuthService {
         : StaffAccountRole.PT;
     }
 
-    // Deliberately does NOT touch revokedAt either way — revocation is a
-    // separate, manual lever (see StaffAccount.revokedAt's own comment)
-    // never implicitly cleared by a successful login. A revoked account
-    // can still mint a fresh staff_session here; what that session
-    // actually grants is entirely down to AdminAuthGuard's own per-request
-    // revocation check (nothing, for admin routes) and PtAuthGuard's
-    // by-construction zero ambient authority (nothing, for pt routes
-    // pending Part A) — so there is no meaningful capability to withhold
-    // at login time itself.
+    // Deliberately does NOT clear revokedAt — revocation is a separate,
+    // manual lever (see StaffAccount.revokedAt's own comment) and must
+    // never be undone implicitly by a successful login.
+    //
+    // This block used to add that a revoked account minting a fresh
+    // session here was harmless, "since PtAuthGuard's by-construction zero
+    // ambient authority (nothing, for pt routes pending Part A)" meant
+    // there was no capability to withhold. Part A shipped, that stopped
+    // being true, and both guards now reject a revoked account per
+    // request. Withholding the session at login as well (see completeLogin)
+    // is belt-and-braces rather than the only barrier — but a revoked
+    // account should not be handed a credential at all.
     existing.lastLoginAt = now;
     return this.staffAccountRepository.save(existing);
   }

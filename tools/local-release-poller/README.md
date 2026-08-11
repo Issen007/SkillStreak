@@ -103,3 +103,43 @@ Edit `OnUnitActiveSec=5min` in `skillstreak-poller.timer`, then re-run the
 symlink + `daemon-reload` + `enable --now` steps above (systemd doesn't
 pick up unit file edits from a live symlink target automatically — a
 `daemon-reload` is what re-reads it).
+
+## Checking whether it is actually working
+
+Added 2026-08-11, because this poller failed every five minutes for about
+a week without anyone noticing — the old pod kept serving, so the cluster
+looked alive while being eight days stale. The cause was
+`STAFF_JWT_SECRET` becoming required while the internal cluster's
+Deployment did not reference it, so every rollout timed out.
+
+Two files in `~/.local/state/skillstreak-poller/` now make each run's
+outcome durable:
+
+- `current-sha` — the commit actually deployed. **This is the number that
+  matters**: if it is behind `review`, the cluster is stale whatever the
+  pods say.
+- `last-status` — tab-separated `timestamp`, `ok|fail`, and a message.
+- `consecutive-failures` — present only while failing; deleted on success.
+
+```bash
+cat ~/.local/state/skillstreak-poller/last-status
+journalctl --user -u skillstreak-poller -p err --since '-1 day'
+```
+
+The `-p err` filter is the useful one: from three consecutive failures
+(~15 minutes, past any plausible transient) the script logs at syslog
+priority `err`, so that command stays empty until something is genuinely
+wrong.
+
+**Worth knowing about the failure this was built for.** `ubuntu01`'s
+Kubernetes manifests are applied **by hand**, while production's are
+applied by CI from GitHub Secrets. So every new required environment
+variable drifts here first, and the symptom is always the same: a pod that
+cannot boot, an old pod that keeps serving, and a green CI. When a rollout
+fails, compare the Deployment's env against `k8s/api-deployment.yaml`
+before looking anywhere else:
+
+```bash
+microk8s kubectl -n skillstreak get deploy api \
+  -o jsonpath='{range .spec.template.spec.containers[0].env[*]}{.name}{"\n"}{end}' | sort
+```

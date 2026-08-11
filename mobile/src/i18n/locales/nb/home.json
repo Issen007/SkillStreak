@@ -232,5 +232,11 @@
       "gotIt": "Ok, skjønner!"
     },
     "yourPosition": "Din plass: {{rank}} av {{teamCount}} lag"
+  },
+  "evidenceFallbackSheet": {
+    "heading": "Videoen ble ikke ferdig",
+    "body": "Økten din er fortsatt her. Vil du logge den uten video? Du får færre poeng, men økten teller.",
+    "logAnyway": "Logg uten video",
+    "tryAgain": "Prøv igjen"
   }
 }
