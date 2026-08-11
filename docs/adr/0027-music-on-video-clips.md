@@ -28,6 +28,66 @@ collecting-society licence (STIM, and the master-side equivalent) would
 actually cost or even offer a platform of this size — **could not be
 verified** and is stated as unverified rather than asserted.
 
+
+## Security review — 2026-08-11: **BLOCKED**, six blocking findings
+
+The blocking pass this ADR's Status section required has run. It did not
+pass. Summarised here; act on the findings, not on this summary.
+
+**The central one (F1): Decision 3's "moderated by construction" is false
+for the option Decision 2 recommends shipping first.** Routing team-sound
+uploads through the admin console makes the *row's* provenance server-side
+— it does not make the *content's* provenance server-side. A team chant is
+still recorded by children on a child's phone and reaches the operator by
+email; what vets it is one person listening, which is a policy control,
+precisely what Decision 3 claims not to rely on. A chant can carry another
+child's real name, a child who never consented to being recorded, or an
+abusive line about a teammate — and Decision 4 then bakes it permanently
+into other children's clips, where the keyword filter cannot hear it. Fix
+by making commissioned tracks the first shipped source, or by dropping the
+structural claim and naming the real control.
+
+**F2: track files are ingested and served with no metadata strip**,
+re-opening ADR-0010's blocking GPS finding on a new path. Baking keeps the
+track's tags out of the mixed clip, but Decision 8 hands the *raw preview*
+to every child on the team — one `ffprobe` yields the coordinates of
+wherever the chant was recorded. This also inverts Decision 8's own
+"lower-sensitivity bucket" argument: `clips` objects all pass through
+`remuxStripMetadata`; `audio-tracks` objects would not.
+
+**F3: `ClipAudioTrack` has no retention window and no erasure path.** The
+ADR's proudest consequence — that retention, erasure and self-delete need
+no changes — holds for clips and fails for tracks, which are the new
+personal data. A child whose voice is on a team chant is not the uploader
+of anything, so ADR-0013's walk never touches it; their erasure completes
+while their recorded voice keeps being served and keeps being mixed into
+new clips.
+
+**F4: the proposed FK pair wedges team erasure, silently.**
+`video_clip.audio_track_id ON DELETE RESTRICT` plus
+`clip_audio_track.team_id ON DELETE CASCADE` means a `DELETE FROM team`
+can abort on a RESTRICT violation — after the MinIO objects are already
+gone, and with the per-batch catch in `AccountErasureSweepService` being
+logger-only, so nothing reaches the admin console. The sweep then fails
+identically every night, past the 30-day commitment, looking exactly like
+an erasure not yet due.
+
+**F5: the one column called "the entire cross-team isolation mechanism"
+has no constraint enforcing it.** An operator leaving `team_id` unset
+publishes one team's children into the global catalogue. Needs a CHECK.
+
+**F6: the picker and preview run a team filter only**, missing the consent
+and team-join gates every sibling media method carries — so a player still
+`PENDING` captain approval, or whose parental consent was revoked, can
+stream the team's recordings.
+
+Two findings are worth acting on outside this feature: F4's observation
+that a repeatedly-failing erasure batch writes no durable row, and F7's
+recommendation to add `-map_chapters -1` / `-map_metadata:s -1` to
+`remuxStripMetadata`'s existing path.
+
+**Re-review required on F1–F6 before any picker or migration is built.**
+
 ## Context
 
 ### The status quo is not silence — verified in the code, and this matters
