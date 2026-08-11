@@ -33,7 +33,12 @@ export interface PtTeamAggregateView {
   teamName: string;
   teamPool: {
     pointsTotal: number;
-    goalThreshold: number;
+    // No goalThreshold. ADR-0008 Decision 4 replaced the "progress toward
+    // a fixed target" framing with a cross-team leaderboard, so the column
+    // survives only because it is NOT NULL — it means nothing, and a
+    // trainer-facing field that means nothing is worse than an absent one
+    // (see ADR-0025's 2026-08-11 amendment). Decision A5's allow-list is
+    // meant to be a considered list of what a PT sees, not a passthrough.
   };
   activeWeeklyGoal: {
     title: string;
@@ -184,7 +189,6 @@ export class PtDataService {
       teamName: team?.name ?? '',
       teamPool: {
         pointsTotal: pot.pointsTotal,
-        goalThreshold: pot.goalThreshold,
       },
       activeWeeklyGoal,
       roster: roster.map((player) => ({

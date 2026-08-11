@@ -734,5 +734,7 @@ Named rather than silently dropped, in the same posture ADR-0019 Decision
 4. **Does Option A (team sounds) ship at all in v1**, given that
    authoring goes through the admin console by hand (Decision 3)? It is
    the most distinctive option and the most manual one.
-5. **`TeamSeasonPot.goalThreshold` retune** — already open from ADR-0025's
-   amendment; this feature makes it more urgent rather than causing it.
+5. ~~**`TeamSeasonPot.goalThreshold` retune**~~ — **withdrawn 2026-08-11.**
+   There is no threshold to retune: ADR-0008 Decision 4 replaced it with a
+   leaderboard, so the pot filling faster affects nothing. See ADR-0025's
+   2026-08-11 amendment.
