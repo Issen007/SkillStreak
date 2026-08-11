@@ -6,68 +6,233 @@
 <title>SkillStreak — Staff</title>
 <link rel="icon" href="/console/favicon.png">
 <style>
+  /* SkillStreak staff console — design tokens.
+   *
+   * Hand-written CSS, no framework: the console has no bundler and the
+   * deployment blocks external stylesheets, so a design system here means
+   * custom properties and discipline rather than a dependency.
+   *
+   * Dark mode is honoured rather than themed — an operator checking a
+   * deploy at midnight should not be flashbanged. Everything below is
+   * expressed in tokens so the dark block only restates colour, never
+   * layout. */
   :root {
-    --ink: #1b1d21; --muted: #6a7078; --line: #d9dde2; --bg: #f4f6f8;
-    --card: #fff; --accent: #1f6feb; --ok: #17803d; --warn: #9a6700; --err: #c1432f;
+    color-scheme: light dark;
+
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #f1f3f6;
+    --ink: #16181d;
+    --ink-2: #5b626d;
+    --line: #e2e6ec;
+    --accent: #2563eb;
+    --accent-ink: #ffffff;
+    --ok: #15803d;
+    --warn: #a16207;
+    --err: #dc2626;
+
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 1px 3px rgba(16, 24, 40, .06);
+    --shadow-lg: 0 4px 12px rgba(16, 24, 40, .07);
+    --sidebar-w: 208px;
   }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --surface: #171a20;
+      --surface-2: #1e222a;
+      --ink: #e8eaed;
+      --ink-2: #9aa2ae;
+      --line: #272c35;
+      --accent: #5b8def;
+      --accent-ink: #0b0d10;
+      --ok: #4ade80;
+      --warn: #fbbf24;
+      --err: #f87171;
+      --shadow: none;
+      --shadow-lg: 0 4px 14px rgba(0, 0, 0, .4);
+    }
+  }
+
   * { box-sizing: border-box; }
+
   body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
-  /* Login ---------------------------------------------------------- */
-  .login { max-width: 360px; margin: 12vh auto; text-align: center; padding: 0 20px; }
-  .login h1 { font-size: 20px; margin: 0 0 4px; }
-  .login p { color: var(--muted); font-size: 13.5px; margin: 0 0 22px; }
-  .sso { display: block; width: 100%; margin-bottom: 10px; padding: 11px 14px;
-         font: inherit; background: #fff; border: 1px solid var(--line);
-         border-radius: 8px; cursor: pointer; text-decoration: none; color: inherit; }
-  .sso:hover { border-color: var(--ink); }
-  .note { font-size: 12.5px; color: var(--muted); margin-top: 16px; }
-  /* Shell ---------------------------------------------------------- */
+
+  /* Every interactive element gets a visible focus ring. :focus-visible so
+   * it appears for keyboard users without following every mouse click. */
+  a:focus-visible, button:focus-visible, input:focus-visible,
+  select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* ---- sign in ------------------------------------------------------ */
+  .login { max-width: 340px; margin: 14vh auto; text-align: center; padding: 0 20px; }
+  .login .mark {
+    width: 44px; height: 44px; margin: 0 auto 18px; border-radius: 12px;
+    background: linear-gradient(140deg, #f97316, #ef4444);
+    display: grid; place-items: center; font-size: 22px;
+  }
+  .login h1 { font-size: 19px; margin: 0 0 4px; letter-spacing: -.01em; }
+  .login p { color: var(--ink-2); font-size: 13.5px; margin: 0 0 22px; }
+  .sso {
+    display: block; width: 100%; margin-bottom: 9px; padding: 11px 14px;
+    font: inherit; background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius-sm); cursor: pointer; text-decoration: none;
+    color: inherit; transition: border-color .15s, transform .15s;
+  }
+  .sso:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .note { font-size: 12.5px; color: var(--ink-2); margin-top: 18px; }
+
+  /* ---- shell -------------------------------------------------------- */
   .shell { display: none; }
-  .shell.is-on { display: block; }
-  header {
-    display: flex; align-items: center; gap: 16px; background: #fff;
-    border-bottom: 1px solid var(--line); padding: 10px 18px;
+  .shell.is-on { display: grid; grid-template-columns: var(--sidebar-w) 1fr;
+                 min-height: 100vh; }
+
+  aside {
+    background: var(--surface); border-right: 1px solid var(--line);
+    padding: 16px 12px; position: sticky; top: 0; height: 100vh;
+    display: flex; flex-direction: column; gap: 4px;
   }
-  header .brand { font-weight: 700; }
-  header .env { font-size: 11px; font-weight: 700; letter-spacing: .06em;
-                padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); }
-  header .env.prod { color: var(--err); border-color: var(--err); }
-  header .who { margin-left: auto; color: var(--muted); font-size: 13px; }
-  nav { display: flex; gap: 2px; padding: 8px 18px; background: #fff;
-        border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-  nav button { font: inherit; font-size: 13.5px; padding: 6px 12px; border-radius: 8px;
-               border: 1px solid transparent; background: transparent; cursor: pointer; color: var(--muted); }
-  nav button.is-active { background: var(--bg); border-color: var(--line); color: var(--ink); font-weight: 600; }
-  main { padding: 20px 18px 60px; max-width: 1000px; }
-  h2 { font-size: 17px; margin: 0 0 12px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
-          padding: 16px 18px; margin-bottom: 14px; }
-  .muted { color: var(--muted); font-size: 13.5px; }
-  .stub { border-style: dashed; }
-  .stub h3 { margin: 0 0 6px; font-size: 15px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th { text-align: left; font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
-       color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
-  td { padding: 8px; border-bottom: 1px solid #eef1f4; }
+  .brand {
+    display: flex; align-items: center; gap: 9px; font-weight: 650;
+    padding: 4px 8px 14px; letter-spacing: -.01em;
+  }
+  .brand .dot {
+    width: 22px; height: 22px; border-radius: 7px; flex: none;
+    background: linear-gradient(140deg, #f97316, #ef4444);
+    display: grid; place-items: center; font-size: 12px;
+  }
+
+  nav { display: flex; flex-direction: column; gap: 2px; }
+  nav button {
+    display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+    font: inherit; font-size: 13.5px; padding: 8px 10px;
+    border-radius: var(--radius-sm); border: 1px solid transparent;
+    background: transparent; cursor: pointer; color: var(--ink-2);
+    transition: background .12s, color .12s;
+  }
+  nav button:hover { background: var(--surface-2); color: var(--ink); }
+  nav button.is-active {
+    background: var(--surface-2); color: var(--ink); font-weight: 600;
+    border-color: var(--line);
+  }
+  nav button .ico { width: 15px; text-align: center; flex: none; opacity: .85; }
+
+  .aside-foot { margin-top: auto; padding: 10px 8px 2px; border-top: 1px solid var(--line); }
+  /* The button rules below are scoped to `main`, so the sidebar's own
+     button needs saying explicitly — otherwise it renders as a raw
+     browser button in the middle of a designed panel. */
+  aside button.link {
+    font: inherit; font-size: 12.5px; background: none; border: none;
+    padding: 0; color: var(--ink-2); cursor: pointer; text-decoration: underline;
+  }
+  aside button.link:hover { color: var(--ink); }
+  .who { font-size: 12.5px; color: var(--ink-2); display: block; margin-bottom: 6px; }
+  .env {
+    display: inline-block; font-size: 10.5px; font-weight: 700;
+    letter-spacing: .06em; padding: 2px 7px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink-2);
+  }
+  .env.prod { color: var(--err); border-color: var(--err); }
+
+  main { padding: 26px 30px 70px; max-width: 1040px; }
+  h2 { font-size: 20px; margin: 0 0 16px; letter-spacing: -.015em; }
+  h3 { letter-spacing: -.01em; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 17px 19px; margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+  .card.stub { border-style: dashed; box-shadow: none; }
+
+  /* Stat tiles — the number is the content, so it gets the weight. */
+  .tiles { display: grid; gap: 12px; margin-bottom: 14px;
+           grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow);
+  }
+  .tile .n { font-size: 26px; font-weight: 680; letter-spacing: -.02em;
+             display: block; line-height: 1.15; }
+  .tile .l { font-size: 12.5px; color: var(--ink-2); }
+
+  .muted { color: var(--ink-2); font-size: 13.5px; }
   .err { color: var(--err); }
-  button.link { font: inherit; background: none; border: none; color: var(--accent);
-                cursor: pointer; padding: 0; text-decoration: underline; }
-  main button { font: inherit; font-size: 13.5px; padding: 7px 13px; cursor: pointer;
-                border: 1px solid var(--line); border-radius: 8px; background: #fff; }
-  main button:hover:not(:disabled) { border-color: var(--ink); }
-  main button:disabled { opacity: .55; cursor: default; }
-  main button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  main button.primary:hover { filter: brightness(.93); }
-  main button.link { border: none; padding: 0; background: none; }
-  /* Consent state is the most important thing on the roster screen — a
-     trainer must never have to guess whether a family said yes. */
-  .badge { display: inline-block; font-size: 12px; padding: 2px 9px; border-radius: 999px;
-           border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th {
+    text-align: left; font-size: 11px; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--ink-2); font-weight: 600;
+    padding: 7px 8px; border-bottom: 1px solid var(--line);
+  }
+  td { padding: 9px 8px; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td, table tr:hover td { background: var(--surface-2); }
+
+  main button, .btn {
+    font: inherit; font-size: 13.5px; padding: 7px 13px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--surface); color: var(--ink);
+    transition: border-color .12s, background .12s, transform .12s;
+  }
+  main button:hover:not(:disabled) { border-color: var(--accent); }
+  main button:active:not(:disabled) { transform: translateY(1px); }
+  main button:disabled { opacity: .5; cursor: default; }
+  main button.primary {
+    background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
+    font-weight: 550;
+  }
+  main button.primary:hover { filter: brightness(1.08); }
+  main button.link { border: none; padding: 0; background: none; color: var(--accent);
+                     text-decoration: underline; }
+
+  input, select, textarea {
+    font: inherit; padding: 8px 10px; border: 1px solid var(--line);
+    border-radius: var(--radius-sm); background: var(--surface);
+    color: var(--ink); width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  label { display: block; font-size: 13px; color: var(--ink-2); }
+
+  .badge {
+    display: inline-block; font-size: 11.5px; padding: 2px 9px;
+    border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2);
+    white-space: nowrap; font-weight: 550;
+  }
   .badge.ok { color: var(--ok); border-color: var(--ok); }
   .badge.warn { color: var(--warn); border-color: var(--warn); }
+  .badge.accent { color: var(--accent); border-color: var(--accent); }
+
+  /* Narrow screens: the sidebar becomes a scrolling top strip. A 208px
+   * column on a phone would leave nothing for the content it exists to
+   * navigate. */
+  @media (max-width: 720px) {
+    .shell.is-on { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; border-right: none;
+            border-bottom: 1px solid var(--line); }
+    nav { flex-direction: row; overflow-x: auto; gap: 4px; }
+    nav button { white-space: nowrap; }
+    .aside-foot { margin-top: 12px; }
+    main { padding: 20px 16px 60px; }
+  }
+
+  /* Respect a stated preference for less motion — every transition here is
+   * decoration, so there is nothing to lose by dropping them. */
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -76,6 +241,7 @@
      no password to collect, and no role picker, because the role is derived
      server-side from ADMIN_EMAILS rather than chosen by whoever signs in. -->
 <section class="login" id="login">
+  <div class="mark">🔥</div>
   <h1>SkillStreak — Staff</h1>
   <p>Admin and trainer console</p>
   <a class="sso" href="/api/v1/staff-auth/google/login">Continue with Google</a>
@@ -85,13 +251,15 @@
 </section>
 
 <div class="shell" id="shell">
-  <header>
-    <span class="brand">SkillStreak</span>
-    <span class="env" id="env">—</span>
-    <span class="who" id="who"></span>
-    <button class="link" id="logout" style="margin-left:14px">Sign out</button>
-  </header>
-  <nav id="nav"></nav>
+  <aside>
+    <span class="brand"><span class="dot">🔥</span>SkillStreak</span>
+    <nav id="nav"></nav>
+    <div class="aside-foot">
+      <span class="who" id="who"></span>
+      <span class="env" id="env">—</span>
+      <button class="link" id="logout" style="display:block;margin-top:10px;font-size:12.5px">Sign out</button>
+    </div>
+  </aside>
   <main id="view"></main>
 </div>
 

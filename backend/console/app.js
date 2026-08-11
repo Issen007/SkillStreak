@@ -34,7 +34,8 @@
   var api = {
     get: function (path) { return request('GET', path); },
     post: function (path, body) { return request('POST', path, body); },
-    del: function (path) { return request('DELETE', path); }
+    del: function (path) { return request('DELETE', path); },
+    patch: function (path, body) { return request('PATCH', path, body); }
   };
 
   /* The send-list filters. `todo` is first and is the default, because
@@ -131,15 +132,16 @@
    * this is navigation, not security. */
   var TABS = {
     admin: [
-      { id: 'stats', label: 'Statistics' },
-      { id: 'graphs', label: 'Graphs' },
-      { id: 'signups', label: 'Demo signups' },
-      { id: 'errors', label: 'Errors' },
-      { id: 'bugs', label: 'Bug reports' },
-      { id: 'planning', label: 'Planning' }
+      { id: 'graphs', label: 'Graphs', ico: '📈' },
+      { id: 'stats', label: 'Statistics', ico: '📊' },
+      { id: 'signups', label: 'Demo signups', ico: '📬' },
+      { id: 'campaigns', label: 'Campaigns', ico: '📣' },
+      { id: 'errors', label: 'Errors', ico: '⚠️' },
+      { id: 'bugs', label: 'Bug reports', ico: '🐛' },
+      { id: 'planning', label: 'Planning', ico: '🗺️' }
     ],
     pt: [
-      { id: 'teams', label: 'My teams' }
+      { id: 'teams', label: 'My teams', ico: '🏑' }
     ]
   };
 
@@ -167,7 +169,8 @@
     nav.innerHTML = '';
     (TABS[state.role] || []).forEach(function (tab) {
       var b = document.createElement('button');
-      b.textContent = tab.label;
+      b.innerHTML = '<span class="ico" aria-hidden="true">' + esc(tab.ico || '') +
+        '</span><span>' + esc(tab.label) + '</span>';
       b.className = tab.id === tabForRoute(state.tab) ? 'is-active' : '';
       b.onclick = function () { go(tab.id); };
       nav.appendChild(b);
@@ -260,6 +263,145 @@
     });
   }
 
+
+
+  /* ---- campaigns ----------------------------------------------------- */
+
+  function tile(value, label) {
+    return '<div class="tile"><span class="n">' + esc(value) +
+      '</span><span class="l">' + esc(label) + '</span></div>';
+  }
+
+  var CHANNEL_LABEL = {
+    linkedin: 'LinkedIn', facebook: 'Facebook', instagram: 'Instagram',
+    email: 'Email', other: 'Other'
+  };
+  var AUDIENCE_LABEL = {
+    general: 'General', investors: 'Investors',
+    contributors: 'Contributors', trainers: 'Trainers'
+  };
+  var STATUS_CLASS = {
+    draft: '', scheduled: 'warn', posted: 'ok', archived: ''
+  };
+
+  function campaignRow(row) {
+    return '<tr><td>' + esc(row.name) +
+      (row.plannedFor ? '<br><span class="muted">' + esc(row.plannedFor) + '</span>' : '') +
+      '</td><td><code>' + esc(row.tag) + '</code></td><td>' +
+      esc(CHANNEL_LABEL[row.channel] || row.channel) + '</td><td>' +
+      esc(AUDIENCE_LABEL[row.audience] || row.audience) + '</td><td>' +
+      esc(row.locale) + '</td><td><span class="badge ' +
+      (STATUS_CLASS[row.status] || '') + '">' + esc(row.status) +
+      '</span></td><td><strong>' + esc(row.signups) + '</strong></td>' +
+      '<td style="text-align:right;white-space:nowrap">' +
+      '<button data-edit="' + esc(row.id) + '">Edit</button> ' +
+      '<button data-drop="' + esc(row.id) + '">Delete</button></td></tr>';
+  }
+
+  function option(value, label, selected) {
+    return '<option value="' + esc(value) + '"' +
+      (value === selected ? ' selected' : '') + '>' + esc(label) + '</option>';
+  }
+
+  /* One form for create and edit. `existing` null means create. */
+  function showCampaignForm(existing) {
+    var box = document.getElementById('campaignForm');
+    var e = existing || {};
+    box.style.display = '';
+    box.innerHTML =
+      '<div style="display:grid;gap:10px;max-width:520px">' +
+        '<label>Name<input id="cName" maxlength="120" value="' + esc(e.name || '') + '"></label>' +
+        '<label>Tag <span class="muted">— becomes ?campaign=&lt;tag&gt;</span>' +
+          '<input id="cTag" maxlength="64" placeholder="li-sv-sommar" value="' + esc(e.tag || '') + '"></label>' +
+        '<label>Channel<select id="cChannel">' +
+          Object.keys(CHANNEL_LABEL).map(function (k) {
+            return option(k, CHANNEL_LABEL[k], e.channel);
+          }).join('') + '</select></label>' +
+        '<label>Audience<select id="cAudience">' +
+          Object.keys(AUDIENCE_LABEL).map(function (k) {
+            return option(k, AUDIENCE_LABEL[k], e.audience);
+          }).join('') + '</select></label>' +
+        '<label>Language<select id="cLocale">' +
+          option('sv', 'Svenska', e.locale) + option('en', 'English', e.locale) +
+          '</select></label>' +
+        '<label>Status<select id="cStatus">' +
+          ['draft', 'scheduled', 'posted', 'archived'].map(function (k) {
+            return option(k, k, e.status);
+          }).join('') + '</select></label>' +
+        '<label>Planned for<input id="cPlanned" type="date" value="' + esc(e.plannedFor || '') + '"></label>' +
+        '<label>Where it was posted (URL)<input id="cUrl" maxlength="500" value="' + esc(e.postedUrl || '') + '"></label>' +
+        '<label>Post copy<textarea id="cBody" rows="6">' + esc(e.body || '') + '</textarea></label>' +
+        '<div><button id="cSave" class="primary">' +
+          (existing ? 'Save changes' : 'Create campaign') + '</button> ' +
+          '<button id="cCancel">Cancel</button></div>' +
+        '<p id="cMsg" class="muted" style="margin:0"></p>' +
+      '</div>';
+
+    document.getElementById('cCancel').onclick = function () {
+      box.style.display = 'none';
+      box.innerHTML = '';
+    };
+
+    document.getElementById('cSave').onclick = function () {
+      var msg = document.getElementById('cMsg');
+      var body = {
+        name: document.getElementById('cName').value.trim(),
+        tag: document.getElementById('cTag').value.trim().toLowerCase(),
+        channel: document.getElementById('cChannel').value,
+        audience: document.getElementById('cAudience').value,
+        locale: document.getElementById('cLocale').value,
+        status: document.getElementById('cStatus').value,
+        body: document.getElementById('cBody').value.trim() || undefined,
+        plannedFor: document.getElementById('cPlanned').value || undefined,
+        postedUrl: document.getElementById('cUrl').value.trim() || undefined
+      };
+      if (!body.name || !body.tag) {
+        msg.className = 'err';
+        msg.textContent = 'A name and a tag are both needed.';
+        return;
+      }
+      msg.className = 'muted';
+      msg.textContent = 'Saving…';
+      var request = existing
+        ? api.patch('/api/v1/admin/pr-campaigns/' + encodeURIComponent(existing.id), body)
+        : api.post('/api/v1/admin/pr-campaigns', body);
+      request.then(function () { go('campaigns'); })
+        .catch(function (err) {
+          msg.className = 'err';
+          msg.textContent = errorMessage(err);
+        });
+    };
+  }
+
+  function wireCampaignButtons(view, rows) {
+    Array.prototype.forEach.call(
+      view.querySelectorAll('[data-edit]'),
+      function (button) {
+        button.onclick = function () {
+          var id = button.getAttribute('data-edit');
+          showCampaignForm(rows.filter(function (r) { return r.id === id; })[0]);
+          document.getElementById('campaignForm').scrollIntoView({ block: 'nearest' });
+        };
+      }
+    );
+    Array.prototype.forEach.call(
+      view.querySelectorAll('[data-drop]'),
+      function (button) {
+        button.onclick = function () {
+          button.disabled = true;
+          button.textContent = 'Deleting…';
+          api.del('/api/v1/admin/pr-campaigns/' +
+                  encodeURIComponent(button.getAttribute('data-drop')))
+            .then(function () { go('campaigns'); })
+            .catch(function (e) {
+              button.disabled = false;
+              button.textContent = 'Delete';
+              alertInline(button, errorMessage(e));
+            });
+        };
+      }
+    );
+  }
 
   /* ---- charts -------------------------------------------------------
    *
@@ -375,6 +517,50 @@
     /* Demo-event signups. Adult marketing data, kept in its own admin tab
      * with no path to anything about a player — see the entity docstring
      * for why that separation is structural rather than tidiness. */
+    /* PR campaigns — the execution record for the copy in
+     * docs/CAMPAIGNS.md, with each campaign's signups counted by its tag.
+     *
+     * Campaigns that produced nothing still show, with a 0. Hiding them
+     * would make the board a list of successes, and the ones that brought
+     * nobody are exactly the ones worth looking at. */
+    campaigns: function (view) {
+      api.get('/api/v1/admin/pr-campaigns').then(function (rows) {
+        var posted = rows.filter(function (r) { return r.status === 'posted'; });
+        var signups = rows.reduce(function (n, r) { return n + r.signups; }, 0);
+
+        view.innerHTML =
+          '<h2>Campaigns</h2>' +
+          '<div class="tiles">' +
+            tile(rows.length, plural(rows.length, 'campaign')) +
+            tile(posted.length, 'posted') +
+            tile(signups, 'signups attributed') +
+          '</div>' +
+          '<div class="card">' +
+            '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+              '<button id="newCampaign" class="primary">New campaign</button>' +
+              '<span class="muted" style="flex:1;min-width:220px">Copy for all ' +
+              'four audiences lives in docs/CAMPAIGNS.md — this tracks what ' +
+              'actually went out.</span>' +
+            '</div>' +
+            '<div id="campaignForm" style="display:none;margin-top:16px"></div>' +
+          '</div>' +
+          '<div class="card">' +
+            (rows.length
+              ? '<table><tr><th>Campaign</th><th>Tag</th><th>Channel</th>' +
+                '<th>Audience</th><th>Lang</th><th>Status</th><th>Signups</th>' +
+                '<th></th></tr>' +
+                rows.map(campaignRow).join('') + '</table>'
+              : '<p class="muted">No campaigns yet. The first one is ' +
+                'probably the summer-project post.</p>') +
+          '</div>';
+
+        document.getElementById('newCampaign').onclick = function () {
+          showCampaignForm(null);
+        };
+        wireCampaignButtons(view, rows);
+      }).catch(function (e) { fail(view, e); });
+    },
+
     /* Link clicks and app-wide activity, drawn. Everything on this screen
      * is app-wide — there is no team or player dimension in the payload,
      * by ADR-0020 Decision 5, so there is nothing here to filter down to
@@ -918,7 +1104,7 @@
            * console loading. */
           el('env').textContent = '—';
         });
-        go((location.hash || '').replace('#', '') || 'stats');
+        go((location.hash || '').replace('#', '') || 'graphs');
       } else {
         el('env').textContent = '—';
         go((location.hash || '').replace('#', '') || 'teams');

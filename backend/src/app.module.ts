@@ -6,6 +6,7 @@ import { AccountErasureModule } from './account-erasure/account-erasure.module';
 import { AdminModule } from './admin/admin.module';
 import { AppConfigModule } from './config/app-config.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { PrCampaignsModule } from './pr-campaigns/pr-campaigns.module';
 import { BugReportsModule } from './bug-reports/bug-reports.module';
 import { EventRegistrationsModule } from './event-registrations/event-registrations.module';
 import { RedisThrottlerStorage } from './common/throttler/redis-throttler-storage.service';
@@ -131,6 +132,7 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     // "Report a problem" submission (POST /api/v1/bug-reports, JwtAuthGuard,
     // deliberately not consent-gated; see that module/service's docstrings).
     AnalyticsModule,
+    PrCampaignsModule,
     BugReportsModule,
     EventRegistrationsModule,
     // docs/adr/0022-admin-control-center.md Decisions 4/6/7 — the admin
