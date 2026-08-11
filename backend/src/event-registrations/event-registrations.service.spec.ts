@@ -6,7 +6,20 @@ import {
   EventRegistrationInterest,
   EventRegistrationLocale,
 } from './entities/event-registration.entity';
+import { MailService } from '../mail/mail.service';
 import { EventRegistrationsService } from './event-registrations.service';
+
+/** Typed read of a sendMail mock call — keeps the assertions below free of
+ *  `any`, which the lint rules reject in this repo. */
+interface SentMail {
+  to: string;
+  text: string;
+  attachments?: Array<{ filename: string; content: string }>;
+}
+
+function sentMails(mock: jest.Mock): SentMail[] {
+  return mock.mock.calls.map((call) => (call as [SentMail])[0]);
+}
 
 describe('EventRegistrationsService', () => {
   let service: EventRegistrationsService;
@@ -15,6 +28,7 @@ describe('EventRegistrationsService', () => {
   let find: jest.Mock;
   let del: jest.Mock;
   let update: jest.Mock;
+  let sendMail: jest.Mock;
 
   const dto = {
     name: '  Anna Svensson  ',
@@ -30,6 +44,7 @@ describe('EventRegistrationsService', () => {
     find = jest.fn().mockResolvedValue([]);
     del = jest.fn().mockResolvedValue({ affected: 1 });
     update = jest.fn().mockResolvedValue({ affected: 2 });
+    sendMail = jest.fn().mockResolvedValue(undefined);
 
     const queryBuilder = {
       insert: jest.fn().mockReturnThis(),
@@ -49,8 +64,16 @@ describe('EventRegistrationsService', () => {
             find,
             delete: del,
             update,
-            findOne: jest.fn().mockResolvedValue(null),
+            findOne: jest.fn().mockResolvedValue({
+              email: 'anna.svensson@example.se',
+              locale: 'sv',
+              unsubscribeCode: 'code-1',
+            }),
           },
+        },
+        {
+          provide: MailService,
+          useValue: { sendMail: sendMail },
         },
         {
           provide: ConfigService,
@@ -186,6 +209,153 @@ describe('EventRegistrationsService', () => {
 
       await expect(service.unsubscribe('nope')).resolves.toEqual({
         removed: false,
+      });
+    });
+  });
+
+  describe('sending the invitations', () => {
+    const invite = {
+      meetUrl: 'https://meet.google.com/abc-defg-hij',
+      startsAt: '2026-09-03T17:00:00.000Z',
+      durationMinutes: 30,
+    };
+
+    function registration(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'r1',
+        name: 'Anna',
+        email: 'anna@example.se',
+        interest: EventRegistrationInterest.CURIOUS,
+        note: null,
+        locale: EventRegistrationLocale.SV,
+        campaign: null,
+        createdAt: new Date('2026-08-01T09:00:00Z'),
+        inviteSentAt: null,
+        unsubscribeCode: 'code-1',
+        ...overrides,
+      };
+    }
+
+    it('skips anyone already invited unless resend is asked for', async () => {
+      find.mockResolvedValue([
+        registration(),
+        registration({ id: 'r2', inviteSentAt: new Date() }),
+      ]);
+
+      const result = await service.sendInvites(invite);
+
+      expect(result).toEqual({ sent: 1, failed: 0, skipped: 1 });
+      expect(sendMail).toHaveBeenCalledTimes(1);
+    });
+
+    it('re-sends to everyone when explicitly asked', async () => {
+      find.mockResolvedValue([
+        registration(),
+        registration({ id: 'r2', inviteSentAt: new Date() }),
+      ]);
+
+      const result = await service.sendInvites({ ...invite, resend: true });
+
+      expect(result).toEqual({ sent: 2, failed: 0, skipped: 0 });
+    });
+
+    it('sends one message per recipient, never a shared BCC', async () => {
+      find.mockResolvedValue([
+        registration(),
+        registration({ id: 'r2', email: 'bo@example.se' }),
+      ]);
+
+      await service.sendInvites(invite);
+
+      const recipients = sentMails(sendMail).map((mail) => mail.to);
+      expect(recipients).toEqual(['anna@example.se', 'bo@example.se']);
+      // Each message carries that person's own opt-out, which a shared
+      // BCC could not do.
+      const bodies = sentMails(sendMail).map((mail) => mail.text);
+      expect(bodies.every((body) => body.includes('code-1'))).toBe(true);
+    });
+
+    it('attaches a calendar file with the Meet link in it', async () => {
+      find.mockResolvedValue([registration()]);
+
+      await service.sendInvites(invite);
+
+      const attachments = sentMails(sendMail)[0].attachments ?? [];
+      expect(attachments[0].filename).toBe('skillstreak-demo.ics');
+      expect(attachments[0].content).toContain('meet.google.com/abc-defg-hij');
+      expect(attachments[0].content).toContain('DTSTART:20260903T170000Z');
+    });
+
+    it('stamps each recipient as it succeeds, not the batch at the end', async () => {
+      find.mockResolvedValue([
+        registration(),
+        registration({ id: 'r2', email: 'bo@example.se' }),
+      ]);
+
+      await service.sendInvites(invite);
+
+      // Per-recipient: a crash halfway through must not re-mail the people
+      // already contacted, and must not skip the ones never reached.
+      expect(update).toHaveBeenCalledTimes(2);
+      const [firstCriteria, firstPatch] = update.mock.calls[0] as [
+        { id: string },
+        { inviteSentAt: Date },
+      ];
+      expect(firstCriteria).toEqual({ id: 'r1' });
+      expect(firstPatch.inviteSentAt).toBeInstanceOf(Date);
+    });
+
+    it('carries on past a failing recipient and leaves them unsent', async () => {
+      find.mockResolvedValue([
+        registration(),
+        registration({ id: 'r2', email: 'bad@example.se' }),
+      ]);
+      sendMail
+        .mockRejectedValueOnce(new Error('mailbox full'))
+        .mockResolvedValue(undefined);
+
+      const result = await service.sendInvites(invite);
+
+      expect(result).toEqual({ sent: 1, failed: 1, skipped: 0 });
+      // Only the one that succeeded got stamped, so the next run retries
+      // exactly the failure and nobody else.
+      expect(update).toHaveBeenCalledTimes(1);
+      const [criteria, patch] = update.mock.calls[0] as [
+        { id: string },
+        { inviteSentAt: Date },
+      ];
+      expect(criteria).toEqual({ id: 'r2' });
+      expect(patch.inviteSentAt).toBeInstanceOf(Date);
+    });
+
+    it('writes the time in the recipient own language, naming the timezone', async () => {
+      find.mockResolvedValue([
+        registration(),
+        registration({
+          id: 'r2',
+          email: 'bo@example.com',
+          locale: EventRegistrationLocale.EN,
+        }),
+      ]);
+
+      await service.sendInvites(invite);
+
+      const bodies = sentMails(sendMail).map((mail) => mail.text);
+      // Stockholm is named rather than silently converted — a reader
+      // abroad should not have to guess whose clock this is.
+      expect(bodies[0]).toContain('(Stockholm)');
+      expect(bodies[1]).toContain('(Stockholm)');
+      expect(bodies[0]).not.toEqual(bodies[1]);
+    });
+  });
+
+  describe('the signup confirmation', () => {
+    it('never fails the registration when mail is broken', async () => {
+      find.mockResolvedValue([]);
+      sendMail.mockRejectedValue(new Error('smtp down'));
+
+      await expect(service.register({ ...dto })).resolves.toEqual({
+        registered: true,
       });
     });
   });

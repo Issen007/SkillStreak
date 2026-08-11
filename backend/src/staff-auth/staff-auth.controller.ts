@@ -21,6 +21,10 @@ import {
   STAFF_SESSION_COOKIE_PATH,
 } from './staff-cookies';
 import { StaffAuthService } from './staff-auth.service';
+import {
+  StaffSessionView,
+  StaffSessionViewService,
+} from './staff-session-view.service';
 
 const PENDING_AUTH_COOKIE_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
 const SESSION_COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours, per Decision B2
@@ -34,7 +38,27 @@ export class StaffAuthController {
   constructor(
     private readonly staffAuthService: StaffAuthService,
     private readonly configService: ConfigService,
+    private readonly staffSessionViewService: StaffSessionViewService,
   ) {}
+
+  /**
+   * "Am I signed in, and as what?" — always 200, never throws.
+   *
+   * Deliberately unguarded. Being signed out is the expected answer for a
+   * page that has just loaded, and answering it with a 401 meant every
+   * signed-out console load wrote a row into the admin error log. This
+   * endpoint exists so that asking costs nothing.
+   *
+   * It authorises nothing: /admin/* and /pt/* keep their own guards, which
+   * remain the only thing deciding access.
+   */
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Get('session')
+  describeSession(@Req() req: Request): Promise<StaffSessionView> {
+    const token = req.cookies?.[STAFF_SESSION_COOKIE_NAME] as
+      string | undefined;
+    return this.staffSessionViewService.describe(token);
+  }
 
   // Decision B5 — the one real local surface (this route + the callback
   // below) gets a plain per-IP rate limit, the same ThrottlerGuard pattern

@@ -2,11 +2,23 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTransport, Transporter } from 'nodemailer';
 
+export interface MailAttachment {
+  filename: string;
+  content: string;
+  contentType: string;
+}
+
 export interface SendMailOptions {
   to: string;
   subject: string;
   html: string;
   text: string;
+  /**
+   * Optional file attachments. Added 2026-08-10 for the demo invitation's
+   * calendar (.ics) file — every other mail this app sends is text and
+   * links only, and should stay that way.
+   */
+  attachments?: MailAttachment[];
 }
 
 // Wraps SMTP sending (Google Workspace relay by default — see
@@ -84,6 +96,9 @@ export class MailService {
       subject: options.subject,
       html: options.html,
       text: options.text,
+      ...(options.attachments?.length
+        ? { attachments: options.attachments }
+        : {}),
     });
   }
 }

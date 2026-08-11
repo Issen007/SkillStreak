@@ -34,7 +34,8 @@
   var api = {
     get: function (path) { return request('GET', path); },
     post: function (path, body) { return request('POST', path, body); },
-    del: function (path) { return request('DELETE', path); }
+    del: function (path) { return request('DELETE', path); },
+    patch: function (path, body) { return request('PATCH', path, body); }
   };
 
   /* The send-list filters. `todo` is first and is the default, because
@@ -62,6 +63,19 @@
     });
     return parts.length ? parts.join(' · ') : 'Nobody yet.';
   }
+
+  /* Exception class names → what an operator should read. The class is
+   * how the "why" travels, since the wire message is deliberately
+   * identical for every 401. */
+  var ERROR_NAME_LABEL = {
+    StaffSessionMissingException: 'Not signed in',
+    StaffSessionExpiredException: 'Session timed out',
+    StaffSessionInvalidException: 'Bad signature — check STAFF_JWT_SECRET',
+    StaffAccountGoneException: 'Account row missing',
+    StaffAccountRevokedException: 'Account revoked',
+    StaffAccountNotAdminException: 'Not an admin',
+    StaffAccountNotPtException: 'Not a trainer'
+  };
 
   var INTEREST_LABEL = {
     curious: 'Just curious',
@@ -118,21 +132,23 @@
    * this is navigation, not security. */
   var TABS = {
     admin: [
-      { id: 'stats', label: 'Statistics' },
-      { id: 'signups', label: 'Demo signups' },
-      { id: 'errors', label: 'Errors' },
-      { id: 'bugs', label: 'Bug reports' },
-      { id: 'planning', label: 'Planning' }
+      { id: 'graphs', label: 'Graphs', ico: '📈' },
+      { id: 'stats', label: 'Statistics', ico: '📊' },
+      { id: 'signups', label: 'Demo signups', ico: '📬' },
+      { id: 'campaigns', label: 'Campaigns', ico: '📣' },
+      { id: 'errors', label: 'Errors', ico: '⚠️' },
+      { id: 'bugs', label: 'Bug reports', ico: '🐛' },
+      { id: 'planning', label: 'Planning', ico: '🗺️' }
     ],
     pt: [
-      { id: 'teams', label: 'My teams' }
+      { id: 'teams', label: 'My teams', ico: '🏑' }
     ]
   };
 
   /* Detail routes belong to a tab without being one. Without this, opening
    * a team unlit the only nav item a trainer has, which reads as "you have
    * navigated out of the app". */
-  var ROUTE_TAB = { team: 'teams', player: 'teams' };
+  var ROUTE_TAB = { team: 'teams', player: 'teams', graphs: 'graphs' };
 
   function tabForRoute(route) {
     var root = String(route).split('/')[0];
@@ -153,7 +169,8 @@
     nav.innerHTML = '';
     (TABS[state.role] || []).forEach(function (tab) {
       var b = document.createElement('button');
-      b.textContent = tab.label;
+      b.innerHTML = '<span class="ico" aria-hidden="true">' + esc(tab.ico || '') +
+        '</span><span>' + esc(tab.label) + '</span>';
       b.className = tab.id === tabForRoute(state.tab) ? 'is-active' : '';
       b.onclick = function () { go(tab.id); };
       nav.appendChild(b);
@@ -246,6 +263,240 @@
     });
   }
 
+
+
+  /* ---- campaigns ----------------------------------------------------- */
+
+  function tile(value, label) {
+    return '<div class="tile"><span class="n">' + esc(value) +
+      '</span><span class="l">' + esc(label) + '</span></div>';
+  }
+
+  var CHANNEL_LABEL = {
+    linkedin: 'LinkedIn', facebook: 'Facebook', instagram: 'Instagram',
+    email: 'Email', other: 'Other'
+  };
+  var AUDIENCE_LABEL = {
+    general: 'General', investors: 'Investors',
+    contributors: 'Contributors', trainers: 'Trainers'
+  };
+  var STATUS_CLASS = {
+    draft: '', scheduled: 'warn', posted: 'ok', archived: ''
+  };
+
+  function campaignRow(row) {
+    return '<tr><td>' + esc(row.name) +
+      (row.plannedFor ? '<br><span class="muted">' + esc(row.plannedFor) + '</span>' : '') +
+      '</td><td><code>' + esc(row.tag) + '</code></td><td>' +
+      esc(CHANNEL_LABEL[row.channel] || row.channel) + '</td><td>' +
+      esc(AUDIENCE_LABEL[row.audience] || row.audience) + '</td><td>' +
+      esc(row.locale) + '</td><td><span class="badge ' +
+      (STATUS_CLASS[row.status] || '') + '">' + esc(row.status) +
+      '</span></td><td><strong>' + esc(row.signups) + '</strong></td>' +
+      '<td style="text-align:right;white-space:nowrap">' +
+      '<button data-edit="' + esc(row.id) + '">Edit</button> ' +
+      '<button data-drop="' + esc(row.id) + '">Delete</button></td></tr>';
+  }
+
+  function option(value, label, selected) {
+    return '<option value="' + esc(value) + '"' +
+      (value === selected ? ' selected' : '') + '>' + esc(label) + '</option>';
+  }
+
+  /* One form for create and edit. `existing` null means create. */
+  function showCampaignForm(existing) {
+    var box = document.getElementById('campaignForm');
+    var e = existing || {};
+    box.style.display = '';
+    box.innerHTML =
+      '<div style="display:grid;gap:10px;max-width:520px">' +
+        '<label>Name<input id="cName" maxlength="120" value="' + esc(e.name || '') + '"></label>' +
+        '<label>Tag <span class="muted">— becomes ?campaign=&lt;tag&gt;</span>' +
+          '<input id="cTag" maxlength="64" placeholder="li-sv-sommar" value="' + esc(e.tag || '') + '"></label>' +
+        '<label>Channel<select id="cChannel">' +
+          Object.keys(CHANNEL_LABEL).map(function (k) {
+            return option(k, CHANNEL_LABEL[k], e.channel);
+          }).join('') + '</select></label>' +
+        '<label>Audience<select id="cAudience">' +
+          Object.keys(AUDIENCE_LABEL).map(function (k) {
+            return option(k, AUDIENCE_LABEL[k], e.audience);
+          }).join('') + '</select></label>' +
+        '<label>Language<select id="cLocale">' +
+          option('sv', 'Svenska', e.locale) + option('en', 'English', e.locale) +
+          '</select></label>' +
+        '<label>Status<select id="cStatus">' +
+          ['draft', 'scheduled', 'posted', 'archived'].map(function (k) {
+            return option(k, k, e.status);
+          }).join('') + '</select></label>' +
+        '<label>Planned for<input id="cPlanned" type="date" value="' + esc(e.plannedFor || '') + '"></label>' +
+        '<label>Where it was posted (URL)<input id="cUrl" maxlength="500" value="' + esc(e.postedUrl || '') + '"></label>' +
+        '<label>Post copy<textarea id="cBody" rows="6">' + esc(e.body || '') + '</textarea></label>' +
+        '<div><button id="cSave" class="primary">' +
+          (existing ? 'Save changes' : 'Create campaign') + '</button> ' +
+          '<button id="cCancel">Cancel</button></div>' +
+        '<p id="cMsg" class="muted" style="margin:0"></p>' +
+      '</div>';
+
+    document.getElementById('cCancel').onclick = function () {
+      box.style.display = 'none';
+      box.innerHTML = '';
+    };
+
+    document.getElementById('cSave').onclick = function () {
+      var msg = document.getElementById('cMsg');
+      var body = {
+        name: document.getElementById('cName').value.trim(),
+        tag: document.getElementById('cTag').value.trim().toLowerCase(),
+        channel: document.getElementById('cChannel').value,
+        audience: document.getElementById('cAudience').value,
+        locale: document.getElementById('cLocale').value,
+        status: document.getElementById('cStatus').value,
+        body: document.getElementById('cBody').value.trim() || undefined,
+        plannedFor: document.getElementById('cPlanned').value || undefined,
+        postedUrl: document.getElementById('cUrl').value.trim() || undefined
+      };
+      if (!body.name || !body.tag) {
+        msg.className = 'err';
+        msg.textContent = 'A name and a tag are both needed.';
+        return;
+      }
+      msg.className = 'muted';
+      msg.textContent = 'Saving…';
+      var request = existing
+        ? api.patch('/api/v1/admin/pr-campaigns/' + encodeURIComponent(existing.id), body)
+        : api.post('/api/v1/admin/pr-campaigns', body);
+      request.then(function () { go('campaigns'); })
+        .catch(function (err) {
+          msg.className = 'err';
+          msg.textContent = errorMessage(err);
+        });
+    };
+  }
+
+  function wireCampaignButtons(view, rows) {
+    Array.prototype.forEach.call(
+      view.querySelectorAll('[data-edit]'),
+      function (button) {
+        button.onclick = function () {
+          var id = button.getAttribute('data-edit');
+          showCampaignForm(rows.filter(function (r) { return r.id === id; })[0]);
+          document.getElementById('campaignForm').scrollIntoView({ block: 'nearest' });
+        };
+      }
+    );
+    Array.prototype.forEach.call(
+      view.querySelectorAll('[data-drop]'),
+      function (button) {
+        button.onclick = function () {
+          button.disabled = true;
+          button.textContent = 'Deleting…';
+          api.del('/api/v1/admin/pr-campaigns/' +
+                  encodeURIComponent(button.getAttribute('data-drop')))
+            .then(function () { go('campaigns'); })
+            .catch(function (e) {
+              button.disabled = false;
+              button.textContent = 'Delete';
+              alertInline(button, errorMessage(e));
+            });
+        };
+      }
+    );
+  }
+
+  /* ---- charts -------------------------------------------------------
+   *
+   * Hand-drawn inline SVG. The console has no bundler and the deployment
+   * blocks external scripts, so a charting library is not available — and
+   * for two chart types it would be more dependency than drawing.
+   *
+   * Both use a 0-based y-axis on purpose. A chart that starts the axis at
+   * the minimum value makes a flat week look like a rally, which is the
+   * single easiest way to mislead yourself with your own numbers.
+   */
+  var CHART_W = 640;
+  var CHART_H = 160;
+  var CHART_PAD = { top: 10, right: 8, bottom: 22, left: 34 };
+
+  function niceMax(value) {
+    if (value <= 5) return 5;
+    var magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+    return Math.ceil(value / magnitude) * magnitude;
+  }
+
+  function lineChart(points, label) {
+    if (!points.length) return '<p class="muted">No data yet.</p>';
+    var max = niceMax(Math.max.apply(null, points.map(function (p) { return p.value; })) || 1);
+    var innerW = CHART_W - CHART_PAD.left - CHART_PAD.right;
+    var innerH = CHART_H - CHART_PAD.top - CHART_PAD.bottom;
+    var stepX = points.length > 1 ? innerW / (points.length - 1) : 0;
+
+    var coords = points.map(function (point, index) {
+      return {
+        x: CHART_PAD.left + index * stepX,
+        y: CHART_PAD.top + innerH - (point.value / max) * innerH,
+        point: point
+      };
+    });
+
+    var path = coords.map(function (c, i) {
+      return (i === 0 ? 'M' : 'L') + c.x.toFixed(1) + ' ' + c.y.toFixed(1);
+    }).join(' ');
+    var area = path + ' L' + coords[coords.length - 1].x.toFixed(1) + ' ' +
+      (CHART_PAD.top + innerH) + ' L' + coords[0].x.toFixed(1) + ' ' +
+      (CHART_PAD.top + innerH) + ' Z';
+
+    /* <title> per point rather than a hover script: it is the browser's own
+     * tooltip, works on keyboard focus, and needs no event wiring. */
+    var dots = coords.map(function (c) {
+      return '<circle cx="' + c.x.toFixed(1) + '" cy="' + c.y.toFixed(1) +
+        '" r="2.5" fill="var(--accent)"><title>' + esc(c.point.day) + ': ' +
+        esc(c.point.value) + '</title></circle>';
+    }).join('');
+
+    return '<svg viewBox="0 0 ' + CHART_W + ' ' + CHART_H + '" width="100%" ' +
+      'role="img" aria-label="' + esc(label) + '" style="display:block">' +
+      '<line x1="' + CHART_PAD.left + '" y1="' + (CHART_PAD.top + innerH) +
+        '" x2="' + (CHART_W - CHART_PAD.right) + '" y2="' + (CHART_PAD.top + innerH) +
+        '" stroke="var(--line)"/>' +
+      '<text x="2" y="' + (CHART_PAD.top + 4) + '" font-size="10" fill="var(--muted)">' + esc(max) + '</text>' +
+      '<text x="2" y="' + (CHART_PAD.top + innerH) + '" font-size="10" fill="var(--muted)">0</text>' +
+      '<path d="' + area + '" fill="var(--accent)" opacity="0.12"/>' +
+      '<path d="' + path + '" fill="none" stroke="var(--accent)" stroke-width="2"/>' +
+      dots +
+      '<text x="' + CHART_PAD.left + '" y="' + (CHART_H - 6) + '" font-size="10" fill="var(--muted)">' +
+        esc(points[0].day) + '</text>' +
+      '<text x="' + (CHART_W - CHART_PAD.right) + '" y="' + (CHART_H - 6) +
+        '" font-size="10" fill="var(--muted)" text-anchor="end">' +
+        esc(points[points.length - 1].day) + '</text>' +
+      '</svg>';
+  }
+
+  function barChart(entries, label) {
+    if (!entries.length) return '<p class="muted">No clicks recorded yet.</p>';
+    var max = niceMax(Math.max.apply(null, entries.map(function (e) { return e.value; })) || 1);
+    return '<div role="img" aria-label="' + esc(label) + '">' +
+      entries.map(function (entry) {
+        var pct = (entry.value / max) * 100;
+        return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
+          '<span style="width:150px;font-size:13px">' + esc(entry.label) + '</span>' +
+          '<span style="flex:1;background:var(--bg);border-radius:4px;height:16px;overflow:hidden">' +
+            '<span style="display:block;height:100%;width:' + pct.toFixed(1) +
+            '%;background:var(--accent)"></span></span>' +
+          '<strong style="width:52px;text-align:right;font-size:13px">' + esc(entry.value) + '</strong>' +
+          '</div>';
+      }).join('') + '</div>';
+  }
+
+  var LINK_LABEL = {
+    demo_signup: 'Demo signup',
+    try_it: 'Try it in browser',
+    get_app: 'Get the app',
+    trainers: 'Trainers page',
+    coaches_section: 'Coaches section',
+    github: 'GitHub',
+    other: 'Other'
+  };
+
   var VIEWS = {
     /* Wired end to end, to prove the shell actually authenticates and
      * reads real data rather than only looking like it does. */
@@ -266,6 +517,117 @@
     /* Demo-event signups. Adult marketing data, kept in its own admin tab
      * with no path to anything about a player — see the entity docstring
      * for why that separation is structural rather than tidiness. */
+    /* PR campaigns — the execution record for the copy in
+     * docs/CAMPAIGNS.md, with each campaign's signups counted by its tag.
+     *
+     * Campaigns that produced nothing still show, with a 0. Hiding them
+     * would make the board a list of successes, and the ones that brought
+     * nobody are exactly the ones worth looking at. */
+    campaigns: function (view) {
+      api.get('/api/v1/admin/pr-campaigns').then(function (rows) {
+        var posted = rows.filter(function (r) { return r.status === 'posted'; });
+        var signups = rows.reduce(function (n, r) { return n + r.signups; }, 0);
+
+        view.innerHTML =
+          '<h2>Campaigns</h2>' +
+          '<div class="tiles">' +
+            tile(rows.length, plural(rows.length, 'campaign')) +
+            tile(posted.length, 'posted') +
+            tile(signups, 'signups attributed') +
+          '</div>' +
+          '<div class="card">' +
+            '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+              '<button id="newCampaign" class="primary">New campaign</button>' +
+              '<span class="muted" style="flex:1;min-width:220px">Copy for all ' +
+              'four audiences lives in docs/CAMPAIGNS.md — this tracks what ' +
+              'actually went out.</span>' +
+            '</div>' +
+            '<div id="campaignForm" style="display:none;margin-top:16px"></div>' +
+          '</div>' +
+          '<div class="card">' +
+            (rows.length
+              ? '<table><tr><th>Campaign</th><th>Tag</th><th>Channel</th>' +
+                '<th>Audience</th><th>Lang</th><th>Status</th><th>Signups</th>' +
+                '<th></th></tr>' +
+                rows.map(campaignRow).join('') + '</table>'
+              : '<p class="muted">No campaigns yet. The first one is ' +
+                'probably the summer-project post.</p>') +
+          '</div>';
+
+        document.getElementById('newCampaign').onclick = function () {
+          showCampaignForm(null);
+        };
+        wireCampaignButtons(view, rows);
+      }).catch(function (e) { fail(view, e); });
+    },
+
+    /* Link clicks and app-wide activity, drawn. Everything on this screen
+     * is app-wide — there is no team or player dimension in the payload,
+     * by ADR-0020 Decision 5, so there is nothing here to filter down to
+     * an individual child even if someone wanted to. */
+    graphs: function (view, daysArg) {
+      var days = Number(daysArg) > 0 ? Number(daysArg) : 30;
+      api.get('/api/v1/admin/analytics?days=' + days).then(function (data) {
+        var activeToday = data.activePerDay.length
+          ? data.activePerDay[data.activePerDay.length - 1].value : 0;
+        var activePeak = data.activePerDay.reduce(function (max, p) {
+          return Math.max(max, p.value);
+        }, 0);
+
+        view.innerHTML =
+          '<h2>Graphs</h2>' +
+          '<div class="card">' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+              [7, 30, 90].map(function (option) {
+                return '<button data-go="graphs/' + option + '"' +
+                  (option === days ? ' class="primary"' : '') + '>Last ' +
+                  option + ' days</button>';
+              }).join('') +
+            '</div>' +
+          '</div>' +
+
+          '<div class="card">' +
+            '<h3 style="margin:0 0 2px;font-size:15px">Players</h3>' +
+            '<p class="muted" style="margin:0 0 14px"><strong>' +
+              esc(data.totalPlayers) + '</strong> accounts in total · <strong>' +
+              esc(activeToday) + '</strong> active today · busiest day <strong>' +
+              esc(activePeak) + '</strong></p>' +
+            '<p style="margin:0 0 4px;font-size:13px"><strong>Active players per day</strong> ' +
+              '<span class="muted">— logged at least one session</span></p>' +
+            lineChart(data.activePerDay, 'Active players per day') +
+          '</div>' +
+
+          '<div class="card">' +
+            '<p style="margin:0 0 4px;font-size:13px"><strong>New accounts per day</strong></p>' +
+            lineChart(data.signupsPerDay, 'New player accounts per day') +
+          '</div>' +
+
+          '<div class="card">' +
+            '<h3 style="margin:0 0 2px;font-size:15px">Link clicks</h3>' +
+            '<p class="muted" style="margin:0 0 14px"><strong>' +
+              esc(data.totalClicks) + '</strong> clicks over ' + esc(days) +
+              ' days on the public site.</p>' +
+            barChart(data.linkClicks.map(function (series) {
+              return {
+                label: LINK_LABEL[series.link] || series.link,
+                value: series.total
+              };
+            }), 'Clicks per link') +
+            (data.linkClicks.length
+              ? '<p style="margin:18px 0 4px;font-size:13px"><strong>' +
+                esc(LINK_LABEL[data.linkClicks[0].link] || data.linkClicks[0].link) +
+                '</strong> <span class="muted">— the most clicked, per day</span></p>' +
+                lineChart(data.linkClicks[0].daily, 'Clicks per day for the most clicked link')
+              : '') +
+          '</div>' +
+
+          '<p class="muted">Counts only. No cookies, no third-party ' +
+          'analytics, and nothing identifying a visitor — a click is a ' +
+          'number against a link and a date, so these charts cannot be ' +
+          'narrowed to a person or a team.</p>';
+      }).catch(function (e) { fail(view, e); });
+    },
+
     /* Demo-event signups, and the send list built from them.
      *
      * The filter is the point, not decoration: the first round of invites
@@ -301,9 +663,35 @@
               '>Download CSV (' + esc(rows.length) + ')</button> ' +
               (filter === 'todo' && rows.length
                 ? '<button id="markInvited">Mark these ' + esc(rows.length) +
-                  ' as invited</button>'
+                  ' as invited</button> ' +
+                  '<button id="showSend" class="primary">Send invites by ' +
+                  'email…</button>'
                 : '') +
             '</p>' +
+            /* Hidden until asked for: this button mails real people, and a
+             * form sitting permanently open next to a list of addresses is
+             * an easy thing to submit by accident. */
+            '<div id="sendForm" class="card stub" style="display:none">' +
+              '<h3 style="margin:0 0 4px;font-size:15px">Send the invitation</h3>' +
+              '<p class="muted" style="margin:0 0 12px">Goes to the ' +
+              esc(rows.length) + ' people listed below, one message each, ' +
+              'every one carrying its own unsubscribe link. Anyone already ' +
+              'invited is skipped.</p>' +
+              '<div style="display:grid;gap:10px;max-width:420px">' +
+                '<label>Google Meet link<input id="sendMeet" type="url" ' +
+                'placeholder="https://meet.google.com/abc-defg-hij" ' +
+                'style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit"></label>' +
+                '<label>Starts (your local time)<input id="sendStart" ' +
+                'type="datetime-local" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit"></label>' +
+                '<label>Length in minutes<input id="sendMinutes" type="number" ' +
+                'value="30" min="5" max="480" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit"></label>' +
+                '<label>Anything to add? (optional)<textarea id="sendMessage" ' +
+                'rows="3" maxlength="1000" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit"></textarea></label>' +
+                '<div><button id="sendGo" class="primary">Send to ' +
+                esc(rows.length) + ' people</button></div>' +
+                '<p id="sendMsg" class="muted" style="margin:0"></p>' +
+              '</div>' +
+            '</div>' +
             '<p id="signupMsg" class="muted" style="margin:0 0 12px"></p>' +
             '<table><tr><th>When</th><th>Name</th><th>Email</th>' +
             '<th>Interest</th><th>Lang</th><th>Campaign</th>' +
@@ -352,6 +740,52 @@
           };
         }
 
+        var showSend = document.getElementById('showSend');
+        if (showSend) {
+          showSend.onclick = function () {
+            document.getElementById('sendForm').style.display = '';
+            showSend.disabled = true;
+          };
+        }
+
+        var sendGo = document.getElementById('sendGo');
+        if (sendGo) {
+          sendGo.onclick = function () {
+            var msg = document.getElementById('sendMsg');
+            var meet = document.getElementById('sendMeet').value.trim();
+            var startLocal = document.getElementById('sendStart').value;
+            if (!meet || !startLocal) {
+              msg.className = 'err';
+              msg.textContent = 'A Meet link and a start time are both needed.';
+              return;
+            }
+            sendGo.disabled = true;
+            msg.className = 'muted';
+            msg.textContent = 'Sending — one message at a time, so this takes a moment…';
+            api.post('/api/v1/admin/event-registrations/send-invites', {
+              meetUrl: meet,
+              // datetime-local has no timezone; new Date() reads it as
+              // local time and toISOString converts, which is what the
+              // server expects.
+              startsAt: new Date(startLocal).toISOString(),
+              durationMinutes: Number(document.getElementById('sendMinutes').value) || 30,
+              message: document.getElementById('sendMessage').value.trim() || undefined
+            }).then(function (result) {
+              msg.className = result.failed ? 'err' : 'muted';
+              msg.textContent = 'Sent ' + result.sent + ', failed ' +
+                result.failed + ', skipped ' + result.skipped +
+                (result.failed
+                  ? '. The failures kept their unsent state and will be retried next time.'
+                  : '.');
+              setTimeout(function () { go('signups/todo'); }, 2500);
+            }).catch(function (e) {
+              sendGo.disabled = false;
+              msg.className = 'err';
+              msg.textContent = errorMessage(e);
+            });
+          };
+        }
+
         Array.prototype.forEach.call(
           view.querySelectorAll('[data-remove]'),
           function (button) {
@@ -376,12 +810,19 @@
       api.get('/api/v1/admin/errors').then(function (r) {
         var rows = (r.entries || r.rows || []).slice(0, 50).map(function (x) {
           return '<tr><td>' + esc(x.occurredAt) + '</td><td>' + esc(x.source) +
-                 '</td><td>' + esc(x.statusCode || '') + '</td><td>' + esc(x.message) + '</td></tr>';
+                 '</td><td>' + esc(x.statusCode || '') + '</td><td>' +
+                 esc(ERROR_NAME_LABEL[x.errorName] || x.errorName || '') +
+                 '</td><td>' + esc(x.message) + '</td></tr>';
         }).join('');
         view.innerHTML = '<h2>Errors</h2><div class="card"><table>' +
-          '<tr><th>When</th><th>Source</th><th>Status</th><th>Message</th></tr>' +
-          (rows || '<tr><td colspan="4" class="muted">Nothing logged.</td></tr>') +
-          '</table></div>';
+          '<tr><th>When</th><th>Source</th><th>Status</th><th>Why</th><th>Message</th></tr>' +
+          (rows || '<tr><td colspan="5" class="muted">Nothing logged.</td></tr>') +
+          '</table></div>' +
+          '<p class="muted">Every 401 answers the caller with the same ' +
+          'generic message on purpose — telling someone &ldquo;expired&rdquo; ' +
+          'rather than &ldquo;invalid&rdquo; would confirm their token was ' +
+          'correctly signed. The <strong>Why</strong> column is where the ' +
+          'difference is kept.</p>';
       }).catch(function (e) { fail(view, e); });
     },
 
@@ -627,33 +1068,54 @@
       .then(function () { location.reload(); });
   };
 
-  /* Role is discovered by asking, not assumed: GET /admin/session succeeds
-   * only for an admin, so a 403/401 there means this account is a PT (or
-   * has no access at all, which the API decides — not this page). */
+  /* Role comes from GET /staff-auth/session, which answers 200 whether or
+   * not you are signed in.
+   *
+   * This used to probe GET /admin/session and read a 401 as "signed out".
+   * It worked, and it cost an error row on every signed-out page load —
+   * the admin Errors tab filled with the console asking a question it was
+   * designed to ask. An expected answer should not travel as an exception.
+   *
+   * Nothing here is a security boundary: every /admin and /pt route keeps
+   * its own guard, and those guards decide access. This only decides which
+   * navigation to draw. */
   function start() {
-    api.get('/api/v1/admin/session').then(function (session) {
-      state.role = 'admin';
-      state.session = session;
-      el('who').textContent = session.displayName || '';
-      var env = el('env');
-      env.textContent = session.environment || '—';
-      env.className = 'env' + (/prod/i.test(session.environment || '') ? ' prod' : '');
-      show('shell');
-      go((location.hash || '').replace('#', '') || 'stats');
-    }).catch(function (e) {
-      if (e && e.unauthenticated) { show('login'); return; }
-      // Authenticated but not an admin — try the PT surface.
-      api.get('/api/v1/pt/team-links').then(function () {
-        state.role = 'pt';
-        el('who').textContent = 'Trainer';
-        el('env').textContent = '—';
-        show('shell');
-        go('teams');
-      }).catch(function () {
+    api.get('/api/v1/staff-auth/session').then(function (session) {
+      if (!session.authenticated) {
         show('login');
-        el('loginNote').textContent =
-          'That account is signed in but has no staff access yet.';
-      });
+        return;
+      }
+
+      state.role = session.role === 'admin' ? 'admin' : 'pt';
+      el('who').textContent =
+        session.displayName || (state.role === 'admin' ? '' : 'Trainer');
+      show('shell');
+
+      if (state.role === 'admin') {
+        /* Only admins ask for this, and only once we know they are one —
+         * so the call can no longer 401 and can no longer log an error. */
+        api.get('/api/v1/admin/session').then(function (adminSession) {
+          var env = el('env');
+          env.textContent = adminSession.environment || '—';
+          env.className =
+            'env' + (/prod/i.test(adminSession.environment || '') ? ' prod' : '');
+        }).catch(function () {
+          /* The badge is decoration; failing to draw it must not stop the
+           * console loading. */
+          el('env').textContent = '—';
+        });
+        go((location.hash || '').replace('#', '') || 'graphs');
+      } else {
+        el('env').textContent = '—';
+        go((location.hash || '').replace('#', '') || 'teams');
+      }
+    }).catch(function () {
+      /* The one endpoint that should never fail did. Showing sign-in is
+       * the only honest option — pretending to be signed in would produce
+       * a console where every tab errors. */
+      show('login');
+      el('loginNote').textContent =
+        'Could not reach the server. Try again in a moment.';
     });
   }
 

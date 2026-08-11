@@ -134,7 +134,12 @@ describe('PtDataService.getTeamAggregateViewsForPt', () => {
     const [view] = await service.getTeamAggregateViewsForPt('pt-1');
 
     expect(view.teamName).toBe('IBK Falken');
-    expect(view.teamPool).toEqual({ pointsTotal: 100, goalThreshold: 500 });
+    // goalThreshold is deliberately absent, not merely unread: ADR-0008
+    // Decision 4 removed the fixed-target framing, so the column means
+    // nothing and a trainer-facing field that means nothing is worse than
+    // an absent one (ADR-0025's 2026-08-11 amendment). toEqual rather than
+    // toMatchObject so re-adding it fails here.
+    expect(view.teamPool).toEqual({ pointsTotal: 100 });
     expect(view.roster).toEqual([
       {
         playerId: 'player-1',

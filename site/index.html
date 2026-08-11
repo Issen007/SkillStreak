@@ -10,6 +10,7 @@
   // origin — same "PLACEHOLDER + sed at build time" convention already
   // used for k8s/api-deployment.yaml's image field.
   window.__API_BASE__ = "__API_BASE_URL__";
+  window.__TRY_IT_URL__ = "__TRY_IT_URL__";
 </script>
 <style>
 @font-face {
@@ -1168,6 +1169,38 @@ footer .foot-row {
         <div class="reply">🔥 Klart! 4 övningar, 15 min, uppvärmning inkluderad — vill du skicka det som veckans utmaning direkt?</div>
       </div>
     </div>
+
+    <!-- Trainer CTA. Deliberately a waiting list and NOT a sign-in link:
+         a coach can sign in today, but the only way into a team is a
+         captain's code, so an account on its own has nothing in it. An
+         invitation to register that dead-ends is worse than no invitation,
+         especially when the sign-in genuinely works. -->
+    <div class="wrap" style="max-width:640px; margin-top:56px;">
+      <div class="reveal" style="border:1px solid rgba(255,255,255,.16); border-radius:16px; padding:28px 26px;">
+        <h3 style="margin:0 0 12px; font-size:21px;">Vill du vara tränare i SkillStreak?</h3>
+        <p style="color:var(--text-muted-on-ink); margin:0 0 14px;">
+          Du sätter veckans mål och ser vad som faktiskt händer mellan
+          träningarna — vem som kört, vem som har en streak igång, och vem
+          som tyst slutat dyka upp. Det sista är det man annars märker
+          alldeles för sent.
+        </p>
+        <p style="color:var(--text-muted-on-ink); margin:0 0 14px;">
+          Du kommer in genom att en lagkapten bjuder in dig — du kan aldrig
+          söka upp ett lag själv. Och du ser en spelares träning först när
+          just den familjen sagt ja. Det kostar dig något som tränare, och
+          det är också hela skälet till att en förälder säger ja.
+        </p>
+        <p style="color:var(--text-muted-on-ink); font-size:15px; margin:0 0 20px;">
+          <strong>Vi är inte öppna för nya tränare än.</strong> Skriv upp
+          dig, så hör vi av oss när det går.
+        </p>
+        <a class="btn btn-flame" href="/?campaign=site-trainer#visning">Skriv upp mig som tränare</a>
+        <a class="btn btn-ghost-on-ink" style="margin-left:8px"
+           href="https://github.com/Issen007/SkillStreak/blob/main/docs/TRAINERS.md">
+          Läs vad tränarrollen ser
+        </a>
+      </div>
+    </div>
   </section>
 
   <section class="section-pad on-paper" id="kom-igang">
@@ -1435,6 +1468,57 @@ footer .foot-row {
     </div>
   </footer>
 </main>
+
+<script>
+/* Click counting — first-party, and deliberately as little as possible.
+ *
+ * Sends one enum value to our own API. No cookie, no id, no referrer, no
+ * third-party script: the request has no field for those, so "we do not
+ * track individuals" is a property of the shape rather than a promise.
+ *
+ * `keepalive` so the count survives the navigation the click causes;
+ * without it the browser cancels an in-flight fetch on unload and the most
+ * interesting clicks — the ones that lead somewhere — are the ones lost.
+ * Failures are swallowed: a missed count must never delay or block a link.
+ */
+(function () {
+  var LINKS = [
+    ['#visning', 'demo_signup'],
+    ['/download.html', 'get_app'],
+    ['#tranare', 'coaches_section']
+  ];
+
+  function report(link) {
+    try {
+      fetch(window.__API_BASE__ + '/api/v1/analytics/clicks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link: link }),
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) { /* never let counting break a link */ }
+  }
+
+  document.addEventListener('click', function (event) {
+    var anchor = event.target.closest && event.target.closest('a[href]');
+    if (!anchor) return;
+    var href = anchor.getAttribute('href') || '';
+
+    if (window.__TRY_IT_URL__ && href.indexOf(window.__TRY_IT_URL__) === 0) {
+      report('try_it');
+      return;
+    }
+    for (var i = 0; i < LINKS.length; i++) {
+      if (href.indexOf(LINKS[i][0]) !== -1) { report(LINKS[i][1]); return; }
+    }
+  }, true);
+
+  // The signup form submitting is the click that actually matters, and it
+  // is a button rather than a link, so the delegate above never sees it.
+  var form = document.getElementById('signupForm');
+  if (form) form.addEventListener('submit', function () { report('demo_signup'); });
+})();
+</script>
 
 <script>
 /* Demo-event signup.

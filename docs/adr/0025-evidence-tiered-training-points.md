@@ -31,7 +31,8 @@ for a 9-year-old than any rounding inaccuracy.
 
 **What actually does need retuning**: `TeamSeasonPot.goalThreshold`, the
 VM-Guld pot target (ADR-0008) — the only genuinely points-based threshold
-in the app. Still open.
+in the app. ~~Still open.~~ **Closed 2026-08-11 — see the amendment
+below; the premise was wrong.**
 
 **Amendment, 2026-08-09 — tiers 3 and 4 differ by intent, not visibility.**
 Building this exposed a gap the design missed: every published clip in
@@ -40,7 +41,7 @@ described a state that does not exist. Rather than invent a private-clip
 visibility state in a child-media system, the owner chose the lighter
 reading — both tiers attach a real, team-visible clip, and the difference
 is the player's declared intent to share it with the team. Worth being
-honest that this makes the ×12/×14 gap a smaller distinction than the
+honest that this makes the ×1.2/×1.4 gap a smaller distinction than the
 original tier list implied.
 
 Originally proposed, 2026-08-09. Supersedes nothing; **changes** the base rate in
@@ -233,3 +234,46 @@ same child-privacy weight. **Open question 2.**
    Phase 6 and both blocking reviews (Decision 4).
 4. **Window length** for "the clip belongs to this session" — 2 hours is a
    guess, not a researched number.
+
+
+## Amendment, 2026-08-11 — the `goalThreshold` retune is closed, because there is nothing to retune
+
+This ADR listed retuning `TeamSeasonPot.goalThreshold` as the real
+consequence of the evidence tiers, and ADR-0027 Decision 9 repeated it as
+newly urgent. Both were wrong, and the reason is worth recording so it is
+not raised a third time.
+
+**ADR-0008 Decision 4 already removed the threshold as a product concept.**
+That decision was explicit that this was "a real removal, not a UI
+reinterpretation of the same data": `goalThreshold` and the
+percent-toward-it framing "stop being meaningful once there's no threshold
+to be a percentage of". The pot became a **cross-team leaderboard** — you
+are placed against other teams, not against a fixed number — and all three
+player-facing response shapes dropped the field.
+
+So the tiers do make the pot fill faster, and that has no effect on
+anything, because nothing compares the pot to a target any more. A team's
+standing is relative to other teams, and every team's points inflate
+together. **Faster accumulation across the board changes no ranking.**
+
+What survives is only `team_season_pot.goal_threshold`, a `NOT NULL`
+column kept at 5000 by `DEFAULT_TEAM_SEASON_POT_GOAL_THRESHOLD` because the
+schema requires a value. `ADR-0008`'s own Consequences say it "stays,
+unused".
+
+**One piece of residue removed with this amendment**: the column was still
+being copied into `PtTeamAggregateView.teamPool.goalThreshold`, so every
+trainer received a number that means nothing and that anyone building
+against the PT API would reasonably assume was a live target. Decision
+A5's allow-list is meant to be a considered list of what a trainer sees,
+not a passthrough of whatever the pot row happens to hold. It is gone.
+
+**Not done, deliberately**: dropping the column. It is `NOT NULL` on a
+table in production, the migration would buy nothing a comment does not,
+and a dormant column with an explanation beside it is cheaper than a
+schema change to a live pot ledger.
+
+**If a target is ever wanted again** — the "chasing VM-Guld" framing is
+still the product's language, and a leaderboard is not obviously the same
+promise — that is a new product decision and a new ADR, not a retune of a
+number nothing reads.

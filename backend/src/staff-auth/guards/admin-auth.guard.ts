@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Request } from 'express';
 import { Repository } from 'typeorm';
 import {
+  StaffAccountGoneException,
   StaffAccountNotAdminException,
   StaffAccountRevokedException,
   StaffUnauthorizedException,
@@ -62,8 +63,10 @@ export class AdminAuthGuard implements CanActivate {
     if (!account) {
       // A validly-signed session for a StaffAccount row that no longer
       // exists (e.g. hard-deleted directly in Postgres) — treated the
-      // same as an invalid session, not surfaced as a 404 further down.
-      throw new StaffUnauthorizedException();
+      // same as an invalid session on the wire, but recorded under its own
+      // error_name, since it points at the database rather than at the
+      // caller.
+      throw new StaffAccountGoneException();
     }
     if (account.revokedAt) {
       throw new StaffAccountRevokedException();

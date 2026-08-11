@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { AdminAuthGuard } from '../staff-auth/guards/admin-auth.guard';
 import { MarkInvitedDto } from './dto/mark-invited.dto';
+import { SendDemoInvitesDto } from './dto/send-demo-invites.dto';
 import {
   EventRegistrationRow,
   EventRegistrationsService,
@@ -48,6 +49,22 @@ export class AdminEventRegistrationsController {
   @HttpCode(HttpStatus.OK)
   markInvited(@Body() dto: MarkInvitedDto): Promise<{ marked: number }> {
     return this.eventRegistrationsService.markInvited(dto.ids);
+  }
+
+  /**
+   * Mails the invitation to everyone who has not had one.
+   *
+   * Slow by nature — one SMTP send per recipient, sequentially — so this
+   * answers when the batch is done rather than streaming progress. A demo
+   * list is tens of addresses, so that is a wait of seconds, not a job
+   * queue's worth of complexity.
+   */
+  @Post('send-invites')
+  @HttpCode(HttpStatus.OK)
+  sendInvites(
+    @Body() dto: SendDemoInvitesDto,
+  ): Promise<{ sent: number; failed: number; skipped: number }> {
+    return this.eventRegistrationsService.sendInvites(dto);
   }
 
   /**

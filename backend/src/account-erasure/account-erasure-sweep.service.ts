@@ -86,6 +86,8 @@ export class AccountErasureSweepService {
         `Sweeping ${dueRows.length} due account-erasure request(s) across ${byTeam.size} team(s).`,
       );
 
+      let failedBatches = 0;
+
       for (const [teamId, batchRows] of byTeam) {
         try {
           await this.processTeamBatch(teamId, batchRows);
@@ -97,12 +99,39 @@ export class AccountErasureSweepService {
           // ClipRetentionService's per-row catch: the run-level catch below
           // is what writes a durable ADR-0022 Decision 6 row, so one broken
           // dependency can't write a row per team per run.
+          failedBatches += 1;
           this.logger.warn(
             `Failed to sweep account-erasure batch for team ${teamId} (${batchRows.length} row(s)) — left for the next run: ${
               error instanceof Error ? error.message : String(error)
             }`,
           );
         }
+      }
+
+      // One durable row per RUN when any batch failed — never one per team.
+      //
+      // The per-batch catch above stays logger-only for the reason it
+      // always did: a single broken dependency would otherwise write a row
+      // per team per run. But the run-level catch below only fires for
+      // failures *outside* that catch, so before this existed, one team's
+      // erasure failing every night produced no error_log_entry at all —
+      // and a missed 30-day erasure deadline looked exactly like one not
+      // yet due. That is the worst shape a compliance failure can take:
+      // invisible, and indistinguishable from working.
+      //
+      // No team id in the message, deliberately. ADR-0022 Decision 6 is
+      // that error_log_entry carries no team or player reference by
+      // construction, and "which team" is exactly the thing an operator
+      // reads the (ephemeral) logs for. The count is what makes the
+      // failure visible; the log line above is what identifies it.
+      if (failedBatches > 0) {
+        await this.errorLogService.record({
+          source: 'job',
+          jobName,
+          error: new Error(
+            `${failedBatches} of ${byTeam.size} account-erasure batch(es) failed and were left for the next run. Repeated occurrences mean an erasure deadline is being missed — see the API logs for which team.`,
+          ),
+        });
       }
     } catch (error) {
       // docs/adr/0022-admin-control-center.md Decision 6 — a failure of the
