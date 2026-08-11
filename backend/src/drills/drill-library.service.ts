@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+/** The one author value that needs no recorded permission, because it
+ *  identifies nobody. */
+export const ANONYMOUS_AUTHOR = 'Anonym tränare';
+
 export const DRILL_AGE_BANDS = ['9-11', '11-13', '13+'] as const;
 export const DRILL_FOCUSES = [
   'teknik',
@@ -172,6 +176,35 @@ export function parseDrill(fileName: string, raw: string): Drill {
     throw new Error('durationMinutes must be a positive whole number');
   }
 
+  // ADR-0029 Decision 5 says the body carries no links, email addresses or
+  // phone numbers, and until now nothing enforced it. That matters more
+  // than it looks: a contact detail here is an off-platform channel from
+  // an unvetted adult to coaches who work with children — a different
+  // feature with a different review — and once ADR-0028 Phase 1 reads this
+  // same corpus, the string becomes model grounding too.
+  //
+  // Rejecting the whole file rather than stripping the match: a drill that
+  // was written to point somewhere should not be silently published with
+  // the pointer removed and its meaning changed.
+  const contact = findContactDetail(body);
+  if (contact) {
+    throw new Error(
+      `body contains what looks like ${contact} — Decision 5 allows no links, emails or phone numbers`,
+    );
+  }
+
+  // Decision 5 makes contribution a licence event and puts the record in
+  // the file rather than in someone's inbox. It was being parsed by
+  // nothing, so a file could say permission was NOT given and publish a
+  // real adult's name anyway. The permission and the name must agree.
+  const author = required('author');
+  const consented = (fields.get('authorConsentedNamed') ?? '').toLowerCase();
+  if (author !== ANONYMOUS_AUTHOR && consented !== 'true') {
+    throw new Error(
+      `author "${author}" is named but authorConsentedNamed is not true — use "${ANONYMOUS_AUTHOR}" or record the permission`,
+    );
+  }
+
   return {
     slug: fileName.replace(/\.md$/, ''),
     title: required('title'),
@@ -179,8 +212,29 @@ export function parseDrill(fileName: string, raw: string): Drill {
     focus: focus as DrillFocus,
     durationMinutes,
     locale: required('locale'),
-    author: required('author'),
+    author,
     sourceNote: fields.get('sourceNote') ?? null,
     body: body.trim(),
   };
+}
+
+/**
+ * Looks for an off-platform contact detail in drill prose.
+ *
+ * Deliberately blunt and slightly over-eager: a false positive costs one
+ * rejected file with a named reason in the log, which the author fixes in
+ * a minute. A false negative publishes a contact channel to coaches. The
+ * asymmetry says which way to lean.
+ */
+export function findContactDetail(body: string): string | null {
+  if (/https?:\/\//i.test(body)) return 'a URL';
+  if (/\bwww\.[a-z0-9-]+\.[a-z]{2,}/i.test(body)) return 'a URL';
+  if (/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(body)) {
+    return 'an email address';
+  }
+  // Seven or more digits, allowing the spaces, dashes and parentheses a
+  // phone number is normally written with. Long enough not to catch a
+  // year, a rep count or a duration.
+  if (/(?:\+?\d[\s\-()]*){7,}/.test(body)) return 'a phone number';
+  return null;
 }

@@ -7,4 +7,11 @@ npm-debug.log*
 !.env.example
 test
 *.md
+# ...but the drill library IS .md content the API serves (ADR-0029). The
+# pattern above happens not to match it — `*` does not cross `/` — so this
+# currently survives by accident. Stated explicitly so a later tidy-up to
+# `**/*.md` cannot silently empty the library: nest build would copy
+# nothing, readdirSync would throw into its catch, and production would
+# serve an empty shelf behind a green CI.
+!src/drills/library/*.md
 .eslintcache

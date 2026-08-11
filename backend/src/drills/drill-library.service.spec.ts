@@ -7,6 +7,7 @@ focus: "passning"
 durationMinutes: 15
 locale: "sv"
 author: "Anna Lindqvist"
+authorConsentedNamed: true
 sourceNote: "Delad av författaren"
 ---
 
@@ -80,5 +81,63 @@ describe('parseDrill', () => {
     );
 
     expect(drill.sourceNote).toBeNull();
+  });
+});
+
+/**
+ * ADR-0029 Decision 5's content rules, which were specified and then
+ * enforced by nothing. Both were security-review findings.
+ */
+describe('parseDrill: Decision 5 content rules', () => {
+  const withBody = (body: string) =>
+    VALID.replace('Body prose.', body).replace(
+      'author: "Anna Lindqvist"',
+      'author: "Anonym tränare"',
+    );
+
+  it.each([
+    ['a URL', 'Se mer på https://example.se/övning'],
+    ['a bare www URL', 'Se www.example.se för mer'],
+    ['an email address', 'Hör av dig till anna@example.se'],
+    ['a phone number', 'Ring mig på 070-123 45 67'],
+  ])('rejects a body containing %s', (_label, body) => {
+    // A contact detail here is an off-platform channel from an unvetted
+    // adult to coaches who work with children — and, once the AI cluster
+    // reads this corpus, model grounding as well.
+    expect(() => parseDrill('x.md', withBody(body))).toThrow(/Decision 5/);
+  });
+
+  it('does not mistake ordinary numbers in a drill for a phone number', () => {
+    // Rep counts, durations and years are the whole vocabulary of a drill.
+    expect(() =>
+      parseDrill('x.md', withBody('4 varv om 30 sekunder, 2026 års upplägg')),
+    ).not.toThrow();
+  });
+
+  it('refuses a named author whose permission was not recorded', () => {
+    // The file itself is the licence record. A name published against a
+    // "false" is the exact contradiction the field exists to prevent.
+    expect(() =>
+      parseDrill(
+        'x.md',
+        VALID.replace(
+          'authorConsentedNamed: true',
+          'authorConsentedNamed: false',
+        ),
+      ),
+    ).toThrow(/authorConsentedNamed/);
+  });
+
+  it('accepts a named author whose permission was recorded', () => {
+    expect(() => parseDrill('x.md', VALID)).not.toThrow();
+  });
+
+  it('needs no permission for the anonymous author, who identifies nobody', () => {
+    expect(() =>
+      parseDrill(
+        'x.md',
+        VALID.replace('author: "Anna Lindqvist"', 'author: "Anonym tränare"'),
+      ),
+    ).not.toThrow();
   });
 });

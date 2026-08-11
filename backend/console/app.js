@@ -1101,9 +1101,16 @@
           view.innerHTML =
             '<h2>Drill library</h2>' +
             '<div class="card">' +
-              '<p class="muted" style="margin:0 0 12px">Training ideas shared ' +
-              'between coaches. Nothing here is about any player — no names, ' +
-              'no clips, no logs.</p>' +
+              /* Reworded 2026-08-11 from the security review: this used
+               * to promise "no names", which only a human reading the diff
+               * enforces. "No clips, no logs, no player data" IS
+               * structural — there is no table here to join to a child —
+               * so the copy now claims exactly that and is honest about
+               * where the rest comes from. */
+              '<p class="muted" style="margin:0 0 12px">Coach-authored ' +
+              'training material. It carries no clips, no training logs and ' +
+              'no player data — drills are files in the repository, read by ' +
+              'a person before they merge.</p>' +
               '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
                 '<button data-go="drills"' + (focus ? '' : ' class="primary"') +
                 '>All</button>' +
