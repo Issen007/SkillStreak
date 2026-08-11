@@ -8,6 +8,10 @@
       {
         "include": "team-chat/swedish-filter-wordlist.json",
         "outDir": "dist"
+      },
+      {
+        "include": "drills/library/*.md",
+        "outDir": "dist"
       }
     ]
   }

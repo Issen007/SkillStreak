@@ -67,5 +67,10 @@ import { PtController } from './pt.controller';
     PtPlayerConsentsController,
   ],
   providers: [PtTeamLinksService, PtConsentService, PtDataService],
+  // Exported for ADR-0029's drill library, which gates on
+  // hasAnyActiveLink. Only the team-links service is exported — the
+  // consent and player-data services stay module-private, since nothing
+  // outside this module has any business reaching a child's record.
+  exports: [PtTeamLinksService],
 })
 export class PtModule {}

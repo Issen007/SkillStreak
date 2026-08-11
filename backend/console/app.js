@@ -173,17 +173,21 @@
       { id: 'campaigns', label: 'Campaigns', ico: '📣' },
       { id: 'errors', label: 'Errors', ico: '⚠️' },
       { id: 'bugs', label: 'Bug reports', ico: '🐛' },
-      { id: 'planning', label: 'Planning', ico: '🗺️' }
+      { id: 'planning', label: 'Planning', ico: '🗺️' },
+      { id: 'drills', label: 'Drill library', ico: '📗' }
     ],
     pt: [
-      { id: 'teams', label: 'My teams', ico: '🏑' }
+      { id: 'teams', label: 'My teams', ico: '🏑' },
+      { id: 'drills', label: 'Drill library', ico: '📗' }
     ]
   };
 
   /* Detail routes belong to a tab without being one. Without this, opening
    * a team unlit the only nav item a trainer has, which reads as "you have
    * navigated out of the app". */
-  var ROUTE_TAB = { team: 'teams', player: 'teams', graphs: 'graphs' };
+  var ROUTE_TAB = {
+    team: 'teams', player: 'teams', graphs: 'graphs', drill: 'drills'
+  };
 
   function tabForRoute(route) {
     var root = String(route).split('/')[0];
@@ -361,6 +365,24 @@
   }
 
 
+
+
+  var DRILL_FOCUSES = ['teknik', 'fys', 'skott', 'passning', 'spelforstaelse'];
+  var FOCUS_LABEL = {
+    teknik: 'Teknik', fys: 'Fys', skott: 'Skott',
+    passning: 'Passning', spelforstaelse: 'Spelförståelse'
+  };
+
+  function drillCard(drill) {
+    return '<div class="card">' +
+      '<h3 style="margin:0 0 4px;font-size:15px">' + esc(drill.title) + '</h3>' +
+      '<p class="muted" style="margin:0 0 10px">' +
+        esc(FOCUS_LABEL[drill.focus] || drill.focus) + ' · ' +
+        esc(drill.ageBand) + ' år · ' + esc(drill.durationMinutes) + ' min · ' +
+        esc(drill.author) + '</p>' +
+      '<button data-go="drill/' + esc(drill.slug) + '">Open</button>' +
+      '</div>';
+  }
 
   /* ---- campaigns ----------------------------------------------------- */
 
@@ -969,6 +991,64 @@
         }
         fail(view, e);
       });
+    },
+
+    /* The coach drill library (ADR-0029 Mechanism 1).
+     *
+     * Adult-authored training material, and nothing else — no child's
+     * clip, name, streak or words appears here or can be reached from
+     * here. There is no drill table, so there is no row to join to a
+     * player in the first place.
+     *
+     * Visible to a trainer holding an active team link, and to admins. */
+    drills: function (view, filterArg) {
+      var focus = DRILL_FOCUSES.indexOf(filterArg) >= 0 ? filterArg : '';
+      api.get('/api/v1/drills' + (focus ? '?focus=' + encodeURIComponent(focus) : ''))
+        .then(function (rows) {
+          view.innerHTML =
+            '<h2>Drill library</h2>' +
+            '<div class="card">' +
+              '<p class="muted" style="margin:0 0 12px">Training ideas shared ' +
+              'between coaches. Nothing here is about any player — no names, ' +
+              'no clips, no logs.</p>' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+                '<button data-go="drills"' + (focus ? '' : ' class="primary"') +
+                '>All</button>' +
+                DRILL_FOCUSES.map(function (f) {
+                  return '<button data-go="drills/' + f + '"' +
+                    (f === focus ? ' class="primary"' : '') + '>' +
+                    esc(FOCUS_LABEL[f] || f) + '</button>';
+                }).join('') +
+              '</div>' +
+            '</div>' +
+            (rows.length
+              ? rows.map(drillCard).join('')
+              : '<div class="card"><p class="muted">Nothing here yet. Drills ' +
+                'are added to the repository and arrive with the next ' +
+                'release.</p></div>');
+        }).catch(function (e) { fail(view, e); });
+    },
+
+    /* One drill. The body is Markdown a human wrote, rendered as escaped
+     * plain text in a <pre> — deliberately not parsed into HTML. A
+     * Markdown renderer would be a dependency, a new injection surface,
+     * and a way for file content to become markup; none of that is worth
+     * paying for prose that reads perfectly well as text. */
+    drill: function (view, slug) {
+      api.get('/api/v1/drills/' + encodeURIComponent(slug)).then(function (d) {
+        view.innerHTML =
+          backLink('drills', 'Drill library') +
+          '<h2>' + esc(d.title) + '</h2>' +
+          '<div class="card">' +
+            '<p class="muted" style="margin:0 0 12px">' +
+              esc(FOCUS_LABEL[d.focus] || d.focus) + ' · ' + esc(d.ageBand) +
+              ' år · ' + esc(d.durationMinutes) + ' min · ' + esc(d.author) +
+              (d.sourceNote ? ' · ' + esc(d.sourceNote) : '') +
+            '</p>' +
+            '<pre style="white-space:pre-wrap;font:inherit;margin:0">' +
+              esc(d.body) + '</pre>' +
+          '</div>';
+      }).catch(function (e) { fail(view, e); });
     },
 
     /* PT1 — redeem a code, and the list of teams it produces.
