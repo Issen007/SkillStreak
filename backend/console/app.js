@@ -156,7 +156,7 @@
    * both re-checked live per request. An admin in trainer mode sees exactly
    * what that account has been *given*, which starts at nothing.
    */
-  var state = { role: null, mode: null, session: null, tab: null };
+  var state = { role: null, mode: null, session: null, tab: null, lang: 'en' };
 
   function canSwitchMode() {
     return state.role === 'admin';
@@ -186,7 +186,8 @@
    * a team unlit the only nav item a trainer has, which reads as "you have
    * navigated out of the app". */
   var ROUTE_TAB = {
-    team: 'teams', player: 'teams', graphs: 'graphs', drill: 'drills'
+    team: 'teams', player: 'teams', graphs: 'graphs', drill: 'drills',
+    bugs: 'bugs'
   };
 
   function tabForRoute(route) {
@@ -245,8 +246,28 @@
     );
   }
 
+  function renderLangSwitch() {
+    var host = el('langSwitch');
+    if (!host) return;
+    host.innerHTML = ['sv', 'en'].map(function (lang) {
+      return '<button data-lang="' + lang + '"' +
+        (state.lang === lang ? ' class="is-on"' : '') + '>' +
+        lang.toUpperCase() + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(
+      host.querySelectorAll('[data-lang]'),
+      function (button) {
+        button.onclick = function () {
+          var lang = button.getAttribute('data-lang');
+          if (lang !== state.lang) setLang(lang);
+        };
+      }
+    );
+  }
+
   function renderNav() {
     renderModeSwitch();
+    renderLangSwitch();
     var nav = el('nav');
     nav.innerHTML = '';
     (TABS[state.mode] || []).forEach(function (tab) {
@@ -272,7 +293,21 @@
     var render = VIEWS[parts[0]];
     if (!render) { view.innerHTML = ''; return; }
     render(view, decodeURIComponent(parts[1] || ''));
+    /* Views render asynchronously (they await an API call), so the
+     * initial pass catches the loading state and a MutationObserver
+     * catches the real content when it lands. */
+    translateTree(view);
   }
+
+  /* One observer for the lifetime of the page rather than one per render:
+   * re-creating it on every navigation was the obvious first shape and
+   * leaks an observer each time. */
+  var viewObserver = new MutationObserver(function () {
+    translateTree(el('view'));
+    translateTree(el('nav'));
+  });
+
+  viewObserver.observe(document.body, { childList: true, subtree: true });
 
   window.addEventListener('hashchange', function () {
     var route = location.hash.replace('#', '');
@@ -348,8 +383,8 @@
   }
 
   function backLink(route, label) {
-    return '<p><button class="link" data-go="' + esc(route) + '">← ' +
-           esc(label) + '</button></p>';
+    return '<p><button class="link" data-go="' + esc(route) + '">←&nbsp;' +
+           '<span>' + esc(label) + '</span></button></p>';
   }
 
   /* Delegated, so re-rendering innerHTML never leaves a dead handler. */
@@ -384,6 +419,67 @@
       '</div>';
   }
 
+
+
+  /* ---- bug triage ----------------------------------------------------- */
+
+  var BUG_STATUSES = ['open', 'triaged', 'closed'];
+  var BUG_STATUS_LABEL = { open: 'Open', triaged: 'Triaged', closed: 'Closed' };
+  var BUG_STATUS_CLASS = { open: 'warn', triaged: 'accent', closed: 'ok' };
+
+  function countSuffix(counts) {
+    var total = BUG_STATUSES.reduce(function (sum, st) {
+      return sum + (typeof counts[st] === 'number' ? counts[st] : 0);
+    }, 0);
+    return total ? ' (' + total + ')' : '';
+  }
+
+  function bugRow(row) {
+    var reporter = row.reporter
+      ? esc(row.reporter.screenName) + '<br><span class="muted">' +
+        esc(row.reporter.teamName) + '</span>'
+      /* The reporter's row is gone — an erasure takes their reports with
+       * it, so this is a referential edge rather than an error. */
+      : '<span class="muted">no longer on the app</span>';
+
+    return '<tr><td>' + esc((row.createdAt || '').slice(0, 10)) + '</td><td>' +
+      reporter + '</td><td>' + esc(row.screen) + '</td><td>' +
+      esc(row.category.replace(/_/g, ' ')) +
+      (row.description ? '<br><span class="muted">' + esc(row.description) +
+        '</span>' : '') +
+      '</td><td class="muted">' + esc(row.platform) + ' ' + esc(row.appVersion) +
+      (row.osVersion ? '<br>' + esc(row.osVersion) : '') + '</td><td>' +
+      '<span class="badge ' + (BUG_STATUS_CLASS[row.status] || '') + '">' +
+      esc(row.status) + '</span></td><td style="text-align:right;white-space:nowrap">' +
+      BUG_STATUSES.filter(function (st) { return st !== row.status; })
+        .map(function (st) {
+          return '<button data-bug="' + esc(row.id) + '" data-status="' +
+            st + '">' + esc(BUG_STATUS_LABEL[st]) + '</button> ';
+        }).join('') +
+      '</td></tr>';
+  }
+
+  function wireBugButtons(view, filter) {
+    Array.prototype.forEach.call(
+      view.querySelectorAll('[data-bug]'),
+      function (button) {
+        button.onclick = function () {
+          var was = button.textContent;
+          button.disabled = true;
+          button.textContent = '…';
+          api.patch('/api/v1/admin/bug-reports/' +
+                    encodeURIComponent(button.getAttribute('data-bug')),
+                    { status: button.getAttribute('data-status') })
+            .then(function () { go(filter ? 'bugs/' + filter : 'bugs'); })
+            .catch(function (e) {
+              button.disabled = false;
+              button.textContent = was;
+              alertInline(button, errorMessage(e));
+            });
+        };
+      }
+    );
+  }
 
   /* ---- statistics rendering ------------------------------------------ */
 
@@ -464,6 +560,151 @@
           esc(floor) + ' teams in it, so they are all counted in the ' +
           'app-wide figures above. Nothing was dropped.'
         : 'No teams to break out yet.') + '</p>';
+  }
+
+
+  /* ---- language -------------------------------------------------------
+   *
+   * The console shipped English-only, which is fine for the operator and
+   * wrong for the people it was built for: SkillStreak's trainers are
+   * Swedish youth-floorball coaches, and the trainer surface is the half
+   * they live in.
+   *
+   * Keyed by the English source string, exactly like site/i18n.js — the
+   * views are built as HTML strings, so a key-per-string scheme would mean
+   * touching every line and a missing key would render an identifier to a
+   * coach. Falling back to English is visible and honest instead.
+   *
+   * Only the TRAINER surface is translated. The admin pillars are the
+   * project owner's own tooling, full of terms that have no settled
+   * Swedish ("suppression floor", "step-up") and would read worse
+   * translated than left alone. Said out loud so the gap looks deliberate
+   * rather than unfinished.
+   */
+  var LANG_KEY = 'skillstreak.console.lang';
+
+  var SV = {
+    /* nav */
+    'My teams': 'Mina lag',
+    'Drill library': 'Övningsbank',
+    /* teams / PT1 */
+    'Add a team': 'Lägg till ett lag',
+    'A captain generates an 8-character code and gives it to you. You cannot search for teams — the invitation only ever travels in that direction.':
+      'En lagkapten skapar en kod på 8 tecken och ger den till dig. Du kan inte söka efter lag — inbjudan går alltid åt det hållet.',
+    'Redeem code': 'Använd kod',
+    'No teams yet. Redeem a code above to get started.':
+      'Inga lag än. Använd en kod ovan för att komma igång.',
+    'Open team': 'Öppna laget',
+    'A team code is exactly 8 characters.': 'En lagkod är exakt 8 tecken.',
+    'Redeeming…': 'Använder koden…',
+    /* team detail / PT2 */
+    'points in the team pot': 'poäng i lagets pott',
+    'This week': 'Den här veckan',
+    'No weekly goal running.': 'Inget veckomål igång.',
+    'Players': 'Spelare',
+    'Screen names only. You see a player’s training after their family says yes — each child is a separate decision.':
+      'Bara skärmnamn. Du ser en spelares träning först när familjen sagt ja — varje barn är ett eget beslut.',
+    'Player': 'Spelare',
+    'Access': 'Åtkomst',
+    'Shared with you': 'Delas med dig',
+    'Waiting for a parent': 'Väntar på förälder',
+    'Not shared': 'Delas inte',
+    'View training': 'Se träningen',
+    'Ask for access': 'Be om åtkomst',
+    'Asked — it is their decision': 'Frågad — det är deras beslut',
+    'Asking…': 'Frågar…',
+    'You are not linked to this team.': 'Du är inte kopplad till det här laget.',
+    'A captain can revoke a trainer link at any time, and does not have to give a reason.':
+      'En lagkapten kan ta bort en tränarkoppling när som helst, utan att förklara varför.',
+    'player': 'spelare',
+    'players': 'spelare',
+    'shared with you': 'delas med dig',
+    'waiting for a parent': 'väntar på förälder',
+    /* player detail */
+    'Training': 'Träning',
+    'When': 'När',
+    'Activity': 'Aktivitet',
+    'Minutes': 'Minuter',
+    'Nothing logged yet.': 'Inget loggat än.',
+    'Badges': 'Märken',
+    'No badges yet.': 'Inga märken än.',
+    'No real name, no contact details, no clips, no chat, and nowhere this player has been. That is the whole of what a trainer is shown.':
+      'Inget riktigt namn, inga kontaktuppgifter, inga klipp, ingen chatt, och aldrig var spelaren har varit. Det är allt en tränare ser.',
+    /* drills */
+    'Coach-authored training material. It carries no clips, no training logs and no player data — drills are files in the repository, read by a person before they merge.':
+      'Träningsmaterial skrivet av tränare. Det innehåller inga klipp, inga träningsloggar och inga spelaruppgifter — övningarna är filer som en människa läser innan de publiceras.',
+    'All': 'Alla',
+    'Open': 'Öppna',
+    'Nothing here yet. Drills are added to the repository and arrive with the next release.':
+      'Inget här än. Övningar läggs till i repot och dyker upp vid nästa release.',
+    'Teknik': 'Teknik', 'Fys': 'Fys', 'Skott': 'Skott',
+    'Passning': 'Passning', 'Spelförståelse': 'Spelförståelse',
+    /* shared */
+    'Loading…': 'Laddar…',
+    'Sign out': 'Logga ut',
+    'Trainer': 'Tränare',
+    'of': 'av',
+    'ending': 'slutar',
+    'sessions': 'pass',
+    'min': 'min',
+    'år': 'år'
+  };
+
+  function readLang() {
+    try {
+      var stored = localStorage.getItem(LANG_KEY);
+      if (stored === 'sv' || stored === 'en') return stored;
+    } catch (e) { /* private mode */ }
+    /* Trainers default to Swedish, the operator to English — the roles
+     * genuinely read different languages, and defaulting on role is
+     * kinder than making every coach find a toggle. */
+    return state.role === 'pt' ? 'sv' : 'en';
+  }
+
+  function setLang(lang) {
+    try { localStorage.setItem(LANG_KEY, lang); } catch (e) { /* ignore */ }
+    state.lang = lang;
+    go(state.tab);
+  }
+
+  /** Translate. Untranslated strings fall through as English, which is
+   *  visible and honest rather than a blank or an identifier. */
+  function t(text) {
+    if (state.lang !== 'sv') return text;
+    return SV[text] || text;
+  }
+
+  /**
+   * Translates a rendered subtree in place, by text node.
+   *
+   * The first attempt routed translation through esc(), which was exactly
+   * backwards: esc() only receives DYNAMIC values — team names, screen
+   * names, numbers — which are the strings that must never be translated,
+   * while the static copy sits inline in template literals and never
+   * passes through it at all. The nav translated and nothing else did.
+   *
+   * Walking text nodes after render is what site/i18n.js already does, for
+   * the same reason: the views are HTML strings, and a key-per-string
+   * scheme would mean touching every line of every view.
+   *
+   * Matching on the trimmed source string makes untranslatable content
+   * safe by construction — a Swedish team name matches no key and is left
+   * alone. Whitespace is preserved around the replacement so layout does
+   * not shift.
+   */
+  function translateTree(root) {
+    if (!root || state.lang !== 'sv') return;
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    var node;
+    while ((node = walker.nextNode())) {
+      var raw = node.nodeValue;
+      var trimmed = raw.trim();
+      if (!trimmed) continue;
+      var translated = SV[trimmed];
+      if (translated && translated !== trimmed) {
+        node.nodeValue = raw.replace(trimmed, translated);
+      }
+    }
   }
 
   /* ---- campaigns ----------------------------------------------------- */
@@ -1038,18 +1279,49 @@
       }).catch(function (e) { fail(view, e); });
     },
 
-    bugs: function (view) {
-      api.get('/api/v1/admin/bug-reports').then(function (r) {
-        var rows = (r.reports || r.rows || []).map(function (x) {
-          return '<tr><td>' + esc(x.createdAt) + '</td><td>' + esc(x.screenName) +
-                 '</td><td>' + esc(x.category) + '</td><td>' + esc(x.status) +
-                 '</td><td>' + esc(x.description || '') + '</td></tr>';
-        }).join('');
-        view.innerHTML = '<h2>Bug reports</h2><div class="card"><table>' +
-          '<tr><th>When</th><th>Reporter</th><th>Category</th><th>Status</th><th>What happened</th></tr>' +
-          (rows || '<tr><td colspan="5" class="muted">No reports.</td></tr>') +
-          '</table></div>';
-      }).catch(function (e) { fail(view, e); });
+    /* Bug reports, with triage. The list existed; changing a status meant
+     * a psql prompt, which is the exact thing ADR-0022 built this console
+     * to replace.
+     *
+     * Transitions are unrestricted (open <-> triaged <-> closed) because
+     * Decision 7 argued that deliberately: there is one operator and no
+     * audit trail, and a mis-clicked "Closed" that cannot be undone from
+     * the UI sends that operator straight back to psql. */
+    bugs: function (view, filterArg) {
+      var status = BUG_STATUSES.indexOf(filterArg) >= 0 ? filterArg : '';
+      api.get('/api/v1/admin/bug-reports' +
+              (status ? '?status=' + encodeURIComponent(status) : ''))
+        .then(function (r) {
+          var rows = r.reports || [];
+          var counts = r.countsByStatus || r.counts || {};
+
+          view.innerHTML =
+            '<h2>Bug reports</h2>' +
+            '<div class="card">' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+                '<button data-go="bugs"' + (status ? '' : ' class="primary"') +
+                '>All' + countSuffix(counts) + '</button>' +
+                BUG_STATUSES.map(function (st) {
+                  return '<button data-go="bugs/' + st + '"' +
+                    (st === status ? ' class="primary"' : '') + '>' +
+                    esc(BUG_STATUS_LABEL[st]) +
+                    (typeof counts[st] === 'number' ? ' (' + esc(counts[st]) + ')' : '') +
+                    '</button>';
+                }).join('') +
+              '</div>' +
+            '</div>' +
+            '<div class="card">' +
+              (rows.length
+                ? '<table><tr><th>When</th><th>Reporter</th><th>Where</th>' +
+                  '<th>What</th><th>Build</th><th>Status</th><th></th></tr>' +
+                  rows.map(bugRow).join('') + '</table>'
+                : '<p class="muted">Nothing here. An empty queue and a ' +
+                  'broken reporting flow look identical, so it is worth ' +
+                  'filing one from the app occasionally to be sure.</p>') +
+            '</div>';
+
+          wireBugButtons(view, status);
+        }).catch(function (e) { fail(view, e); });
     },
 
     planning: function (view) {
@@ -1227,13 +1499,14 @@
             '<p style="margin:0 0 4px"><strong>' + esc(team.teamPool.pointsTotal) +
             '</strong> points in the team pot</p>' +
             (goal
-              ? '<p class="muted" style="margin:0">This week: ' + esc(goal.title) +
-                ' — ' + esc(goal.teamProgressValue) + ' of ' + esc(goal.targetValue) +
-                ' ' + esc(goal.targetMetric) + ', ending ' + esc(goal.endDate) + '</p>'
+              ? '<p class="muted" style="margin:0"><span>This week</span>: ' + esc(goal.title) +
+                ' — ' + esc(goal.teamProgressValue) + ' <span>of</span> ' +
+                esc(goal.targetValue) + ' ' + esc(goal.targetMetric) +
+                ', <span>ending</span> ' + esc(goal.endDate) + '</p>'
               : '<p class="muted" style="margin:0">No weekly goal running.</p>') +
           '</div>' +
           '<div class="card">' +
-            '<h3 style="margin:0 0 4px;font-size:15px">Players (' +
+            '<h3 style="margin:0 0 4px;font-size:15px"><span>Players</span> (' +
             esc(team.rosterSize) + ')</h3>' +
             '<p class="muted" style="margin:0 0 12px">Screen names only. You ' +
             'see a player&rsquo;s training after their family says yes — ' +
@@ -1300,9 +1573,11 @@
     return '<div class="card">' +
       '<h3 style="margin:0 0 4px;font-size:15px">' + esc(team.teamName) + '</h3>' +
       '<p class="muted" style="margin:0 0 10px">' +
-      esc(plural(team.rosterSize, 'player')) + ' · ' + esc(approved) +
-      ' shared with you' +
-      (waiting ? ' · ' + esc(waiting) + ' waiting for a parent' : '') + '</p>' +
+      esc(team.rosterSize) + ' <span>' +
+      esc(team.rosterSize === 1 ? 'player' : 'players') + '</span> · ' +
+      esc(approved) + ' <span>shared with you</span>' +
+      (waiting ? ' · ' + esc(waiting) + ' <span>waiting for a parent</span>' : '') +
+      '</p>' +
       '<button class="primary" data-go="team/' + esc(team.teamId) + '">Open team</button>' +
       '</div>';
   }
@@ -1381,6 +1656,7 @@
       /* Admins start in admin mode; a trainer has only one surface, so for
        * them mode and role are always the same thing. */
       state.mode = state.role;
+      state.lang = readLang();
       el('who').textContent =
         session.displayName || (state.role === 'admin' ? '' : 'Trainer');
       show('shell');
