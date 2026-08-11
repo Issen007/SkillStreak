@@ -1,3 +1,4 @@
+import { consentTrainerNameForTest } from './pt-consent.service';
 import { EntityManager } from 'typeorm';
 import {
   PtConsentAlreadyActiveException,
@@ -523,5 +524,50 @@ describe('PtConsentService.listOwnConsents', () => {
 
     expect(result[0].ptDisplayName).toBe('a@x.se');
     expect(result[1].ptDisplayName).toBe('—');
+  });
+});
+
+/**
+ * Added 2026-08-11 from ADR-0027's security review, finding 3.
+ *
+ * The consent record snapshotted the recipient's contact but not the
+ * trainer's identity, and every parent- and child-facing render resolved
+ * it live from `StaffAccount` — a row whose display_name and email are
+ * overwritten from the ID token on every Google/Microsoft login. So the
+ * name a parent approved could silently become a different name.
+ */
+describe('PtConsentService: the trainer identity a parent approved', () => {
+  it('prefers the snapshot over the live account row', () => {
+    const row = {
+      ptDisplayNameSnapshot: 'Anna Trainer',
+      ptEmailSnapshot: 'anna@example.se',
+    };
+    const live = { displayName: 'Someone Else', email: 'other@example.se' };
+
+    expect(consentTrainerNameForTest(row, live)).toBe('Anna Trainer');
+  });
+
+  it('falls back to the live row only for consents predating the columns', () => {
+    const row = { ptDisplayNameSnapshot: null, ptEmailSnapshot: null };
+    const live = { displayName: 'Legacy Trainer', email: 'legacy@example.se' };
+
+    expect(consentTrainerNameForTest(row, live)).toBe('Legacy Trainer');
+  });
+
+  it('uses the snapshotted email when a provider never gave a name', () => {
+    // Apple withholds the name on every login after the first, so an
+    // account created that way legitimately has none.
+    const row = {
+      ptDisplayNameSnapshot: null,
+      ptEmailSnapshot: 'apple-user@example.se',
+    };
+
+    expect(consentTrainerNameForTest(row, null)).toBe('apple-user@example.se');
+  });
+
+  it('never renders an empty name to a child deciding whether to end it', () => {
+    const row = { ptDisplayNameSnapshot: null, ptEmailSnapshot: null };
+
+    expect(consentTrainerNameForTest(row, null, '—')).toBe('—');
   });
 });

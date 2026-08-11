@@ -54,6 +54,38 @@ export interface PtConsentRequestResult {
   expiresAt: string;
 }
 
+/**
+ * The trainer's name as the parent saw it, preferring the snapshot frozen
+ * at request time over the live `StaffAccount` row.
+ *
+ * The fallback exists only for consents granted before the snapshot
+ * columns did. Every new row carries them, so the live read is a
+ * compatibility path and not the normal one — which matters, because the
+ * live row's `display_name` and `email` are overwritten from the ID token
+ * on every Google/Microsoft login.
+ */
+function consentTrainerName(
+  row: {
+    ptDisplayNameSnapshot: string | null;
+    ptEmailSnapshot: string | null;
+  },
+  liveAccount: { displayName?: string | null; email?: string } | null,
+  fallback = '',
+): string {
+  return (
+    row.ptDisplayNameSnapshot ??
+    row.ptEmailSnapshot ??
+    liveAccount?.displayName ??
+    liveAccount?.email ??
+    fallback
+  );
+}
+
+/** Test-only alias. The helper stays module-private — exporting it under
+ *  its own name would invite call sites outside this file, and the whole
+ *  point is that exactly one place decides which name a parent sees. */
+export const consentTrainerNameForTest = consentTrainerName;
+
 // docs/adr/0023-pt-role-and-staff-sso-rbac.md Decision A3 (the per-
 // relationship consent gate) and Decision A4 (its three-lever
 // revocation). Reuses ADR-0013 Decision 2's contact-change-hijack-race fix
@@ -216,6 +248,14 @@ export class PtConsentService {
       PT_CONSENT_REVIEW_CODE_TTL_MS,
     );
 
+    // Loaded BEFORE the insert now, so the same values are both written to
+    // the row and shown in the request email. Previously this was read
+    // afterwards and used only for the email, which is how the row ended up
+    // with no record of who the parent was actually approving.
+    const ptStaffAccount = await this.staffAccountRepository.findOne({
+      where: { id: ptStaffAccountId },
+    });
+
     let saved: PtPlayerConsent;
     try {
       saved = await this.ptPlayerConsentRepository.save(
@@ -229,6 +269,13 @@ export class PtConsentService {
           recipientContactSnapshot: parentContact
             ? encryptPii(parentContact, this.encryptionKey)
             : null,
+          // Frozen here for the same reason the recipient contact is: a
+          // consent record is evidence of what someone agreed to at a
+          // moment, so the things it is evidence about must not be
+          // re-resolved from a row that every login overwrites.
+          ptDisplayNameSnapshot: ptStaffAccount?.displayName ?? null,
+          ptEmailSnapshot: ptStaffAccount?.email ?? null,
+          ptRoleAtRequest: ptStaffAccount?.role ?? null,
         }),
       );
     } catch (error) {
@@ -244,16 +291,12 @@ export class PtConsentService {
     }
     void saved;
 
-    const ptStaffAccount = await this.staffAccountRepository.findOne({
-      where: { id: ptStaffAccountId },
-    });
-
     await this.sendRequestEmailBestEffort(
       player.screenName,
       player.locale,
       isSelfVerificationAge(player.birthYear),
       parentContact,
-      ptStaffAccount?.displayName ?? ptStaffAccount?.email ?? 'okänd tränare',
+      consentTrainerName(saved, ptStaffAccount, 'okänd tränare'),
       ptStaffAccount?.email ?? '',
       code,
     );
@@ -324,7 +367,7 @@ export class PtConsentService {
     });
     return {
       screenName: player.screenName,
-      ptDisplayName: ptStaffAccount?.displayName ?? ptStaffAccount?.email ?? '',
+      ptDisplayName: consentTrainerName(row, ptStaffAccount),
       ptEmail: ptStaffAccount?.email ?? '',
     };
   }
@@ -370,8 +413,7 @@ export class PtConsentService {
     const ptStaffAccount = await this.staffAccountRepository.findOne({
       where: { id: result.ptStaffAccountId },
     });
-    const ptDisplayName =
-      ptStaffAccount?.displayName ?? ptStaffAccount?.email ?? '';
+    const ptDisplayName = consentTrainerName(result, ptStaffAccount);
 
     if (player && result.revokeCode) {
       await this.sendApprovedEmailBestEffort(
@@ -430,7 +472,7 @@ export class PtConsentService {
     });
     return {
       screenName: player.screenName,
-      ptDisplayName: ptStaffAccount?.displayName ?? ptStaffAccount?.email ?? '',
+      ptDisplayName: consentTrainerName(row, ptStaffAccount),
     };
   }
 
@@ -520,7 +562,11 @@ export class PtConsentService {
       // (Apple, for accounts created before it withheld one) — never null,
       // since an unnamed row is unactionable for a child deciding whether
       // to end it.
-      ptDisplayName: nameById.get(row.ptStaffAccountId) ?? '—',
+      ptDisplayName: consentTrainerName(
+        row,
+        { displayName: nameById.get(row.ptStaffAccountId) },
+        '—',
+      ),
       status: row.status,
       decidedAt: row.decidedAt?.toISOString() ?? null,
       revokedAt: row.revokedAt?.toISOString() ?? null,
