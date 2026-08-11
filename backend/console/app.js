@@ -22,10 +22,31 @@
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined
     }).then(function (r) {
-      if (r.status === 401) throw { unauthenticated: true };
       if (!r.ok) {
-        return r.json().then(function (b) { throw b; },
-                             function () { throw { status: r.status }; });
+        return r.json().then(function (body) {
+          /* Not every 401 is a sign-out, and treating them alike logged the
+           * operator out of a working session.
+           *
+           * ADR-0022 Decision 10's step-up gate answers 401 with the code
+           * `reauth_required` on the three planning/* endpoints — the
+           * session is valid and STAYS valid, every other admin endpoint
+           * keeps working, and the exception's own comment says the console
+           * "must render AD5's inline re-auth prompt over a preserved
+           * console state rather than treating this as a sign-out".
+           *
+           * This helper used to throw `{unauthenticated:true}` on status
+           * alone, before reading the body, so the code was discarded and
+           * the planning tab dropped straight to the login screen. The body
+           * has to be read first; the status alone does not carry enough. */
+          if (r.status === 401 && body?.error?.code !== 'reauth_required') {
+            throw { unauthenticated: true };
+          }
+          throw body;
+        }, function () {
+          /* No JSON body to read — a proxy or gateway error rather than one
+           * of ours. A bare 401 here really is "signed out". */
+          throw r.status === 401 ? { unauthenticated: true } : { status: r.status };
+        });
       }
       return r.status === 204 ? null : r.json();
     });
@@ -196,6 +217,25 @@
     var route = location.hash.replace('#', '');
     if (route && route !== state.tab) go(route);
   });
+
+  /**
+   * The tab a step-up round trip should come back to, consumed once.
+   *
+   * Read-and-clear rather than read: leaving it set would drag the operator
+   * back to Planning on every subsequent sign-in, which is a worse bug than
+   * the one it fixes and much harder to notice.
+   */
+  function returnTo() {
+    try {
+      var tab = sessionStorage.getItem('skillstreak.returnTo');
+      sessionStorage.removeItem('skillstreak.returnTo');
+      return tab && TABS.admin.some(function (t) { return t.id === tab; })
+        ? tab
+        : null;
+    } catch (e) {
+      return null;
+    }
+  }
 
   function alertInline(afterElement, message) {
     var note = document.createElement('div');
@@ -851,9 +891,23 @@
         view.innerHTML = '<h2>Planning</h2>' + body;
       }).catch(function (e) {
         if (e && e.error && e.error.code === 'reauth_required') {
-          view.innerHTML = '<h2>Planning</h2><div class="card"><p>This section needs you to confirm it is you.</p>' +
-            '<p class="muted">You will come straight back here.</p>' +
-            '<a class="sso" style="max-width:260px" href="/api/v1/staff-auth/google/step-up">Sign in again</a></div>';
+          view.innerHTML = '<h2>Planning</h2><div class="card">' +
+            '<p>This section needs you to confirm it is you.</p>' +
+            '<p class="muted">Your session stays signed in — this is an ' +
+            'extra check for the planning documents only. You will come ' +
+            'back to this tab.</p>' +
+            '<button id="stepUp" class="primary">Confirm it is me</button></div>';
+          /* Remember where to return. The step-up round trip ends at the
+           * callback, which redirects to a FIXED /console/ path — that is
+           * deliberate (a ?next= there would be an open redirect on the one
+           * endpoint that just minted a session), so the return tab is
+           * remembered on this side instead. Without it the copy above
+           * promised something the flow did not do. */
+          document.getElementById('stepUp').onclick = function () {
+            try { sessionStorage.setItem('skillstreak.returnTo', 'planning'); }
+            catch (err) { /* private mode — you just land on the default tab */ }
+            window.location.href = '/api/v1/staff-auth/google/step-up';
+          };
           return;
         }
         fail(view, e);
@@ -1104,7 +1158,7 @@
            * console loading. */
           el('env').textContent = '—';
         });
-        go((location.hash || '').replace('#', '') || 'graphs');
+        go(returnTo() || (location.hash || '').replace('#', '') || 'graphs');
       } else {
         el('env').textContent = '—';
         go((location.hash || '').replace('#', '') || 'teams');
