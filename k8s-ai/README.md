@@ -125,10 +125,40 @@ CI does it, the same way `k8s/` is applied to the app cluster — the
 secrets are unset, so an unconfigured GPU cluster does not redden every
 merge.
 
-The ConfigMap and Secret are **not** applied by CI. Create them once, by
-hand, from `clip-tagger-config.example.yaml`. Both sides need the same
-`CLIP_TAGGING_WORKER_TOKEN`; until they do the worker gets 401s and
-nothing is tagged, which is the correct failure.
+The ConfigMap and Secret are **not** applied by CI, and the deployer
+credential deliberately cannot read or write them — see
+`github-actions-deployer.yaml`. Create them once, by hand, from
+`clip-tagger-config.example.yaml`.
+
+**Done 2026-08-12:** `clip-tagger` ConfigMap
+(`CLIP_TAGGING_API_URL=https://api.skillstreak.xyz`) and Secret
+(`CLIP_TAGGING_WORKER_TOKEN`, 48 chars) exist in `skillstreak-ai`, and the
+same token value is set as the `CLIP_TAGGING_WORKER_TOKEN` GitHub secret
+so CI writes it into the app cluster's `skillstreak-secret`. Both sides
+need the same value; a mismatch is not silent — the worker gets 401s and
+nothing is tagged.
+
+### Rotating the worker token
+
+Both sides, or nothing works. There is no overlap window, and that is
+acceptable for an advisory feature whose failure mode is "clips stay
+untagged":
+
+```bash
+new=$(openssl rand -base64 48 | tr -d '\n=+/' | cut -c1-48)
+
+kubectl --context skillstreak-gpu -n skillstreak-ai create secret generic clip-tagger \
+  --from-literal=CLIP_TAGGING_WORKER_TOKEN="$new" \
+  --dry-run=client -o yaml | kubectl --context skillstreak-gpu apply -f -
+kubectl --context skillstreak-gpu -n skillstreak-ai rollout restart deployment/clip-tagger
+
+printf '%s' "$new" | gh secret set CLIP_TAGGING_WORKER_TOKEN
+# then re-run the CI deploy so the app cluster's Secret is rebuilt
+```
+
+The guard enforces a 32-character floor, so a short token fails closed
+with a log line rather than quietly weakening the only control on that
+endpoint.
 
 ### Known: the kubeconfig for this cluster expires
 

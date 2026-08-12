@@ -1,0 +1,85 @@
+# The ServiceAccount the `deploy-ai` job authenticates as.
+#
+# Mirrors k8s/github-actions-deployer.yaml's posture — namespace-scoped
+# RoleBinding, no RBAC self-modification, nothing cluster-wide — but the
+# permission set is deliberately much smaller, because `deploy-ai` does
+# much less than `deploy`. It applies two objects and reads two things.
+#
+# Notably absent, and each absence is the point:
+#
+#  - **No secrets access at all.** The app cluster's deployer can create
+#    and patch `skillstreak-secret` because CI builds it from GitHub
+#    secrets. Here the Secret holds the worker's credential to the app
+#    cluster, it is created once by hand, and CI has no business reading
+#    or replacing it. A compromised CI run cannot exfiltrate it.
+#  - No services, PVCs, ingresses, gateways or certificates. This
+#    namespace has none — the worker listens on nothing (it pulls), so
+#    there is nothing to route to it.
+#  - No `delete` on anything. No deploy step deletes an object, and a
+#    deployer that can delete a Deployment can take the feature down
+#    without replacing it.
+#
+# Not applied by CI itself: chicken-and-egg, and a deployer should not be
+# able to grant itself more rights. Apply once by hand with a kubeconfig
+# that has broader rights, after asserting cluster-identity:
+#
+#   kubectl --context skillstreak-gpu -n skillstreak-ai \
+#     get configmap cluster-identity -o jsonpath='{.data.cluster}'   # -> skillstreak-gpu
+#   kubectl --context skillstreak-gpu apply -f k8s-ai/github-actions-deployer.yaml
+#   kubectl --context skillstreak-gpu apply -f k8s-ai/github-actions-deployer-token.yaml
+#   kubectl --context skillstreak-gpu -n skillstreak-ai \
+#     get secret github-actions-deployer-token -o jsonpath='{.data.token}' | base64 -d
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: github-actions-deployer
+  namespace: skillstreak-ai
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: github-actions-deployer
+  namespace: skillstreak-ai
+rules:
+  # The clip-tagger Deployment. `get` is required by `kubectl apply` to
+  # read the live object before computing a patch, and by `rollout status`;
+  # `watch` is what makes `rollout status` block rather than poll.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # `rollout status` reads the Deployment's ReplicaSets to explain what it
+  # is waiting for. Read-only: CI never creates or modifies one directly.
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Read-only, and only so the cluster-identity assertion can run. That
+  # assertion is the check that stops this job applying to the wrong
+  # cluster, so the credential must be able to perform it — but it has no
+  # business writing a ConfigMap. `CLIP_TAGGING_API_URL` lives in one, and
+  # a deployer that could rewrite it could silently point the worker at
+  # another host.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+  # The worker exposes no HTTP endpoint by design, so its own log line is
+  # the only way the deploy job can report whether it actually started.
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: github-actions-deployer
+  namespace: skillstreak-ai
+subjects:
+  - kind: ServiceAccount
+    name: github-actions-deployer
+    namespace: skillstreak-ai
+roleRef:
+  kind: Role
+  name: github-actions-deployer
+  apiGroup: rbac.authorization.k8s.io
