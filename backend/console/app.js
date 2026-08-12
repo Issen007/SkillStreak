@@ -456,6 +456,28 @@
   }
 
   var DRILL_FOCUSES = ['teknik', 'fys', 'skott', 'passning', 'spelforstaelse'];
+
+  /**
+   * Length bands rather than a slider.
+   *
+   * A coach picking a drill is not asking for "between 12 and 18 minutes";
+   * they have a gap at the end of practice, or a whole session to fill.
+   * Three bands answer that question and a slider does not.
+   */
+  var DRILL_LENGTHS = {
+    short: {
+      label: 'Under 10 min',
+      match: function (m) { return m < 10; }
+    },
+    medium: {
+      label: '10-20 min',
+      match: function (m) { return m >= 10 && m <= 20; }
+    },
+    long: {
+      label: 'Over 20 min',
+      match: function (m) { return m > 20; }
+    }
+  };
   var FOCUS_LABEL = {
     teknik: 'Teknik', fys: 'Fys', skott: 'Skott',
     passning: 'Passning', spelforstaelse: 'Spelförståelse'
@@ -653,6 +675,12 @@
     /* nav */
     'My teams': 'Mina lag',
     'Drill library': 'Övningsbank',
+    'Search by name': 'Sök på namn',
+    'Any length': 'Valfri längd',
+    'Under 10 min': 'Under 10 min',
+    '10-20 min': '10–20 min',
+    'Over 20 min': 'Över 20 min',
+    'Nothing matches that.': 'Inget matchar det.',
     'My teams': 'Mina lag',
     /* teams / PT1 */
     'Add a team': 'Lägg till ett lag',
@@ -1543,38 +1571,84 @@
      * player in the first place.
      *
      * Visible to a trainer holding an active team link, and to admins. */
+    /* The drill library, with a search box and a length filter.
+     *
+     * Both filter IN THE BROWSER over the already-fetched list rather than
+     * round-tripping. The library is tens of drills, not thousands, so a
+     * request per keystroke would be latency for its own sake — and
+     * filtering client-side means the name search stays instant while a
+     * trainer types.
+     *
+     * The filter state lives in the route (`drills/<focus>/<length>`) so a
+     * filtered view can be linked and survives a refresh, and the search
+     * text lives in the input, so typing never re-renders the list out
+     * from under the cursor. */
     drills: function (view, filterArg) {
-      var focus = DRILL_FOCUSES.indexOf(filterArg) >= 0 ? filterArg : '';
+      var parts = String(filterArg || '').split('~');
+      var focus = DRILL_FOCUSES.indexOf(parts[0]) >= 0 ? parts[0] : '';
+      var length = DRILL_LENGTHS[parts[1]] ? parts[1] : '';
+
       api.get('/api/v1/drills' + (focus ? '?focus=' + encodeURIComponent(focus) : ''))
         .then(function (rows) {
+          function routeFor(nextFocus, nextLength) {
+            var tail = [nextFocus || '', nextLength || ''].join('~');
+            return 'drills' + (tail === '~' ? '' : '/' + tail);
+          }
+
           view.innerHTML =
             '<h2>Drill library</h2>' +
             '<div class="card">' +
-              /* Reworded 2026-08-11 from the security review: this used
-               * to promise "no names", which only a human reading the diff
-               * enforces. "No clips, no logs, no player data" IS
-               * structural — there is no table here to join to a child —
-               * so the copy now claims exactly that and is honest about
-               * where the rest comes from. */
               '<p class="muted" style="margin:0 0 12px">Coach-authored ' +
               'training material. It carries no clips, no training logs and ' +
               'no player data — drills are files in the repository, read by ' +
               'a person before they merge.</p>' +
-              '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-                '<button data-go="drills"' + (focus ? '' : ' class="primary"') +
-                '>All</button>' +
+              '<input id="drillSearch" type="search" placeholder="Search by name" ' +
+              'style="margin-bottom:12px" autocomplete="off">' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' +
+                '<button data-go="' + esc(routeFor('', length)) + '"' +
+                (focus ? '' : ' class="primary"') + '>All</button>' +
                 DRILL_FOCUSES.map(function (f) {
-                  return '<button data-go="drills/' + f + '"' +
+                  return '<button data-go="' + esc(routeFor(f, length)) + '"' +
                     (f === focus ? ' class="primary"' : '') + '>' +
                     esc(FOCUS_LABEL[f] || f) + '</button>';
                 }).join('') +
               '</div>' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+                '<button data-go="' + esc(routeFor(focus, '')) + '"' +
+                (length ? '' : ' class="primary"') + '>Any length</button>' +
+                Object.keys(DRILL_LENGTHS).map(function (key) {
+                  return '<button data-go="' + esc(routeFor(focus, key)) + '"' +
+                    (key === length ? ' class="primary"' : '') + '>' +
+                    esc(DRILL_LENGTHS[key].label) + '</button>';
+                }).join('') +
+              '</div>' +
             '</div>' +
-            (rows.length
-              ? rows.map(drillCard).join('')
-              : '<div class="card"><p class="muted">Nothing here yet. Drills ' +
-                'are added to the repository and arrive with the next ' +
-                'release.</p></div>');
+            '<div id="drillResults"></div>';
+
+          function paint() {
+            var query = (document.getElementById('drillSearch').value || '')
+              .trim().toLowerCase();
+            var shown = rows.filter(function (drill) {
+              if (length && !DRILL_LENGTHS[length].match(drill.durationMinutes)) {
+                return false;
+              }
+              /* Title only, not the body: the body is not in the listing
+               * payload, so searching it would silently match nothing. */
+              return !query || drill.title.toLowerCase().indexOf(query) >= 0;
+            });
+
+            document.getElementById('drillResults').innerHTML = shown.length
+              ? shown.map(drillCard).join('')
+              : '<div class="card"><p class="muted">' +
+                (rows.length
+                  ? 'Nothing matches that.'
+                  : 'Nothing here yet. Drills are added to the repository ' +
+                    'and arrive with the next release.') +
+                '</p></div>';
+          }
+
+          document.getElementById('drillSearch').oninput = paint;
+          paint();
         }).catch(function (e) { fail(view, e); });
     },
 
