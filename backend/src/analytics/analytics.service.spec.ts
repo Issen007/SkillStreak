@@ -56,3 +56,33 @@ describe('fillMissingDays', () => {
     ]);
   });
 });
+
+/**
+ * The queries bucket on the Postgres session's LOCAL date; this helper
+ * used to build its labels in UTC. Between midnight and 02:00 Stockholm
+ * time those disagree, so the row the SQL returned for the new day
+ * matched no generated key and vanished from the chart — the current
+ * day's activity absent rather than zero.
+ */
+describe('fillMissingDays: the day boundary matches the queries', () => {
+  it('includes today when Stockholm has rolled over but UTC has not', () => {
+    // 00:30 on 12 Aug in Stockholm is still 22:30 on 11 Aug UTC.
+    const justAfterLocalMidnight = new Date('2026-08-11T22:30:00.000Z');
+
+    const filled = fillMissingDays(
+      [{ day: '2026-08-12', value: 7 }],
+      3,
+      justAfterLocalMidnight,
+    );
+
+    expect(filled[filled.length - 1]).toEqual({ day: '2026-08-12', value: 7 });
+  });
+
+  it('still returns exactly one point per day, newest last', () => {
+    const filled = fillMissingDays([], 5, new Date('2026-08-11T22:30:00.000Z'));
+
+    expect(filled).toHaveLength(5);
+    expect(filled[4].day).toBe('2026-08-12');
+    expect(filled[0].day).toBe('2026-08-08');
+  });
+});

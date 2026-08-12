@@ -85,6 +85,13 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
   const [abandonedEvidenceLog, setAbandonedEvidenceLog] = useState<{
     activityType: ActivityType;
     durationMinutes: number;
+    /**
+     * Carried through the retry. Dropping it silently downgraded
+     * `video_shared` to `video` on the way back — the clip the child chose
+     * to share never reached the team, and a 20-minute session paid 24
+     * points instead of 28, with nothing saying the choice had changed.
+     */
+    evidence: EvidenceChoice;
   } | null>(null);
 
   const [pendingEvidenceLog, setPendingEvidenceLog] = useState<{
@@ -406,14 +413,7 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
             // The child backed out, or the upload failed. Their session is
             // still real, so offer to keep it rather than silently
             // dropping it — see EvidenceFallbackSheet below.
-            setAbandonedEvidenceLog(
-              pendingEvidenceLog
-                ? {
-                    activityType: pendingEvidenceLog.activityType,
-                    durationMinutes: pendingEvidenceLog.durationMinutes,
-                  }
-                : null,
-            );
+            setAbandonedEvidenceLog(pendingEvidenceLog);
             setPendingEvidenceLog(null);
           }}
           onConsentRevoked={() => {
@@ -440,15 +440,23 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
           const retry = abandonedEvidenceLog;
           setAbandonedEvidenceLog(null);
           if (retry) {
-            // Back to the upload with the same session, rather than making
-            // them re-pick the activity and duration they already chose.
-            setPendingEvidenceLog({ ...retry, evidence: 'video' });
+            // Back to the upload with the same session AND the same
+            // sharing choice — re-picking `video` here was what silently
+            // downgraded a `video_shared` session on every retry.
+            setPendingEvidenceLog(retry);
           }
         }}
         onLogAnyway={() => {
           const fallback = abandonedEvidenceLog;
           setAbandonedEvidenceLog(null);
           if (!fallback) return;
+          // Reopen the sheet so writeTrainingLog's error has somewhere to
+          // land. Its failure path writes to `sheetError`, which only
+          // ActivitySheet renders and only while it is open — and the
+          // sheet was closed when the upload flow took over. Without this
+          // a failed "log it anyway" is silent, which is verbatim the bug
+          // EvidenceFallbackSheet exists to prevent.
+          setSheetOpen(true);
           // No evidenceClipId, so the server resolves this to CLICK_ONLY.
           // The client never claims a tier; it only ever supplies proof.
           void writeTrainingLog({

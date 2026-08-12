@@ -249,6 +249,17 @@
   function renderLangSwitch() {
     var host = el('langSwitch');
     if (!host) return;
+    /* Only on the trainer surface. The admin pillars are deliberately
+     * untranslated — "suppression floor", "step-up" have no settled
+     * Swedish — so offering the toggle there produced a half-Swedish
+     * console rather than a Swedish one. The code and the comment
+     * claiming "only the trainer surface" now agree. */
+    if (state.mode !== 'pt') {
+      host.innerHTML = '';
+      host.style.display = 'none';
+      return;
+    }
+    host.style.display = '';
     host.innerHTML = ['sv', 'en'].map(function (lang) {
       return '<button data-lang="' + lang + '"' +
         (state.lang === lang ? ' class="is-on"' : '') + '>' +
@@ -401,6 +412,48 @@
 
 
 
+
+  /**
+   * Weekly-goal target metrics, which arrive as raw enum values
+   * (`total-pass`, `drill-minuter`). Rendering those straight was ugly in
+   * both languages and meaningless to a trainer — and they cannot go
+   * through the text-node translator, because they are DATA rather than
+   * copy, so they are mapped explicitly here.
+   *
+   * Unknown values fall through to the raw string rather than to a blank:
+   * a metric added server-side should look unfinished, not absent.
+   */
+  var METRIC_LABEL = {
+    en: {
+      'fitness-minuter': 'fitness minutes',
+      'drill-minuter': 'drill minutes',
+      'running-minuter': 'running minutes',
+      'other-minuter': 'other minutes',
+      'total-minuter': 'minutes in total',
+      'fitness-pass': 'fitness sessions',
+      'drill-pass': 'drill sessions',
+      'running-pass': 'running sessions',
+      'other-pass': 'other sessions',
+      'total-pass': 'sessions in total'
+    },
+    sv: {
+      'fitness-minuter': 'konditionsminuter',
+      'drill-minuter': 'teknikminuter',
+      'running-minuter': 'löpminuter',
+      'other-minuter': 'övriga minuter',
+      'total-minuter': 'minuter totalt',
+      'fitness-pass': 'konditionspass',
+      'drill-pass': 'teknikpass',
+      'running-pass': 'löppass',
+      'other-pass': 'övriga pass',
+      'total-pass': 'pass totalt'
+    }
+  };
+
+  function metricLabel(metric) {
+    var table = METRIC_LABEL[effectiveLang()] || METRIC_LABEL.en;
+    return table[metric] || metric;
+  }
 
   var DRILL_FOCUSES = ['teknik', 'fys', 'skott', 'passning', 'spelforstaelse'];
   var FOCUS_LABEL = {
@@ -583,10 +636,24 @@
    */
   var LANG_KEY = 'skillstreak.console.lang';
 
+  /**
+   * Keys are matched against whole text nodes, so a key that is also a
+   * plausible piece of SERVER DATA would rewrite it. A child's screen name
+   * is the one string in this app that must render exactly as they chose
+   * it, so bare generic words — "Open", "All", "Player", "Training",
+   * "Trainer", "of", "min" — were removed after a review pointed out that
+   * a screen name equal to any of them would be translated.
+   *
+   * Every key below is either a full sentence or a phrase no screen name,
+   * team name or drill title would plausibly be. Where a short word was
+   * genuinely needed in the copy, the view wraps it in its own <span> with
+   * a longer, unambiguous key rather than a bare word.
+   */
   var SV = {
     /* nav */
     'My teams': 'Mina lag',
     'Drill library': 'Övningsbank',
+    'My teams': 'Mina lag',
     /* teams / PT1 */
     'Add a team': 'Lägg till ett lag',
     'A captain generates an 8-character code and gives it to you. You cannot search for teams — the invitation only ever travels in that direction.':
@@ -601,10 +668,8 @@
     'points in the team pot': 'poäng i lagets pott',
     'This week': 'Den här veckan',
     'No weekly goal running.': 'Inget veckomål igång.',
-    'Players': 'Spelare',
     'Screen names only. You see a player’s training after their family says yes — each child is a separate decision.':
       'Bara skärmnamn. Du ser en spelares träning först när familjen sagt ja — varje barn är ett eget beslut.',
-    'Player': 'Spelare',
     'Access': 'Åtkomst',
     'Shared with you': 'Delas med dig',
     'Waiting for a parent': 'Väntar på förälder',
@@ -616,25 +681,23 @@
     'You are not linked to this team.': 'Du är inte kopplad till det här laget.',
     'A captain can revoke a trainer link at any time, and does not have to give a reason.':
       'En lagkapten kan ta bort en tränarkoppling när som helst, utan att förklara varför.',
-    'player': 'spelare',
-    'players': 'spelare',
+    'players on the roster': 'spelare i truppen',
+    'Players in this team': 'Spelare i laget',
+    'out of': 'av',
+    'ending on': 'slutar',
     'shared with you': 'delas med dig',
     'waiting for a parent': 'väntar på förälder',
     /* player detail */
-    'Training': 'Träning',
     'When': 'När',
     'Activity': 'Aktivitet',
     'Minutes': 'Minuter',
     'Nothing logged yet.': 'Inget loggat än.',
-    'Badges': 'Märken',
     'No badges yet.': 'Inga märken än.',
     'No real name, no contact details, no clips, no chat, and nowhere this player has been. That is the whole of what a trainer is shown.':
       'Inget riktigt namn, inga kontaktuppgifter, inga klipp, ingen chatt, och aldrig var spelaren har varit. Det är allt en tränare ser.',
     /* drills */
     'Coach-authored training material. It carries no clips, no training logs and no player data — drills are files in the repository, read by a person before they merge.':
       'Träningsmaterial skrivet av tränare. Det innehåller inga klipp, inga träningsloggar och inga spelaruppgifter — övningarna är filer som en människa läser innan de publiceras.',
-    'All': 'Alla',
-    'Open': 'Öppna',
     'Nothing here yet. Drills are added to the repository and arrive with the next release.':
       'Inget här än. Övningar läggs till i repot och dyker upp vid nästa release.',
     'Teknik': 'Teknik', 'Fys': 'Fys', 'Skott': 'Skott',
@@ -642,11 +705,7 @@
     /* shared */
     'Loading…': 'Laddar…',
     'Sign out': 'Logga ut',
-    'Trainer': 'Tränare',
-    'of': 'av',
     'ending': 'slutar',
-    'sessions': 'pass',
-    'min': 'min',
     'år': 'år'
   };
 
@@ -661,6 +720,13 @@
     return state.role === 'pt' ? 'sv' : 'en';
   }
 
+  /** The language actually in force: Swedish only on the trainer surface,
+   *  whatever is stored. An admin who once picked SV as a trainer should
+   *  not get a half-Swedish admin console back. */
+  function effectiveLang() {
+    return state.mode === 'pt' ? state.lang : 'en';
+  }
+
   function setLang(lang) {
     try { localStorage.setItem(LANG_KEY, lang); } catch (e) { /* ignore */ }
     state.lang = lang;
@@ -670,7 +736,7 @@
   /** Translate. Untranslated strings fall through as English, which is
    *  visible and honest rather than a blank or an identifier. */
   function t(text) {
-    if (state.lang !== 'sv') return text;
+    if (effectiveLang() !== 'sv') return text;
     return SV[text] || text;
   }
 
@@ -693,7 +759,7 @@
    * not shift.
    */
   function translateTree(root) {
-    if (!root || state.lang !== 'sv') return;
+    if (!root || effectiveLang() !== 'sv') return;
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     var node;
     while ((node = walker.nextNode())) {
@@ -1078,6 +1144,117 @@
           'every breakdown so no figure can resolve to a single team or ' +
           'child — which is why some sections say a group was folded into ' +
           'the app-wide number instead of being shown separately.</p>';
+      }).catch(function (e) { fail(view, e); });
+    },
+
+    /* PR campaigns — the execution record for the copy in
+     * docs/CAMPAIGNS.md, with each campaign's signups counted by its tag.
+     *
+     * Campaigns that produced nothing still show, with a 0. Hiding them
+     * would make the board a list of successes, and the ones that brought
+     * nobody are exactly the ones worth looking at. */
+    campaigns: function (view) {
+      api.get('/api/v1/admin/pr-campaigns').then(function (rows) {
+        var posted = rows.filter(function (r) { return r.status === 'posted'; });
+        var signups = rows.reduce(function (n, r) { return n + r.signups; }, 0);
+
+        view.innerHTML =
+          '<h2>Campaigns</h2>' +
+          '<div class="tiles">' +
+            tile(rows.length, plural(rows.length, 'campaign')) +
+            tile(posted.length, 'posted') +
+            tile(signups, 'signups attributed') +
+          '</div>' +
+          '<div class="card">' +
+            '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' +
+              '<button id="newCampaign" class="primary">New campaign</button>' +
+              '<span class="muted" style="flex:1;min-width:220px">Copy for all ' +
+              'four audiences lives in docs/CAMPAIGNS.md — this tracks what ' +
+              'actually went out.</span>' +
+            '</div>' +
+            '<div id="campaignForm" style="display:none;margin-top:16px"></div>' +
+          '</div>' +
+          '<div class="card">' +
+            (rows.length
+              ? '<table><tr><th>Campaign</th><th>Tag</th><th>Channel</th>' +
+                '<th>Audience</th><th>Lang</th><th>Status</th><th>Signups</th>' +
+                '<th></th></tr>' +
+                rows.map(campaignRow).join('') + '</table>'
+              : '<p class="muted">No campaigns yet. The first one is ' +
+                'probably the summer-project post.</p>') +
+          '</div>';
+
+        document.getElementById('newCampaign').onclick = function () {
+          showCampaignForm(null);
+        };
+        wireCampaignButtons(view, rows);
+      }).catch(function (e) { fail(view, e); });
+    },
+
+    /* Link clicks and app-wide activity, drawn. Everything on this screen
+     * is app-wide — there is no team or player dimension in the payload,
+     * by ADR-0020 Decision 5, so there is nothing here to filter down to
+     * an individual child even if someone wanted to. */
+    graphs: function (view, daysArg) {
+      var days = Number(daysArg) > 0 ? Number(daysArg) : 30;
+      api.get('/api/v1/admin/analytics?days=' + days).then(function (data) {
+        var activeToday = data.activePerDay.length
+          ? data.activePerDay[data.activePerDay.length - 1].value : 0;
+        var activePeak = data.activePerDay.reduce(function (max, p) {
+          return Math.max(max, p.value);
+        }, 0);
+
+        view.innerHTML =
+          '<h2>Graphs</h2>' +
+          '<div class="card">' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+              [7, 30, 90].map(function (option) {
+                return '<button data-go="graphs/' + option + '"' +
+                  (option === days ? ' class="primary"' : '') + '>Last ' +
+                  option + ' days</button>';
+              }).join('') +
+            '</div>' +
+          '</div>' +
+
+          '<div class="card">' +
+            '<h3 style="margin:0 0 2px;font-size:15px">Players</h3>' +
+            '<p class="muted" style="margin:0 0 14px"><strong>' +
+              esc(data.totalPlayers) + '</strong> accounts in total · <strong>' +
+              esc(activeToday) + '</strong> active today · busiest day <strong>' +
+              esc(activePeak) + '</strong></p>' +
+            '<p style="margin:0 0 4px;font-size:13px"><strong>Active players per day</strong> ' +
+              '<span class="muted">— logged at least one session</span></p>' +
+            lineChart(data.activePerDay, 'Active players per day') +
+          '</div>' +
+
+          '<div class="card">' +
+            '<p style="margin:0 0 4px;font-size:13px"><strong>New accounts per day</strong></p>' +
+            lineChart(data.signupsPerDay, 'New player accounts per day') +
+          '</div>' +
+
+          '<div class="card">' +
+            '<h3 style="margin:0 0 2px;font-size:15px">Link clicks</h3>' +
+            '<p class="muted" style="margin:0 0 14px"><strong>' +
+              esc(data.totalClicks) + '</strong> clicks over ' + esc(days) +
+              ' days on the public site.</p>' +
+            barChart(data.linkClicks.map(function (series) {
+              return {
+                label: LINK_LABEL[series.link] || series.link,
+                value: series.total
+              };
+            }), 'Clicks per link') +
+            (data.linkClicks.length
+              ? '<p style="margin:18px 0 4px;font-size:13px"><strong>' +
+                esc(LINK_LABEL[data.linkClicks[0].link] || data.linkClicks[0].link) +
+                '</strong> <span class="muted">— the most clicked, per day</span></p>' +
+                lineChart(data.linkClicks[0].daily, 'Clicks per day for the most clicked link')
+              : '') +
+          '</div>' +
+
+          '<p class="muted">Counts only. No cookies, no third-party ' +
+          'analytics, and nothing identifying a visitor — a click is a ' +
+          'number against a link and a date, so these charts cannot be ' +
+          'narrowed to a person or a team.</p>';
       }).catch(function (e) { fail(view, e); });
     },
 
@@ -1500,13 +1677,13 @@
             '</strong> points in the team pot</p>' +
             (goal
               ? '<p class="muted" style="margin:0"><span>This week</span>: ' + esc(goal.title) +
-                ' — ' + esc(goal.teamProgressValue) + ' <span>of</span> ' +
-                esc(goal.targetValue) + ' ' + esc(goal.targetMetric) +
-                ', <span>ending</span> ' + esc(goal.endDate) + '</p>'
+                ' — ' + esc(goal.teamProgressValue) + ' <span>out of</span> ' +
+                esc(goal.targetValue) + ' ' + esc(metricLabel(goal.targetMetric)) +
+                ', <span>ending on</span> ' + esc(goal.endDate) + '</p>'
               : '<p class="muted" style="margin:0">No weekly goal running.</p>') +
           '</div>' +
           '<div class="card">' +
-            '<h3 style="margin:0 0 4px;font-size:15px"><span>Players</span> (' +
+            '<h3 style="margin:0 0 4px;font-size:15px"><span>Players in this team</span> (' +
             esc(team.rosterSize) + ')</h3>' +
             '<p class="muted" style="margin:0 0 12px">Screen names only. You ' +
             'see a player&rsquo;s training after their family says yes — ' +
@@ -1573,8 +1750,7 @@
     return '<div class="card">' +
       '<h3 style="margin:0 0 4px;font-size:15px">' + esc(team.teamName) + '</h3>' +
       '<p class="muted" style="margin:0 0 10px">' +
-      esc(team.rosterSize) + ' <span>' +
-      esc(team.rosterSize === 1 ? 'player' : 'players') + '</span> · ' +
+      esc(team.rosterSize) + ' <span>players on the roster</span> · ' +
       esc(approved) + ' <span>shared with you</span>' +
       (waiting ? ' · ' + esc(waiting) + ' <span>waiting for a parent</span>' : '') +
       '</p>' +

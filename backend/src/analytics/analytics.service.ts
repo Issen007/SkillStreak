@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { stockholmDateString } from '../common/time/stockholm-date.util';
 import { LinkClick, TrackedLink } from './entities/link-click.entity';
 
 export interface DailyPoint {
@@ -193,10 +194,26 @@ export function fillMissingDays(
 ): DailyPoint[] {
   const known = new Map(points.map((point) => [point.day, point.value]));
   const filled: DailyPoint[] = [];
+
+  // Anchored on the STOCKHOLM date, not the UTC one.
+  //
+  // The queries bucket on the Postgres session's local date
+  // (`CURRENT_DATE`, `logged_at::date`), and this filled its labels from
+  // `setUTCDate`/`toISOString`. Between midnight and 02:00 local time
+  // those disagree: Postgres has already rolled to D+1 while UTC is still
+  // D, so the row the SQL returned for D+1 matched no generated key and
+  // was silently DROPPED — today's activity, signups and clicks simply
+  // absent from the chart rather than shown as zero.
+  //
+  // `stockholmDateString` is the same helper the training-log day
+  // boundary already uses, so the charts and the streaks now agree about
+  // what "today" means. Stepping by UTC days from a Stockholm anchor is
+  // DST-safe here because the anchor is re-derived per iteration.
+  const anchor = new Date(`${stockholmDateString(today)}T12:00:00Z`);
   for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const date = new Date(today);
+    const date = new Date(anchor);
     date.setUTCDate(date.getUTCDate() - offset);
-    const day = date.toISOString().slice(0, 10);
+    const day = stockholmDateString(date);
     filled.push({ day, value: known.get(day) ?? 0 });
   }
   return filled;

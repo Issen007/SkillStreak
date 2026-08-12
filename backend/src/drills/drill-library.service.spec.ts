@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { parseDrill } from './drill-library.service';
 
 const VALID = `---
@@ -139,5 +141,57 @@ describe('parseDrill: Decision 5 content rules', () => {
         VALID.replace('author: "Anna Lindqvist"', 'author: "Anonym tränare"'),
       ),
     ).not.toThrow();
+  });
+});
+
+/**
+ * The first phone heuristic rejected "Tillagd 2026-08-11" and "30 30 30 30
+ * 30 30 sekunder" — both ordinary drill prose. A rejected drill is a
+ * missing row and a warning nobody reads, so over-eagerness here fails
+ * invisibly, which is the wrong direction to err in.
+ */
+describe('parseDrill: the phone heuristic vs ordinary drill prose', () => {
+  const withBody = (body: string) =>
+    VALID.replace('Body prose.', body).replace(
+      'author: "Anna Lindqvist"',
+      'author: "Anonym tränare"',
+    );
+
+  it.each([
+    'Tillagd 2026-08-11 av tränaren.',
+    'Kör intervaller: 30 30 30 30 30 30 sekunder.',
+    'Stationer 1 2 3 4 5 6 7 8 i tur och ordning.',
+    '3 x 10 reps, 4 set, 2 min vila.',
+    'Passa 20 gånger på 45 sekunder, 3 varv.',
+  ])('accepts %p', (body) => {
+    expect(() => parseDrill('x.md', withBody(body))).not.toThrow();
+  });
+
+  it.each([
+    'Ring mig på 070-123 45 67',
+    'Nås på +46701234567',
+    'Mobil: 0701234567',
+  ])('still rejects %p', (body) => {
+    expect(() => parseDrill('x.md', withBody(body))).toThrow(/phone number/);
+  });
+});
+
+/**
+ * The shipped library itself must parse. Every other test here uses a
+ * fixture, so a rule that rejects the real files would pass CI and empty
+ * the shelf in production — visible only via /health's drill count, after
+ * deploy.
+ */
+describe('the drill library files that actually ship', () => {
+  it('every file in src/drills/library parses', () => {
+    const dir = join(__dirname, 'library');
+    const files = readdirSync(dir).filter((f) => f.endsWith('.md'));
+
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      expect(() =>
+        parseDrill(file, readFileSync(join(dir, file), 'utf8')),
+      ).not.toThrow();
+    }
   });
 });

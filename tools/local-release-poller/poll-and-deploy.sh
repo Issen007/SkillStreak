@@ -125,6 +125,7 @@ print(json.load(sys.stdin)['sha'])
 
 if [ -z "$latest_sha" ]; then
   echo "Got an empty SHA back from the GitHub API — will retry next tick."
+  report_failure "GitHub returned an empty SHA"
   exit 0
 fi
 
@@ -148,10 +149,17 @@ site_image="ghcr.io/issen007/skillstreak-site:prerelease-${latest_sha}"
 # lands in that window just quietly retries next tick instead.
 if ! docker manifest inspect "$api_image" >/dev/null 2>&1; then
   echo "${api_image} doesn't exist on GHCR yet (CI probably still running) — will retry next tick."
+  # Counted, not shrugged off. One tick is CI still running; an hour of
+  # them means the internal-images job is broken and this box is frozen —
+  # exactly the week-long silence this script was rewritten to end. A
+  # missing image and an unusable docker are indistinguishable here, so
+  # both count.
+  report_failure "image ${api_image} not on GHCR (or docker unusable)"
   exit 0
 fi
 if ! docker manifest inspect "$site_image" >/dev/null 2>&1; then
   echo "${site_image} doesn't exist on GHCR yet (CI probably still running) — will retry next tick."
+  report_failure "image ${site_image} not on GHCR (or docker unusable)"
   exit 0
 fi
 
