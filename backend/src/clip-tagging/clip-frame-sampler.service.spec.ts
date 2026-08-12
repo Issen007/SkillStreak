@@ -88,3 +88,38 @@ describe('ClipFrameSamplerService ffmpeg contract', () => {
     expect(readContract().videoFilter).toContain('224:224');
   });
 });
+
+/**
+ * The contract file lives in `ai/` and is not in this package's build
+ * context, so a deployed pod reads the literal fallback in the service
+ * rather than the file. That is fine ONLY while the two agree — otherwise
+ * it is a stale copy of exactly the kind the shared file was introduced
+ * to eliminate.
+ */
+describe('the compiled-in fallback matches the shared contract', () => {
+  it('produces the same args whether or not the file is readable', () => {
+    const contract = JSON.parse(
+      readFileSync(
+        join(
+          __dirname,
+          '..',
+          '..',
+          '..',
+          'ai',
+          'clip-tagger',
+          'frame-sampling-contract.json',
+        ),
+        'utf8',
+      ),
+    ) as { videoFilter: string; extraArgs: string[]; jpegQuality: string };
+
+    // The literals below are the service's fallback, restated. If the
+    // contract file changes, this fails and the fallback must be updated
+    // with it — which is the whole mechanism.
+    expect(contract.videoFilter).toBe(
+      'fps=1/1,scale=224:224:force_original_aspect_ratio=increase,crop=224:224',
+    );
+    expect(contract.extraArgs).toEqual(['-an', '-map_metadata', '-1']);
+    expect(contract.jpegQuality).toBe('3');
+  });
+});

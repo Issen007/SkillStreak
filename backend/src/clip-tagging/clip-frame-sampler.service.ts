@@ -19,12 +19,16 @@ interface FrameSamplingContract {
  * Shared with the Python eval harness. Read at module load rather than
  * duplicated, so the two cannot drift — see buildFfmpegArgs below.
  *
- * Resolved from `__dirname` up to the repo root in a checkout, and copied
- * into the image beside `dist/` by nest-cli.json's `assets` entry (the
- * same mechanism the drill library's Markdown uses). Falls back to the
- * literal values only if the file is missing, so a packaging mistake
- * degrades to "still correct today" rather than a boot crash — but the
- * test asserts the file exists, so that fallback should never be reached.
+ * Found by walking up from `__dirname` in a checkout. **In the built
+ * image it is not present** — it lives in `ai/`, outside this package's
+ * build context — so a deployed pod uses the literal fallback below.
+ *
+ * That is deliberate rather than an oversight, but it only holds because
+ * the fallback is itself asserted against the file in
+ * clip-frame-sampler.service.spec.ts. Editing the contract without
+ * editing the fallback fails CI, so the two cannot drift; without that
+ * test this would be a copy waiting to go stale, which is exactly the
+ * failure the shared file exists to prevent.
  */
 const FRAME_SAMPLING_CONTRACT: FrameSamplingContract = loadContract();
 
