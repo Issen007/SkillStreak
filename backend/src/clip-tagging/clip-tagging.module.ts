@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { StaffAuthModule } from '../staff-auth/staff-auth.module';
 import { VideoClipsModule } from '../video-clips/video-clips.module';
 import { VideoClip } from '../video-clips/entities/video-clip.entity';
 import { VideoClipTag } from '../video-clips/entities/video-clip-tag.entity';
@@ -7,6 +8,8 @@ import { ClipFrameSamplerService } from './clip-frame-sampler.service';
 import { ClipTaggingController } from './clip-tagging.controller';
 import { ClipTaggingService } from './clip-tagging.service';
 import { ClipTaggingWorkerGuard } from './clip-tagging-worker.guard';
+import { AdminClipTaggingController } from './admin-clip-tagging.controller';
+import { ClipTaggingStatsService } from './clip-tagging-stats.service';
 
 /**
  * Clip tagging's app-side half — the work queue the GPU cluster pulls from
@@ -21,13 +24,17 @@ import { ClipTaggingWorkerGuard } from './clip-tagging-worker.guard';
 @Module({
   imports: [
     VideoClipsModule,
+    // AdminAuthGuard injects StaffAuthGuard and the StaffAccount
+    // repository; without this the module compiles and fails at boot.
+    StaffAuthModule,
     TypeOrmModule.forFeature([VideoClip, VideoClipTag]),
   ],
-  controllers: [ClipTaggingController],
+  controllers: [ClipTaggingController, AdminClipTaggingController],
   providers: [
     ClipTaggingService,
     ClipFrameSamplerService,
     ClipTaggingWorkerGuard,
+    ClipTaggingStatsService,
   ],
 })
 export class ClipTaggingModule {}

@@ -175,7 +175,8 @@
       { id: 'errors', label: 'Errors', ico: '⚠️' },
       { id: 'bugs', label: 'Bug reports', ico: '🐛' },
       { id: 'planning', label: 'Planning', ico: '🗺️' },
-      { id: 'drills', label: 'Drill library', ico: '📗' }
+      { id: 'drills', label: 'Drill library', ico: '📗' },
+      { id: 'tagging', label: 'Clip tagging', ico: '🏷️' }
     ],
     pt: [
       { id: 'teams', label: 'My teams', ico: '🏑' },
@@ -794,6 +795,24 @@
       'Träningsmaterial skrivet av tränare. Det innehåller inga klipp, inga träningsloggar och inga spelaruppgifter — övningarna är filer som en människa läser innan de publiceras.',
     'Nothing here yet. Drills are added to the repository and arrive with the next release.':
       'Inget här än. Övningar läggs till i repot och dyker upp vid nästa release.',
+    /* clip tagging */
+    'Clip tagging': 'Klippmärkning',
+    'How the automatic training-type tagger is doing, across every published clip. Counts only — this page cannot show which clip, which team or which player, and has no filter that could.':
+      'Hur den automatiska märkningen av träningstyp fungerar, över alla publicerade klipp. Bara antal — sidan kan inte visa vilket klipp, vilket lag eller vilken spelare, och har inget filter som skulle kunna det.',
+    'Published clips': 'Publicerade klipp',
+    'Looked at': 'Granskade',
+    'Waiting': 'Väntar',
+    'Gave up': 'Gav upp',
+    'Declined to tag': 'Avstod från att märka',
+    'Nothing processed yet. This stays blank rather than showing 0%, because "nothing has run" and "it tags everything" are opposite findings.':
+      'Inget behandlat än. Detta lämnas tomt i stället för att visa 0 %, eftersom "inget har körts" och "allt märks" är motsatta resultat.',
+    'What it found': 'Vad den hittade',
+    'Tag': 'Märkning',
+    'Clips': 'Klipp',
+    'Avg confidence': 'Snittsäkerhet',
+    'No tags stored yet.': 'Inga märkningar sparade än.',
+    'Produced by': 'Skapad av',
+    'Nothing yet.': 'Inget än.',
     /* drill groups */
     'All groups': 'Alla grupper',
     'Manage groups': 'Hantera grupper',
@@ -1668,6 +1687,90 @@
         }
         fail(view, e);
       });
+    },
+
+
+    /* The clip-tagging panel (Open Question 5, decided 2026-08-12).
+     *
+     * Built INSTEAD of a fixture-set evaluation, and the reasoning is
+     * worth keeping next to the code: the pipeline already tags real
+     * clips for free, so its own output is continuous evidence about
+     * whether this model works on this project's actual footage — at no
+     * cost and with nobody filming anything. A fixture set is more
+     * rigorous and is still how a threshold gets set; it just measures
+     * something no code currently reads.
+     *
+     * Aggregate only. No team, no player, no clip, and no filter that
+     * could become one. */
+    tagging: function (view) {
+      api.get('/api/v1/admin/clip-tagging/stats').then(function (s) {
+        var processed = (s.statusCounts.tagged || 0) +
+                        (s.statusCounts.no_confident_tags || 0);
+
+        function pct(n) { return Math.round(n * 100) + '%'; }
+
+        view.innerHTML =
+          '<h2>Clip tagging</h2>' +
+          '<div class="card">' +
+            '<p class="muted" style="margin:0 0 12px">How the automatic ' +
+            'training-type tagger is doing, across every published clip. ' +
+            'Counts only — this page cannot show which clip, which team or ' +
+            'which player, and has no filter that could.</p>' +
+            '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+              tile(s.publishedClips, 'Published clips') +
+              tile(processed, 'Looked at') +
+              tile(s.pending, 'Waiting') +
+              tile(s.failed, 'Gave up') +
+            '</div>' +
+          '</div>' +
+          '<div class="card">' +
+            '<h3 style="margin:0 0 4px;font-size:15px">Declined to tag' +
+              info('Of the clips the model actually looked at, how often ' +
+                   'it found nothing it was confident about. This is the ' +
+                   'number that says whether the model understands this ' +
+                   'kind of footage at all. High is not a bug — saying ' +
+                   'nothing is always safer than a wrong guess about a ' +
+                   'child\'s video.') +
+            '</h3>' +
+            (s.silentRate === null
+              ? '<p class="muted" style="margin:0">Nothing processed yet. ' +
+                'This stays blank rather than showing 0%, because ' +
+                '"nothing has run" and "it tags everything" are opposite ' +
+                'findings.</p>'
+              : '<p style="font-size:26px;font-weight:680;margin:0">' +
+                esc(pct(s.silentRate)) + '</p>' +
+                '<p class="muted" style="margin:4px 0 0">' +
+                esc((s.statusCounts.no_confident_tags || 0) + ' of ' +
+                    processed + ' clips') + '</p>') +
+          '</div>' +
+          '<div class="card">' +
+            '<h3 style="margin:0 0 8px;font-size:15px">What it found</h3>' +
+            (s.tagCounts.length
+              ? '<table><thead><tr><th>Tag</th><th>Clips</th>' +
+                '<th>Avg confidence</th></tr></thead><tbody>' +
+                s.tagCounts.map(function (row) {
+                  return '<tr><td>' + esc(row.tag) + '</td><td>' +
+                    esc(row.count) + '</td><td>' +
+                    esc(row.averageConfidence) + '</td></tr>';
+                }).join('') + '</tbody></table>'
+              : '<p class="muted" style="margin:0">No tags stored yet.</p>') +
+          '</div>' +
+          '<div class="card">' +
+            '<h3 style="margin:0 0 8px;font-size:15px">Produced by' +
+              info('Every stored tag records the model and the prompt ' +
+                   'wording that produced it. A prompt edit changes ' +
+                   'scores as surely as a model swap, so both are kept — ' +
+                   'without them a row could not be traced to what made ' +
+                   'it.') +
+            '</h3>' +
+            (s.sources.length
+              ? s.sources.map(function (row) {
+                  return '<p class="muted" style="margin:0 0 4px">' +
+                    esc(row.source) + ' — ' + esc(row.count) + '</p>';
+                }).join('')
+              : '<p class="muted" style="margin:0">Nothing yet.</p>') +
+          '</div>';
+      }).catch(function (e) { fail(view, e); });
     },
 
     /* The coach drill library (ADR-0029 Mechanism 1).
