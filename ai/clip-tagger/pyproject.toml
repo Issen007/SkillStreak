@@ -41,6 +41,27 @@ dev = [
   "ruff>=0.8",
 ]
 
+# torch must match the DRIVER on the GPU nodes, not the newest available.
+#
+# The default PyPI wheel is built for CUDA 13.0. These nodes run driver
+# 570.211.01, which tops out at CUDA 12.8 — so `torch.cuda.is_available()`
+# returned False, the tagger fell back to CPU, and it did so **silently**:
+# the pod was Running, /health said `gpu: false`, and clips were being
+# tagged correctly the whole time, just ~1.3s each on a CPU in a cluster
+# bought for its GPUs. Nothing failed, which is exactly why it needed
+# looking for.
+#
+# cu128 is the newest build the current driver accepts. If the nodes are
+# ever upgraded this pin can move forward; if the driver moves BACKWARD
+# this breaks loudly at model load, which is the right direction to fail.
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
