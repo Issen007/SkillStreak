@@ -1,5 +1,7 @@
 import { DrillLibraryForbiddenException } from '../common/errors/exceptions';
 import { StaffAccountRole } from '../staff-auth/entities/staff-account.entity';
+import { DrillAccessService } from './drill-access.service';
+import { DrillGroupsController } from './drill-groups.controller';
 import { DrillsController } from './drills.controller';
 
 /**
@@ -8,21 +10,41 @@ import { DrillsController } from './drills.controller';
  * refactor drops silently. The ADR itself expects this check to move
  * inside ADR-0023 Part C's resolver later, which is precisely the move
  * that loses things.
+ *
+ * That move has now happened once, onto DrillAccessService, so these
+ * build a REAL DrillAccessService over a mock PtTeamLinksService rather
+ * than stubbing the gate out. A test that mocked `assertMayRead` would
+ * pass just as happily if the gate stopped refusing anyone.
  */
-describe('DrillsController access gate', () => {
+describe('drill library access gate', () => {
   function build(hasLink: boolean) {
     const drillLibraryService = {
       list: jest.fn().mockReturnValue([{ slug: 'a' }]),
       findBySlug: jest.fn().mockReturnValue({ slug: 'a', body: 'x' }),
     };
+    const drillGroupsService = {
+      list: jest.fn().mockResolvedValue([{ id: 'g1' }]),
+      create: jest.fn().mockResolvedValue({ id: 'g1' }),
+      remove: jest.fn().mockResolvedValue(undefined),
+      setGroupsForDrill: jest.fn().mockResolvedValue([]),
+    };
     const ptTeamLinksService = {
       hasAnyActiveLink: jest.fn().mockResolvedValue(hasLink),
     };
-    const controller = new DrillsController(
-      drillLibraryService as never,
-      ptTeamLinksService as never,
-    );
-    return { controller, drillLibraryService, ptTeamLinksService };
+    const accessService = new DrillAccessService(ptTeamLinksService as never);
+    return {
+      controller: new DrillsController(
+        drillLibraryService as never,
+        accessService,
+      ),
+      groupsController: new DrillGroupsController(
+        drillGroupsService as never,
+        accessService,
+      ),
+      drillLibraryService,
+      drillGroupsService,
+      ptTeamLinksService,
+    };
   }
 
   it('refuses a trainer holding no active team link', async () => {
@@ -69,5 +91,47 @@ describe('DrillsController access gate', () => {
     ).resolves.toHaveLength(1);
     // Short-circuits: an admin is not asked about team links at all.
     expect(ptTeamLinksService.hasAnyActiveLink).not.toHaveBeenCalled();
+  });
+
+  // Groups are a second surface over the same material and reached the
+  // same gate by a different route. Listing the routes explicitly means a
+  // new one added without the gate fails here rather than shipping open.
+  describe('groups routes are behind the same gate', () => {
+    it('refuses every write route to an ungated trainer', async () => {
+      const { groupsController, drillGroupsService } = build(false);
+
+      await expect(
+        groupsController.list('staff-1', StaffAccountRole.PT),
+      ).rejects.toBeInstanceOf(DrillLibraryForbiddenException);
+      await expect(
+        groupsController.create('staff-1', StaffAccountRole.PT, {
+          name: 'Uppvärmning',
+        }),
+      ).rejects.toBeInstanceOf(DrillLibraryForbiddenException);
+      await expect(
+        groupsController.remove('staff-1', StaffAccountRole.PT, 'g1'),
+      ).rejects.toBeInstanceOf(DrillLibraryForbiddenException);
+      await expect(
+        groupsController.setGroupsForDrill('staff-1', StaffAccountRole.PT, {
+          slug: 'a',
+          groupIds: ['g1'],
+        }),
+      ).rejects.toBeInstanceOf(DrillLibraryForbiddenException);
+
+      expect(drillGroupsService.list).not.toHaveBeenCalled();
+      expect(drillGroupsService.create).not.toHaveBeenCalled();
+      expect(drillGroupsService.remove).not.toHaveBeenCalled();
+      expect(drillGroupsService.setGroupsForDrill).not.toHaveBeenCalled();
+    });
+
+    it('passes the caller own id to the service, never a caller-supplied one', async () => {
+      // Every group route is scoped in the service by this argument. If a
+      // route ever took an owner id from the body instead, this is where
+      // it would show up.
+      const { groupsController, drillGroupsService } = build(true);
+
+      await groupsController.list('staff-1', StaffAccountRole.PT);
+      expect(drillGroupsService.list).toHaveBeenCalledWith('staff-1');
+    });
   });
 });
