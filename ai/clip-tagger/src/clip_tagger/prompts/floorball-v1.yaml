@@ -1,0 +1,46 @@
+# The versioned prompt set. Its name is reported as `promptSetVersion` at
+# /health and on every response, so a score can always be traced to the
+# exact wording that produced it.
+#
+# Changing any prompt below is a NEW version (floorball-v2), never an edit
+# in place: scores are not comparable across wordings, and a silent edit
+# would make two runs look like a model regression rather than a different
+# question. Decision 5 also fixes the tag names themselves — they are the
+# eight values already in Postgres as `video_clip_tag.value`, and the API
+# drops anything it does not recognise, so a typo here becomes a dropped
+# tag rather than a novel row.
+version: floorball-v1
+
+# Written as descriptions of what a camera sees, not as labels. Zero-shot
+# image-text scoring compares an image against a sentence, so "a photo of
+# someone shooting a floorball ball at a goal" scores far better than the
+# bare token "shooting".
+prompts:
+  shooting:
+    - a photo of a floorball player shooting the ball at a goal
+    - a person taking a shot with a floorball stick
+  stickhandling:
+    - a photo of a floorball player dribbling the ball with a stick
+    - close control of a floorball ball with a stick, stickhandling
+  passing:
+    - a photo of two floorball players passing the ball to each other
+    - a floorball player passing the ball to a teammate
+  fitness_conditioning:
+    - a photo of a person doing fitness exercise without a ball
+    - someone running, jumping or doing bodyweight training indoors
+  goalkeeping:
+    - a photo of a floorball goalkeeper kneeling in the goal
+    - a goalkeeper in protective gear making a save
+  team_drill:
+    - a photo of a group of floorball players doing a drill together
+    - several players training together on an indoor court with cones
+  other_training:
+    - a photo of a person doing sports training indoors
+    - general athletic training that is not clearly a specific drill
+  # Per Decision 5 this is scored like any other value but is NEVER
+  # persisted as a tag row — the API maps it to `no_confident_tags` with
+  # zero rows. It exists here so the model has somewhere to put an image
+  # that is none of the above, instead of being forced to pick a sport.
+  unclear_or_unrelated:
+    - a photo that is not sports training
+    - an unclear, dark or unrelated photo

@@ -227,6 +227,64 @@ jobs:
             --build-arg EXPO_PUBLIC_JOIN_URL=https://skillstreak.xyz \
             -t skillstreak-site:ci .
 
+  clip-tagger:
+    name: clip-tagger lint + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai/clip-tagger
+    # Runs on every PR like the other test jobs, and shares no step with
+    # `deploy`, `release` or `internal-images` (Decision 13) — the GPU
+    # cluster is a different cluster with a different credential, and a job
+    # that could touch both is the 2026-07-30 wrong-image incident waiting
+    # to happen in a new place.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.11"
+
+      # Deliberately WITHOUT --extra model: torch is ~2.5 GB and the tests
+      # exercise every path except inference, via the stub backend. Model
+      # accuracy is not a CI question — it is measured on the real hardware
+      # by eval/run_fixtures.py against a fixture set that contains no user
+      # of this app.
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Lint
+        run: uv run ruff check src eval tests
+
+      - name: Test
+        run: uv run pytest -q
+
+      # Proves the service actually starts and answers, not just that its
+      # units pass. The stub is explicitly selected; a build that could
+      # serve fake scores without someone typing `stub` is the failure this
+      # check exists to make impossible to reach by accident.
+      - name: Smoke test the running service
+        env:
+          CLIP_TAGGER_BACKEND: stub
+          CLIP_TAGGER_TOKEN: ci-token-not-a-real-secret
+          SERVICE_VERSION: ci-${{ github.sha }}
+        run: |
+          uv run uvicorn clip_tagger.main:app --host 127.0.0.1 --port 8000 &
+          for _ in $(seq 1 30); do
+            curl -fsS localhost:8000/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS localhost:8000/health | tee /tmp/health.json
+          grep -q '"modelId": *"stub"' /tmp/health.json
+
+          # An unauthenticated call must be refused. This is the one
+          # property that, if it regressed, would expose the cluster's GPUs
+          # to anyone who found the hostname.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            localhost:8000/v1/analyse-frames -F 'meta={"requestId":"x"}')
+          test "$code" = "401" || { echo "expected 401, got $code"; exit 1; }
+
   compose-smoke-test:
     name: docker-compose smoke test
     runs-on: ubuntu-latest
