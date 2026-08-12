@@ -177,6 +177,24 @@ spec:
                   name: skillstreak-secret
                   key: ADMIN_EMAILS
                   optional: true
+            # The GPU worker's credential for /api/v1/clip-tagging/*.
+            #
+            # `optional: true` is load-bearing and is the correct default:
+            # ClipTaggingWorkerGuard refuses EVERY request when this is
+            # absent, so an unconfigured cluster has the feature switched
+            # off rather than open. That is why an absent key must not
+            # crash the pod — a required key here would make "we have not
+            # set up tagging yet" a boot failure for the whole API.
+            #
+            # Must match the `clip-tagger` Secret in the GPU cluster's
+            # skillstreak-ai namespace. A mismatch is not silent: the
+            # worker gets 401s and nothing is ever tagged.
+            - name: CLIP_TAGGING_WORKER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: CLIP_TAGGING_WORKER_TOKEN
+                  optional: true
             - name: GOOGLE_OAUTH_CLIENT_ID
               valueFrom:
                 secretKeyRef:

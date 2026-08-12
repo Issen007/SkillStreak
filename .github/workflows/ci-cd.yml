@@ -477,6 +477,14 @@ jobs:
           # an empty string) is an expected interim state, not a boot
           # failure.
           USAGE_REPORT_RECIPIENT_EMAIL: ${{ secrets.USAGE_REPORT_RECIPIENT_EMAIL }}
+          # The GPU worker's credential for /api/v1/clip-tagging/*. Safe to
+          # leave unset: api-deployment.yaml marks the key `optional: true`
+          # and ClipTaggingWorkerGuard refuses every request when it is
+          # absent, so an unset secret means the feature is off — never
+          # open. It must hold the SAME value as the `clip-tagger` Secret
+          # in the GPU cluster's skillstreak-ai namespace; a mismatch
+          # presents as the worker getting 401s and no clip being tagged.
+          CLIP_TAGGING_WORKER_TOKEN: ${{ secrets.CLIP_TAGGING_WORKER_TOKEN }}
         run: |
           kubectl create secret generic skillstreak-secret \
             --namespace skillstreak \
@@ -490,6 +498,7 @@ jobs:
             --from-literal=MINIO_CLIPS_ACCESS_KEY="$MINIO_CLIPS_ACCESS_KEY" \
             --from-literal=MINIO_CLIPS_SECRET_KEY="$MINIO_CLIPS_SECRET_KEY" \
             --from-literal=STAFF_JWT_SECRET="$STAFF_JWT_SECRET" \
+            --from-literal=CLIP_TAGGING_WORKER_TOKEN="$CLIP_TAGGING_WORKER_TOKEN" \
             --from-literal=ADMIN_EMAILS="$ADMIN_EMAILS" \
             --from-literal=GOOGLE_OAUTH_CLIENT_ID="$GOOGLE_OAUTH_CLIENT_ID" \
             --from-literal=GOOGLE_OAUTH_CLIENT_SECRET="$GOOGLE_OAUTH_CLIENT_SECRET" \
