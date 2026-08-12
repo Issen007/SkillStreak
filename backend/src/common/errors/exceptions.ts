@@ -1070,3 +1070,29 @@ export class ClipTaggingWorkerUnauthorizedException extends AppException {
     );
   }
 }
+
+/**
+ * A plan that is not this coach's, or does not exist. Deliberately the
+ * same answer for both — one coach must not be able to probe whether
+ * another's plan id is real.
+ *
+ * Takes an optional message so the queue-depth limit can reuse it: that
+ * is also "you cannot have this right now", and inventing a second status
+ * for it would mean a second thing every client has to handle.
+ */
+export class TrainingPlanNotFoundException extends AppException {
+  constructor(message = 'No such training plan.') {
+    super('training_plan_not_found', message, HttpStatus.NOT_FOUND);
+  }
+}
+
+/** Every training-plan generator rejection, whatever the cause. */
+export class TrainingPlanWorkerUnauthorizedException extends AppException {
+  constructor() {
+    super(
+      'training_plan_worker_unauthorized',
+      'Unauthorized.',
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+}
