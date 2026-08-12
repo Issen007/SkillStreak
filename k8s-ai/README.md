@@ -166,3 +166,25 @@ endpoint.
 token had already expired within a day of the cluster being created. If a
 command hangs saying "Opening in existing browser session", that is what
 happened — re-authenticate before assuming the cluster is unreachable.
+
+
+## Known: torch must match the node driver, not the newest release
+
+The GPU nodes run driver **570.211.01**, which tops out at **CUDA 12.8**.
+PyPI's default `torch` wheel is built for CUDA 13.0, so
+`torch.cuda.is_available()` returns False and the tagger runs on CPU.
+
+It fails **silently**, which is why it is written down here: the pod is
+Running, `/health` reports `gpu: false`, clips are tagged correctly, and
+the only symptom is ~1.3s per clip of CPU time in a cluster bought for its
+GPUs. Nothing errors.
+
+`ai/clip-tagger/pyproject.toml` therefore pins torch to the cu128 index.
+If the nodes are upgraded that pin can move forward. **After any change to
+either side, check the worker's own startup line** — it prints `gpu=True`
+or `gpu=False`, and that is the only place the answer is visible:
+
+```bash
+kubectl --context skillstreak-gpu -n skillstreak-ai \
+  logs deployment/clip-tagger | grep "worker starting"
+```
