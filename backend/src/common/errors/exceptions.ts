@@ -1017,3 +1017,38 @@ export class DrillLibraryForbiddenException extends AppException {
     );
   }
 }
+
+/**
+ * A group id that isn't this owner's. Deliberately indistinguishable from
+ * "no such group" — a trainer must not be able to probe whether another
+ * trainer's group id exists, and there is nothing they could do with the
+ * answer either way.
+ */
+export class DrillGroupNotFoundException extends AppException {
+  constructor() {
+    super('drill_group_not_found', 'No such group.', HttpStatus.NOT_FOUND);
+  }
+}
+
+/** A ceiling on private organising, not a product limit anyone should hit. */
+export class DrillGroupLimitException extends AppException {
+  constructor(limit: number) {
+    super(
+      'drill_group_limit_reached',
+      `You can keep up to ${limit} groups. Delete one to make room.`,
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+/** A slug the library doesn't carry — a renamed or removed drill, or a
+ *  caller trying to write arbitrary text into the membership table. */
+export class DrillNotInLibraryException extends AppException {
+  constructor() {
+    super(
+      'drill_not_in_library',
+      'That drill is no longer in the library.',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}
