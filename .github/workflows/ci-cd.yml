@@ -227,6 +227,64 @@ jobs:
             --build-arg EXPO_PUBLIC_JOIN_URL=https://skillstreak.xyz \
             -t skillstreak-site:ci .
 
+  clip-tagger:
+    name: clip-tagger lint + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai/clip-tagger
+    # Runs on every PR like the other test jobs, and shares no step with
+    # `deploy`, `release` or `internal-images` (Decision 13) — the GPU
+    # cluster is a different cluster with a different credential, and a job
+    # that could touch both is the 2026-07-30 wrong-image incident waiting
+    # to happen in a new place.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.11"
+
+      # Deliberately WITHOUT --extra model: torch is ~2.5 GB and the tests
+      # exercise every path except inference, via the stub backend. Model
+      # accuracy is not a CI question — it is measured on the real hardware
+      # by eval/run_fixtures.py against a fixture set that contains no user
+      # of this app.
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Lint
+        run: uv run ruff check src eval tests
+
+      - name: Test
+        run: uv run pytest -q
+
+      # Proves the service actually starts and answers, not just that its
+      # units pass. The stub is explicitly selected; a build that could
+      # serve fake scores without someone typing `stub` is the failure this
+      # check exists to make impossible to reach by accident.
+      - name: Smoke test the running service
+        env:
+          CLIP_TAGGER_BACKEND: stub
+          CLIP_TAGGER_TOKEN: ci-token-not-a-real-secret
+          SERVICE_VERSION: ci-${{ github.sha }}
+        run: |
+          uv run uvicorn clip_tagger.main:app --host 127.0.0.1 --port 8000 &
+          for _ in $(seq 1 30); do
+            curl -fsS localhost:8000/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS localhost:8000/health | tee /tmp/health.json
+          grep -q '"modelId": *"stub"' /tmp/health.json
+
+          # An unauthenticated call must be refused. This is the one
+          # property that, if it regressed, would expose the cluster's GPUs
+          # to anyone who found the hostname.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            localhost:8000/v1/analyse-frames -F 'meta={"requestId":"x"}')
+          test "$code" = "401" || { echo "expected 401, got $code"; exit 1; }
+
   compose-smoke-test:
     name: docker-compose smoke test
     runs-on: ubuntu-latest
@@ -256,6 +314,73 @@ jobs:
       - name: Tear down stack
         if: always()
         run: docker compose down -v
+  clip-tagger-image:
+    name: Build and Push clip-tagger Image
+    # Only on main, and only after its own tests pass. Shares no step with
+    # `deploy`, `release` or `internal-images` (Decision 13): the GPU
+    # cluster is a different cluster with a different credential, and a job
+    # able to touch both is the 2026-07-30 wrong-image incident waiting to
+    # happen somewhere new.
+    #
+    # Not wired into any deploy. Nothing applies this image anywhere yet,
+    # because the GPU cluster has no route (see k8s-ai/README.md). Building
+    # it here means the image exists the moment a route does, rather than
+    # the route landing and the image then being the blocker.
+    needs: [clip-tagger]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Downcase repository owner for Docker
+        run: echo "TAGGER_IMAGE=ghcr.io/${OWNER,,}/skillstreak-clip-tagger" >> "$GITHUB_ENV"
+        env:
+          OWNER: ${{ github.repository_owner }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # SHA-tagged, never `latest`, so a running pod's /health can always
+      # be traced back to a commit. One image, no per-environment variants:
+      # it holds no URL of ours and serves no HTML, so CLAUDE.md's
+      # per-environment image rule does not apply (Decision 9).
+      - name: Build and push
+        run: |
+          docker build \
+            --build-arg SERVICE_VERSION="main-${GITHUB_SHA}" \
+            -t "${TAGGER_IMAGE}:main-${GITHUB_SHA}" \
+            ./ai/clip-tagger
+          docker push "${TAGGER_IMAGE}:main-${GITHUB_SHA}"
+
+      # The image bakes model weights and must therefore be able to load
+      # them with no network, since egress is denied in the cluster. A pod
+      # that only discovers this at rollout presents as an unschedulable
+      # or perpetually-unready deploy, which is a much worse place to find
+      # out than here.
+      - name: Verify the pushed image starts offline and reports itself
+        run: |
+          docker run --rm -d --name tagger-verify --network none \
+            -e CLIP_TAGGER_TOKEN=verify-token-not-a-real-secret \
+            -p 8000:8000 "${TAGGER_IMAGE}:main-${GITHUB_SHA}" || true
+          docker run --rm --network container:tagger-verify curlimages/curl:8.11.0 \
+            sh -c 'for i in $(seq 1 60); do curl -fsS localhost:8000/health && exit 0; sleep 2; done; exit 1' \
+            | tee /tmp/health.json
+          grep -q "\"modelId\"" /tmp/health.json
+          # It must NOT claim to be the stub: a real image serving hashed
+          # scores would be invisible without this check.
+          if grep -q '"modelId": *"stub"' /tmp/health.json; then
+            echo "Built image reports the stub backend — refusing to publish it as real."
+            exit 1
+          fi
+          docker rm -f tagger-verify
+
   deploy:
     name: Deploy to Kubernetes Cluster
     runs-on: ubuntu-latest

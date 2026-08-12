@@ -1,0 +1,54 @@
+[project]
+name = "clip-tagger"
+version = "0.1.0"
+description = "Zero-shot training-type tagging for SkillStreak clips, from sampled frames"
+requires-python = ">=3.11"
+
+# Deliberately small. Every dependency here runs on a GPU cluster that
+# holds children's derived video frames in memory, so the list is short
+# enough for one person to review in full.
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "python-multipart>=0.0.17",  # multipart/form-data, per the contract
+  "pillow>=11.0",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# The real model backend. Split out so tests, CI and a laptop can run the
+# service and exercise every code path except inference without pulling
+# ~2.5 GB of torch wheels.
+model = [
+  "torch>=2.5",
+  "transformers>=4.46",
+  # SigLIP's tokenizer is SentencePiece-backed and transformers does not
+  # pull it in. Without it `AutoProcessor.from_pretrained` raises at load,
+  # which the Dockerfile's weight-baking step would have turned into a
+  # failed build — but only after someone waited for a 2.5 GB image to get
+  # that far. Found by running the model instead of assuming it.
+  "sentencepiece>=0.2",
+  "protobuf>=5.28",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "httpx>=0.27",       # fastapi TestClient
+  "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clip_tagger"]
+
+[tool.ruff]
+line-length = 88
+src = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
