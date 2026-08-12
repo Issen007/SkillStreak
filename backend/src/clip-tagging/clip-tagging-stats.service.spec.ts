@@ -1,5 +1,3 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { DataSource } from 'typeorm';
 import { ClipTaggingStatsService } from './clip-tagging-stats.service';
 
 describe('ClipTaggingStatsService', () => {
@@ -8,14 +6,14 @@ describe('ClipTaggingStatsService', () => {
     tags?: Array<{ tag: string; count: string; avg: string }>;
     sources?: Array<{ source: string; count: string }>;
   }) {
-    const query = jest.fn((sql: string) => {
+    const query: jest.Mock = jest.fn((sql: string): Promise<unknown[]> => {
       if (sql.includes('FROM video_clip_tag') && sql.includes('source')) {
-        return Promise.resolve(rows.sources ?? []);
+        return Promise.resolve<unknown[]>(rows.sources ?? []);
       }
       if (sql.includes('FROM video_clip_tag')) {
-        return Promise.resolve(rows.tags ?? []);
+        return Promise.resolve<unknown[]>(rows.tags ?? []);
       }
-      return Promise.resolve(rows.status ?? []);
+      return Promise.resolve<unknown[]>(rows.status ?? []);
     });
     return { query, service: new ClipTaggingStatsService({ query } as never) };
   }
@@ -77,8 +75,8 @@ describe('ClipTaggingStatsService', () => {
     const { service, query } = build({ status: [] });
     await service.collect();
 
-    for (const call of query.mock.calls) {
-      const sql = (call as [string])[0].toLowerCase();
+    for (const call of query.mock.calls as Array<[string]>) {
+      const sql = call[0].toLowerCase();
       expect(sql).not.toContain('team_id');
       expect(sql).not.toContain('player_id');
       expect(sql).not.toContain('clip_id');
