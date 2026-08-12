@@ -327,7 +327,15 @@ jobs:
     # it here means the image exists the moment a route does, rather than
     # the route landing and the image then being the blocker.
     needs: [clip-tagger]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Matches `deploy`'s gate, including the workflow_dispatch hatch —
+    # which exists precisely so a GitHub-secret change with no code
+    # change can be re-run (CLAUDE.md says so in as many words). These
+    # two jobs originally required `push`, and the first time that
+    # mattered was immediately: AI_KUBE_URL/AI_KUBE_TOKEN were set
+    # after a run had already been created, GitHub had snapshotted the
+    # secrets as empty, and there was no way to re-run without an
+    # empty commit — the exact situation the hatch was added for.
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -650,7 +658,15 @@ jobs:
     # the direct lesson of the 2026-07-30 wrong-image incident: the way two
     # clusters get confused is a job that can reach both.
     needs: [clip-tagger-image]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Matches `deploy`'s gate, including the workflow_dispatch hatch —
+    # which exists precisely so a GitHub-secret change with no code
+    # change can be re-run (CLAUDE.md says so in as many words). These
+    # two jobs originally required `push`, and the first time that
+    # mattered was immediately: AI_KUBE_URL/AI_KUBE_TOKEN were set
+    # after a run had already been created, GitHub had snapshotted the
+    # secrets as empty, and there was no way to re-run without an
+    # empty commit — the exact situation the hatch was added for.
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -666,7 +682,12 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::AI_KUBE_URL/AI_KUBE_TOKEN are not set; skipping the GPU cluster deploy."
+            # Says "this run saw them empty", not "they are not set" — the
+            # first time this fired, they WERE set, just after this run was
+            # created, and GitHub snapshots secrets at run creation. The
+            # original wording sent me looking for a missing secret that
+            # was already there.
+            echo "::notice::AI_KUBE_URL/AI_KUBE_TOKEN arrived empty in this run, so the GPU deploy was skipped. If you have just set them, re-run this workflow (Actions -> Run workflow) — secrets are snapshotted when a run is created."
           fi
 
       - name: Configure kubectl for the GPU cluster
