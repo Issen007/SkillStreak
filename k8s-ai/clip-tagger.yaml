@@ -63,7 +63,7 @@ spec:
           # The worker loop, not the HTTP service. Same image, same
           # scoring core — only the entrypoint differs, so a topology
           # change never means a second model implementation.
-          command: ["uv", "run", "python", "-m", "clip_tagger.worker"]
+          command: ["/app/.venv/bin/python", "-m", "clip_tagger.worker"]
           env:
             - name: CLIP_TAGGER_BACKEND
               value: siglip
