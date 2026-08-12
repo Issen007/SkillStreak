@@ -55,6 +55,7 @@
   var api = {
     get: function (path) { return request('GET', path); },
     post: function (path, body) { return request('POST', path, body); },
+    put: function (path, body) { return request('PUT', path, body); },
     del: function (path) { return request('DELETE', path); },
     patch: function (path, body) { return request('PATCH', path, body); }
   };
@@ -187,7 +188,7 @@
    * navigated out of the app". */
   var ROUTE_TAB = {
     team: 'teams', player: 'teams', graphs: 'graphs', drill: 'drills',
-    bugs: 'bugs'
+    drillGroups: 'drills', bugs: 'bugs'
   };
 
   function tabForRoute(route) {
@@ -456,22 +457,107 @@
   }
 
   var DRILL_FOCUSES = ['teknik', 'fys', 'skott', 'passning', 'spelforstaelse'];
-  var FOCUS_LABEL = {
-    teknik: 'Teknik', fys: 'Fys', skott: 'Skott',
-    passning: 'Passning', spelforstaelse: 'Spelförståelse'
+
+  /**
+   * Length bands rather than a slider.
+   *
+   * A coach picking a drill is not asking for "between 12 and 18 minutes";
+   * they have a gap at the end of practice, or a whole session to fill.
+   * Three bands answer that question and a slider does not.
+   */
+  var DRILL_LENGTHS = {
+    short: {
+      label: 'Under 10 min',
+      match: function (m) { return m < 10; }
+    },
+    medium: {
+      label: '10-20 min',
+      match: function (m) { return m >= 10 && m <= 20; }
+    },
+    long: {
+      label: 'Over 20 min',
+      match: function (m) { return m > 20; }
+    }
   };
+  /**
+   * Drill focus, per language.
+   *
+   * These were labelled once, in Swedish, and shown to English readers as
+   * "Fys" and "Skott" — the same fault the weekly-goal metrics had: the
+   * values are DATA, so the text-node translator cannot touch them, and a
+   * single label map means one language always reads wrong.
+   *
+   * Unknown values fall through to the raw enum rather than a blank, so a
+   * focus added server-side looks unfinished rather than missing.
+   */
+  var FOCUS_LABEL = {
+    sv: {
+      teknik: 'Teknik',
+      fys: 'Fys',
+      skott: 'Skott',
+      passning: 'Passning',
+      spelforstaelse: 'Spelförståelse'
+    },
+    en: {
+      teknik: 'Technique',
+      fys: 'Fitness',
+      skott: 'Shooting',
+      passning: 'Passing',
+      spelforstaelse: 'Game sense'
+    }
+  };
+
+  function focusLabel(focus) {
+    var table = FOCUS_LABEL[effectiveLang()] || FOCUS_LABEL.en;
+    return table[focus] || focus;
+  }
+
+  /** Age bands are already language-neutral ("9-11"); only the unit needs
+   *  translating, and "år" was hardcoded into both render sites. */
+  function ageBandLabel(band) {
+    return band + (effectiveLang() === 'sv' ? ' år' : ' yrs');
+  }
 
   function drillCard(drill) {
     return '<div class="card">' +
       '<h3 style="margin:0 0 4px;font-size:15px">' + esc(drill.title) + '</h3>' +
       '<p class="muted" style="margin:0 0 10px">' +
-        esc(FOCUS_LABEL[drill.focus] || drill.focus) + ' · ' +
-        esc(drill.ageBand) + ' år · ' + esc(drill.durationMinutes) + ' min · ' +
-        esc(drill.author) + '</p>' +
-      '<button data-go="drill/' + esc(drill.slug) + '">Open</button>' +
+        esc(focusLabel(drill.focus)) + ' · ' +
+        esc(ageBandLabel(drill.ageBand)) + ' · ' +
+        esc(drill.durationMinutes) + ' min · ' + esc(drill.author) + '</p>' +
+      '<button data-go="drill/' + esc(drill.slug) + '">Open drill</button>' +
       '</div>';
   }
 
+  /* ---- drill groups ---------------------------------------------------
+   *
+   * A trainer's own shelves over the shared library. Private to whoever
+   * made them: every route is scoped server-side to the calling account,
+   * and there is no view here that names another trainer's groups.
+   *
+   * Tags are free text, which is a deliberate exception in this app. It is
+   * safe HERE because nobody else can read them — if groups ever become
+   * shareable, they need the fixed vocabulary every cross-visible field in
+   * this project has. Written down in the entity too, so the constraint
+   * survives whoever builds the sharing.
+   */
+
+  function tagChips(tags) {
+    if (!tags.length) return '';
+    return '<p style="margin:0 0 10px;display:flex;gap:6px;flex-wrap:wrap">' +
+      tags.map(function (tag) {
+        return '<span class="chip">' + esc(tag) + '</span>';
+      }).join('') + '</p>';
+  }
+
+  /* "3 drills" / "1 drill", and the Swedish forms, without asking the
+   * text-node translator to pluralise a number it cannot see. */
+  function drillCountLabel(count) {
+    if (effectiveLang() === 'sv') {
+      return count + (count === 1 ? ' övning' : ' övningar');
+    }
+    return plural(count, 'drill');
+  }
 
 
   /* ---- bug triage ----------------------------------------------------- */
@@ -653,6 +739,14 @@
     /* nav */
     'My teams': 'Mina lag',
     'Drill library': 'Övningsbank',
+    'Search by name': 'Sök på namn',
+    'All focuses': 'Alla områden',
+    'Open drill': 'Öppna övningen',
+    'Any length': 'Valfri längd',
+    'Under 10 min': 'Under 10 min',
+    '10-20 min': '10–20 min',
+    'Over 20 min': 'Över 20 min',
+    'Nothing matches that.': 'Inget matchar det.',
     'My teams': 'Mina lag',
     /* teams / PT1 */
     'Add a team': 'Lägg till ett lag',
@@ -700,8 +794,33 @@
       'Träningsmaterial skrivet av tränare. Det innehåller inga klipp, inga träningsloggar och inga spelaruppgifter — övningarna är filer som en människa läser innan de publiceras.',
     'Nothing here yet. Drills are added to the repository and arrive with the next release.':
       'Inget här än. Övningar läggs till i repot och dyker upp vid nästa release.',
-    'Teknik': 'Teknik', 'Fys': 'Fys', 'Skott': 'Skott',
-    'Passning': 'Passning', 'Spelförståelse': 'Spelförståelse',
+    /* drill groups */
+    'All groups': 'Alla grupper',
+    'Manage groups': 'Hantera grupper',
+    'Your drill groups': 'Dina övningsgrupper',
+    'Your own shelves over the shared library. Only you can see them. Deleting a group never deletes a drill.':
+      'Dina egna hyllor i det gemensamma biblioteket. Bara du ser dem. Att ta bort en grupp tar aldrig bort en övning.',
+    'Group name': 'Gruppnamn',
+    'Tags, separated by commas': 'Taggar, separerade med komma',
+    'Warm-up': 'Uppvärmning',
+    'indoors, short, u11': 'inomhus, kort, u11',
+    'Create group': 'Skapa grupp',
+    'Save changes': 'Spara ändringar',
+    'Cancel': 'Avbryt',
+    'Rename or retag': 'Byt namn eller taggar',
+    'Delete group': 'Ta bort grupp',
+    'Tap again to delete': 'Tryck igen för att ta bort',
+    'No groups yet. Make one above, then add drills to it from any drill.':
+      'Inga grupper än. Skapa en ovan och lägg sedan till övningar från valfri övning.',
+    'A group needs a name.': 'En grupp behöver ett namn.',
+    'Your groups': 'Dina grupper',
+    'Save groups': 'Spara grupper',
+    'You have no groups yet.': 'Du har inga grupper än.',
+    'Make one': 'Skapa en',
+    'to start organising the library your way.':
+      'för att börja ordna biblioteket som du vill.',
+    'Saved.': 'Sparat.',
+    'Saving…': 'Sparar…',
     /* shared */
     'Loading…': 'Laddar…',
     'Sign out': 'Logga ut',
@@ -771,6 +890,22 @@
         node.nodeValue = raw.replace(trimmed, translated);
       }
     }
+
+    /* Placeholders are attributes, not text nodes, so the walk above never
+     * saw them — 'Search by name' sat translated-but-unused in SV from the
+     * day the drill search shipped, and Swedish readers got an English
+     * placeholder under Swedish buttons.
+     *
+     * Only exact dictionary hits are replaced, same rule as the text
+     * walk, so an untranslated placeholder stays readable rather than
+     * blanking. */
+    Array.prototype.forEach.call(
+      root.querySelectorAll('[placeholder]'),
+      function (field) {
+        var translated = SV[field.getAttribute('placeholder')];
+        if (translated) field.setAttribute('placeholder', translated);
+      }
+    );
   }
 
   /* ---- campaigns ----------------------------------------------------- */
@@ -1543,39 +1678,247 @@
      * player in the first place.
      *
      * Visible to a trainer holding an active team link, and to admins. */
+    /* The drill library, with a search box and a length filter.
+     *
+     * Both filter IN THE BROWSER over the already-fetched list rather than
+     * round-tripping. The library is tens of drills, not thousands, so a
+     * request per keystroke would be latency for its own sake — and
+     * filtering client-side means the name search stays instant while a
+     * trainer types.
+     *
+     * The filter state lives in the route (`drills/<focus>/<length>`) so a
+     * filtered view can be linked and survives a refresh, and the search
+     * text lives in the input, so typing never re-renders the list out
+     * from under the cursor. */
     drills: function (view, filterArg) {
-      var focus = DRILL_FOCUSES.indexOf(filterArg) >= 0 ? filterArg : '';
-      api.get('/api/v1/drills' + (focus ? '?focus=' + encodeURIComponent(focus) : ''))
-        .then(function (rows) {
+      var parts = String(filterArg || '').split('~');
+      var focus = DRILL_FOCUSES.indexOf(parts[0]) >= 0 ? parts[0] : '';
+      var length = DRILL_LENGTHS[parts[1]] ? parts[1] : '';
+      var groupId = parts[2] || '';
+
+      Promise.all([
+        api.get('/api/v1/drills' + (focus ? '?focus=' + encodeURIComponent(focus) : '')),
+        api.get('/api/v1/drill-groups')
+      ]).then(function (results) {
+          var rows = results[0];
+          var groups = results[1];
+
+          /* A group filtered on, then deleted in another tab, would
+           * otherwise silently show an empty library. Falling back to
+           * "all" is the honest answer to "that shelf is gone". */
+          var active = groups.filter(function (g) { return g.id === groupId; })[0];
+          if (!active) groupId = '';
+
+          function routeFor(nextFocus, nextLength, nextGroup) {
+            var tail = [nextFocus || '', nextLength || '', nextGroup || ''].join('~');
+            return 'drills' + (tail === '~~' ? '' : '/' + tail);
+          }
+
           view.innerHTML =
             '<h2>Drill library</h2>' +
             '<div class="card">' +
-              /* Reworded 2026-08-11 from the security review: this used
-               * to promise "no names", which only a human reading the diff
-               * enforces. "No clips, no logs, no player data" IS
-               * structural — there is no table here to join to a child —
-               * so the copy now claims exactly that and is honest about
-               * where the rest comes from. */
               '<p class="muted" style="margin:0 0 12px">Coach-authored ' +
               'training material. It carries no clips, no training logs and ' +
               'no player data — drills are files in the repository, read by ' +
               'a person before they merge.</p>' +
-              '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-                '<button data-go="drills"' + (focus ? '' : ' class="primary"') +
-                '>All</button>' +
+              '<input id="drillSearch" type="search" placeholder="Search by name" ' +
+              'style="margin-bottom:12px" autocomplete="off">' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' +
+                '<button data-go="' + esc(routeFor('', length, groupId)) + '"' +
+                (focus ? '' : ' class="primary"') + '>All focuses</button>' +
                 DRILL_FOCUSES.map(function (f) {
-                  return '<button data-go="drills/' + f + '"' +
+                  return '<button data-go="' + esc(routeFor(f, length, groupId)) + '"' +
                     (f === focus ? ' class="primary"' : '') + '>' +
-                    esc(FOCUS_LABEL[f] || f) + '</button>';
+                    esc(focusLabel(f)) + '</button>';
                 }).join('') +
               '</div>' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' +
+                '<button data-go="' + esc(routeFor(focus, '', groupId)) + '"' +
+                (length ? '' : ' class="primary"') + '>Any length</button>' +
+                Object.keys(DRILL_LENGTHS).map(function (key) {
+                  return '<button data-go="' + esc(routeFor(focus, key, groupId)) + '"' +
+                    (key === length ? ' class="primary"' : '') + '>' +
+                    esc(DRILL_LENGTHS[key].label) + '</button>';
+                }).join('') +
+              '</div>' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+                '<button data-go="' + esc(routeFor(focus, length, '')) + '"' +
+                (groupId ? '' : ' class="primary"') + '>All groups</button>' +
+                groups.map(function (group) {
+                  return '<button data-go="' +
+                    esc(routeFor(focus, length, group.id)) + '"' +
+                    (group.id === groupId ? ' class="primary"' : '') + '>' +
+                    esc(group.name) + '</button>';
+                }).join('') +
+                '<button class="link" data-go="drillGroups">' +
+                  '<span>Manage groups</span></button>' +
+              '</div>' +
             '</div>' +
-            (rows.length
-              ? rows.map(drillCard).join('')
-              : '<div class="card"><p class="muted">Nothing here yet. Drills ' +
-                'are added to the repository and arrive with the next ' +
-                'release.</p></div>');
+            '<div id="drillResults"></div>';
+
+          function paint() {
+            var query = (document.getElementById('drillSearch').value || '')
+              .trim().toLowerCase();
+            /* Membership is resolved against the same library listing, so
+             * a drill removed from the repo drops out of its groups here
+             * exactly as it does server-side. */
+            var inGroup = null;
+            if (groupId) {
+              inGroup = {};
+              (groups.filter(function (g) { return g.id === groupId; })[0]
+                .drills || []).forEach(function (drill) {
+                  inGroup[drill.slug] = true;
+                });
+            }
+
+            var shown = rows.filter(function (drill) {
+              if (inGroup && !inGroup[drill.slug]) return false;
+              if (length && !DRILL_LENGTHS[length].match(drill.durationMinutes)) {
+                return false;
+              }
+              /* Title only, not the body: the body is not in the listing
+               * payload, so searching it would silently match nothing. */
+              return !query || drill.title.toLowerCase().indexOf(query) >= 0;
+            });
+
+            document.getElementById('drillResults').innerHTML = shown.length
+              ? shown.map(drillCard).join('')
+              : '<div class="card"><p class="muted">' +
+                (rows.length
+                  ? 'Nothing matches that.'
+                  : 'Nothing here yet. Drills are added to the repository ' +
+                    'and arrive with the next release.') +
+                '</p></div>';
+          }
+
+          document.getElementById('drillSearch').oninput = paint;
+          paint();
         }).catch(function (e) { fail(view, e); });
+    },
+
+    /* Managing the shelves themselves: create, rename, retag, delete.
+     *
+     * Deleting a group deletes only the group — the drills are files and
+     * are untouched, which the copy says out loud so nobody hesitates over
+     * a destructive-sounding button that isn't. */
+    drillGroups: function (view) {
+      api.get('/api/v1/drill-groups').then(function (groups) {
+        view.innerHTML =
+          backLink('drills', 'Drill library') +
+          '<h2>Your drill groups</h2>' +
+          '<div class="card">' +
+            '<p class="muted" style="margin:0 0 12px">Your own shelves over ' +
+            'the shared library. Only you can see them. Deleting a group ' +
+            'never deletes a drill.</p>' +
+            '<label for="groupName">Group name</label>' +
+            '<input id="groupName" maxlength="80" autocomplete="off" ' +
+              'placeholder="Warm-up">' +
+            '<label for="groupTags">Tags, separated by commas</label>' +
+            '<input id="groupTags" autocomplete="off" ' +
+              'placeholder="indoors, short, u11">' +
+            '<p><button id="groupSave" class="primary">Create group</button>' +
+            '<button id="groupCancel" class="link" style="display:none">' +
+              '<span>Cancel</span></button></p>' +
+            '<p id="groupMsg" class="muted"></p>' +
+          '</div>' +
+          (groups.length
+            ? groups.map(function (group) {
+                return '<div class="card">' +
+                  '<h3 style="margin:0 0 4px;font-size:15px">' +
+                    esc(group.name) + '</h3>' +
+                  '<p class="muted" style="margin:0 0 8px">' +
+                    esc(drillCountLabel(group.drills.length)) + '</p>' +
+                  tagChips(group.tags) +
+                  '<button data-edit="' + esc(group.id) + '">Rename or retag</button> ' +
+                  '<button data-drop="' + esc(group.id) + '">Delete group</button>' +
+                  '</div>';
+              }).join('')
+            : '<div class="card"><p class="muted">No groups yet. Make one ' +
+              'above, then add drills to it from any drill.</p></div>');
+
+        var editing = null;
+        var name = document.getElementById('groupName');
+        var tags = document.getElementById('groupTags');
+        var msg = document.getElementById('groupMsg');
+        var cancel = document.getElementById('groupCancel');
+
+        function reset() {
+          editing = null;
+          name.value = '';
+          tags.value = '';
+          msg.textContent = '';
+          cancel.style.display = 'none';
+          document.getElementById('groupSave').textContent = 'Create group';
+        }
+
+        cancel.onclick = reset;
+
+        document.getElementById('groupSave').onclick = function () {
+          var body = {
+            name: name.value.trim(),
+            /* Split here as well as server-side: a trainer typing one box
+             * of comma-separated tags should see them as separate chips,
+             * and the server normalises whatever arrives anyway. */
+            tags: tags.value.split(',').map(function (tag) {
+              return tag.trim();
+            }).filter(Boolean)
+          };
+          if (!body.name) {
+            msg.className = 'err';
+            msg.textContent = 'A group needs a name.';
+            return;
+          }
+          msg.className = 'muted';
+          msg.textContent = 'Saving…';
+          (editing
+            ? api.put('/api/v1/drill-groups/' + encodeURIComponent(editing), body)
+            : api.post('/api/v1/drill-groups', body)
+          ).then(function () { go('drillGroups'); })
+            .catch(function (err) {
+              msg.className = 'err';
+              msg.textContent = errorMessage(err);
+            });
+        };
+
+        Array.prototype.forEach.call(
+          view.querySelectorAll('[data-edit]'),
+          function (button) {
+            button.onclick = function () {
+              var id = button.getAttribute('data-edit');
+              var group = groups.filter(function (g) { return g.id === id; })[0];
+              editing = id;
+              name.value = group.name;
+              tags.value = group.tags.join(', ');
+              cancel.style.display = '';
+              document.getElementById('groupSave').textContent = 'Save changes';
+              name.focus();
+            };
+          }
+        );
+
+        Array.prototype.forEach.call(
+          view.querySelectorAll('[data-drop]'),
+          function (button) {
+            /* Two clicks rather than a confirm() dialog: the console has no
+             * modal anywhere, and a blocking dialog is worse than a button
+             * that asks again. */
+            button.onclick = function () {
+              if (button.getAttribute('data-armed')) {
+                api.del('/api/v1/drill-groups/' +
+                  encodeURIComponent(button.getAttribute('data-drop')))
+                  .then(function () { go('drillGroups'); })
+                  .catch(function (err) {
+                    msg.className = 'err';
+                    msg.textContent = errorMessage(err);
+                  });
+                return;
+              }
+              button.setAttribute('data-armed', '1');
+              button.textContent = 'Tap again to delete';
+            };
+          }
+        );
+      }).catch(function (e) { fail(view, e); });
     },
 
     /* One drill. The body is Markdown a human wrote, rendered as escaped
@@ -1584,19 +1927,79 @@
      * and a way for file content to become markup; none of that is worth
      * paying for prose that reads perfectly well as text. */
     drill: function (view, slug) {
-      api.get('/api/v1/drills/' + encodeURIComponent(slug)).then(function (d) {
+      Promise.all([
+        api.get('/api/v1/drills/' + encodeURIComponent(slug)),
+        api.get('/api/v1/drill-groups')
+      ]).then(function (results) {
+        var d = results[0];
+        var groups = results[1];
+
+        function isIn(group) {
+          return group.drills.some(function (drill) {
+            return drill.slug === d.slug;
+          });
+        }
+
         view.innerHTML =
           backLink('drills', 'Drill library') +
           '<h2>' + esc(d.title) + '</h2>' +
           '<div class="card">' +
             '<p class="muted" style="margin:0 0 12px">' +
-              esc(FOCUS_LABEL[d.focus] || d.focus) + ' · ' + esc(d.ageBand) +
-              ' år · ' + esc(d.durationMinutes) + ' min · ' + esc(d.author) +
+              esc(focusLabel(d.focus)) + ' · ' + esc(ageBandLabel(d.ageBand)) +
+              ' · ' + esc(d.durationMinutes) + ' min · ' + esc(d.author) +
               (d.sourceNote ? ' · ' + esc(d.sourceNote) : '') +
             '</p>' +
             '<pre style="white-space:pre-wrap;font:inherit;margin:0">' +
               esc(d.body) + '</pre>' +
+          '</div>' +
+          '<div class="card">' +
+            '<h3 style="margin:0 0 8px;font-size:15px">Your groups</h3>' +
+            (groups.length
+              ? groups.map(function (group) {
+                  /* The id goes in an attribute, never into the label —
+                   * the label is the trainer's own text and is escaped
+                   * like any other. */
+                  return '<p style="margin:0 0 6px">' +
+                    '<label style="display:flex;gap:8px;align-items:center">' +
+                    '<input type="checkbox" data-group="' + esc(group.id) + '"' +
+                    (isIn(group) ? ' checked' : '') + '>' +
+                    '<span>' + esc(group.name) + '</span></label></p>';
+                }).join('') +
+                '<p><button id="groupAssign" class="primary">Save groups</button></p>' +
+                '<p id="assignMsg" class="muted"></p>'
+              : '<p class="muted">You have no groups yet. ' +
+                '<button class="link" data-go="drillGroups">' +
+                '<span>Make one</span></button> to start organising the ' +
+                'library your way.</p>') +
           '</div>';
+
+        var save = document.getElementById('groupAssign');
+        if (!save) return;
+        save.onclick = function () {
+          var msg = document.getElementById('assignMsg');
+          var checked = [];
+          Array.prototype.forEach.call(
+            view.querySelectorAll('[data-group]'),
+            function (box) {
+              if (box.checked) checked.push(box.getAttribute('data-group'));
+            }
+          );
+          msg.className = 'muted';
+          msg.textContent = 'Saving…';
+          /* Sends the full desired state, not a diff — unticking a box has
+           * to actually remove the drill, and the server replaces rather
+           * than merges for the same reason. */
+          api.put('/api/v1/drill-groups/assignments/drill', {
+            slug: d.slug,
+            groupIds: checked
+          }).then(function () {
+            msg.className = 'muted';
+            msg.textContent = 'Saved.';
+          }).catch(function (err) {
+            msg.className = 'err';
+            msg.textContent = errorMessage(err);
+          });
+        };
       }).catch(function (e) { fail(view, e); });
     },
 

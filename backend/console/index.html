@@ -185,6 +185,16 @@
              display: block; line-height: 1.15; }
   .tile .l { font-size: 12.5px; color: var(--ink-2); }
 
+  /* A trainer's own tag on their own group. Reads as a label, not a
+     button — nothing here is clickable, and looking clickable would
+     promise a filter that doesn't exist. */
+  .chip {
+    display: inline-block; padding: 2px 9px; border-radius: 999px;
+    background: var(--surface-2, var(--surface));
+    border: 1px solid var(--line); color: var(--ink-2);
+    font-size: 12px; line-height: 1.6;
+  }
+
   .muted { color: var(--ink-2); font-size: 13.5px; }
   .err { color: var(--err); }
 
@@ -221,6 +231,14 @@
     color: var(--ink); width: 100%;
   }
   input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  /* Checkboxes are the one input that must not stretch. The width:100%
+     above was written for text fields; applied to a checkbox it drives the
+     box to one end of the row and its words to the other. Nothing in this
+     console used a checkbox until drill groups, so the rule had never been
+     wrong before. */
+  input[type="checkbox"], input[type="radio"] {
+    width: auto; padding: 0; margin: 0; accent-color: var(--accent);
+  }
   label { display: block; font-size: 13px; color: var(--ink-2); }
 
   /* Hover/focus explainer. A <details>-free, JS-free tooltip: the marker is
