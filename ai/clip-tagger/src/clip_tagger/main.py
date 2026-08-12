@@ -36,9 +36,8 @@ import time
 import uuid
 from collections import deque
 from contextlib import asynccontextmanager
-from typing import Annotated
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 # Starlette's UploadFile, not FastAPI's subclass of it: `request.form()`
@@ -198,19 +197,33 @@ def health() -> JSONResponse:
 
 
 @app.post("/v1/analyse-frames")
-async def analyse_frames(
-    request: Request,
-    meta: Annotated[str, Form()],
-) -> JSONResponse:
+async def analyse_frames(request: Request) -> JSONResponse:
+    # `meta` is read from the parsed form BELOW rather than declared as a
+    # `Form()` parameter, and that ordering is the point: FastAPI resolves
+    # declared parameters before entering the handler, so a `Form()`
+    # signature makes Starlette parse — and spool to disk — the entire
+    # multipart body of an UNAUTHENTICATED request before this function
+    # runs and rejects it. Auth and the size cap are decided from headers
+    # alone, before a byte of the body is touched.
     _require_token(request)
-    _check_rate_limit()
 
     # Content-Length is advisory — a chunked body has none — so the real
-    # cap is enforced on the bytes actually read, below. This is the cheap
-    # rejection for the honest caller.
+    # cap is enforced on the bytes actually read, further down. This is the
+    # cheap rejection, and it happens before any parsing.
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > MAX_BODY_BYTES:
         raise HTTPException(status_code=413, detail="Body too large")
+
+    # After auth, so an unauthenticated flood cannot exhaust the budget and
+    # deny service to the one legitimate caller.
+    _check_rate_limit()
+
+    form = await request.form()
+    meta = form.get("meta")
+    if not isinstance(meta, str):
+        raise HTTPException(
+            status_code=400, detail="meta must be JSON with a requestId"
+        )
 
     try:
         parsed = json.loads(meta)
@@ -232,7 +245,6 @@ async def analyse_frames(
             status_code=400, detail="requestId must be a UUID"
         ) from error
 
-    form = await request.form()
     uploads = [
         value
         for key, value in form.multi_items()

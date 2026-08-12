@@ -243,3 +243,67 @@ class TestLoggingIsActuallyEmitted:
         given = str(uuid.uuid4())
         post_frames(client, [JPEG], request_id=given)
         assert any(given in record.getMessage() for record in caplog.records)
+
+
+class TestRejectsBeforeReadingTheBody:
+    """Auth and the size cap are decided from headers, before parsing.
+
+    Invisible from the response alone — a 401 looks identical whether the
+    body was spooled to disk first or not. Declaring `meta` as a `Form()`
+    parameter made FastAPI resolve it *before* entering the handler, so an
+    unauthenticated caller got their whole multipart body parsed and
+    spooled before being rejected. These pin the ordering.
+    """
+
+    def test_does_not_parse_the_body_of_an_unauthenticated_request(
+        self, client, monkeypatch
+    ):
+        import starlette.requests
+
+        parsed = []
+        original = starlette.requests.Request.form
+
+        def spy(self, *args, **kwargs):
+            parsed.append(True)
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(starlette.requests.Request, "form", spy)
+
+        assert post_frames(client, [JPEG], token="wrong").status_code == 401
+        assert not parsed, "the body must not be parsed before auth fails"
+
+    def test_rejects_an_oversized_declared_body_before_parsing(
+        self, client, monkeypatch
+    ):
+        import starlette.requests
+
+        from clip_tagger import main
+
+        parsed = []
+        original = starlette.requests.Request.form
+        monkeypatch.setattr(
+            starlette.requests.Request,
+            "form",
+            lambda self, *a, **k: (parsed.append(True), original(self, *a, **k))[1],
+        )
+        monkeypatch.setattr(main, "MAX_BODY_BYTES", 10)
+
+        # Content-Length is set by the client, so this is the honest
+        # caller's cheap rejection — the real cap is still enforced on
+        # bytes actually read.
+        assert post_frames(client, [JPEG]).status_code == 413
+        assert not parsed, "an over-declared body must not be parsed at all"
+
+    def test_an_unauthenticated_flood_does_not_exhaust_the_rate_limit(
+        self, client, monkeypatch
+    ):
+        # Rate limiting runs after auth, so an attacker cannot spend the
+        # one legitimate caller's budget.
+        from clip_tagger import main
+
+        monkeypatch.setattr(main, "RATE_LIMIT_REQUESTS", 3)
+        main._recent_requests.clear()
+
+        for _ in range(20):
+            assert post_frames(client, [JPEG], token="wrong").status_code == 401
+        assert post_frames(client, [JPEG]).status_code == 200

@@ -314,6 +314,73 @@ jobs:
       - name: Tear down stack
         if: always()
         run: docker compose down -v
+  clip-tagger-image:
+    name: Build and Push clip-tagger Image
+    # Only on main, and only after its own tests pass. Shares no step with
+    # `deploy`, `release` or `internal-images` (Decision 13): the GPU
+    # cluster is a different cluster with a different credential, and a job
+    # able to touch both is the 2026-07-30 wrong-image incident waiting to
+    # happen somewhere new.
+    #
+    # Not wired into any deploy. Nothing applies this image anywhere yet,
+    # because the GPU cluster has no route (see k8s-ai/README.md). Building
+    # it here means the image exists the moment a route does, rather than
+    # the route landing and the image then being the blocker.
+    needs: [clip-tagger]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Downcase repository owner for Docker
+        run: echo "TAGGER_IMAGE=ghcr.io/${OWNER,,}/skillstreak-clip-tagger" >> "$GITHUB_ENV"
+        env:
+          OWNER: ${{ github.repository_owner }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # SHA-tagged, never `latest`, so a running pod's /health can always
+      # be traced back to a commit. One image, no per-environment variants:
+      # it holds no URL of ours and serves no HTML, so CLAUDE.md's
+      # per-environment image rule does not apply (Decision 9).
+      - name: Build and push
+        run: |
+          docker build \
+            --build-arg SERVICE_VERSION="main-${GITHUB_SHA}" \
+            -t "${TAGGER_IMAGE}:main-${GITHUB_SHA}" \
+            ./ai/clip-tagger
+          docker push "${TAGGER_IMAGE}:main-${GITHUB_SHA}"
+
+      # The image bakes model weights and must therefore be able to load
+      # them with no network, since egress is denied in the cluster. A pod
+      # that only discovers this at rollout presents as an unschedulable
+      # or perpetually-unready deploy, which is a much worse place to find
+      # out than here.
+      - name: Verify the pushed image starts offline and reports itself
+        run: |
+          docker run --rm -d --name tagger-verify --network none \
+            -e CLIP_TAGGER_TOKEN=verify-token-not-a-real-secret \
+            -p 8000:8000 "${TAGGER_IMAGE}:main-${GITHUB_SHA}" || true
+          docker run --rm --network container:tagger-verify curlimages/curl:8.11.0 \
+            sh -c 'for i in $(seq 1 60); do curl -fsS localhost:8000/health && exit 0; sleep 2; done; exit 1' \
+            | tee /tmp/health.json
+          grep -q "\"modelId\"" /tmp/health.json
+          # It must NOT claim to be the stub: a real image serving hashed
+          # scores would be invisible without this check.
+          if grep -q '"modelId": *"stub"' /tmp/health.json; then
+            echo "Built image reports the stub backend — refusing to publish it as real."
+            exit 1
+          fi
+          docker rm -f tagger-verify
+
   deploy:
     name: Deploy to Kubernetes Cluster
     runs-on: ubuntu-latest

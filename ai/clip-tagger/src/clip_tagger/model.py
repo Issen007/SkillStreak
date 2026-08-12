@@ -104,6 +104,20 @@ def load_prompt_set(name: str = "floorball-v1") -> PromptSet:
     return PromptSet(version=raw["version"], prompts=prompts)
 
 
+def _embedding(output):
+    """The embedding tensor, whichever transformers major version returned it.
+
+    transformers 4.x returned a bare tensor from `get_text_features` /
+    `get_image_features`; 5.x returns a `BaseModelOutputWithPooling` and
+    puts the embedding in `pooler_output`. The pin allows both, so this
+    normalises rather than betting on one. Found by running the model —
+    the 5.x shape raises `AttributeError: 'BaseModelOutputWithPooling'
+    object has no attribute 'norm'` at load, not at first request.
+    """
+    pooled = getattr(output, "pooler_output", None)
+    return pooled if pooled is not None else output
+
+
 class Tagger(Protocol):
     model_id: str
     prompt_set: PromptSet
@@ -162,6 +176,17 @@ class SiglipTagger:
         self._processor = AutoProcessor.from_pretrained(model_id)
         self._model = AutoModel.from_pretrained(model_id).to(self._device).eval()
 
+        # SigLIP ships a learned temperature and bias, and they are not
+        # optional decoration: cosine similarities between a real image and
+        # eight plausible sentences all sit within a whisker of each other,
+        # so a softmax over the RAW values returns ~0.125 for every tag no
+        # matter what the picture is. Measured, not assumed — the first run
+        # of this class produced exactly that, which would have made the
+        # app's confidence threshold meaningless while looking like a
+        # working model.
+        self._logit_scale = getattr(self._model, "logit_scale", None)
+        self._logit_bias = getattr(self._model, "logit_bias", None)
+
         # Prompts are fixed for the process lifetime, so their embeddings
         # are computed once rather than per request. On an A2 this is the
         # difference between text encoding dominating the request and not
@@ -171,7 +196,7 @@ class SiglipTagger:
             inputs = self._processor(
                 text=sentences, padding="max_length", return_tensors="pt"
             ).to(self._device)
-            features = self._model.get_text_features(**inputs)
+            features = _embedding(self._model.get_text_features(**inputs))
             self._text = features / features.norm(dim=-1, keepdim=True)
 
     def score(self, frames: list[bytes]) -> dict[str, float]:
@@ -188,7 +213,7 @@ class SiglipTagger:
             inputs = self._processor(images=images, return_tensors="pt").to(
                 self._device
             )
-            features = self._model.get_image_features(**inputs)
+            features = _embedding(self._model.get_image_features(**inputs))
             image_features = features / features.norm(dim=-1, keepdim=True)
 
             # (frames x sentences) similarity.
@@ -210,6 +235,14 @@ class SiglipTagger:
             # its whole length far more often than not, and max() would let
             # a single ambiguous frame decide the whole tag.
             clip_scores = stacked.mean(dim=0)
+
+            # Apply the model's own calibration before the softmax, so the
+            # spread reflects what the model actually believes rather than
+            # the narrow range cosine similarity happens to occupy.
+            if self._logit_scale is not None:
+                clip_scores = clip_scores * self._logit_scale.exp()
+            if self._logit_bias is not None:
+                clip_scores = clip_scores + self._logit_bias
 
             # Softmax so the eight scores are comparable and sum to 1 — the
             # app thresholds on them, and a raw cosine similarity is not a
