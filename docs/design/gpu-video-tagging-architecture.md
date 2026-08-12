@@ -1242,6 +1242,120 @@ blocker and it is infrastructure, not code.**
 
 ---
 
+## The route — measured 2026-08-12, and what it rules out
+
+Open Question 1 asked whether `skillstreak-gpu` has any ingress path, and
+whether the app cluster egresses from a stable, allow-listable address.
+Both were measured against the live clusters rather than assumed. The
+cluster was rebuilt since the first survey, so some earlier facts have
+changed; these are the current ones.
+
+### What exists
+
+| Fact | Value |
+|---|---|
+| `gpu.skillstreak.xyz` | resolves, `192.121.132.68` |
+| `gpi.skillstreak.xyz` | does not exist (NXDOMAIN) |
+| Port 6443 on that IP | **open** — it is the Kubernetes API endpoint |
+| Ports 80 / 443 on that IP | **closed** |
+| Ingresses / Gateways / LoadBalancer Services | none |
+| `CiliumLoadBalancerIPPool` | none defined |
+| GPU worker nodes | 3, one `NotReady` (kubelet stopped posting status) |
+
+**`gpu.skillstreak.xyz` is not a web hostname today.** It points at the
+control-plane API endpoint. Serving the analyser on it as things stand is
+not a configuration change — there is nothing listening on 80 or 443, and
+the address that answers is the one `kubectl` talks to.
+
+### What the cluster can do, which the first survey missed
+
+Cilium is further along than "no ingress controller" implies:
+
+- `enable-gateway-api = true`, and a `cilium` GatewayClass exists and is
+  `Accepted`.
+- `enable-lb-ipam = true`, `default-lb-service-ipam = lbipam` — Cilium can
+  assign LoadBalancer IPs from a pool, once a pool with real addresses
+  exists.
+- `gateway-api-hostnetwork-enabled = true` with node selector
+  `component=gateway-api`, and **all three workers already carry that
+  label**.
+
+So the software side of a route is installed and ready. What is missing is
+an **address**.
+
+### The finding that decides the topology
+
+The app cluster **cannot reach the GPU cluster privately.** Tested from a
+pod on the production cluster against all three GPU worker node IPs:
+
+```
+10.66.2.157   kubelet:10250   unreachable
+10.66.0.100   kubelet:10250   unreachable
+10.66.4.9     kubelet:10250   unreachable
+192.121.132.68  6443          REACHABLE
+```
+
+Both clusters use `10.66.0.0/16` internally, which reads like a shared
+network and is not one — the ranges are per-cluster and are not routed
+between them. The only GPU-cluster endpoint production can reach is the
+public API server.
+
+This kills the cheapest option outright: **host-network Gateway on a
+worker does not help**, because the workers have no public address and no
+private path from the app cluster. A Gateway bound to `10.66.x.x` is
+reachable from inside `skillstreak-gpu` and nowhere else.
+
+### What remains, honestly
+
+1. **Allocate a public address for the GPU cluster** (the same
+   per-cluster Elastic IP request the `skillstreak` cluster needed), define
+   a `CiliumLoadBalancerIPPool` over it, add a Gateway plus cert-manager
+   TLS, and **repoint `gpu.skillstreak.xyz`** — it currently points at the
+   control plane, so the DNS record is not reusable as-is without losing
+   the `kubectl` endpoint. Preserves Decision 9's direction exactly. Cost:
+   an IP request, and a public HTTPS endpoint fronting a GPU that must
+   then be defended.
+2. **Invert the direction** — the GPU cluster pulls work from the app
+   cluster, which already has a public, TLS-terminated, IP-stable ingress
+   at `api.skillstreak.xyz`. Needs **no new address, no new certificate
+   and no inbound port on the GPU cluster at all**, and the analyser's
+   attack surface from the internet becomes zero.
+
+   The cost is real and is exactly what Decision 9 called "the single most
+   valuable property here": the GPU cluster would hold a credential to the
+   app cluster and would have a route in. That inverts *which* side is
+   trusted, and it means a compromised GPU pod can talk to the API rather
+   than being sealed in a namespace with egress denied.
+
+   It also changes what crosses: under Decision 4 the app posts derived
+   frames and holds the clip. A pulling worker would have to be handed
+   those frames in a response, which is the same bytes in the other
+   direction — but it needs the app to expose an endpoint that hands out
+   frames of children's video to a credential, which is a new surface on
+   the side that actually stores them.
+
+**Recommendation: option 1, and it is an infrastructure request, not
+code.** Option 2 is genuinely cheaper and is the reason this section
+exists rather than a flat "still blocked" — but it trades away the one
+property that makes running inference on a separate cluster worth the
+trouble, and it does so to save an IP allocation. If the IP turns out to
+be slow or expensive to get, option 2 is the fallback to reach for
+deliberately, with its own security review, not something to drift into.
+
+**Nothing in `ai/clip-tagger/` depends on which is chosen.** The service
+is an HTTP server either way; option 2 would wrap the same inference core
+in a poll loop and change no scoring code.
+
+### Also found, unrelated to the route
+
+One GPU worker (`...jn4fr-5nhm9`) has been `NotReady` since roughly the
+cluster's own creation, with every condition `Unknown` and reason
+`NodeStatusUnknown` — its kubelet has stopped posting status while Cilium
+still reports the node's network as up. That is 1 of 3 GPUs unavailable,
+and it wants a look before any capacity planning rests on three.
+
+---
+
 ## Where this departs from ADR-0028
 
 Listed together so the reviewer and the owner can accept or reject each one
@@ -1309,12 +1423,15 @@ individually, rather than finding them scattered.
 
 ## Open questions for the project owner
 
-1. **The route.** Does `skillstreak-gpu` have any ingress path yet, and
-   does it need the same per-cluster Safespring Elastic IP request the
-   `skillstreak` cluster needed? And: **does the app cluster egress from a
-   stable IP** that can be allow-listed at that ingress? Both are
-   preconditions, both are outside this repo, and the second one is not
-   currently recorded anywhere.
+1. ~~**The route.**~~ **Measured 2026-08-12 — see "The route" above.**
+   No ingress path exists; `gpu.skillstreak.xyz` points at the Kubernetes
+   API endpoint, not a web listener; and the app cluster has **no private
+   path** to the GPU cluster, which rules out the host-network Gateway
+   that Cilium would otherwise have made free. What remains is an IP
+   allocation (option 1, recommended) or inverting the call direction
+   (option 2, cheaper, trades away Decision 9's core property). **This is
+   the one thing still needed from you, and it is an infrastructure
+   request rather than code.**
 2. **Confirm Decision 3.** This design builds a training-type classifier
    and explicitly no safety classifier. If the actual intent behind "video
    analysis" included detecting inappropriate content, say so now — it is a

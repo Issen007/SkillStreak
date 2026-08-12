@@ -1,0 +1,177 @@
+# clip-tagger — the video training-type analyser.
+#
+# docs/design/gpu-video-tagging-architecture.md, Decisions 4, 9 and 12.
+#
+# Apply only after asserting cluster-identity, per this directory's README.
+# The image tag is a placeholder rewritten by the CI job that builds it;
+# it is deliberately not `latest`, so what is running can always be traced
+# to a commit.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clip-tagger
+  namespace: skillstreak-ai
+  labels:
+    app: clip-tagger
+spec:
+  # One replica. The workload is a scheduled sweep, not user traffic, and
+  # a second pod would pin a second GPU and a second copy of the weights
+  # for throughput nothing is currently asking for. Also keeps the
+  # per-process rate limit meaning what it says (see main.py).
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clip-tagger
+  strategy:
+    # Recreate, not RollingUpdate: two pods would need two GPUs during
+    # every rollout, and there are three in the cluster with one currently
+    # NotReady. A few seconds of downtime on an advisory, retried,
+    # batch-driven feature costs nothing.
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: clip-tagger
+    spec:
+      # Without this the pod runs happily and cannot see the GPU — the
+      # symptom is a CPU-speed model and `gpu: false` at /health, not a
+      # crash. See k8s-ai/README.md.
+      runtimeClassName: nvidia
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: clip-tagger
+          image: ghcr.io/issen007/skillstreak-clip-tagger:PLACEHOLDER_IMAGE_TAG
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: CLIP_TAGGER_BACKEND
+              value: siglip
+            - name: CLIP_TAGGER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: clip-tagger
+                  key: CLIP_TAGGER_TOKEN
+            # SERVICE_VERSION is baked at build (see the Dockerfile) so it
+            # cannot drift from the image it describes. Not set here.
+          resources:
+            requests:
+              nvidia.com/gpu: 1
+              # Host RAM is the binding constraint on these nodes (~7.6 GB
+              # allocatable), not GPU cores. Requesting more than half of
+              # it would make the pod unschedulable alongside anything
+              # else.
+              memory: 3Gi
+              cpu: "1"
+            limits:
+              nvidia.com/gpu: 1
+              memory: 5Gi
+              cpu: "3"
+          volumeMounts:
+            # readOnlyRootFilesystem means the process still needs
+            # somewhere to put temporary files. Both are emptyDir, so
+            # nothing survives the pod — which is the "retains nothing"
+            # property, enforced by the filesystem rather than promised by
+            # the code.
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /home/tagger/.cache
+          startupProbe:
+            # Weights load before the port binds, so first readiness can
+            # take a while on a cold node. Generous here rather than a
+            # long readiness period, so a genuinely broken pod is still
+            # detected quickly once it is up.
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clip-tagger
+  namespace: skillstreak-ai
+spec:
+  # ClusterIP, deliberately. Nothing here is routable from outside the
+  # cluster by this manifest — exposure is an ingress decision that has
+  # not been made (see the design doc's "Not sketched: the ingress" and
+  # the ROUTE section of k8s-ai/README.md). A LoadBalancer here would
+  # quietly publish a GPU inference endpoint to the internet.
+  type: ClusterIP
+  selector:
+    app: clip-tagger
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# The control that makes "retains nothing, reaches nothing" checkable
+# rather than merely stated (Decision 4).
+#
+# Egress denied entirely, with one exception for cluster DNS. A successful
+# exploit of an image-decode CVE therefore lands in a pod that can neither
+# persist anything nor phone home with it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: clip-tagger
+  namespace: skillstreak-ai
+spec:
+  podSelector:
+    matchLabels:
+      app: clip-tagger
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Ingress is left open at the pod level on purpose: whatever terminates
+    # TLS for this service does not exist yet, so naming its namespace here
+    # would be inventing a fact. The Service is ClusterIP, so "open" means
+    # open to the cluster, not the internet. **This rule must be narrowed
+    # to the ingress controller's namespace the moment one is chosen** —
+    # recorded here rather than left as an unexplained gap.
+    - ports:
+        - port: 8000
+          protocol: TCP
+  egress:
+    # DNS only. The service makes no outbound call of its own; this exists
+    # because kubelet probes and the runtime misbehave without resolution,
+    # not because the application needs it.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
