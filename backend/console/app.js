@@ -478,19 +478,53 @@
       match: function (m) { return m > 20; }
     }
   };
+  /**
+   * Drill focus, per language.
+   *
+   * These were labelled once, in Swedish, and shown to English readers as
+   * "Fys" and "Skott" — the same fault the weekly-goal metrics had: the
+   * values are DATA, so the text-node translator cannot touch them, and a
+   * single label map means one language always reads wrong.
+   *
+   * Unknown values fall through to the raw enum rather than a blank, so a
+   * focus added server-side looks unfinished rather than missing.
+   */
   var FOCUS_LABEL = {
-    teknik: 'Teknik', fys: 'Fys', skott: 'Skott',
-    passning: 'Passning', spelforstaelse: 'Spelförståelse'
+    sv: {
+      teknik: 'Teknik',
+      fys: 'Fys',
+      skott: 'Skott',
+      passning: 'Passning',
+      spelforstaelse: 'Spelförståelse'
+    },
+    en: {
+      teknik: 'Technique',
+      fys: 'Fitness',
+      skott: 'Shooting',
+      passning: 'Passing',
+      spelforstaelse: 'Game sense'
+    }
   };
+
+  function focusLabel(focus) {
+    var table = FOCUS_LABEL[effectiveLang()] || FOCUS_LABEL.en;
+    return table[focus] || focus;
+  }
+
+  /** Age bands are already language-neutral ("9-11"); only the unit needs
+   *  translating, and "år" was hardcoded into both render sites. */
+  function ageBandLabel(band) {
+    return band + (effectiveLang() === 'sv' ? ' år' : ' yrs');
+  }
 
   function drillCard(drill) {
     return '<div class="card">' +
       '<h3 style="margin:0 0 4px;font-size:15px">' + esc(drill.title) + '</h3>' +
       '<p class="muted" style="margin:0 0 10px">' +
-        esc(FOCUS_LABEL[drill.focus] || drill.focus) + ' · ' +
-        esc(drill.ageBand) + ' år · ' + esc(drill.durationMinutes) + ' min · ' +
-        esc(drill.author) + '</p>' +
-      '<button data-go="drill/' + esc(drill.slug) + '">Open</button>' +
+        esc(focusLabel(drill.focus)) + ' · ' +
+        esc(ageBandLabel(drill.ageBand)) + ' · ' +
+        esc(drill.durationMinutes) + ' min · ' + esc(drill.author) + '</p>' +
+      '<button data-go="drill/' + esc(drill.slug) + '">Open drill</button>' +
       '</div>';
   }
 
@@ -676,6 +710,8 @@
     'My teams': 'Mina lag',
     'Drill library': 'Övningsbank',
     'Search by name': 'Sök på namn',
+    'All focuses': 'Alla områden',
+    'Open drill': 'Öppna övningen',
     'Any length': 'Valfri längd',
     'Under 10 min': 'Under 10 min',
     '10-20 min': '10–20 min',
@@ -728,8 +764,6 @@
       'Träningsmaterial skrivet av tränare. Det innehåller inga klipp, inga träningsloggar och inga spelaruppgifter — övningarna är filer som en människa läser innan de publiceras.',
     'Nothing here yet. Drills are added to the repository and arrive with the next release.':
       'Inget här än. Övningar läggs till i repot och dyker upp vid nästa release.',
-    'Teknik': 'Teknik', 'Fys': 'Fys', 'Skott': 'Skott',
-    'Passning': 'Passning', 'Spelförståelse': 'Spelförståelse',
     /* shared */
     'Loading…': 'Laddar…',
     'Sign out': 'Logga ut',
@@ -1606,11 +1640,11 @@
               'style="margin-bottom:12px" autocomplete="off">' +
               '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' +
                 '<button data-go="' + esc(routeFor('', length)) + '"' +
-                (focus ? '' : ' class="primary"') + '>All</button>' +
+                (focus ? '' : ' class="primary"') + '>All focuses</button>' +
                 DRILL_FOCUSES.map(function (f) {
                   return '<button data-go="' + esc(routeFor(f, length)) + '"' +
                     (f === focus ? ' class="primary"' : '') + '>' +
-                    esc(FOCUS_LABEL[f] || f) + '</button>';
+                    esc(focusLabel(f)) + '</button>';
                 }).join('') +
               '</div>' +
               '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
@@ -1664,8 +1698,8 @@
           '<h2>' + esc(d.title) + '</h2>' +
           '<div class="card">' +
             '<p class="muted" style="margin:0 0 12px">' +
-              esc(FOCUS_LABEL[d.focus] || d.focus) + ' · ' + esc(d.ageBand) +
-              ' år · ' + esc(d.durationMinutes) + ' min · ' + esc(d.author) +
+              esc(focusLabel(d.focus)) + ' · ' + esc(ageBandLabel(d.ageBand)) +
+              ' · ' + esc(d.durationMinutes) + ' min · ' + esc(d.author) +
               (d.sourceNote ? ' · ' + esc(d.sourceNote) : '') +
             '</p>' +
             '<pre style="white-space:pre-wrap;font:inherit;margin:0">' +
