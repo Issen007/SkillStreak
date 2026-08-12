@@ -33,16 +33,18 @@ describe('TrainingPlansService', () => {
     config = {};
     count = jest.fn().mockResolvedValue(0);
     findOne = jest.fn().mockResolvedValue(null);
-    save = jest.fn().mockImplementation((entity) => ({
-      id: 'plan-1',
-      createdAt: new Date('2026-08-12T20:00:00Z'),
-      completedAt: null,
-      generatedPlan: null,
-      modelId: null,
-      corpusVersion: null,
-      failureReason: null,
-      ...entity,
-    }));
+    save = jest
+      .fn()
+      .mockImplementation((entity: Partial<TrainingPlanDraft>) => ({
+        id: 'plan-1',
+        createdAt: new Date('2026-08-12T20:00:00Z'),
+        completedAt: null,
+        generatedPlan: null,
+        modelId: null,
+        corpusVersion: null,
+        failureReason: null,
+        ...entity,
+      }));
     query = jest.fn().mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -59,13 +61,29 @@ describe('TrainingPlansService', () => {
         },
         {
           provide: getRepositoryToken(TrainingPlanDraft),
-          useValue: { save, count, findOne, find: jest.fn(), create: (e: unknown) => e },
+          useValue: {
+            save,
+            count,
+            findOne,
+            find: jest.fn(),
+            create: (e: unknown) => e,
+          },
         },
       ],
     }).compile();
 
     service = module.get(TrainingPlansService);
   });
+
+  /** Typed reads of mock calls: `.mock.calls[n][m]` is `any` otherwise,
+   *  which this repo's lint rules reject. */
+  function savedDraft(mock: jest.Mock): { promptText: string } {
+    return (mock.mock.calls as Array<[{ promptText: string }]>)[0][0];
+  }
+
+  function queryParams(mock: jest.Mock, index: number): unknown[] {
+    return (mock.mock.calls as Array<[string, unknown[]]>)[index][1];
+  }
 
   const dto = {
     promptText: '  kul pass med mycket rörelse  ',
@@ -77,9 +95,7 @@ describe('TrainingPlansService', () => {
     it('queues a plan and trims the prompt', async () => {
       const view = await service.request(OWNER, dto);
       expect(view.status).toBe('queued');
-      expect(save.mock.calls[0][0].promptText).toBe(
-        'kul pass med mycket rörelse',
-      );
+      expect(savedDraft(save).promptText).toBe('kul pass med mycket rörelse');
     });
 
     it('never returns the lease id to the coach', async () => {
@@ -146,7 +162,7 @@ describe('TrainingPlansService', () => {
     it('requeues below the attempt cap', async () => {
       query.mockResolvedValueOnce([{ id: 'plan-1', attempts: 1 }]);
       await service.reportFailure('22222222-2222-2222-2222-222222222222');
-      expect(query.mock.calls[1][1][1]).toBe('queued');
+      expect(queryParams(query, 1)[1]).toBe('queued');
     });
 
     it('gives up at the cap, with a phrase a coach can read', async () => {
@@ -155,8 +171,8 @@ describe('TrainingPlansService', () => {
       // adult's work-product list.
       query.mockResolvedValueOnce([{ id: 'plan-1', attempts: 3 }]);
       await service.reportFailure('22222222-2222-2222-2222-222222222222');
-      expect(query.mock.calls[1][1][1]).toBe('failed');
-      expect(query.mock.calls[1][1][2]).toBe(
+      expect(queryParams(query, 1)[1]).toBe('failed');
+      expect(queryParams(query, 1)[2]).toBe(
         'The generator could not produce a plan this time.',
       );
     });
