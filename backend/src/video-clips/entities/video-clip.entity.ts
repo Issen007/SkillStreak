@@ -136,6 +136,27 @@ export class VideoClip {
   })
   taggingStatus!: VideoClipTaggingStatus;
 
+  // The lease that lets the GPU cluster pull this clip's frames without
+  // ever learning which clip they came from (migration
+  // AddClipTaggingLease). `tagging_lease_id` is what the worker is handed
+  // in place of `id`; a compromised worker holds no identifier that means
+  // anything here.
+  //
+  // Never exposed in any client-facing response or DTO, exactly like
+  // `tagging_status` and `storage_key`.
+  @Column({ name: 'tagging_attempts', type: 'smallint', default: 0 })
+  taggingAttempts!: number;
+
+  @Column({ name: 'tagging_lease_id', type: 'uuid', nullable: true })
+  taggingLeaseId!: string | null;
+
+  @Column({
+    name: 'tagging_leased_until',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  taggingLeasedUntil!: Date | null;
+
   // docs/adr/0021-clip-challenge-notifications.md Decision 1 — the "tag a
   // teammate to challenge them" video-clip feature's own acknowledgement
   // state. DISTINCT from the `Challenge` entity (src/challenges/), which is

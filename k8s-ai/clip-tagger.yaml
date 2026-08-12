@@ -1,6 +1,13 @@
-# clip-tagger — the video training-type analyser.
+# clip-tagger — the video training-type analyser, as a PULL worker.
 #
-# docs/design/gpu-video-tagging-architecture.md, Decisions 4, 9 and 12.
+# docs/design/gpu-video-tagging-architecture.md, Decisions 4 and 12, with
+# Decision 9's call direction inverted per the owner's choice of option 2
+# (2026-08-12): this cluster has no public address, so the worker reaches
+# out to `api.skillstreak.xyz` instead of being called.
+#
+# The consequence is visible in this file: **there is no Service and no
+# ingress**, because nothing ever connects to this pod. Its only network
+# behaviour is outbound HTTPS to one host.
 #
 # Apply only after asserting cluster-identity, per this directory's README.
 # The image tag is a placeholder rewritten by the CI job that builds it;
@@ -48,22 +55,31 @@ spec:
         - name: clip-tagger
           image: ghcr.io/issen007/skillstreak-clip-tagger:PLACEHOLDER_IMAGE_TAG
           imagePullPolicy: IfNotPresent
-          ports:
-            - name: http
-              containerPort: 8000
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          # The worker loop, not the HTTP service. Same image, same
+          # scoring core — only the entrypoint differs, so a topology
+          # change never means a second model implementation.
+          command: ["uv", "run", "python", "-m", "clip_tagger.worker"]
           env:
             - name: CLIP_TAGGER_BACKEND
               value: siglip
-            - name: CLIP_TAGGER_TOKEN
+            - name: CLIP_TAGGING_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: clip-tagger
+                  key: CLIP_TAGGING_API_URL
+            # The credential this cluster holds for the app cluster. The
+            # one thing here worth protecting: it is a bearer token for an
+            # endpoint that returns derived frames of children's clips.
+            - name: CLIP_TAGGING_WORKER_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: clip-tagger
-                  key: CLIP_TAGGER_TOKEN
+                  key: CLIP_TAGGING_WORKER_TOKEN
             # SERVICE_VERSION is baked at build (see the Dockerfile) so it
             # cannot drift from the image it describes. Not set here.
           resources:
@@ -89,50 +105,20 @@ spec:
               mountPath: /tmp
             - name: cache
               mountPath: /home/tagger/.cache
-          startupProbe:
-            # Weights load before the port binds, so first readiness can
-            # take a while on a cold node. Generous here rather than a
-            # long readiness period, so a genuinely broken pod is still
-            # detected quickly once it is up.
-            httpGet:
-              path: /health
-              port: http
-            periodSeconds: 5
-            failureThreshold: 60
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: http
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: http
-            periodSeconds: 30
+          # No HTTP probes: this pod serves nothing. Liveness is
+          # "the process is running", which is what the restartPolicy
+          # already gives. A probe here would need an HTTP server whose
+          # only purpose was to be probed — and that server would be a
+          # listening socket in a cluster whose whole security story is
+          # that nothing listens.
+          #
+          # The worker refuses to start without its URL and token, so a
+          # misconfigured pod crash-loops visibly rather than idling.
       volumes:
         - name: tmp
           emptyDir: {}
         - name: cache
           emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: clip-tagger
-  namespace: skillstreak-ai
-spec:
-  # ClusterIP, deliberately. Nothing here is routable from outside the
-  # cluster by this manifest — exposure is an ingress decision that has
-  # not been made (see the design doc's "Not sketched: the ingress" and
-  # the ROUTE section of k8s-ai/README.md). A LoadBalancer here would
-  # quietly publish a GPU inference endpoint to the internet.
-  type: ClusterIP
-  selector:
-    app: clip-tagger
-  ports:
-    - name: http
-      port: 80
-      targetPort: http
 ---
 # The control that makes "retains nothing, reaches nothing" checkable
 # rather than merely stated (Decision 4).
@@ -152,20 +138,13 @@ spec:
   policyTypes:
     - Ingress
     - Egress
-  ingress:
-    # Ingress is left open at the pod level on purpose: whatever terminates
-    # TLS for this service does not exist yet, so naming its namespace here
-    # would be inventing a fact. The Service is ClusterIP, so "open" means
-    # open to the cluster, not the internet. **This rule must be narrowed
-    # to the ingress controller's namespace the moment one is chosen** —
-    # recorded here rather than left as an unexplained gap.
-    - ports:
-        - port: 8000
-          protocol: TCP
+  # No ingress rules at all: nothing connects to this pod, so every
+  # inbound connection is unwanted by definition. This is stricter than the
+  # push topology could ever have been, and is the one security win the
+  # inversion actually buys.
+  ingress: []
   egress:
-    # DNS only. The service makes no outbound call of its own; this exists
-    # because kubelet probes and the runtime misbehave without resolution,
-    # not because the application needs it.
+    # DNS, so the API's hostname resolves.
     - to:
         - namespaceSelector:
             matchLabels:
@@ -174,4 +153,17 @@ spec:
         - port: 53
           protocol: UDP
         - port: 53
+          protocol: TCP
+    # HTTPS out, for the one host this worker talks to.
+    #
+    # **This is as narrow as a NetworkPolicy can express it**: Kubernetes
+    # NetworkPolicy selects on IP blocks, not hostnames, and
+    # `api.skillstreak.xyz` sits behind an address that can change. Pinning
+    # a CIDR here would break the feature silently the next time it moves.
+    # Restricting to 443 is therefore the real bound, and a compromised pod
+    # could reach other HTTPS hosts — stated rather than papered over. If
+    # that becomes unacceptable, the answer is an egress proxy with an
+    # allow-list, not a CIDR that rots.
+    - ports:
+        - port: 443
           protocol: TCP

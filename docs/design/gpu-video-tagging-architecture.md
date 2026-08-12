@@ -1334,8 +1334,16 @@ reachable from inside `skillstreak-gpu` and nowhere else.
    frames of children's video to a credential, which is a new surface on
    the side that actually stores them.
 
-**Recommendation: option 1, and it is an infrastructure request, not
-code.** Option 2 is genuinely cheaper and is the reason this section
+**DECIDED 2026-08-12: the owner chose option 2.** No public IP is being
+requested; the GPU cluster pulls. Built in `ai/clip-tagger/worker.py` and
+`backend/src/clip-tagging/`, with the compensating controls listed in
+`ClipTaggingService`'s own docblock — all of them on the app side, because
+they must hold even if the worker is entirely hostile. What follows is the
+reasoning as written before the decision, kept because it names the cost
+being accepted.
+
+**Recommendation at the time: option 1, and it is an infrastructure
+request, not code.** Option 2 is genuinely cheaper and is the reason this section
 exists rather than a flat "still blocked" — but it trades away the one
 property that makes running inference on a separate cluster worth the
 trouble, and it does so to save an IP allocation. If the IP turns out to
