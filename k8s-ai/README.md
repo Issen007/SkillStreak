@@ -188,3 +188,42 @@ or `gpu=False`, and that is the only place the answer is visible:
 kubectl --context skillstreak-gpu -n skillstreak-ai \
   logs deployment/clip-tagger | grep "worker starting"
 ```
+
+
+## The plan generator (ADR-0028 Phase 1)
+
+A second Deployment beside the tagger, sharing the image and nothing else:
+its own token, its own ConfigMap keys, its own GPU. It pulls jobs from
+`api.skillstreak.xyz` exactly as the tagger does, so it needs no inbound
+route either.
+
+**Done 2026-08-12**: `plan-generator` ConfigMap
+(`TRAINING_PLAN_API_URL`, `TRAINING_PLAN_MODEL_ID`) and Secret
+(`TRAINING_PLAN_WORKER_TOKEN`, 48 chars) exist in `skillstreak-ai`, and
+the same token is set as a GitHub secret so CI writes it into the app
+cluster. Verified identical by comparing hashes.
+
+### Its first rollout is slow, and that is not a hang
+
+The tagger's SigLIP weights are baked into the image; the generator's 3B
+LM is **not** — baking it would roughly double an already-8 GB image for
+a feature that may not ship. So the pod downloads weights on first start,
+which takes several minutes and means this pod needs egress the tagger
+does not (443 to the model host as well as to the API). `deploy-ai` waits
+20 minutes for this rollout against the tagger's 10 for that reason.
+
+If the feature proves worth keeping, baking the weights narrows that
+egress back down and makes rollouts fast. That is the trade to revisit,
+not a defect to work around.
+
+### Checking it works
+
+There is no HTTP endpoint to probe — by design, nothing listens. Its own
+log line is the check:
+
+```bash
+kubectl --context skillstreak-gpu -n skillstreak-ai \
+  logs deployment/plan-generator | grep "plan generator starting"
+```
+
+It prints the API it will poll, the model it loaded, and `gpu=True/False`.

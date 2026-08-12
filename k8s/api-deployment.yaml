@@ -195,6 +195,20 @@ spec:
                   name: skillstreak-secret
                   key: CLIP_TAGGING_WORKER_TOKEN
                   optional: true
+            # The training-plan generator's credential. Separate from the
+            # tagging token so the two features are independently
+            # enable-able, and `optional: true` for the same reason that
+            # one is: TrainingPlanWorkerGuard refuses every request when
+            # this is absent, so an unconfigured cluster has the feature
+            # off rather than open — and a required key would turn "we
+            # have not set up plan generation yet" into a boot failure for
+            # the whole API.
+            - name: TRAINING_PLAN_WORKER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: TRAINING_PLAN_WORKER_TOKEN
+                  optional: true
             - name: GOOGLE_OAUTH_CLIENT_ID
               valueFrom:
                 secretKeyRef:
