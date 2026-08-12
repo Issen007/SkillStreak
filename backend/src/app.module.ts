@@ -8,6 +8,7 @@ import { AppConfigModule } from './config/app-config.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { DrillsModule } from './drills/drills.module';
 import { ClipTaggingModule } from './clip-tagging/clip-tagging.module';
+import { TrainingPlansModule } from './training-plans/training-plans.module';
 import { PrCampaignsModule } from './pr-campaigns/pr-campaigns.module';
 import { BugReportsModule } from './bug-reports/bug-reports.module';
 import { EventRegistrationsModule } from './event-registrations/event-registrations.module';
@@ -137,6 +138,7 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     DrillsModule,
     PrCampaignsModule,
     ClipTaggingModule,
+    TrainingPlansModule,
     BugReportsModule,
     EventRegistrationsModule,
     // docs/adr/0022-admin-control-center.md Decisions 4/6/7 — the admin

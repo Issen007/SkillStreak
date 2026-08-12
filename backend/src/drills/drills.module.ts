@@ -31,6 +31,9 @@ import { DrillGroup, DrillGroupDrill } from './entities/drill-group.entity';
   ],
   controllers: [DrillsController, DrillGroupsController],
   providers: [DrillLibraryService, DrillGroupsService, DrillAccessService],
-  exports: [DrillLibraryService],
+  // DrillAccessService is exported for TrainingPlansModule: plan
+  // generation is gated exactly like the library it generates from,
+  // and a second copy of that gate is how the two would drift.
+  exports: [DrillLibraryService, DrillAccessService],
 })
 export class DrillsModule {}

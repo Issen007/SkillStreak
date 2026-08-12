@@ -1,0 +1,141 @@
+# plan-generator — the coach training-plan LLM (ADR-0028 Phase 1).
+#
+# A second Deployment beside clip-tagger, sharing the image and sharing
+# nothing else. Separate token, separate ConfigMap keys, separate GPU —
+# so the two features are independently enable-able and a leak of one
+# credential is not a leak of both (ADR-0028 Decision 10).
+#
+# Like the tagger it PULLS: this cluster has no inbound route, so it asks
+# api.skillstreak.xyz for work. No Service, no port, `ingress: []`.
+#
+# It holds no corpus. The drills arrive with each job, keeping the single
+# copy in the app's repository where it is reviewable in a diff and still
+# exists if this cluster does not (Decision 14).
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plan-generator
+  namespace: skillstreak-ai
+  labels:
+    app: plan-generator
+spec:
+  # One replica, one GPU. Three A2s exist; the tagger holds one, this
+  # holds one, and the third is headroom rather than a second replica —
+  # a coach waiting 30s does not need parallelism, and the binding
+  # constraint on these nodes is host RAM, not GPU count.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plan-generator
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: plan-generator
+    spec:
+      runtimeClassName: nvidia
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: plan-generator
+          image: ghcr.io/issen007/skillstreak-clip-tagger:PLACEHOLDER_IMAGE_TAG
+          imagePullPolicy: IfNotPresent
+          command: ["/app/.venv/bin/python", "-m", "clip_tagger.plan_generator"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: TRAINING_PLAN_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: plan-generator
+                  key: TRAINING_PLAN_API_URL
+            - name: TRAINING_PLAN_WORKER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: plan-generator
+                  key: TRAINING_PLAN_WORKER_TOKEN
+            # The weights are NOT baked into the image — the tagger's
+            # SigLIP is, but a 3B causal LM would roughly double an
+            # already 8 GB image for a feature that may not ship. It is
+            # fetched to the cache volume on first start instead, which
+            # means this pod needs egress the tagger does not (see the
+            # NetworkPolicy below) and takes several minutes to become
+            # ready the first time. Stated here because a slow first
+            # rollout otherwise reads as a hang.
+            - name: TRAINING_PLAN_MODEL_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: plan-generator
+                  key: TRAINING_PLAN_MODEL_ID
+                  optional: true
+            - name: HF_HOME
+              value: /home/tagger/.cache/huggingface
+          resources:
+            requests:
+              nvidia.com/gpu: 1
+              # A 3B model in bfloat16 is ~6 GB of VRAM, comfortably
+              # inside the A2's 15 GB. Host RAM is the tighter budget on
+              # these nodes (~7.6 GB allocatable) and is what this
+              # request is really about.
+              memory: 4Gi
+              cpu: "1"
+            limits:
+              nvidia.com/gpu: 1
+              memory: 6Gi
+              cpu: "3"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /home/tagger/.cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          # Weights land here on first start. emptyDir means they are
+          # re-fetched on every reschedule — acceptable for now, and the
+          # thing to swap for a PVC if rollouts become frequent.
+          emptyDir:
+            sizeLimit: 20Gi
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: plan-generator
+  namespace: skillstreak-ai
+spec:
+  podSelector:
+    matchLabels:
+      app: plan-generator
+  policyTypes:
+    - Ingress
+    - Egress
+  # Nothing connects to this pod. Same as the tagger.
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # 443 out: api.skillstreak.xyz for jobs, and the model host for the
+    # first weight download. **This is broader than the tagger's need**,
+    # because the tagger's weights are baked and this one's are not.
+    # Baking them would narrow this back to one host's worth of traffic
+    # and is the right move if the feature ships for real.
+    - ports:
+        - port: 443
+          protocol: TCP
