@@ -78,6 +78,10 @@ import { VideoProcessingService } from './video-processing.service';
   // ClipRetentionService already relies on. Nothing else here is exported:
   // VideoClipsService/VideoProcessingService/ClipRetentionService remain
   // this module's own, not reusable elsewhere.
-  exports: [ObjectStorageService],
+  // VideoProcessingService is exported for ClipTaggingModule's frame
+  // sampler, which reuses its temp-file handling rather than growing a
+  // second implementation of "write bytes somewhere ffmpeg can read and
+  // reliably delete them afterwards".
+  exports: [ObjectStorageService, VideoProcessingService],
 })
 export class VideoClipsModule {}
