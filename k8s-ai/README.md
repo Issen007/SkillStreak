@@ -89,3 +89,50 @@ condition `Unknown`, reason `NodeStatusUnknown` — its kubelet stopped
 posting status while Cilium still reports the node's network as up. That
 is 1 of 3 GPUs unavailable. Worth fixing before any capacity plan assumes
 three.
+
+## Update 2026-08-12: the worker pulls, so there is still no route
+
+The owner chose **option 2**: rather than allocating a public IP for this
+cluster, the analyser reaches out to `api.skillstreak.xyz` and asks for
+work. Everything in the section above about the missing route remains
+true, and no longer blocks anything.
+
+What that means for these manifests:
+
+- **`clip-tagger.yaml` has no Service and declares no container port.**
+  Nothing connects to this pod. Its NetworkPolicy is `ingress: []` — deny
+  all inbound — which is stricter than any ingress-based design could be,
+  and is the one security win the inversion buys.
+- **It holds a credential to the app cluster.** That is the cost, and it
+  is the reverse of the property the separate cluster was originally
+  bought for. The controls that make it acceptable live on the app side
+  (`backend/src/clip-tagging/`), where they hold even if this pod is
+  entirely compromised: the worker is handed a random lease id rather than
+  a clip id, cannot request a specific clip, and cannot browse anything.
+- **Egress is 443 + DNS.** NetworkPolicy selects on IP blocks, not
+  hostnames, and the API's address can change — so pinning a CIDR would
+  break the feature silently the next time it moves. Port 443 is the real
+  bound. A compromised pod could therefore reach other HTTPS hosts; if
+  that becomes unacceptable the answer is an egress proxy with an
+  allow-list, not a CIDR that rots.
+
+### Deploying
+
+CI does it, the same way `k8s/` is applied to the app cluster — the
+`deploy-ai` job, which shares no step with `deploy` and uses
+`AI_KUBE_URL`/`AI_KUBE_TOKEN` rather than `KUBE_*`. It asserts
+`cluster-identity` before applying, and **skips entirely** if those
+secrets are unset, so an unconfigured GPU cluster does not redden every
+merge.
+
+The ConfigMap and Secret are **not** applied by CI. Create them once, by
+hand, from `clip-tagger-config.example.yaml`. Both sides need the same
+`CLIP_TAGGING_WORKER_TOKEN`; until they do the worker gets 401s and
+nothing is tagged, which is the correct failure.
+
+### Known: the kubeconfig for this cluster expires
+
+`kubectl --context skillstreak-gpu` uses an OIDC browser flow and its
+token had already expired within a day of the cluster being created. If a
+command hangs saying "Opening in existing browser session", that is what
+happened — re-authenticate before assuming the cluster is unreachable.

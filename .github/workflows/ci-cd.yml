@@ -610,6 +610,73 @@ jobs:
           kubectl rollout status deployment/api -n skillstreak
           kubectl rollout status deployment/site -n skillstreak
 
+  deploy-ai:
+    name: Deploy clip-tagger to the GPU Cluster
+    # Same discipline as `deploy`, different cluster, and deliberately
+    # sharing NO step with it: different kubeconfig secrets
+    # (AI_KUBE_URL/AI_KUBE_TOKEN, never KUBE_*), a different namespace,
+    # a different manifest directory, and a cluster-identity assertion
+    # before anything is applied. ADR-0028 Decision 12's deploy safety, and
+    # the direct lesson of the 2026-07-30 wrong-image incident: the way two
+    # clusters get confused is a job that can reach both.
+    needs: [clip-tagger-image]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Skipped rather than failed when the GPU cluster's credentials are
+      # not configured. This deploys an optional, advisory feature to a
+      # cluster that may not be reachable from CI at all — turning that
+      # into a red build on every merge would train everyone to ignore it.
+      - name: Check whether the GPU cluster is configured
+        id: configured
+        run: |
+          if [ -n "${{ secrets.AI_KUBE_URL }}" ] && [ -n "${{ secrets.AI_KUBE_TOKEN }}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::AI_KUBE_URL/AI_KUBE_TOKEN are not set; skipping the GPU cluster deploy."
+          fi
+
+      - name: Configure kubectl for the GPU cluster
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          kubectl config set-cluster gpu --server="${{ secrets.AI_KUBE_URL }}" --insecure-skip-tls-verify=true
+          kubectl config set-credentials gpu --token="${{ secrets.AI_KUBE_TOKEN }}"
+          kubectl config set-context gpu --cluster=gpu --user=gpu --namespace=skillstreak-ai
+          kubectl config use-context gpu
+
+      # The deploy-time analogue of asking a running pod what it is. If
+      # this ConfigMap says anything other than `skillstreak-gpu`, these
+      # credentials point at the wrong cluster and nothing further runs.
+      - name: Assert we are pointed at skillstreak-gpu
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          actual=$(kubectl -n skillstreak-ai get configmap cluster-identity -o jsonpath='{.data.cluster}')
+          echo "cluster-identity reports: $actual"
+          if [ "$actual" != "skillstreak-gpu" ]; then
+            echo "Refusing to apply: expected skillstreak-gpu, got '$actual'."
+            exit 1
+          fi
+
+      - name: Apply the clip-tagger worker
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          owner="${{ github.repository_owner }}"
+          image="ghcr.io/${owner,,}/skillstreak-clip-tagger:main-${GITHUB_SHA}"
+          sed "s|ghcr.io/issen007/skillstreak-clip-tagger:PLACEHOLDER_IMAGE_TAG|${image}|" \
+            k8s-ai/clip-tagger.yaml | kubectl apply -f -
+          kubectl -n skillstreak-ai rollout status deployment/clip-tagger --timeout=10m
+
+      # The worker has no HTTP endpoint to probe (nothing listens, by
+      # design), so "is it actually working" is answered by its own log
+      # line rather than by a health check.
+      - name: Show what the worker reports
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          kubectl -n skillstreak-ai logs deployment/clip-tagger --tail=20 || true
+
   release:
     name: Version and Release
     runs-on: ubuntu-latest
