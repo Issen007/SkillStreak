@@ -1,0 +1,52 @@
+{
+  "_comment": [
+    "The single source of truth for how a clip becomes frames.",
+    "",
+    "Read by BOTH sides on purpose. The backend samples frames in",
+    "production (backend/src/clip-tagging/clip-frame-sampler.service.ts);",
+    "the eval harness samples them from fixture files. If those two ever",
+    "differ, every number the harness prints is measured on input the",
+    "model will never actually receive.",
+    "",
+    "They already had differed: the harness carried a `thumbnail,` filter",
+    "the API does not use. `thumbnail` picks the most 'representative'",
+    "frames in a window rather than evenly-spaced ones, so the harness was",
+    "grading the model on a nicer sample than production sends — an",
+    "optimistic bias, invisible, and precisely the kind of thing an",
+    "evaluation exists to not have.",
+    "",
+    "A test on each side asserts against this file, so changing one",
+    "without the other fails CI rather than silently skewing results."
+  ],
+
+  "videoFilter": "fps=1/1,scale=224:224:force_original_aspect_ratio=increase,crop=224:224",
+
+  "_videoFilterWhy": [
+    "fps=1/1  — one frame per second, evenly spaced. A clip is usually one",
+    "           activity for its whole length, so even sampling beats",
+    "           clever selection and is far easier to reason about.",
+    "224x224  — a privacy control before it is a model detail: at that size",
+    "           a face is about a dozen pixels across, so what leaves the",
+    "           app cluster reads as 'a person on a court', not as a",
+    "           recognisable child. The model wanting exactly this size is",
+    "           convenient, not the reason.",
+    "crop     — after scaling up to cover, so nothing is letterboxed with",
+    "           black bars the model would score as part of the image."
+  ],
+
+  "extraArgs": ["-an", "-map_metadata", "-1"],
+
+  "_extraArgsWhy": [
+    "-an            — no audio reaches the output. A still cannot carry",
+    "                 sound, so this is about intent: a later edit to this",
+    "                 command cannot quietly start exporting any.",
+    "-map_metadata -1 — strip everything. A clip container can carry",
+    "                 creation time, device model, and GPS. CLAUDE.md's",
+    "                 'no location tracking' is a product rule, and this is",
+    "                 the point where a file could otherwise smuggle a",
+    "                 location out of the app cluster entirely."
+  ],
+
+  "jpegQuality": "3",
+  "defaultFrameCount": 8
+}
