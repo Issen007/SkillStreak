@@ -1052,3 +1052,21 @@ export class DrillNotInLibraryException extends AppException {
     );
   }
 }
+
+/**
+ * Every clip-tagging worker rejection, whatever the cause.
+ *
+ * One exception for "no token configured", "token too weak", "no header",
+ * "wrong token" on purpose: this endpoint is reachable from the public
+ * internet and returns derived frames of children's clips, so a caller
+ * must not be able to tell whether the feature is even switched on.
+ */
+export class ClipTaggingWorkerUnauthorizedException extends AppException {
+  constructor() {
+    super(
+      'clip_tagging_worker_unauthorized',
+      'Unauthorized.',
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+}
