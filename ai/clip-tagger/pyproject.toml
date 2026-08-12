@@ -34,6 +34,19 @@ model = [
   "protobuf>=5.28",
 ]
 
+# The Stage 0b harness. Separate from `model` because evaluation needs
+# something the service does not: ffmpeg, to turn fixture videos into
+# frames. Production never needs it here — the BACKEND samples frames and
+# posts them — so it would be dead weight in the runtime image.
+#
+# `imageio-ffmpeg` ships a static binary as a wheel, which keeps this
+# installable with uv alone (ADR-0003) instead of "and also apt-get
+# install ffmpeg", which is the kind of undocumented step that makes a
+# tool nobody runs.
+eval = [
+  "imageio-ffmpeg>=0.5",
+]
+
 [dependency-groups]
 dev = [
   "pytest>=8.3",

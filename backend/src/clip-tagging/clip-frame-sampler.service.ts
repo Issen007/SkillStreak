@@ -4,8 +4,58 @@ import { promisify } from 'util';
 import { ObjectStorageService } from '../video-clips/object-storage.service';
 import { VideoProcessingService } from '../video-clips/video-processing.service';
 import { readdir, readFile, mkdtemp, rm } from 'fs/promises';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+
+interface FrameSamplingContract {
+  videoFilter: string;
+  extraArgs: string[];
+  jpegQuality: string;
+  defaultFrameCount: number;
+}
+
+/**
+ * Shared with the Python eval harness. Read at module load rather than
+ * duplicated, so the two cannot drift — see buildFfmpegArgs below.
+ *
+ * Resolved from `__dirname` up to the repo root in a checkout, and copied
+ * into the image beside `dist/` by nest-cli.json's `assets` entry (the
+ * same mechanism the drill library's Markdown uses). Falls back to the
+ * literal values only if the file is missing, so a packaging mistake
+ * degrades to "still correct today" rather than a boot crash — but the
+ * test asserts the file exists, so that fallback should never be reached.
+ */
+const FRAME_SAMPLING_CONTRACT: FrameSamplingContract = loadContract();
+
+function loadContract(): FrameSamplingContract {
+  const candidates = [
+    join(__dirname, '..', '..', 'frame-sampling-contract.json'),
+    join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      'ai',
+      'clip-tagger',
+      'frame-sampling-contract.json',
+    ),
+  ];
+  for (const path of candidates) {
+    try {
+      return JSON.parse(readFileSync(path, 'utf8')) as FrameSamplingContract;
+    } catch {
+      continue;
+    }
+  }
+  return {
+    videoFilter:
+      'fps=1/1,scale=224:224:force_original_aspect_ratio=increase,crop=224:224',
+    extraArgs: ['-an', '-map_metadata', '-1'],
+    jpegQuality: '3',
+    defaultFrameCount: 8,
+  };
+}
 
 const execFileAsync = promisify(execFile);
 
@@ -43,6 +93,40 @@ export class ClipFrameSamplerService {
    * on a court" and not as a recognisable child. The model wanting exactly
    * that size is convenient, not the reason.
    */
+  /**
+   * The exact ffmpeg invocation, exposed so it can be asserted against
+   * `ai/clip-tagger/frame-sampling-contract.json`.
+   *
+   * That file is the single source of truth, and it is shared because the
+   * eval harness samples fixture clips the same way. The two had already
+   * drifted once — the harness carried a `thumbnail,` filter this does not
+   * use, which selects the most "representative" frames rather than
+   * evenly-spaced ones, so it was grading the model on a nicer sample than
+   * production sends. Every number it printed was optimistic and nothing
+   * said so.
+   */
+  static buildFfmpegArgs(
+    sourcePath: string,
+    outputPattern: string,
+    frameCount: number,
+  ): string[] {
+    return [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-i',
+      sourcePath,
+      ...FRAME_SAMPLING_CONTRACT.extraArgs,
+      '-vf',
+      FRAME_SAMPLING_CONTRACT.videoFilter,
+      '-frames:v',
+      String(frameCount),
+      '-q:v',
+      FRAME_SAMPLING_CONTRACT.jpegQuality,
+      outputPattern,
+    ];
+  }
+
   async sample(storageKey: string, frameCount: number): Promise<Buffer[]> {
     const buffer = await this.objectStorageService.getObjectBuffer(storageKey);
     const sourcePath = await this.videoProcessingService.writeTempFile(
@@ -52,32 +136,14 @@ export class ClipFrameSamplerService {
     const outputDir = await mkdtemp(join(tmpdir(), 'clip-frames-'));
 
     try {
-      await execFileAsync('ffmpeg', [
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-i',
-        sourcePath,
-        // No audio reaches the output, and saying so explicitly is worth
-        // the flag: a still image cannot carry sound, but the intent is
-        // that a future change to this command cannot quietly start
-        // exporting any.
-        '-an',
-        // Strip every piece of metadata. A clip's container can carry
-        // creation time, device model and — the one that matters — GPS.
-        // CLAUDE.md's "no location tracking" is a product rule, and this
-        // is the point where a file could smuggle a location out of the
-        // app cluster entirely.
-        '-map_metadata',
-        '-1',
-        '-vf',
-        `fps=1/1,scale=224:224:force_original_aspect_ratio=increase,crop=224:224`,
-        '-frames:v',
-        String(frameCount),
-        '-q:v',
-        '3',
-        join(outputDir, 'frame%02d.jpg'),
-      ]);
+      await execFileAsync(
+        'ffmpeg',
+        ClipFrameSamplerService.buildFfmpegArgs(
+          sourcePath,
+          join(outputDir, 'frame%02d.jpg'),
+          frameCount,
+        ),
+      );
 
       const names = (await readdir(outputDir)).sort();
       const frames = await Promise.all(
