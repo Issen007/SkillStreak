@@ -366,19 +366,40 @@ jobs:
       # out than here.
       - name: Verify the pushed image starts offline and reports itself
         run: |
-          docker run --rm -d --name tagger-verify --network none \
-            -e CLIP_TAGGER_TOKEN=verify-token-not-a-real-secret \
-            -p 8000:8000 "${TAGGER_IMAGE}:main-${GITHUB_SHA}" || true
-          docker run --rm --network container:tagger-verify curlimages/curl:8.11.0 \
-            sh -c 'for i in $(seq 1 60); do curl -fsS localhost:8000/health && exit 0; sleep 2; done; exit 1' \
-            | tee /tmp/health.json
-          grep -q "\"modelId\"" /tmp/health.json
+          # `--network none` and no published ports: the pod runs with
+          # egress denied, so weights that cannot load offline would
+          # present as a perpetually-unready deploy. Probed with the
+          # image's own interpreter via `docker exec` rather than a second
+          # container — `--network container:` cannot attach to a
+          # network-less container, and `-p` cannot be combined with
+          # `--network none` at all.
+          docker run -d --name tagger-verify --network none \
+            -e CLIP_TAGGER_TOKEN=verify-token-not-a-real-secret-0123456789 \
+            "${TAGGER_IMAGE}:main-${GITHUB_SHA}"
+
+          probe='import urllib.request,sys; sys.stdout.write(urllib.request.urlopen("http://localhost:8000/health",timeout=2).read().decode())'
+          for _ in $(seq 1 60); do
+            if docker exec tagger-verify /app/.venv/bin/python -c "$probe" > /tmp/health.json 2>/dev/null; then
+              break
+            fi
+            sleep 3
+          done
+
+          cat /tmp/health.json
+          grep -q '"modelId"' /tmp/health.json
+
           # It must NOT claim to be the stub: a real image serving hashed
-          # scores would be invisible without this check.
+          # scores about children's training would be invisible otherwise.
           if grep -q '"modelId": *"stub"' /tmp/health.json; then
             echo "Built image reports the stub backend — refusing to publish it as real."
+            docker rm -f tagger-verify
             exit 1
           fi
+
+          # The worker entrypoint is what the GPU cluster actually runs, so
+          # "the HTTP service starts" is not proof the deploy will.
+          docker exec tagger-verify /app/.venv/bin/python -c "import clip_tagger.worker"
+
           docker rm -f tagger-verify
 
   deploy:
