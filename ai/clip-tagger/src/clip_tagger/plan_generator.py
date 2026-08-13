@@ -175,14 +175,23 @@ class PlanModel:
         self.on_gpu = torch.cuda.is_available()
 
         self._tokenizer = AutoTokenizer.from_pretrained(model_id)
-        self._model = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            # bfloat16 on GPU halves the resident weights against fp32 and
-            # is what these nodes can actually hold; float32 on CPU because
-            # bf16 on CPU is slower, not faster.
-            dtype=torch.bfloat16 if self.on_gpu else torch.float32,
-            device_map="cuda" if self.on_gpu else "cpu",
-        ).eval()
+        # `.to(device)`, not `device_map=`. device_map exists to shard a
+        # model across several devices and pulls in `accelerate` to do it;
+        # this loads one model onto one GPU, so it buys nothing and its
+        # absent dependency crash-looped the pod with a ValueError that
+        # named `accelerate` rather than anything about the model.
+        self._device = "cuda" if self.on_gpu else "cpu"
+        self._model = (
+            AutoModelForCausalLM.from_pretrained(
+                model_id,
+                # bfloat16 on GPU halves the resident weights against fp32
+                # and is what these nodes can hold; float32 on CPU because
+                # bf16 on CPU is slower, not faster.
+                dtype=torch.bfloat16 if self.on_gpu else torch.float32,
+            )
+            .to(self._device)
+            .eval()
+        )
 
     def generate(self, system: str, user: str) -> str:
         torch = self._torch
