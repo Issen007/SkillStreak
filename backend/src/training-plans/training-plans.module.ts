@@ -6,7 +6,12 @@ import { TrainingPlanDraft } from './entities/training-plan-draft.entity';
 import { TrainingPlanWorkerController } from './training-plan-worker.controller';
 import { TrainingPlanWorkerGuard } from './training-plan-worker.guard';
 import { TrainingPlansController } from './training-plans.controller';
+import { AdminTrainingPlansController } from './admin-training-plans.controller';
+import { TrainingPlanStatsService } from './training-plan-stats.service';
 import { TrainingPlansService } from './training-plans.service';
+import { TrainingPlanRetentionService } from './training-plan-retention.service';
+import { ErrorLogModule } from '../error-log/error-log.module';
+import { RedisModule } from '../redis/redis.module';
 
 /**
  * The coach training-plan generator (ADR-0028 Phase 1).
@@ -22,8 +27,22 @@ import { TrainingPlansService } from './training-plans.service';
     DrillsModule,
     StaffAuthModule,
     TypeOrmModule.forFeature([TrainingPlanDraft]),
+    // The retention sweep records its own failures as error-log rows
+    // and claims its run through Redis, exactly like the four sweeps
+    // that came before it.
+    ErrorLogModule,
+    RedisModule,
   ],
-  controllers: [TrainingPlansController, TrainingPlanWorkerController],
-  providers: [TrainingPlansService, TrainingPlanWorkerGuard],
+  controllers: [
+    TrainingPlansController,
+    TrainingPlanWorkerController,
+    AdminTrainingPlansController,
+  ],
+  providers: [
+    TrainingPlansService,
+    TrainingPlanWorkerGuard,
+    TrainingPlanRetentionService,
+    TrainingPlanStatsService,
+  ],
 })
 export class TrainingPlansModule {}

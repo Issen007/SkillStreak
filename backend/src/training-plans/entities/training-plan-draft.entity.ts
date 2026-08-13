@@ -16,19 +16,39 @@ export enum TrainingPlanStatus {
 /**
  * A coach's generated training session (ADR-0028 Phase 1).
  *
- * **Nothing here is about a child.** No `player_id`, no `team_id`, no FK
- * to anything child-scoped — the same structural exclusion ADR-0022
- * Decision 6 made for ErrorLogEntry, with the same consequence: this table
- * needs no entry in ADR-0013's per-entity erasure table, because there is
- * nothing about a child in it to erase. The only subject it has is the
- * adult who asked, and `ON DELETE CASCADE` from `staff_account` handles
- * them.
+ * **This table can contain a child's name, and the erasure story must
+ * not pretend otherwise.**
  *
- * `prompt_text` is the one field a coach could misuse by typing a child's
- * name into it. ADR-0028 Decision 7(c) names that residual rather than
- * pretending it away; what stops it becoming systemic is that the request
- * DTO carries this plus four enums and **has no field capable of holding
- * roster, streak or team data**, and no code path enriches it.
+ * An earlier version of this comment said "nothing here is about a
+ * child … it needs no entry in ADR-0013's erasure table", and then
+ * conceded four lines later that a coach can type a name into
+ * `prompt_text`. Both cannot be true, and a security review called it:
+ * ADR-0028 Decision 7(c) treats "give me a session for Erik who is
+ * struggling with backhand" as expected, not hypothetical, and
+ * `generated_plan` repeats the prompt back.
+ *
+ * What is actually true, stated as three separate facts:
+ *
+ * 1. **The app never puts a child in a prompt.** The request DTO is
+ *    `promptText` plus four enums, and `leaseNext` builds the job from
+ *    that row plus the adult-authored drill library. There is no
+ *    enrichment path and no code that could add roster, streak or team
+ *    data. This control is real and it is the important one.
+ * 2. **A coach can still type a name.** Nothing structural prevents it.
+ *    The UI now says not to, and the coach can delete a plan — those are
+ *    the mitigations ADR-0028 Decision 7(c) asks for, and they are
+ *    weaker than a structural control because they depend on a person.
+ * 3. **Erasure cannot find such a name.** There is no `player_id` to
+ *    search on, by design. So a name typed here is removed by the
+ *    coach's own delete or by the retention sweep, and by nothing else.
+ *    That is a real gap, it is written down here rather than in a
+ *    comment claiming the opposite, and it is why the retention window
+ *    matters more for this table than its "adult work product" framing
+ *    first suggests.
+ *
+ * The absence of `player_id` and `team_id` is still deliberate and still
+ * right — it keeps the table out of every join that could turn it into a
+ * profile. It just does not mean the table is child-free.
  */
 @Entity('training_plan_draft')
 @Index('IDX_training_plan_draft_owner', ['staffAccountId', 'createdAt'])

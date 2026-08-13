@@ -202,3 +202,71 @@ describe('TrainingPlansService', () => {
     });
   });
 });
+
+/**
+ * Regressions from the blocking security review, 2026-08-13. Each one
+ * pins a behaviour whose absence was invisible: the code ran, nothing
+ * errored, and a comment asserted the opposite of what happened.
+ */
+describe('TrainingPlansService — security review regressions', () => {
+  it('reclaims a lease left in `generating` by a worker that died', async () => {
+    // Finding 6. The claim query filtered on `queued` while the same
+    // statement set `generating`, so a worker killed mid-generation
+    // stranded that plan forever — the coach polled a spinner with no
+    // timeout, and the admin panel counted only `queued` so could not
+    // see it either. The lease TTL was decorative.
+    const query = jest.fn().mockResolvedValue([]);
+    const service = new TrainingPlansService(
+      { query } as never,
+      { get: () => undefined } as never,
+      { list: () => [], findBySlug: () => undefined } as never,
+      { count: jest.fn(), find: jest.fn(), findOne: jest.fn() } as never,
+    );
+
+    await service.leaseNext();
+
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain('status = ANY($1)');
+    expect(params[0]).toEqual(['queued', 'generating']);
+  });
+
+  it('lets a coach delete their own plan, and only their own', async () => {
+    // Finding 2. With no player_id an ADR-0013 erasure cannot find a
+    // name a coach typed into a prompt, so this delete is the only
+    // remedy short of the 365-day sweep.
+    const del = jest.fn().mockResolvedValue({ affected: 1 });
+    const service = new TrainingPlansService(
+      { query: jest.fn() } as never,
+      { get: () => undefined } as never,
+      { list: () => [], findBySlug: () => undefined } as never,
+      { delete: del } as never,
+    );
+
+    await service.deleteOwned(
+      '11111111-1111-1111-1111-111111111111',
+      '22222222-2222-2222-2222-222222222222',
+    );
+
+    expect(del).toHaveBeenCalledWith({
+      id: '22222222-2222-2222-2222-222222222222',
+      staffAccountId: '11111111-1111-1111-1111-111111111111',
+    });
+  });
+
+  it('refuses to delete a plan that is not the caller own', async () => {
+    const del = jest.fn().mockResolvedValue({ affected: 0 });
+    const service = new TrainingPlansService(
+      { query: jest.fn() } as never,
+      { get: () => undefined } as never,
+      { list: () => [], findBySlug: () => undefined } as never,
+      { delete: del } as never,
+    );
+
+    await expect(
+      service.deleteOwned(
+        '11111111-1111-1111-1111-111111111111',
+        '33333333-3333-3333-3333-333333333333',
+      ),
+    ).rejects.toBeInstanceOf(TrainingPlanNotFoundException);
+  });
+});

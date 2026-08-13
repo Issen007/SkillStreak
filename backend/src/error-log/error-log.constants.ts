@@ -58,5 +58,7 @@ export const ERROR_LOG_JOB_NAMES = {
   usageMetricsReport: 'usage-metrics:report',
   errorLogRetention: 'error-log:retention',
   bugReportRetention: 'bug-report:retention',
+  /** ADR-0028 Decision 7's 365-day sweep for generated training plans. */
+  trainingPlanRetention: 'training-plan:retention',
   eventRegistrationRetention: 'event-registration:retention',
 } as const;

@@ -4,19 +4,18 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 // topology needs (owner's choice 2026-08-12: the GPU cluster has no
 // inbound route, so it leases work rather than being called).
 //
-// The absences are the design, and they are the same ones ADR-0022
-// Decision 6 made for ErrorLogEntry: **no player_id, no team_id, no FK to
-// anything child-scoped.** A generated training plan is an adult's work
-// product about an age band, not about a child, so this table needs no
-// entry in ADR-0013's per-entity erasure table — there is nothing about a
-// child in it to erase. `ON DELETE CASCADE` from staff_account handles the
-// only subject it does have.
+// The absences are deliberate: no player_id, no team_id, no FK to
+// anything child-scoped, which keeps this table out of every join that
+// could turn it into a profile.
 //
-// The residual ADR-0028 Decision 7(c) names rather than hides: a coach
-// CAN type a child's name into `prompt_text`. What stops that becoming a
-// systemic leak is structural and lives in the DTO — the request the API
-// sends carries promptText plus four enums and has no field capable of
-// holding roster, streak or team data, and no code path enriches it.
+// That is NOT the same as "this table holds no child data", which an
+// earlier version of this comment claimed. A coach can type a name into
+// `prompt_text` (ADR-0028 Decision 7(c) expects it), `generated_plan`
+// repeats the prompt back, and with no player_id an ADR-0013 erasure has
+// no key to find it by. Such a name is removed by the coach's own delete
+// or by the 365-day sweep, and by nothing else. See the entity for the
+// full statement — this is a real residual, not a solved problem.
+
 export class AddTrainingPlanDraft1787400000000 implements MigrationInterface {
   name = 'AddTrainingPlanDraft1787400000000';
 

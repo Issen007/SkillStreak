@@ -63,14 +63,11 @@ spec:
                 secretKeyRef:
                   name: plan-generator
                   key: TRAINING_PLAN_WORKER_TOKEN
-            # The weights are NOT baked into the image — the tagger's
-            # SigLIP is, but a 3B causal LM would roughly double an
-            # already 8 GB image for a feature that may not ship. It is
-            # fetched to the cache volume on first start instead, which
-            # means this pod needs egress the tagger does not (see the
-            # NetworkPolicy below) and takes several minutes to become
-            # ready the first time. Stated here because a slow first
-            # rollout otherwise reads as a hang.
+            # Baked into the image, like the tagger's. Overridable only
+            # to point at another model already present in the image —
+            # naming one that is not there fails at load rather than
+            # downloading it, which is the intended behaviour now that
+            # egress no longer allows a fetch.
             - name: TRAINING_PLAN_MODEL_ID
               valueFrom:
                 configMapKeyRef:
@@ -79,24 +76,11 @@ spec:
                   optional: true
             - name: HF_HOME
               value: /home/tagger/.cache/huggingface
-            # Overrides the image, and must. The Dockerfile sets
-            # HF_HUB_OFFLINE=1 because the TAGGER's weights are baked in
-            # and a pod that phoned home for them would be a bug. This
-            # container shares that image but not that property: its
-            # weights are fetched on first start, so inheriting the
-            # offline flag made transformers refuse to download and the
-            # pod crash-looped with "couldn't connect to huggingface.co"
-            # — while the NetworkPolicy was allowing the traffic
-            # perfectly well.
-            #
-            # This is the clearest argument for baking these weights too:
-            # then the flag is right for both containers, the egress
-            # narrows back to one host, and a reschedule does not re-fetch
-            # ~6 GB. Left as the documented trade rather than done now,
-            # because it roughly doubles an already-8 GB image for a
-            # feature that may not ship.
-            - name: HF_HUB_OFFLINE
-              value: "0" 
+            # No HF_HUB_OFFLINE override any more: the LM is baked into
+            # the image alongside the tagger's model, so the image's
+            # HF_HUB_OFFLINE=1 is now correct for both containers. The
+            # override existed because it was not, and that mismatch
+            # crash-looped this pod twice.
           resources:
             requests:
               nvidia.com/gpu: 1
@@ -149,11 +133,13 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
-    # 443 out: api.skillstreak.xyz for jobs, and the model host for the
-    # first weight download. **This is broader than the tagger's need**,
-    # because the tagger's weights are baked and this one's are not.
-    # Baking them would narrow this back to one host's worth of traffic
-    # and is the right move if the feature ships for real.
+    # 443 out, for the job queue and nothing else. This used to be
+    # broader — the pod also needed to reach the model host to download
+    # weights — and baking them is what allowed it to narrow. Still not
+    # host-restricted, because NetworkPolicy selects on IP blocks and
+    # api.skillstreak.xyz's address can move; an egress proxy with an
+    # allow-list is the remedy if that becomes unacceptable, not a CIDR
+    # that rots.
     - ports:
         - port: 443
           protocol: TCP

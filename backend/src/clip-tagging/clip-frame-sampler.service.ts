@@ -91,11 +91,18 @@ export class ClipFrameSamplerService {
    * Evenly-spaced stills, downscaled and centre-cropped to the model's
    * input size.
    *
-   * 224x224 is not a model detail leaking upward — it is a privacy control
-   * with a happy side effect. At that size a face is a dozen pixels wide,
-   * so what crosses the boundary is legible as "a person doing something
-   * on a court" and not as a recognisable child. The model wanting exactly
-   * that size is convenient, not the reason.
+   * 224x224 is a privacy control as well as a model input size, but the
+   * claim it used to carry here — "a face is a dozen pixels" — was only
+   * true for wide court shots. The filter scales to COVER and then
+   * centre-crops, so a phone held at arm's length or a close-up drill
+   * lands a face at 60-125px: reduced, but recognisable to a person and
+   * within reach of face matching. A security review measured this.
+   *
+   * What is honestly true: what crosses the boundary is a small number of
+   * reduced-resolution, silent, metadata-stripped, unlabelled stills. That
+   * is a real reduction in what leaves and it is worth having. It is not
+   * anonymisation, and it should never be described to a parent or a
+   * regulator as though it were.
    */
   /**
    * The exact ffmpeg invocation, exposed so it can be asserted against
@@ -132,12 +139,21 @@ export class ClipFrameSamplerService {
   }
 
   async sample(storageKey: string, frameCount: number): Promise<Buffer[]> {
+    // The output directory is created BEFORE the clip is written to
+    // disk, and that ordering is the fix rather than a style choice:
+    // `writeTempFile` puts an entire decrypted clip on the API pod's
+    // disk, and when `mkdtemp` came second, a failure there (disk full,
+    // EMFILE, /tmp permissions) skipped the `finally` below and left that
+    // file behind indefinitely. Nothing sweeps /tmp on the API pod, so it
+    // was exactly the "quiet accumulation" the cleanup comment claims to
+    // prevent. Now the only thing between the clip hitting disk and the
+    // `try` is nothing at all.
+    const outputDir = await mkdtemp(join(tmpdir(), 'clip-frames-'));
     const buffer = await this.objectStorageService.getObjectBuffer(storageKey);
     const sourcePath = await this.videoProcessingService.writeTempFile(
       buffer,
       'src',
     );
-    const outputDir = await mkdtemp(join(tmpdir(), 'clip-frames-'));
 
     try {
       await execFileAsync(

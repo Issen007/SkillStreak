@@ -206,6 +206,30 @@ export class TrainingPlansService {
   }
 
   /**
+   * Delete one of the caller's own plans.
+   *
+   * ADR-0028 Decision 7(c)'s residual is that a coach can type a child's
+   * name into a prompt, and an ADR-0013 erasure cannot find it because
+   * this table deliberately has no `player_id`. That makes this the only
+   * way such a name is removed before the 365-day sweep — so it exists,
+   * and it is scoped to the caller's own rows like every other route
+   * here.
+   *
+   * Hard delete, not a soft flag: the entire point is that the text
+   * stops existing.
+   */
+  async deleteOwned(staffAccountId: string, id: string): Promise<void> {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      throw new TrainingPlanNotFoundException();
+    }
+    const result = await this.draftRepository.delete({
+      id,
+      staffAccountId,
+    });
+    if (!result.affected) throw new TrainingPlanNotFoundException();
+  }
+
+  /**
    * Claim the next queued plan. One statement, for the same two reasons
    * the clip-tagging claim is one statement: atomicity, and TypeORM's
    * `query()` returning `[rows, count]` for `UPDATE ... RETURNING` but
@@ -221,9 +245,22 @@ export class TrainingPlansService {
       focus: string | null;
       locale: string;
     }> = await this.dataSource.query(
+      // `status IN (queued, generating)` — not `= queued`.
+      //
+      // The first version filtered on `queued` while the same statement
+      // set `generating`, which made the lease TTL decorative: once
+      // leased, a row could never match again, so a worker killed
+      // mid-generation (OOM, node loss, SIGKILL) stranded that plan
+      // forever. The coach polled a spinner with no timeout, and the
+      // admin panel built to notice a dead generator counted only
+      // `queued` and so could not see it either.
+      //
+      // Including `generating` restores what the expiry was for: a lease
+      // that has run out is reclaimable regardless of the status the
+      // previous attempt left behind. `attempts` still bounds the retries.
       `WITH next_plan AS (
          SELECT id FROM training_plan_draft
-          WHERE status = $1 AND attempts < $2
+          WHERE status = ANY($1) AND attempts < $2
             AND (leased_until IS NULL OR leased_until < now())
           ORDER BY created_at
           LIMIT 1 FOR UPDATE SKIP LOCKED
@@ -240,7 +277,7 @@ export class TrainingPlansService {
        )
        SELECT * FROM leased`,
       [
-        TrainingPlanStatus.QUEUED,
+        [TrainingPlanStatus.QUEUED, TrainingPlanStatus.GENERATING],
         this.attemptCap,
         String(this.leaseSeconds),
         TrainingPlanStatus.GENERATING,
