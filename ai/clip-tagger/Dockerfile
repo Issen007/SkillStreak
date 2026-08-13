@@ -38,6 +38,18 @@ RUN uv sync --extra model --no-dev
 # NetworkPolicy, so a pod that needed to download at startup would never
 # become Ready. Overridable for a model swap without a code change.
 ARG CLIP_TAGGER_MODEL_ID=google/siglip-base-patch16-224
+# The plan generator's LM, baked alongside the tagger's vision model.
+#
+# Fetching it at boot instead cost two crash loops and a broad egress
+# rule: the image sets HF_HUB_OFFLINE=1 for the tagger's sake, the
+# generator inherited it, and transformers refused to download while the
+# NetworkPolicy was allowing the traffic perfectly well. Baking makes the
+# offline flag correct for BOTH containers, lets the generator's egress
+# narrow to the API alone, and stops a reschedule re-fetching ~6 GB.
+#
+# The cost is real and is the reason this was not done first: it roughly
+# doubles the image. Accepted deliberately (owner, 2026-08-13).
+ARG TRAINING_PLAN_MODEL_ID=Qwen/Qwen2.5-3B-Instruct
 ENV HF_HOME=/opt/hf-cache
 
 # `.venv/bin/python`, never `uv run`. `uv run` re-syncs the project before
@@ -51,6 +63,15 @@ RUN CLIP_TAGGER_MODEL_ID="${CLIP_TAGGER_MODEL_ID}" /app/.venv/bin/python -c "\
 from transformers import AutoModel, AutoProcessor; \
 import os; m = os.environ['CLIP_TAGGER_MODEL_ID']; \
 AutoProcessor.from_pretrained(m); AutoModel.from_pretrained(m); \
+print('weights baked:', m)"
+
+# Downloaded with the same call the generator makes, so a model whose
+# tokenizer or config needs a dependency this image lacks fails HERE, at
+# build time, rather than as a crash loop on a GPU node.
+RUN TRAINING_PLAN_MODEL_ID="${TRAINING_PLAN_MODEL_ID}" /app/.venv/bin/python -c "\
+from transformers import AutoModelForCausalLM, AutoTokenizer; \
+import os; m = os.environ['TRAINING_PLAN_MODEL_ID']; \
+AutoTokenizer.from_pretrained(m); AutoModelForCausalLM.from_pretrained(m); \
 print('weights baked:', m)"
 
 
@@ -75,7 +96,12 @@ COPY --from=builder --chown=10001:10001 /opt/hf-cache /opt/hf-cache
 USER 10001
 
 ARG CLIP_TAGGER_MODEL_ID=google/siglip-base-patch16-224
+ARG TRAINING_PLAN_MODEL_ID=Qwen/Qwen2.5-3B-Instruct
+# HF_HUB_OFFLINE=1 is now correct for BOTH containers, because both
+# models are baked. Neither should ever reach the network for weights,
+# and if one tries, failing loudly here is the behaviour we want.
 ENV CLIP_TAGGER_MODEL_ID=${CLIP_TAGGER_MODEL_ID} \
+    TRAINING_PLAN_MODEL_ID=${TRAINING_PLAN_MODEL_ID} \
     HF_HOME=/opt/hf-cache \
     HF_HUB_OFFLINE=1 \
     PYTHONPATH=/app/src

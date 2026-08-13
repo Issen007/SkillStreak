@@ -143,6 +143,14 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
+      # Structural checks for the staff console. It is a single vanilla-JS
+      # file with no test framework, and that gap has cost real downtime:
+      # a refactor once deleted two view functions while leaving their nav
+      # entries, and the blank admin console that resulted was found by a
+      # person rather than by CI. Runs in under a second.
+      - name: Console structural checks
+        run: node console/check-console.mjs
+
       - name: Build
         run: pnpm run build
 
@@ -701,6 +709,12 @@ jobs:
       - name: Configure kubectl for the GPU cluster
         if: steps.configured.outputs.ready == 'true'
         run: |
+          # --insecure-skip-tls-verify presents a long-lived token to an
+          # unauthenticated endpoint. Flagged by the security review and
+          # kept ONLY because no CA bundle for this cluster is available
+          # as a secret yet; the fix is AI_KUBE_CA_CERT alongside the URL
+          # and token. Same pattern as the app cluster's deploy job, which
+          # has the same gap.
           kubectl config set-cluster gpu --server="${{ secrets.AI_KUBE_URL }}" --insecure-skip-tls-verify=true
           kubectl config set-credentials gpu --token="${{ secrets.AI_KUBE_TOKEN }}"
           kubectl config set-context gpu --cluster=gpu --user=gpu --namespace=skillstreak-ai
@@ -737,13 +751,17 @@ jobs:
           # working perfectly well, just slowly.
           kubectl -n skillstreak-ai rollout status deployment/plan-generator --timeout=20m
 
-      # The worker has no HTTP endpoint to probe (nothing listens, by
-      # design), so "is it actually working" is answered by its own log
-      # line rather than by a health check.
-      - name: Show what the worker reports
-        if: steps.configured.outputs.ready == 'true'
-        run: |
-          kubectl -n skillstreak-ai logs deployment/clip-tagger --tail=20 || true
+      # Deliberately no `kubectl logs` step any more. Reading pod logs
+      # required `pods/log`, and combined with pod-spec write access that
+      # was a direct read of the worker token (security review, 2026-08-13)
+      # — a convenience log line is not worth a path to the credential
+      # standing in front of children's video frames.
+      #
+      # `rollout status` above already fails the job if a Deployment does
+      # not come up, which is the part that actually gates the deploy. To
+      # see what a worker reports, use your own kubeconfig:
+      #   kubectl --context skillstreak-gpu -n skillstreak-ai \
+      #     logs deployment/plan-generator | grep starting
 
   release:
     name: Version and Release

@@ -176,11 +176,13 @@
       { id: 'bugs', label: 'Bug reports', ico: '🐛' },
       { id: 'planning', label: 'Planning', ico: '🗺️' },
       { id: 'drills', label: 'Drill library', ico: '📗' },
-      { id: 'tagging', label: 'Clip tagging', ico: '🏷️' }
+      { id: 'plans', label: 'Session planner', ico: '🧠' },
+      { id: 'tagging', label: 'AI health', ico: '🏷️' }
     ],
     pt: [
       { id: 'teams', label: 'My teams', ico: '🏑' },
-      { id: 'drills', label: 'Drill library', ico: '📗' }
+      { id: 'drills', label: 'Drill library', ico: '📗' },
+      { id: 'plans', label: 'Session planner', ico: '🧠' }
     ]
   };
 
@@ -189,7 +191,7 @@
    * navigated out of the app". */
   var ROUTE_TAB = {
     team: 'teams', player: 'teams', graphs: 'graphs', drill: 'drills',
-    drillGroups: 'drills', bugs: 'bugs'
+    drillGroups: 'drills', plan: 'plans', bugs: 'bugs'
   };
 
   function tabForRoute(route) {
@@ -530,6 +532,58 @@
       '</div>';
   }
 
+
+  /* ---- session planner ------------------------------------------------ */
+
+  /* Status as a coach should read it. Never the model's own words: a
+   * failure here is "it did not work", not a stack trace, and the app
+   * deliberately stores a fixed phrase rather than the generator's
+   * error. */
+  function planStatusLabel(plan) {
+    if (plan.status === 'ready') return 'Ready';
+    if (plan.status === 'failed') {
+      return plan.failureReason || 'Could not be written this time.';
+    }
+    return 'Generating… this takes about a minute.';
+  }
+
+  function planRows(plans) {
+    if (!plans.length) {
+      return '<div class="card"><p class="muted">No sessions yet. ' +
+        'Describe one above.</p></div>';
+    }
+    return plans.map(function (plan) {
+      return '<div class="card">' +
+        '<h3 style="margin:0 0 4px;font-size:15px">' +
+          esc(plan.promptText) + '</h3>' +
+        '<p class="muted" style="margin:0 0 10px">' +
+          esc(ageBandLabel(plan.ageBand)) + ' · ' +
+          esc(plan.durationMinutes) + ' min · ' +
+          esc(planStatusLabel(plan)) + '</p>' +
+        (plan.status === 'ready'
+          ? '<button data-go="plan/' + esc(plan.id) + '">Open session</button> '
+          : '') +
+        '<button data-drop-plan="' + esc(plan.id) + '">Delete</button>' +
+        '</div>';
+    }).join('');
+  }
+
+  /* One timer at a time, cancelled on navigation. Without the guard, each
+   * refresh would start another and the page would poll faster and faster
+   * the longer it stayed open. */
+  var planRefreshTimer = null;
+
+  function schedulePlanRefresh() {
+    if (planRefreshTimer) clearTimeout(planRefreshTimer);
+    planRefreshTimer = setTimeout(function () {
+      planRefreshTimer = null;
+      // state.tab is the router's own record of where we are.
+      // Re-rendering a page the coach has navigated away from
+      // would fight their navigation.
+      if (state.tab === 'plans') go('plans');
+    }, 8000);
+  }
+
   /* ---- drill groups ---------------------------------------------------
    *
    * A trainer's own shelves over the shared library. Private to whoever
@@ -795,7 +849,34 @@
       'Träningsmaterial skrivet av tränare. Det innehåller inga klipp, inga träningsloggar och inga spelaruppgifter — övningarna är filer som en människa läser innan de publiceras.',
     'Nothing here yet. Drills are added to the repository and arrive with the next release.':
       'Inget här än. Övningar läggs till i repot och dyker upp vid nästa release.',
+    /* session planner */
+    'Session planner': 'Passplaneraren',
+    'Describe the session you want and it is written from the drill library. It takes about a minute. Read it before you use it — it is a draft, not a coach.':
+      'Beskriv passet du vill ha så skrivs det utifrån övningsbanken. Det tar ungefär en minut. Läs igenom det innan du använder det — det är ett utkast, inte en tränare.',
+    'What kind of session?': 'Vilken typ av pass?',
+    'Describe the session, not the players — do not write anyone\'s name here.':
+      'Beskriv passet, inte spelarna — skriv inte någons namn här.',
+    'Delete': 'Ta bort',
+    'Tap again to delete': 'Tryck igen för att ta bort',
+    'kul pass med mycket rörelse': 'kul pass med mycket rörelse',
+    'Age group': 'Åldersgrupp',
+    'Minutes': 'Minuter',
+    'Focus': 'Fokus',
+    'Write the session': 'Skriv passet',
+    'Describe the session in a few words first.': 'Beskriv passet med några ord först.',
+    'Sending…': 'Skickar…',
+    'No sessions yet. Describe one above.': 'Inga pass än. Beskriv ett ovan.',
+    'Generating… this takes about a minute.': 'Skriver… det tar ungefär en minut.',
+    'Could not be written this time.': 'Kunde inte skrivas den här gången.',
+    'Ready': 'Klart',
+    'Open session': 'Öppna passet',
+    'A draft — read it before you use it.': 'Ett utkast — läs igenom innan du använder det.',
     /* clip tagging */
+    'AI health': 'AI-status',
+    'Session planner stats unavailable.': 'Statistik för passplaneraren är inte tillgänglig.',
+    'Sessions written': 'Skrivna pass',
+    'Failed': 'Misslyckade',
+    'Queue empty.': 'Kön är tom.',
     'Clip tagging': 'Klippmärkning',
     'How the automatic training-type tagger is doing, across every published clip. Counts only — this page cannot show which clip, which team or which player, and has no filter that could.':
       'Hur den automatiska märkningen av träningstyp fungerar, över alla publicerade klipp. Bara antal — sidan kan inte visa vilket klipp, vilket lag eller vilken spelare, och har inget filter som skulle kunna det.',
@@ -1755,6 +1836,7 @@
                 }).join('') + '</tbody></table>'
               : '<p class="muted" style="margin:0">No tags stored yet.</p>') +
           '</div>' +
+          '<div id="planHealth"></div>' +
           '<div class="card">' +
             '<h3 style="margin:0 0 8px;font-size:15px">Produced by' +
               info('Every stored tag records the model and the prompt ' +
@@ -1770,6 +1852,193 @@
                 }).join('')
               : '<p class="muted" style="margin:0">Nothing yet.</p>') +
           '</div>';
+
+        /* Plan generation lives in the same panel rather than a fourth AI
+         * tab: an operator asking "is the AI working" means both, and a
+         * tab nobody opens is not visibility. Fetched separately so a
+         * failure here cannot blank the tagging numbers. */
+        api.get('/api/v1/admin/training-plans/stats').then(function (p) {
+          var stale = p.oldestQueuedSeconds !== null &&
+                      p.oldestQueuedSeconds > 600;
+          document.getElementById('planHealth').innerHTML =
+            '<div class="card">' +
+              '<h3 style="margin:0 0 8px;font-size:15px">Session planner' +
+                info('The generator has no HTTP endpoint by design, so ' +
+                     'nothing probes it. A queue that stops draining is ' +
+                     'the signal that it has gone away — that is what ' +
+                     '"oldest waiting" is for.') +
+              '</h3>' +
+              '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+                tile(p.totalPlans, 'Sessions written') +
+                tile(p.queued, 'Waiting') +
+                tile(p.failed, 'Failed') +
+              '</div>' +
+              (p.oldestQueuedSeconds === null
+                ? '<p class="muted" style="margin:0">Queue empty.</p>'
+                : '<p class="' + (stale ? 'err' : 'muted') + '" style="margin:0">' +
+                  'Oldest waiting: ' + esc(Math.round(p.oldestQueuedSeconds / 60)) +
+                  ' min' + (stale ? ' — the generator may be down.' : '') +
+                  '</p>') +
+              (p.models.length
+                ? p.models.map(function (m) {
+                    return '<p class="muted" style="margin:6px 0 0">' +
+                      esc(m.modelId) + ' — ' + esc(m.count) + '</p>';
+                  }).join('')
+                : '') +
+            '</div>';
+        }).catch(function () {
+          document.getElementById('planHealth').innerHTML =
+            '<div class="card"><p class="muted">Session planner stats ' +
+            'unavailable.</p></div>';
+        });
+      }).catch(function (e) { fail(view, e); });
+    },
+
+
+    /* The session planner (ADR-0028 Phase 1).
+     *
+     * Asynchronous by necessity, not by preference: the GPU cluster has
+     * no inbound route, so a request is a job the generator leases. That
+     * shows up here as "Generating…" and a poll — and the copy says how
+     * long it takes, because a spinner with no estimate reads as broken
+     * after about ten seconds.
+     *
+     * Nothing on this page is child-facing and nothing accepts a player.
+     * ADR-0028 Decision 5: the consumer is a staff account, and there is
+     * no child-facing prompt box anywhere in this app. */
+    plans: function (view) {
+      api.get('/api/v1/training-plans').then(function (plans) {
+        view.innerHTML =
+          '<h2>Session planner</h2>' +
+          '<div class="card">' +
+            '<p class="muted" style="margin:0 0 12px">Describe the session ' +
+            'you want and it is written from the drill library. It takes ' +
+            'about a minute. Read it before you use it — it is a draft, ' +
+            'not a coach.</p>' +
+            '<label for="planPrompt">What kind of session?</label>' +
+            '<p class="muted" style="margin:0 0 6px">Describe the ' +
+            'session, not the players — do not write anyone\'s name ' +
+            'here.</p>' +
+            '<input id="planPrompt" maxlength="1000" autocomplete="off" ' +
+              'placeholder="kul pass med mycket rörelse">' +
+            '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">' +
+              '<span><label for="planAge">Age group</label>' +
+              '<select id="planAge">' +
+                DRILL_AGE_BANDS.map(function (b) {
+                  return '<option value="' + esc(b) + '">' +
+                    esc(ageBandLabel(b)) + '</option>';
+                }).join('') +
+              '</select></span>' +
+              '<span><label for="planMinutes">Minutes</label>' +
+              '<select id="planMinutes">' +
+                [15, 30, 45, 60, 90].map(function (m) {
+                  return '<option value="' + m + '"' +
+                    (m === 45 ? ' selected' : '') + '>' + m + '</option>';
+                }).join('') +
+              '</select></span>' +
+              '<span><label for="planFocus">Focus</label>' +
+              '<select id="planFocus"><option value="">—</option>' +
+                DRILL_FOCUSES.map(function (f) {
+                  return '<option value="' + esc(f) + '">' +
+                    esc(focusLabel(f)) + '</option>';
+                }).join('') +
+              '</select></span>' +
+            '</div>' +
+            '<p style="margin-top:12px"><button id="planGo" class="primary">' +
+              'Write the session</button></p>' +
+            '<p id="planMsg" class="muted"></p>' +
+          '</div>' +
+          '<div id="planList">' + planRows(plans) + '</div>';
+
+        document.getElementById('planGo').onclick = function () {
+          var msg = document.getElementById('planMsg');
+          var body = {
+            promptText: document.getElementById('planPrompt').value.trim(),
+            ageBand: document.getElementById('planAge').value,
+            durationMinutes: Number(document.getElementById('planMinutes').value),
+            focus: document.getElementById('planFocus').value || undefined,
+            locale: effectiveLang()
+          };
+          if (body.promptText.length < 3) {
+            msg.className = 'err';
+            msg.textContent = 'Describe the session in a few words first.';
+            return;
+          }
+          msg.className = 'muted';
+          msg.textContent = 'Sending…';
+          api.post('/api/v1/training-plans', body).then(function () {
+            go('plans');
+          }).catch(function (err) {
+            msg.className = 'err';
+            msg.textContent = errorMessage(err);
+          });
+        };
+
+        /* Deleting matters more here than it looks: a coach who typed a
+         * player's name into a prompt has no other way to remove it —
+         * this table has no player id, so an account erasure cannot find
+         * it either (ADR-0028 Decision 7(c)). Two clicks rather than a
+         * confirm() dialog, same as everywhere else in this console. */
+        Array.prototype.forEach.call(
+          view.querySelectorAll('[data-drop-plan]'),
+          function (button) {
+            button.onclick = function () {
+              if (!button.getAttribute('data-armed')) {
+                button.setAttribute('data-armed', '1');
+                button.textContent = 'Tap again to delete';
+                return;
+              }
+              api.del('/api/v1/training-plans/' +
+                encodeURIComponent(button.getAttribute('data-drop-plan')))
+                .then(function () { go('plans'); })
+                .catch(function (err) {
+                  var msg = document.getElementById('planMsg');
+                  msg.className = 'err';
+                  msg.textContent = errorMessage(err);
+                });
+            };
+          }
+        );
+
+        /* Poll only while something is actually being generated, and stop
+         * when the view changes — an interval left running after
+         * navigation would keep hitting the API from a page nobody is
+         * looking at. */
+        if (plans.some(function (p) {
+          return p.status === 'queued' || p.status === 'generating';
+        })) {
+          schedulePlanRefresh();
+        }
+      }).catch(function (e) { fail(view, e); });
+    },
+
+    /* One session. The body is Markdown a model wrote, rendered as
+     * escaped plain text in a <pre> — same choice as the drill detail
+     * view, and more important here: this text is machine-generated, so
+     * parsing it into HTML would let a model's output become markup. */
+    plan: function (view, id) {
+      api.get('/api/v1/training-plans/' + encodeURIComponent(id)).then(function (p) {
+        view.innerHTML =
+          backLink('plans', 'Session planner') +
+          '<h2>' + esc(p.promptText) + '</h2>' +
+          '<div class="card">' +
+            '<p class="muted" style="margin:0 0 12px">' +
+              esc(ageBandLabel(p.ageBand)) + ' · ' +
+              esc(p.durationMinutes) + ' min' +
+              (p.focus ? ' · ' + esc(focusLabel(p.focus)) : '') +
+            '</p>' +
+            (p.status === 'ready'
+              ? '<pre style="white-space:pre-wrap;font:inherit;margin:0">' +
+                esc(p.generatedPlan) + '</pre>'
+              : '<p class="muted" style="margin:0">' +
+                esc(planStatusLabel(p)) + '</p>') +
+          '</div>' +
+          (p.status === 'ready'
+            ? '<div class="card"><p class="muted" style="margin:0">' +
+              'Written by ' + esc(p.modelId || '—') + ' from ' +
+              esc(String(p.corpusVersion || '').split(':')[0] || '0') +
+              ' drills. A draft — read it before you use it.</p></div>'
+            : '');
       }).catch(function (e) { fail(view, e); });
     },
 

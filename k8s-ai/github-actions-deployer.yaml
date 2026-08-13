@@ -5,19 +5,38 @@
 # permission set is deliberately much smaller, because `deploy-ai` does
 # much less than `deploy`. It applies two objects and reads two things.
 #
-# Notably absent, and each absence is the point:
+# **Read this before trusting the absence of a `secrets` verb.**
 #
-#  - **No secrets access at all.** The app cluster's deployer can create
-#    and patch `skillstreak-secret` because CI builds it from GitHub
-#    secrets. Here the Secret holds the worker's credential to the app
-#    cluster, it is created once by hand, and CI has no business reading
-#    or replacing it. A compromised CI run cannot exfiltrate it.
-#  - No services, PVCs, ingresses, gateways or certificates. This
-#    namespace has none — the worker listens on nothing (it pulls), so
-#    there is nothing to route to it.
-#  - No `delete` on anything. No deploy step deletes an object, and a
-#    deployer that can delete a Deployment can take the feature down
-#    without replacing it.
+# An earlier version of this file claimed "a compromised CI run cannot
+# exfiltrate" the worker token because the Role grants no `secrets`
+# access. **That claim was false**, and a security review confirmed the
+# exploit: `create` on a Deployment plus `get` on `pods/log`, in the same
+# namespace as the Secret, is a Secret read. Mount it with a
+# `secretKeyRef`, echo it, read the log. No `secrets` verb is involved at
+# any point.
+#
+# That is a property of Kubernetes RBAC, not a mistake in the rule list:
+# **anything that can write a pod spec in a namespace can read every
+# Secret in it.** No arrangement of verbs here fixes that. What this file
+# can do is remove the cheap paths and be honest about the rest:
+#
+#  - **No `pods` or `pods/log`.** This is what closed the easy read. The
+#    deploy job no longer prints the worker's log; an operator with their
+#    own kubeconfig can, and should.
+#  - **No `create` on Deployments.** Both Deployments already exist and
+#    are bootstrapped by hand like this ServiceAccount is. Removing it
+#    means CI cannot introduce a *new* pod spec of its own design —
+#    only update the two that are reviewed in git.
+#  - **`update`/`patch` are scoped by `resourceNames`** to those two.
+#  - No `delete` on anything.
+#
+# **The residual, stated rather than hidden:** `patch` on a named
+# Deployment can still rewrite that Deployment's `command` and env, and
+# egress on 443 is open, so a compromised CI run could still exfiltrate
+# the token without ever reading a log. Closing that needs the Secret out
+# of this namespace (external secret store, or a projected token the pod
+# fetches itself) — tracked, not solved here. Do not re-add a comment
+# claiming this credential cannot reach the token.
 #
 # Not applied by CI itself: chicken-and-egg, and a deployer should not be
 # able to grant itself more rights. Apply once by hand with a kubeconfig
@@ -44,9 +63,16 @@ rules:
   # The clip-tagger Deployment. `get` is required by `kubectl apply` to
   # read the live object before computing a patch, and by `rollout status`;
   # `watch` is what makes `rollout status` block rather than poll.
+  # No `create`: both Deployments are bootstrapped by hand, so CI can
+  # only update pod specs that already exist and are reviewed in git.
+  # `resourceNames` narrows the writes to exactly those two.
   - apiGroups: ["apps"]
     resources: ["deployments"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["clip-tagger", "plan-generator"]
+    verbs: ["update", "patch"]
   # `rollout status` reads the Deployment's ReplicaSets to explain what it
   # is waiting for. Read-only: CI never creates or modifies one directly.
   - apiGroups: ["apps"]
@@ -64,11 +90,11 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get", "list"]
-  # The worker exposes no HTTP endpoint by design, so its own log line is
-  # the only way the deploy job can report whether it actually started.
-  - apiGroups: [""]
-    resources: ["pods", "pods/log"]
-    verbs: ["get", "list"]
+  # Deliberately NO pods or pods/log. Combined with pod-spec write access
+  # it was a direct Secret read (see the header), and it only ever bought
+  # a convenience log line at the end of the deploy job. `rollout status`
+  # already reports whether the rollout succeeded, which is the part that
+  # actually gates the deploy.
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
