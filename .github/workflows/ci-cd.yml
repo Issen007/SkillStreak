@@ -493,6 +493,13 @@ jobs:
           # in the GPU cluster's skillstreak-ai namespace; a mismatch
           # presents as the worker getting 401s and no clip being tagged.
           CLIP_TAGGING_WORKER_TOKEN: ${{ secrets.CLIP_TAGGING_WORKER_TOKEN }}
+          # The plan generator's credential — a SEPARATE secret from the
+          # tagging one on purpose (ADR-0028 Decision 10): one shared
+          # value would mean enabling plan generation silently enables
+          # clip analysis, and a leak of either would be a leak of both.
+          # Same 'absent means off' contract: TrainingPlanWorkerGuard
+          # refuses every request without it.
+          TRAINING_PLAN_WORKER_TOKEN: ${{ secrets.TRAINING_PLAN_WORKER_TOKEN }}
         run: |
           kubectl create secret generic skillstreak-secret \
             --namespace skillstreak \
@@ -507,6 +514,7 @@ jobs:
             --from-literal=MINIO_CLIPS_SECRET_KEY="$MINIO_CLIPS_SECRET_KEY" \
             --from-literal=STAFF_JWT_SECRET="$STAFF_JWT_SECRET" \
             --from-literal=CLIP_TAGGING_WORKER_TOKEN="$CLIP_TAGGING_WORKER_TOKEN" \
+            --from-literal=TRAINING_PLAN_WORKER_TOKEN="$TRAINING_PLAN_WORKER_TOKEN" \
             --from-literal=ADMIN_EMAILS="$ADMIN_EMAILS" \
             --from-literal=GOOGLE_OAUTH_CLIENT_ID="$GOOGLE_OAUTH_CLIENT_ID" \
             --from-literal=GOOGLE_OAUTH_CLIENT_SECRET="$GOOGLE_OAUTH_CLIENT_SECRET" \
@@ -716,9 +724,18 @@ jobs:
         run: |
           owner="${{ github.repository_owner }}"
           image="ghcr.io/${owner,,}/skillstreak-clip-tagger:main-${GITHUB_SHA}"
-          sed "s|ghcr.io/issen007/skillstreak-clip-tagger:PLACEHOLDER_IMAGE_TAG|${image}|" \
-            k8s-ai/clip-tagger.yaml | kubectl apply -f -
+          for manifest in k8s-ai/clip-tagger.yaml k8s-ai/plan-generator.yaml; do
+            sed "s|ghcr.io/issen007/skillstreak-clip-tagger:PLACEHOLDER_IMAGE_TAG|${image}|" \
+              "$manifest" | kubectl apply -f -
+          done
+
           kubectl -n skillstreak-ai rollout status deployment/clip-tagger --timeout=10m
+          # Longer, and deliberately so: the plan generator's weights are
+          # NOT baked into the image (a 3B LM would roughly double an
+          # already-8GB image), so its first start downloads them. A
+          # timeout tuned to the tagger would fail a rollout that is
+          # working perfectly well, just slowly.
+          kubectl -n skillstreak-ai rollout status deployment/plan-generator --timeout=20m
 
       # The worker has no HTTP endpoint to probe (nothing listens, by
       # design), so "is it actually working" is answered by its own log
