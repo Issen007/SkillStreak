@@ -1,0 +1,105 @@
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
+
+export enum TrainerPostStatus {
+  PENDING_REVIEW = 'pending_review',
+  PUBLISHED = 'published',
+  REJECTED = 'rejected',
+}
+
+/**
+ * A tip published by a trainer, readable by anyone using the app.
+ *
+ * **This is content flowing IN to children, not children's data flowing
+ * out.** The closed-team-bubble rule protects the second; this is the
+ * first, and the two need different controls. What matters here is not
+ * "who may see this" but "who put it in front of a child" — hence an
+ * operator review before anything is visible, recorded on the row.
+ *
+ * The subject of a post is its author. There is no player, no team, no
+ * clip, and no column one could be added to without an obvious diff.
+ */
+@Entity('trainer_post')
+@Index('IDX_trainer_post_author', ['authorStaffAccountId', 'createdAt'])
+export class TrainerPost {
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
+
+  @Column({ name: 'author_staff_account_id', type: 'uuid' })
+  authorStaffAccountId!: string;
+
+  @Column({ type: 'varchar', length: 120 })
+  title!: string;
+
+  /** Plain text. Rendered escaped, never parsed as markup. */
+  @Column({ type: 'text' })
+  body!: string;
+
+  /**
+   * How the author wants to be known to readers.
+   *
+   * Deliberately not the account's display name. Publishing under your
+   * own name to an audience of children is a choice, and it should be
+   * made once, explicitly, rather than inherited from whatever the SSO
+   * provider happened to return at sign-in.
+   */
+  @Column({ name: 'author_byline', type: 'varchar', length: 80 })
+  authorByline!: string;
+
+  @Column({ type: 'varchar', length: 8, default: 'sv' })
+  locale!: string;
+
+  @Column({ name: 'age_band', type: 'varchar', length: 16, nullable: true })
+  ageBand!: string | null;
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  focus!: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: TrainerPostStatus,
+    enumName: 'trainer_post_status_enum',
+    default: TrainerPostStatus.PENDING_REVIEW,
+  })
+  status!: TrainerPostStatus;
+
+  /**
+   * Who let this onto children's screens.
+   *
+   * The operator review IS the control here — there is no automated
+   * judgement of whether a tip is appropriate for a nine-year-old, and
+   * pretending otherwise would be worse than admitting it. So the record
+   * of who approved it has to survive, which is why the FK is SET NULL
+   * rather than CASCADE: an operator leaving must not delete the
+   * evidence that a review happened.
+   */
+  @Column({
+    name: 'reviewed_by_staff_account_id',
+    type: 'uuid',
+    nullable: true,
+  })
+  reviewedByStaffAccountId!: string | null;
+
+  @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })
+  reviewedAt!: Date | null;
+
+  /** Shown to the author so a rejection is actionable, never to readers. */
+  @Column({
+    name: 'rejection_reason',
+    type: 'varchar',
+    length: 300,
+    nullable: true,
+  })
+  rejectionReason!: string | null;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+  createdAt!: Date;
+
+  @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
+  publishedAt!: Date | null;
+}

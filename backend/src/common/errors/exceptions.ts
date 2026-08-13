@@ -1096,3 +1096,30 @@ export class TrainingPlanWorkerUnauthorizedException extends AppException {
     );
   }
 }
+
+/**
+ * A trainer post containing a URL, email address or phone number.
+ *
+ * Names the field and what was found, because this one IS the author's to
+ * fix and a vague rejection would just get retried. Reuses the drill
+ * library's detector, so "no links, emails or phone numbers" means the
+ * same thing in both places.
+ */
+export class TrainerPostForbiddenContentException extends AppException {
+  constructor(field: string, what: string) {
+    super(
+      'trainer_post_forbidden_content',
+      `The ${field} contains what looks like ${what}. Posts can say who ` +
+        'you are and where you coach, but cannot carry links, email ' +
+        'addresses or phone numbers.',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}
+
+/** A post that is not the caller's, or not in a state they can act on. */
+export class TrainerPostNotFoundException extends AppException {
+  constructor() {
+    super('trainer_post_not_found', 'No such post.', HttpStatus.NOT_FOUND);
+  }
+}
