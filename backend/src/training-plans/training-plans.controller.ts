@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -62,6 +63,26 @@ export class TrainingPlansController {
   ): Promise<TrainingPlanView[]> {
     await this.drillAccessService.assertMayRead(staffAccountId, role);
     return this.trainingPlansService.listForStaff(staffAccountId);
+  }
+
+  /**
+   * Delete one of your own sessions.
+   *
+   * Exists because of ADR-0028 Decision 7(c): a coach who realises they
+   * typed a player's name into a prompt had, until now, no way to remove
+   * it — and erasure cannot find it either, since this table has no
+   * `player_id` to search on. Without this the only remedy was waiting
+   * out a 365-day sweep.
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @CurrentStaffAccountId() staffAccountId: string,
+    @CurrentStaffRole() role: StaffAccountRole | undefined,
+    @Param('id') id: string,
+  ): Promise<void> {
+    await this.drillAccessService.assertMayRead(staffAccountId, role);
+    await this.trainingPlansService.deleteOwned(staffAccountId, id);
   }
 
   @Get(':id')

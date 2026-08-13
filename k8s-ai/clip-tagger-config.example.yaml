@@ -26,15 +26,26 @@ data:
   # shared GPU should not be spent on test data.
   CLIP_TAGGING_API_URL: https://api.skillstreak.xyz
 ---
-# Shown for shape only. Create it with `kubectl create secret` as above
-# rather than committing a value, even a placeholder one — a placeholder
+# The Secret is deliberately NOT shown as an appliable manifest.
+#
+# It used to be, with the placeholder "REPLACE-ME-min-32-chars-see-comment
+# -above" — which is 41 characters, comfortably past the guard's 32-char
+# floor. The comment beside it predicted its own failure ("a placeholder
 # that reaches a cluster is worse than a missing key, because the guard's
-# length floor is the only thing that would catch it.
-apiVersion: v1
-kind: Secret
-metadata:
-  name: clip-tagger
-  namespace: skillstreak-ai
-type: Opaque
-stringData:
-  CLIP_TAGGING_WORKER_TOKEN: "REPLACE-ME-min-32-chars-see-comment-above"
+# length floor is the only thing that would catch it") and then shipped
+# the payload anyway. One `kubectl apply -f` on this path would have given
+# the cluster a token whose value is public in this repository.
+#
+# So there is nothing here to apply. Create it with a real value:
+#
+#   kubectl --context skillstreak-gpu -n skillstreak-ai \
+#     create secret generic clip-tagger \
+#     --from-literal=CLIP_TAGGING_WORKER_TOKEN="$(openssl rand -base64 48 \
+#       | tr -d '\n=+/' | cut -c1-48)"
+#
+# The same value goes into the app cluster as the CLIP_TAGGING_WORKER_TOKEN
+# GitHub secret. Until both sides match, the worker gets 401s and no clip
+# is tagged — which is the correct failure.
+#
+# `plan-generator` takes the same treatment with
+# TRAINING_PLAN_WORKER_TOKEN.

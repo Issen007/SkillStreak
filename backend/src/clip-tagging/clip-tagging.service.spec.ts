@@ -224,3 +224,71 @@ describe('ClipTaggingService', () => {
     });
   });
 });
+
+describe('ClipTaggingService — security review regressions', () => {
+  it('marks a clip failed once its attempts are spent', async () => {
+    // Finding 7. The cap stopped OFFERING an exhausted clip but never
+    // wrote `failed`, so the row sat at `not_processed` forever: the
+    // admin panel's `failed` was permanently 0 and `pending` was
+    // permanently inflated by clips the worker had correctly given up
+    // on — poisoning the one number that would reveal a dead worker.
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([{ id: 'clip-1', tagging_attempts: 3 }])
+      .mockResolvedValue([]);
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ClipTaggingService,
+        { provide: DataSource, useValue: { query } },
+        { provide: ConfigService, useValue: { get: () => undefined } },
+        { provide: ClipFrameSamplerService, useValue: { sample: jest.fn() } },
+      ],
+    }).compile();
+
+    const result = await module
+      .get(ClipTaggingService)
+      .reportFailure('44444444-4444-4444-4444-444444444444');
+
+    expect(result.applied).toBe(true);
+    const update = query.mock.calls.find((call) =>
+      String((call as [string])[0]).includes('UPDATE video_clip'),
+    ) as [string, unknown[]];
+    expect(update[1][1]).toBe('failed');
+  });
+
+  it('only writes tags for a clip that is still published', async () => {
+    // Finding 9. A clip reported and hidden mid-lease would otherwise
+    // still receive tag rows, contradicting the design doc's claim that
+    // "a clip hidden after selection is caught by the conditional write".
+    const query = jest.fn().mockResolvedValue([]);
+    const module = await Test.createTestingModule({
+      providers: [
+        ClipTaggingService,
+        {
+          provide: DataSource,
+          useValue: {
+            query,
+            transaction: (cb: (m: unknown) => unknown) =>
+              cb({ query, getRepository: () => ({ insert: jest.fn() }) }),
+          },
+        },
+        { provide: ConfigService, useValue: { get: () => undefined } },
+        { provide: ClipFrameSamplerService, useValue: { sample: jest.fn() } },
+      ],
+    }).compile();
+
+    await module
+      .get(ClipTaggingService)
+      .applyResult('55555555-5555-5555-5555-555555555555', [], {
+        modelId: 'm',
+        promptSetVersion: 'p',
+      });
+
+    const select = query.mock.calls.find((call) =>
+      String((call as [string])[0]).includes('FOR UPDATE'),
+    ) as [string, unknown[]];
+    expect(select[0]).toContain('status = $2');
+    expect(select[1][1]).toBe('published');
+  });
+});

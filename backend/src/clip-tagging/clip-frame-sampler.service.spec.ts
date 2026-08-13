@@ -82,9 +82,11 @@ describe('ClipFrameSamplerService ffmpeg contract', () => {
   });
 
   it('scales to the model input size, which is also the privacy bound', () => {
-    // 224x224 leaves a face about a dozen pixels across. If this ever
-    // grows, what crosses the cluster boundary becomes more identifiable
-    // — so the number is pinned rather than left to the contract alone.
+    // Pinned because it bounds what leaves the app cluster: if this
+    // number grows, every frame crossing the boundary becomes more
+    // identifiable. Note it reduces rather than anonymises — the filter
+    // covers and centre-crops, so a close-up still lands a face around
+    // 60-125px.
     expect(readContract().videoFilter).toContain('224:224');
   });
 });

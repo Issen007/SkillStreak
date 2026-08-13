@@ -277,6 +277,26 @@ class EnvironmentVariables {
   @IsOptional()
   BUG_REPORT_RETENTION_DAYS?: string;
 
+  // How long a generated training plan is kept (default 365 — see
+  // DEFAULT_TRAINING_PLAN_RETENTION_DAYS). Far longer than the windows
+  // above on purpose: a session plan is an adult's own work product about
+  // an age band, not child data. @IsOptional() alone, same reason.
+  @IsOptional()
+  TRAINING_PLAN_RETENTION_DAYS?: string;
+
+  // The GPU plan generator's bearer token. Absent means the feature is
+  // OFF — TrainingPlanWorkerGuard refuses every request without it — so
+  // this must never be stacked with @IsNotEmpty(), or an unconfigured
+  // cluster would fail to boot rather than simply not offering the
+  // feature.
+  @IsOptional()
+  TRAINING_PLAN_WORKER_TOKEN?: string;
+
+  // The clip-tagging worker's bearer token. Same contract: absent means
+  // off, never open.
+  @IsOptional()
+  CLIP_TAGGING_WORKER_TOKEN?: string;
+
   // How long a demo-event registration is kept before the daily sweep
   // deletes it (default 365 — see
   // DEFAULT_EVENT_REGISTRATION_RETENTION_DAYS). Same @IsOptional()-alone

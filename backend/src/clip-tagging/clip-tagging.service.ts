@@ -53,10 +53,13 @@ export interface ClipTaggingScore {
  * reviewer should judge it rather than discover it: **anyone holding the
  * worker token can pull frames of children's training video, one clip at a
  * time, from the public internet.** The token is the whole boundary. The
- * mitigations are that the frames are downscaled to 224x224 (a face is a
- * dozen pixels), silent, metadata-stripped, and unlabelled — but they are
- * still derived images of children, and that is the cost of the GPU
- * cluster not having an address of its own.
+ * mitigations are that the frames are reduced to 224x224, silent,
+ * metadata-stripped and unlabelled. That is a real reduction in what
+ * leaves — but a centre-cropped close-up still lands a face around
+ * 60-125px, so it is NOT anonymisation, and an earlier version of this
+ * comment overstated it as "a face is a dozen pixels". They remain
+ * derived images of children, and that is the cost of the GPU cluster not
+ * having an address of its own.
  */
 @Injectable()
 export class ClipTaggingService {
@@ -257,6 +260,33 @@ export class ClipTaggingService {
   /** The worker could not score this clip. Frees the lease so the next
    *  attempt can happen immediately, up to the cap. */
   async reportFailure(leaseId: string): Promise<{ applied: boolean }> {
+    // Mark it `failed` once the cap is spent, rather than only releasing
+    // the lease. The cap already stopped offering such a clip — but the
+    // row stayed `not_processed` forever, so `failed` was permanently 0
+    // and `pending` was permanently inflated by dead clips. The one
+    // number an operator watches to notice a dead worker was poisoned by
+    // clips the worker had correctly given up on.
+    const rows: Array<{ id: string; tagging_attempts: number }> =
+      await this.dataSource.query(
+        `SELECT id, tagging_attempts FROM video_clip WHERE tagging_lease_id = $1`,
+        [leaseId],
+      );
+    if (!rows.length) return { applied: false };
+
+    if (rows[0].tagging_attempts >= this.attemptCap) {
+      await this.dataSource.query(
+        `UPDATE video_clip
+            SET tagging_status = $2, tagging_lease_id = NULL,
+                tagging_leased_until = NULL
+          WHERE id = $1`,
+        [rows[0].id, VideoClipTaggingStatus.FAILED],
+      );
+      this.logger.warn(
+        `Clip tagging gave up on a clip after ${this.attemptCap} attempts.`,
+      );
+      return { applied: true };
+    }
+
     const released = await this.releaseLease(leaseId);
     return { applied: released };
   }
@@ -285,12 +315,18 @@ export class ClipTaggingService {
       // The lease must still be live. Re-checked inside the transaction
       // and with a lock, so two results for one lease cannot both apply.
       const rows: Array<{ id: string }> = await manager.query(
+        // `status = 'published'` as well as the live lease: a clip
+        // reported and hidden mid-lease would otherwise still get tag
+        // rows written. The design doc claims "a clip hidden after
+        // selection is caught by the conditional write" — this is the
+        // conditional write that makes that true.
         `SELECT id
            FROM video_clip
           WHERE tagging_lease_id = $1
             AND tagging_leased_until > now()
+            AND status = $2
           FOR UPDATE`,
-        [leaseId],
+        [leaseId, VideoClipStatus.PUBLISHED],
       );
       if (!rows.length) return { applied: false };
 

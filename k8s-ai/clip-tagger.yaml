@@ -120,12 +120,24 @@ spec:
         - name: cache
           emptyDir: {}
 ---
-# The control that makes "retains nothing, reaches nothing" checkable
-# rather than merely stated (Decision 4).
+# Egress is NOT denied entirely, and an earlier version of this comment
+# said it was.
 #
-# Egress denied entirely, with one exception for cluster DNS. A successful
-# exploit of an image-decode CVE therefore lands in a pod that can neither
-# persist anything nor phone home with it.
+# Under the pull topology this pod must reach api.skillstreak.xyz to ask
+# for work, and NetworkPolicy selects on IP blocks rather than hostnames,
+# so the rule below permits 443 to **any** destination. A compromised
+# clip-tagger pod — holding decoded frames of children's training video in
+# memory — could therefore POST them anywhere. "Cannot phone home" was
+# false, and it was written directly above the rule that made it false.
+#
+# What is still true: the pod persists nothing (readOnlyRootFilesystem,
+# emptyDir), accepts no inbound connection at all, and the frames it holds
+# are re-encoded by ffmpeg on the app cluster, so a malformed image cannot
+# be delivered through a player's upload. The live risk is dependency and
+# model supply chain, not attacker-controlled bytes.
+#
+# The remedy is an egress proxy with a hostname allow-list. Tracked, not
+# done. Do not restore a comment claiming egress is denied.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
