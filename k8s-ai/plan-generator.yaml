@@ -79,6 +79,24 @@ spec:
                   optional: true
             - name: HF_HOME
               value: /home/tagger/.cache/huggingface
+            # Overrides the image, and must. The Dockerfile sets
+            # HF_HUB_OFFLINE=1 because the TAGGER's weights are baked in
+            # and a pod that phoned home for them would be a bug. This
+            # container shares that image but not that property: its
+            # weights are fetched on first start, so inheriting the
+            # offline flag made transformers refuse to download and the
+            # pod crash-looped with "couldn't connect to huggingface.co"
+            # — while the NetworkPolicy was allowing the traffic
+            # perfectly well.
+            #
+            # This is the clearest argument for baking these weights too:
+            # then the flag is right for both containers, the egress
+            # narrows back to one host, and a reschedule does not re-fetch
+            # ~6 GB. Left as the documented trade rather than done now,
+            # because it roughly doubles an already-8 GB image for a
+            # feature that may not ship.
+            - name: HF_HUB_OFFLINE
+              value: "0" 
           resources:
             requests:
               nvidia.com/gpu: 1
