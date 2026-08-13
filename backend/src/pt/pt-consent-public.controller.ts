@@ -40,7 +40,7 @@ export class PtConsentPublicController {
   ): Promise<void> {
     const preview = await this.ptConsentService.previewByReviewCode(reviewCode);
     const html = preview
-      ? renderPtConsentReviewPage(preview)
+      ? renderPtConsentReviewPage({ ...preview, reviewCode })
       : renderPtConsentInvalidPage();
     res.status(HttpStatus.OK).type('html').send(html);
   }
