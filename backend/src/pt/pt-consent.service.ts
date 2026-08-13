@@ -322,6 +322,80 @@ export class PtConsentService {
   }
 
   /**
+   * Re-send a pending consent request's email (owner's request,
+   * 2026-08-13 — a coach whose email was missed, filtered as spam, or
+   * left too long had no way to try again except waiting for the request
+   * to expire and starting over).
+   *
+   * **The review code is rotated, not reused.** A resend is a statement
+   * that the previous link should not be the one used, and rotating means
+   * an old message forwarded on, left in a shared inbox, or sitting in a
+   * spam folder stops working the moment a new one is sent. The cost is
+   * that a parent who finds the older email first sees the invalid-code
+   * page — which is the correct outcome, and is why that page exists.
+   *
+   * Only the PT who owns the request can resend it, only while it is
+   * still `pending_review`, and only through the same active-team-link
+   * check every other PT action passes. A resend must never be a way to
+   * mail a parent from a relationship that has been revoked.
+   *
+   * Rate limiting is the controller's job and is not optional here: this
+   * is an endpoint that causes email to be sent to a child's parent, and
+   * an unbounded one is a way to harass a family through this app.
+   */
+  async resendConsentRequest(
+    ptStaffAccountId: string,
+    playerId: string,
+  ): Promise<{ resent: true; expiresAt: string }> {
+    const player = await this.playersService.findByIdOrThrow(playerId);
+    await this.assertActiveTeamLink(ptStaffAccountId, player.teamId);
+
+    const row = await this.ptPlayerConsentRepository.findOne({
+      where: {
+        ptStaffAccountId,
+        playerId,
+        status: PtPlayerConsentStatus.PENDING_REVIEW,
+      },
+    });
+    if (!row) {
+      // Same exception as "no such consent": a PT must not be able to
+      // learn whether a request exists in a state they cannot act on.
+      throw new PtPlayerConsentNotFoundException();
+    }
+
+    const { code, expiresAt } = generateHumanCode(
+      PT_CONSENT_REVIEW_CODE_TTL_MS,
+    );
+    row.reviewCode = code;
+    row.reviewCodeExpiresAt = expiresAt;
+    await this.ptPlayerConsentRepository.save(row);
+
+    const ptStaffAccount = await this.staffAccountRepository.findOne({
+      where: { id: ptStaffAccountId },
+    });
+
+    // The recipient comes from the FROZEN snapshot where one exists, not
+    // from a fresh lookup — the same reasoning the original request uses.
+    // A resend must reach the address the request was made about, not
+    // whatever address the account happens to hold today.
+    const parentContact = row.recipientContactSnapshot
+      ? decryptPii(row.recipientContactSnapshot, this.encryptionKey)
+      : await this.playerPrivateInfoService.getParentContact(playerId);
+
+    await this.sendRequestEmailBestEffort(
+      player.screenName,
+      player.locale,
+      isSelfVerificationAge(player.birthYear),
+      parentContact,
+      consentTrainerName(row, ptStaffAccount, 'okänd tränare'),
+      consentTrainerEmail(row, ptStaffAccount),
+      code,
+    );
+
+    return { resent: true, expiresAt: expiresAt.toISOString() };
+  }
+
+  /**
    * docs/adr/0023 Decision A3, security-reviewer Finding 6 — requires the
    * IDENTICAL active-PtTeamLink check as requestConsent above. Returns the
    * currently-active status (at most one of pending_review/approved can
