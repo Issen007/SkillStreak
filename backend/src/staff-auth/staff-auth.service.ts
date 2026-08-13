@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Request } from 'express';
@@ -64,6 +64,8 @@ const STEP_UP_CLOCK_SKEW_TOLERANCE_MS = 60 * 1000;
 // (Decision B2).
 @Injectable()
 export class StaffAuthService {
+  private readonly logger = new Logger(StaffAuthService.name);
+
   constructor(
     private readonly oidcClients: StaffOidcClientsService,
     private readonly pendingStaffAuthService: PendingStaffAuthService,
@@ -109,7 +111,21 @@ export class StaffAuthService {
       nonce,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
-      ...(options.stepUp ? { prompt: 'login', max_age: 0 } : {}),
+      // `max_age` in SECONDS, matching our own freshness window — not
+      // the `max_age: 0` this used to send.
+      //
+      // Zero is the pathological value: OIDC says it means "must
+      // re-authenticate now", but several IdPs (Google among them) treat
+      // it as falsy and drop the parameter entirely — which also drops
+      // the `auth_time` claim it exists to make REQUIRED. The callback
+      // then failed closed on a missing claim, which is why the Planning
+      // tab returned `oauth_callback_rejected` every time rather than
+      // occasionally. `prompt: 'login'` is what actually forces the
+      // re-authentication; `max_age` is what makes the IdP tell us when
+      // it happened.
+      ...(options.stepUp
+        ? { prompt: 'login', max_age: STEP_UP_MAX_AUTH_AGE_MS / 1000 }
+        : {}),
       ...(provider === StaffAuthProvider.APPLE
         ? { response_mode: 'form_post' }
         : {}),
@@ -202,14 +218,32 @@ export class StaffAuthService {
     if (pending.stepUp) {
       const authTime = claims.auth_time;
       const authTimeMs = typeof authTime === 'number' ? authTime * 1000 : null;
-      if (
-        authTimeMs === null ||
-        Date.now() - authTimeMs > STEP_UP_MAX_AUTH_AGE_MS ||
-        // Also bound it in the other direction: without this, a future-dated
-        // auth_time (an IdP with a fast clock, or a misbehaving one) passes
-        // the check above trivially and stays "fresh" indefinitely.
-        authTimeMs > Date.now() + STEP_UP_CLOCK_SKEW_TOLERANCE_MS
-      ) {
+
+      // Named so a failure says WHICH condition fired. The response to
+      // the client stays identical and generic — but this rejection was
+      // impossible to diagnose from production without knowing whether
+      // the claim was missing, stale, or future-dated, and finding that
+      // out cost a round trip through the error log and a stack trace
+      // mapped back through compiled JavaScript.
+      const reason =
+        authTimeMs === null
+          ? 'auth_time missing from the ID token'
+          : Date.now() - authTimeMs > STEP_UP_MAX_AUTH_AGE_MS
+            ? 'auth_time older than the step-up window'
+            : // Bounded in the other direction too: without this a
+              // future-dated auth_time (an IdP with a fast clock) passes
+              // trivially and stays "fresh" indefinitely.
+              authTimeMs > Date.now() + STEP_UP_CLOCK_SKEW_TOLERANCE_MS
+              ? 'auth_time is in the future beyond clock skew'
+              : null;
+
+      if (reason) {
+        // Logged, never returned: the client gets the same generic
+        // message whatever went wrong, and the operator gets the one
+        // sentence that makes it fixable.
+        this.logger.warn(
+          `Step-up re-authentication rejected for ${provider}: ${reason}.`,
+        );
         throw new StaffOAuthCallbackRejectedException();
       }
       verifiedStepUpAt = authTime;
