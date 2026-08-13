@@ -591,3 +591,81 @@ describe('PtConsentService: the trainer identity a parent approved', () => {
     ).toBe('x@example.se');
   });
 });
+
+/**
+ * Resending a pending consent request (owner's request, 2026-08-13). A
+ * coach whose email was missed or filtered had no way to try again short
+ * of waiting for expiry and starting over.
+ *
+ * The behaviours pinned here are the ones that stop this being a way to
+ * pester a family: own pending request only, and the previous link must
+ * stop working.
+ */
+describe('PtConsentService.resendConsentRequest', () => {
+  const pending = {
+    id: 'consent-1',
+    ptStaffAccountId: 'pt-1',
+    playerId: 'player-1',
+    status: PtPlayerConsentStatus.PENDING_REVIEW,
+    reviewCode: 'OLDCODE1',
+    reviewCodeExpiresAt: new Date(Date.now() + 60_000),
+    recipientContactSnapshot: null,
+    ptDisplayNameSnapshot: 'Coach PT',
+    ptEmailSnapshot: 'pt@example.com',
+  };
+
+  it('rotates the review code so the previously mailed link dies', async () => {
+    const save = jest.fn((entity: unknown) => Promise.resolve(entity));
+    const { service } = buildService({
+      ptPlayerConsentRepository: {
+        findOne: jest.fn().mockResolvedValue({ ...pending }),
+        save,
+      },
+    });
+
+    await service.resendConsentRequest('pt-1', 'player-1');
+
+    const saved = (save.mock.calls[0] as [{ reviewCode: string }])[0];
+    expect(saved.reviewCode).not.toBe('OLDCODE1');
+    expect(saved.reviewCode.length).toBeGreaterThan(0);
+  });
+
+  it('sends the parent a fresh email', async () => {
+    const sendMail = jest.fn().mockResolvedValue(undefined);
+    const { service } = buildService({
+      ptPlayerConsentRepository: {
+        findOne: jest.fn().mockResolvedValue({ ...pending }),
+      },
+      mailService: { sendMail },
+    });
+
+    await service.resendConsentRequest('pt-1', 'player-1');
+    expect(sendMail).toHaveBeenCalled();
+  });
+
+  it('refuses when there is no pending request of the caller own', async () => {
+    // Same exception as "no such consent": a PT must not learn whether a
+    // request exists in a state they cannot act on.
+    const { service } = buildService({
+      ptPlayerConsentRepository: {
+        findOne: jest.fn().mockResolvedValue(null),
+      },
+    });
+
+    await expect(
+      service.resendConsentRequest('pt-1', 'player-1'),
+    ).rejects.toBeInstanceOf(PtPlayerConsentNotFoundException);
+  });
+
+  it('refuses when the team link is no longer active', async () => {
+    // A resend must never be a way to mail a family from a relationship
+    // the team has already ended.
+    const { service } = buildService({
+      ptTeamLinkRepository: { findOne: jest.fn().mockResolvedValue(null) },
+    });
+
+    await expect(
+      service.resendConsentRequest('pt-1', 'player-1'),
+    ).rejects.toBeTruthy();
+  });
+});

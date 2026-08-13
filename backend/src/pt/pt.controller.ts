@@ -1,3 +1,4 @@
+import { Throttle } from '@nestjs/throttler';
 import {
   Body,
   Controller,
@@ -66,6 +67,31 @@ export class PtController {
     @Param('playerId') playerId: string,
   ): Promise<PtConsentRequestResult> {
     return this.ptConsentService.requestConsent(ptStaffAccountId, playerId);
+  }
+
+  /**
+   * Re-send a pending request's email — for the coach whose message was
+   * missed, filtered as spam, or left too long. Rotates the review code,
+   * so the previous link stops working.
+   *
+   * **Rate-limited far harder than the surrounding routes, and that is
+   * the point**: this endpoint causes email to arrive at a child's
+   * parent. Three per hour is generous for a coach chasing one family and
+   * useless for anyone trying to use this app to pester them. The rest of
+   * the guard is on the service — own request only, pending only, active
+   * team link only.
+   */
+  @Post('players/:playerId/consent-requests/resend')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 3_600_000 } })
+  resendConsentRequest(
+    @CurrentStaffAccountId() ptStaffAccountId: string,
+    @Param('playerId') playerId: string,
+  ): Promise<{ resent: true; expiresAt: string }> {
+    return this.ptConsentService.resendConsentRequest(
+      ptStaffAccountId,
+      playerId,
+    );
   }
 
   // security-reviewer's Part A pass, Finding 6 (see the ADR's Status

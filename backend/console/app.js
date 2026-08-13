@@ -825,6 +825,9 @@
     'Not shared': 'Delas inte',
     'View training': 'Se träningen',
     'Ask for access': 'Be om åtkomst',
+    'Send the email again': 'Skicka mejlet igen',
+    'Sending…': 'Skickar…',
+    'Sent again': 'Skickat igen',
     'Asked — it is their decision': 'Frågad — det är deras beslut',
     'Asking…': 'Frågar…',
     'You are not linked to this team.': 'Du är inte kopplad till det här laget.',
@@ -2539,22 +2542,55 @@
     return '<span class="badge">Not shared</span>';
   }
 
-  /* PT3's entry point. `pending_review` is deliberately not re-requestable
-   * from here: chasing a family that has already been asked is exactly what
-   * the server's rate limit and pending cap exist to prevent, so the UI
-   * should not offer a button whose only outcome is an error. */
+  /* PT3's entry point.
+   *
+   * `pending_review` still offers no way to ASK AGAIN — chasing a family
+   * that has already been asked is what the pending cap exists to
+   * prevent, and a second request would only error.
+   *
+   * It does now offer a RESEND, which is a different thing and was asked
+   * for after a real coach's email went unanswered (owner, 2026-08-13).
+   * The distinction the copy has to carry: this re-sends the same
+   * request to the same address because the message may never have
+   * arrived, it does not ask the family a second time. The server caps
+   * it at three per hour and rotates the review code, so the previous
+   * link stops working. */
   function consentAction(entry) {
     if (entry.consentStatus === 'approved') {
       return '<button class="primary" data-go="player/' + esc(entry.playerId) +
              '">View training</button>';
     }
     if (entry.consentStatus === 'pending_review') {
-      return '<span class="muted">Asked — it is their decision</span>';
+      return '<span class="muted">Asked — it is their decision</span> ' +
+        '<button data-resend="' + esc(entry.playerId) + '">Send the email again</button>';
     }
     return '<button data-consent="' + esc(entry.playerId) + '">Ask for access</button>';
   }
 
+  function wireResendButtons(view) {
+    Array.prototype.forEach.call(
+      view.querySelectorAll('[data-resend]'),
+      function (button) {
+        button.onclick = function () {
+          button.disabled = true;
+          button.textContent = 'Sending…';
+          api.post('/api/v1/pt/players/' +
+                   encodeURIComponent(button.getAttribute('data-resend')) +
+                   '/consent-requests/resend')
+            .then(function () {
+              button.textContent = 'Sent again';
+            })
+            .catch(function (err) {
+              button.disabled = false;
+              button.textContent = errorMessage(err);
+            });
+        };
+      }
+    );
+  }
+
   function wireConsentButtons(view, teamId) {
+    wireResendButtons(view);
     Array.prototype.forEach.call(
       view.querySelectorAll('[data-consent]'),
       function (button) {
