@@ -14,10 +14,34 @@ export function renderPtConsentReviewPage(input: {
   screenName: string;
   ptDisplayName: string;
   ptEmail: string;
+  reviewCode: string;
 }): string {
   const safeScreenName = escapeHtml(input.screenName);
   const safePtDisplayName = escapeHtml(input.ptDisplayName);
   const safePtEmail = escapeHtml(input.ptEmail);
+
+  // ABSOLUTE, and this is the whole bug.
+  //
+  // These forms used `action="approve"`. This page is served at
+  // `GET /api/v1/pt-consent/:reviewCode` with no trailing slash, so a
+  // browser resolves a relative action against the parent directory —
+  // `/api/v1/pt-consent/approve` — dropping the code and 404ing. Every
+  // parent who clicked Godkänn got
+  // `Cannot POST /api/v1/pt-consent/approve`, and the consent flow this
+  // app treats as non-negotiable simply did not work.
+  //
+  // It would have worked had the URL carried a trailing slash, which is
+  // exactly why relative form actions are a trap: correctness depends on
+  // a character nobody controls. Absolute paths do not.
+  //
+  // encodeURIComponent for the path segment, then escapeHtml for the
+  // attribute — two different escapings for two different contexts, both
+  // needed.
+  const actionBase = `/api/v1/pt-consent/${encodeURIComponent(
+    input.reviewCode,
+  )}`;
+  const approveAction = escapeHtml(`${actionBase}/approve`);
+  const declineAction = escapeHtml(`${actionBase}/decline`);
   return page(
     'Granska tränarförfrågan — SkillStreak',
     `
@@ -34,12 +58,12 @@ export function renderPtConsentReviewPage(input: {
       <strong>Den här personen ser ALDRIG:</strong> riktigt namn, kontaktuppgifter, lagchatt, videoklipp,
       eller några andra spelares data.
     </p>
-    <form method="POST" action="approve" style="display:inline-block;margin-right:12px;">
+    <form method="POST" action="${approveAction}" style="display:inline-block;margin-right:12px;">
       <button type="submit" style="background-color:#3DAA6B;color:#FFFFFF;border:none;border-radius:12px;padding:14px 24px;font-size:16px;font-weight:600;cursor:pointer;">
         Godkänn
       </button>
     </form>
-    <form method="POST" action="decline" style="display:inline-block;">
+    <form method="POST" action="${declineAction}" style="display:inline-block;">
       <button type="submit" style="background-color:#FFFFFF;color:#1B1B3A;border:1px solid #D9D9E3;border-radius:12px;padding:14px 24px;font-size:16px;font-weight:600;cursor:pointer;">
         Avböj
       </button>
