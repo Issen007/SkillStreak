@@ -194,6 +194,23 @@ export class TrainerPostsService {
     return posts.map(toAuthorView);
   }
 
+  /**
+   * What is currently live.
+   *
+   * Exists so `unpublish` is reachable. Without it the operator could
+   * only ever see the pending queue, which made taking something down
+   * an endpoint with no way to find its argument — a control that exists
+   * and cannot be used is not a control.
+   */
+  async listPublishedForReview(): Promise<TrainerPostAuthorView[]> {
+    const posts = await this.postRepository.find({
+      where: { status: TrainerPostStatus.PUBLISHED },
+      order: { publishedAt: 'DESC' },
+      take: 200,
+    });
+    return posts.map(toAuthorView);
+  }
+
   /** The operator's queue. */
   async listPendingReview(): Promise<TrainerPostAuthorView[]> {
     const posts = await this.postRepository.find({

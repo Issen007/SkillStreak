@@ -37,6 +37,12 @@ export class AdminTrainerPostsController {
     return this.trainerPostsService.listPendingReview();
   }
 
+  /** What is live now, so a takedown has something to act on. */
+  @Get('published')
+  listPublished(): Promise<TrainerPostAuthorView[]> {
+    return this.trainerPostsService.listPublishedForReview();
+  }
+
   @Post(':id/publish')
   @HttpCode(HttpStatus.OK)
   publish(
