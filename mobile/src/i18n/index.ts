@@ -8,6 +8,7 @@ import csGoal from './locales/cs/goal.json';
 import csHome from './locales/cs/home.json';
 import csOnboarding from './locales/cs/onboarding.json';
 import csPt from './locales/cs/pt.json';
+import csTips from './locales/cs/tips.json';
 import csTeam from './locales/cs/team.json';
 import daChat from './locales/da/chat.json';
 import daClips from './locales/da/clips.json';
@@ -16,6 +17,7 @@ import daGoal from './locales/da/goal.json';
 import daHome from './locales/da/home.json';
 import daOnboarding from './locales/da/onboarding.json';
 import daPt from './locales/da/pt.json';
+import daTips from './locales/da/tips.json';
 import daTeam from './locales/da/team.json';
 import deChat from './locales/de/chat.json';
 import deClips from './locales/de/clips.json';
@@ -24,6 +26,7 @@ import deGoal from './locales/de/goal.json';
 import deHome from './locales/de/home.json';
 import deOnboarding from './locales/de/onboarding.json';
 import dePt from './locales/de/pt.json';
+import deTips from './locales/de/tips.json';
 import deTeam from './locales/de/team.json';
 import enChat from './locales/en/chat.json';
 import enClips from './locales/en/clips.json';
@@ -32,6 +35,7 @@ import enGoal from './locales/en/goal.json';
 import enHome from './locales/en/home.json';
 import enOnboarding from './locales/en/onboarding.json';
 import enPt from './locales/en/pt.json';
+import enTips from './locales/en/tips.json';
 import enTeam from './locales/en/team.json';
 import fiChat from './locales/fi/chat.json';
 import fiClips from './locales/fi/clips.json';
@@ -40,6 +44,7 @@ import fiGoal from './locales/fi/goal.json';
 import fiHome from './locales/fi/home.json';
 import fiOnboarding from './locales/fi/onboarding.json';
 import fiPt from './locales/fi/pt.json';
+import fiTips from './locales/fi/tips.json';
 import fiTeam from './locales/fi/team.json';
 import frChat from './locales/fr/chat.json';
 import frClips from './locales/fr/clips.json';
@@ -48,6 +53,7 @@ import frGoal from './locales/fr/goal.json';
 import frHome from './locales/fr/home.json';
 import frOnboarding from './locales/fr/onboarding.json';
 import frPt from './locales/fr/pt.json';
+import frTips from './locales/fr/tips.json';
 import frTeam from './locales/fr/team.json';
 import nbChat from './locales/nb/chat.json';
 import nbClips from './locales/nb/clips.json';
@@ -56,6 +62,7 @@ import nbGoal from './locales/nb/goal.json';
 import nbHome from './locales/nb/home.json';
 import nbOnboarding from './locales/nb/onboarding.json';
 import nbPt from './locales/nb/pt.json';
+import nbTips from './locales/nb/tips.json';
 import nbTeam from './locales/nb/team.json';
 import svChat from './locales/sv/chat.json';
 import svClips from './locales/sv/clips.json';
@@ -64,6 +71,7 @@ import svGoal from './locales/sv/goal.json';
 import svHome from './locales/sv/home.json';
 import svOnboarding from './locales/sv/onboarding.json';
 import svPt from './locales/sv/pt.json';
+import svTips from './locales/sv/tips.json';
 import svTeam from './locales/sv/team.json';
 import { getDeviceDefaultLocale } from './deviceLocale';
 // No runtime import of `./react-i18next.d` needed — it's an ambient
@@ -99,6 +107,7 @@ const NAMESPACES = [
   'chat',
   'clips',
   'pt',
+  'tips',
 ] as const;
 
 void i18n.use(initReactI18next).init({
@@ -114,6 +123,7 @@ void i18n.use(initReactI18next).init({
       chat: svChat,
       clips: svClips,
       pt: svPt,
+      tips: svTips,
     },
     en: {
       common: enCommon,
@@ -124,6 +134,7 @@ void i18n.use(initReactI18next).init({
       chat: enChat,
       clips: enClips,
       pt: enPt,
+      tips: enTips,
     },
     fi: {
       common: fiCommon,
@@ -134,6 +145,7 @@ void i18n.use(initReactI18next).init({
       chat: fiChat,
       clips: fiClips,
       pt: fiPt,
+      tips: fiTips,
     },
     da: {
       common: daCommon,
@@ -144,6 +156,7 @@ void i18n.use(initReactI18next).init({
       chat: daChat,
       clips: daClips,
       pt: daPt,
+      tips: daTips,
     },
     nb: {
       common: nbCommon,
@@ -154,6 +167,7 @@ void i18n.use(initReactI18next).init({
       chat: nbChat,
       clips: nbClips,
       pt: nbPt,
+      tips: nbTips,
     },
     de: {
       common: deCommon,
@@ -164,6 +178,7 @@ void i18n.use(initReactI18next).init({
       chat: deChat,
       clips: deClips,
       pt: dePt,
+      tips: deTips,
     },
     cs: {
       common: csCommon,
@@ -174,6 +189,7 @@ void i18n.use(initReactI18next).init({
       chat: csChat,
       clips: csClips,
       pt: csPt,
+      tips: csTips,
     },
     fr: {
       common: frCommon,
@@ -184,6 +200,7 @@ void i18n.use(initReactI18next).init({
       chat: frChat,
       clips: frClips,
       pt: frPt,
+      tips: frTips,
     },
   },
   // Pre-selects the nearest supported language from the device's own

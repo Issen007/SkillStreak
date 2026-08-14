@@ -7,6 +7,7 @@ import { TeamScreen } from './team/TeamScreen';
 import { GoalScreen } from './goal/GoalScreen';
 import { ChatScreen } from './chat/ChatScreen';
 import { ClipsScreen } from './clips/ClipsScreen';
+import { TipsScreen } from './tips/TipsScreen';
 import { TabBar, TabKey } from './navigation/TabBar';
 import { Toast } from './components/Toast';
 import { CaptainBanner } from './components/CaptainBanner';
@@ -380,6 +381,11 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
             </View>
           )
         ) : null}
+
+        {/* No teamId or playerId guard: the tips feed is the same for
+            every signed-in player and needs neither, which is also why it
+            is the one tab that still works while a team is loading. */}
+        {activeTab === 'tips' ? <TipsScreen /> : null}
       </View>
 
       {catchUpBanner ? (

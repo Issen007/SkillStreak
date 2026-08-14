@@ -1,0 +1,8 @@
+{
+  "heading": "Tips",
+  "intro": "Tips from trainers. An admin reads every one before it lands here.",
+  "loading": "Loading tips…",
+  "failed": "Could not load tips right now. Pull down to try again.",
+  "empty": "No tips yet. Check back another day.",
+  "end": "That's all the tips for now."
+}
