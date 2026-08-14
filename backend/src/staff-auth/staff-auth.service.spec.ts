@@ -139,7 +139,16 @@ describe('StaffAuthService', () => {
       // max_age is what makes auth_time REQUIRED in the ID token, which is
       // what completeLogin can then actually verify — prompt alone is only
       // a request.
-      expect(authParams.max_age).toBe(0);
+      // NOT 0, which is what this asserted until the Planning tab was
+      // reported broken in production. OIDC says max_age=0 means "must
+      // re-authenticate now", but IdPs including Google treat the zero as
+      // falsy and drop the parameter — taking the REQUIRED `auth_time`
+      // claim with it, so the callback then failed closed on a missing
+      // claim every single time. A real number in seconds is what makes
+      // the IdP report when it authenticated; `prompt: 'login'` is what
+      // forces it to.
+      expect(authParams.max_age).toBe(300);
+      expect(authParams.prompt).toBe('login');
       expect(pendingStaffAuthService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ stepUp: true }),
       );
