@@ -74,8 +74,18 @@ spec:
                   name: plan-generator
                   key: TRAINING_PLAN_MODEL_ID
                   optional: true
-            - name: HF_HOME
-              value: /home/tagger/.cache/huggingface
+            # No HF_HOME override, deliberately.
+            #
+            # The image bakes both models into /opt/hf-cache and sets
+            # HF_HOME to match. This manifest used to point HF_HOME at the
+            # emptyDir cache volume instead — correct when the weights
+            # were downloaded at boot, and fatal once they were baked: it
+            # aimed transformers at an empty directory, so it tried to
+            # download, HF_HUB_OFFLINE=1 refused, and the pod crash-looped
+            # with "couldn't connect to huggingface.co" again.
+            #
+            # The clip-tagger container has never set HF_HOME, which is
+            # precisely why it kept working through the same change.
             # No HF_HUB_OFFLINE override any more: the LM is baked into
             # the image alongside the tagger's model, so the image's
             # HF_HUB_OFFLINE=1 is now correct for both containers. The
