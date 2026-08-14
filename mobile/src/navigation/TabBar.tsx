@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 
-export type TabKey = 'home' | 'chat' | 'clips' | 'goal' | 'team';
+export type TabKey = 'home' | 'chat' | 'clips' | 'goal' | 'team' | 'tips';
 
 interface TabDef {
   key: TabKey;
@@ -12,7 +12,13 @@ interface TabDef {
   /** `common.tabs.<key>` — the i18next key for this tab's label, kept
    * alongside the icon so the render loop doesn't need a separate lookup
    * table. */
-  labelKey: 'tabs.home' | 'tabs.chat' | 'tabs.clips' | 'tabs.goal' | 'tabs.team';
+  labelKey:
+    | 'tabs.home'
+    | 'tabs.chat'
+    | 'tabs.clips'
+    | 'tabs.goal'
+    | 'tabs.team'
+    | 'tabs.tips';
 }
 
 // Fas 2.6b added "Chatt" as a real fourth tab, placed *second* — a
@@ -31,6 +37,10 @@ const TABS: TabDef[] = [
   { key: 'clips', icon: '🎬', labelKey: 'tabs.clips' },
   { key: 'goal', icon: '🎯', labelKey: 'tabs.goal' },
   { key: 'team', icon: '👥', labelKey: 'tabs.team' },
+  // Last on purpose. The four before it are what a player opens the
+  // app to do; tips are something to browse when they have already
+  // done it.
+  { key: 'tips', icon: '💡', labelKey: 'tabs.tips' },
 ];
 
 interface TabBarProps {

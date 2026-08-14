@@ -935,3 +935,22 @@ export interface ApiErrorBody {
     message: string;
   };
 }
+
+/**
+ * A tip published by a trainer, as a player sees it.
+ *
+ * Deliberately carries no way to reach the author: a byline and nothing
+ * else. Publishing TO children is a different thing from corresponding
+ * WITH them, and only the first is on offer — see
+ * backend/src/trainer-posts/trainer-feed.controller.ts.
+ */
+export interface TrainerPost {
+  id: string;
+  title: string;
+  body: string;
+  authorByline: string;
+  locale: string;
+  ageBand: string | null;
+  focus: string | null;
+  publishedAt: string | null;
+}
