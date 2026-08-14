@@ -177,12 +177,15 @@
       { id: 'planning', label: 'Planning', ico: '🗺️' },
       { id: 'drills', label: 'Drill library', ico: '📗' },
       { id: 'plans', label: 'Session planner', ico: '🧠' },
+      { id: 'posts', label: 'My tips', ico: '✍️' },
+      { id: 'postReview', label: 'Tip review', ico: '🔎' },
       { id: 'tagging', label: 'AI health', ico: '🏷️' }
     ],
     pt: [
       { id: 'teams', label: 'My teams', ico: '🏑' },
       { id: 'drills', label: 'Drill library', ico: '📗' },
-      { id: 'plans', label: 'Session planner', ico: '🧠' }
+      { id: 'plans', label: 'Session planner', ico: '🧠' },
+      { id: 'posts', label: 'My tips', ico: '✍️' }
     ]
   };
 
@@ -459,6 +462,13 @@
     return table[metric] || metric;
   }
 
+  /* Mirrors DRILL_AGE_BANDS in drill-library.service.ts. Used by the
+   * planner and the tip editor, and referenced by both before it was
+   * ever declared — which threw a ReferenceError, rendered "Something
+   * went wrong", and went unnoticed because neither view had a user yet.
+   * See check-console.mjs, which now fails on exactly that. */
+  var DRILL_AGE_BANDS = ['9-11', '11-13', '13+'];
+
   var DRILL_FOCUSES = ['teknik', 'fys', 'skott', 'passning', 'spelforstaelse'];
 
   /**
@@ -582,6 +592,123 @@
       // would fight their navigation.
       if (state.tab === 'plans') go('plans');
     }, 8000);
+  }
+
+
+  /* ---- trainer tips --------------------------------------------------- */
+
+  function postStatusLabel(post) {
+    if (post.status === 'published') return 'Live';
+    if (post.status === 'rejected') {
+      return post.rejectionReason || 'Not published';
+    }
+    return 'Waiting for review';
+  }
+
+  /* An author's own tip. Shows the rejection reason, because a rejection
+   * a person cannot act on just gets resubmitted unchanged. */
+  function ownPostCard(post) {
+    return '<div class="card">' +
+      '<h3 style="margin:0 0 4px;font-size:15px">' + esc(post.title) + '</h3>' +
+      '<p class="muted" style="margin:0 0 8px">' +
+        esc(postStatusLabel(post)) + '</p>' +
+      '<pre style="white-space:pre-wrap;font:inherit;margin:0 0 10px">' +
+        esc(post.body) + '</pre>' +
+      '<button data-drop-post="' + esc(post.id) + '">Delete</button>' +
+      '</div>';
+  }
+
+  /* One tip in the review queue. The body is rendered as escaped plain
+   * text in a <pre> — it is text a stranger wrote and is about to be put
+   * in front of children, so it is never parsed as markup. */
+  function reviewCard(post, isPending) {
+    return '<div class="card">' +
+      '<h3 style="margin:0 0 4px;font-size:15px">' + esc(post.title) + '</h3>' +
+      '<p class="muted" style="margin:0 0 8px">' + esc(post.authorByline) +
+        (post.ageBand ? ' · ' + esc(ageBandLabel(post.ageBand)) : '') +
+        (post.focus ? ' · ' + esc(focusLabel(post.focus)) : '') + '</p>' +
+      '<pre style="white-space:pre-wrap;font:inherit;margin:0 0 12px">' +
+        esc(post.body) + '</pre>' +
+      (isPending
+        ? '<button class="primary" data-publish="' + esc(post.id) + '">Publish</button> ' +
+          '<button data-reject="' + esc(post.id) + '">Reject</button>'
+        : '<button data-unpublish="' + esc(post.id) + '">Take it down</button>') +
+      '</div>';
+  }
+
+  function wirePostDeletes(view, backTo) {
+    Array.prototype.forEach.call(
+      view.querySelectorAll('[data-drop-post]'),
+      function (button) {
+        /* Two taps rather than a confirm() dialog, same as everywhere
+         * else in this console. */
+        button.onclick = function () {
+          if (!button.getAttribute('data-armed')) {
+            button.setAttribute('data-armed', '1');
+            button.textContent = 'Tap again to delete';
+            return;
+          }
+          api.del('/api/v1/trainer-posts/' +
+            encodeURIComponent(button.getAttribute('data-drop-post')))
+            .then(function () { go(backTo); })
+            .catch(function (err) {
+              button.textContent = errorMessage(err);
+            });
+        };
+      }
+    );
+  }
+
+  /* Reject and take-down both need a reason: it is what the author sees,
+   * and "no" with no sentence attached is not something anyone can act
+   * on. Prompt-free — a browser prompt() blocks the page the same way
+   * confirm() does — so the reason comes from an input revealed in place. */
+  function wireReviewButtons(view) {
+    function act(button, url, needsReason, verb) {
+      var id = button.getAttribute('data-publish') ||
+               button.getAttribute('data-reject') ||
+               button.getAttribute('data-unpublish');
+      var msg = document.getElementById('reviewMsg');
+
+      if (needsReason && !button.getAttribute('data-armed')) {
+        var input = document.createElement('input');
+        input.placeholder = 'Why? The author sees this.';
+        input.style.marginTop = '8px';
+        input.setAttribute('data-reason-for', id);
+        button.parentNode.appendChild(input);
+        button.setAttribute('data-armed', '1');
+        button.textContent = verb + ' — tap again';
+        input.focus();
+        return;
+      }
+
+      var reasonField = view.querySelector('[data-reason-for="' + id + '"]');
+      var reason = reasonField ? reasonField.value.trim() : '';
+      if (needsReason && reason.length < 3) {
+        msg.className = 'err';
+        msg.textContent = 'Give the author a reason first.';
+        return;
+      }
+
+      button.disabled = true;
+      msg.className = 'muted';
+      msg.textContent = 'Saving…';
+      api.post('/api/v1/admin/trainer-posts/' + encodeURIComponent(id) + url,
+               needsReason ? { reason: reason } : undefined)
+        .then(function () { go('postReview'); })
+        .catch(function (err) {
+          button.disabled = false;
+          msg.className = 'err';
+          msg.textContent = errorMessage(err);
+        });
+    }
+
+    Array.prototype.forEach.call(view.querySelectorAll('[data-publish]'),
+      function (b) { b.onclick = function () { act(b, '/publish', false, ''); }; });
+    Array.prototype.forEach.call(view.querySelectorAll('[data-reject]'),
+      function (b) { b.onclick = function () { act(b, '/reject', true, 'Reject'); }; });
+    Array.prototype.forEach.call(view.querySelectorAll('[data-unpublish]'),
+      function (b) { b.onclick = function () { act(b, '/unpublish', true, 'Take down'); }; });
   }
 
   /* ---- drill groups ---------------------------------------------------
@@ -852,6 +979,34 @@
       'Träningsmaterial skrivet av tränare. Det innehåller inga klipp, inga träningsloggar och inga spelaruppgifter — övningarna är filer som en människa läser innan de publiceras.',
     'Nothing here yet. Drills are added to the repository and arrive with the next release.':
       'Inget här än. Övningar läggs till i repot och dyker upp vid nästa release.',
+    /* trainer tips */
+    'My tips': 'Mina tips',
+    'Tip review': 'Granska tips',
+    'Write something useful for players and coaches. An admin reads every tip before anyone sees it.':
+      'Skriv något användbart för spelare och tränare. En administratör läser varje tips innan någon ser det.',
+    'You can say who you are and where you coach. You cannot include links, email addresses or phone numbers.':
+      'Du får berätta vem du är och var du tränar. Du får inte ha med länkar, mejladresser eller telefonnummer.',
+    'Title': 'Rubrik',
+    'How readers see you': 'Så syns du för läsarna',
+    'The tip': 'Tipset',
+    'Send for review': 'Skicka för granskning',
+    'A title, a byline and a few sentences, please.': 'En rubrik, en avsändare och några meningar, tack.',
+    'No tips yet.': 'Inga tips än.',
+    'Waiting for review': 'Väntar på granskning',
+    'Not published': 'Inte publicerat',
+    'Live': 'Publicerat',
+    'Every tip is read here before players can see it. There is no automatic check — you are it.':
+      'Varje tips läses här innan spelare kan se det. Det finns ingen automatisk kontroll — det är du som är kontrollen.',
+    'Waiting for review': 'Väntar på granskning',
+    'Nothing waiting.': 'Inget väntar.',
+    'Live now': 'Publicerat nu',
+    'Nothing published yet.': 'Inget publicerat än.',
+    'Publish': 'Publicera',
+    'Reject': 'Avvisa',
+    'Take it down': 'Ta ner det',
+    'Why? The author sees this.': 'Varför? Skribenten ser det här.',
+    'Give the author a reason first.': 'Ge skribenten en anledning först.',
+    'Saving…': 'Sparar…',
     /* session planner */
     'Session planner': 'Passplaneraren',
     'Describe the session you want and it is written from the drill library. It takes about a minute. Read it before you use it — it is a draft, not a coach.':
@@ -2042,6 +2197,128 @@
               esc(String(p.corpusVersion || '').split(':')[0] || '0') +
               ' drills. A draft — read it before you use it.</p></div>'
             : '');
+      }).catch(function (e) { fail(view, e); });
+    },
+
+
+    /* ---- trainer tips -------------------------------------------------
+     *
+     * The authoring side. A trainer writes a tip; it goes nowhere until
+     * an operator reads it. The copy has to carry that, because the gap
+     * between "I posted" and "children can see it" is the whole control
+     * and a silent queue reads as a broken button.
+     *
+     * The content rule is stated up front rather than only enforced on
+     * submit: being told after writing four paragraphs that links are not
+     * allowed is a worse experience than being told before. */
+    posts: function (view) {
+      api.get('/api/v1/trainer-posts/mine').then(function (posts) {
+        view.innerHTML =
+          '<h2>My tips</h2>' +
+          '<div class="card">' +
+            '<p class="muted" style="margin:0 0 12px">Write something ' +
+            'useful for players and coaches. An admin reads every tip ' +
+            'before anyone sees it.</p>' +
+            '<p class="muted" style="margin:0 0 12px">You can say who you ' +
+            'are and where you coach. You cannot include links, email ' +
+            'addresses or phone numbers.</p>' +
+            '<label for="postTitle">Title</label>' +
+            '<input id="postTitle" maxlength="120" autocomplete="off" ' +
+              'placeholder="Tre sätt att träna passningar hemma">' +
+            '<label for="postByline">How readers see you</label>' +
+            '<input id="postByline" maxlength="80" autocomplete="off" ' +
+              'placeholder="Anna, tränare i Uppsala">' +
+            '<label for="postBody">The tip</label>' +
+            '<textarea id="postBody" rows="7" maxlength="4000"></textarea>' +
+            '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">' +
+              '<span><label for="postAge">Age group</label>' +
+              '<select id="postAge"><option value="">—</option>' +
+                DRILL_AGE_BANDS.map(function (b) {
+                  return '<option value="' + esc(b) + '">' +
+                    esc(ageBandLabel(b)) + '</option>';
+                }).join('') + '</select></span>' +
+              '<span><label for="postFocus">Focus</label>' +
+              '<select id="postFocus"><option value="">—</option>' +
+                DRILL_FOCUSES.map(function (f) {
+                  return '<option value="' + esc(f) + '">' +
+                    esc(focusLabel(f)) + '</option>';
+                }).join('') + '</select></span>' +
+            '</div>' +
+            '<p style="margin-top:12px"><button id="postGo" class="primary">' +
+              'Send for review</button></p>' +
+            '<p id="postMsg" class="muted"></p>' +
+          '</div>' +
+          (posts.length
+            ? posts.map(ownPostCard).join('')
+            : '<div class="card"><p class="muted">No tips yet.</p></div>');
+
+        document.getElementById('postGo').onclick = function () {
+          var msg = document.getElementById('postMsg');
+          var body = {
+            title: document.getElementById('postTitle').value.trim(),
+            authorByline: document.getElementById('postByline').value.trim(),
+            body: document.getElementById('postBody').value.trim(),
+            ageBand: document.getElementById('postAge').value || undefined,
+            focus: document.getElementById('postFocus').value || undefined,
+            locale: effectiveLang()
+          };
+          if (body.title.length < 4 || body.body.length < 20 ||
+              body.authorByline.length < 2) {
+            msg.className = 'err';
+            msg.textContent = 'A title, a byline and a few sentences, please.';
+            return;
+          }
+          msg.className = 'muted';
+          msg.textContent = 'Sending…';
+          api.post('/api/v1/trainer-posts', body)
+            .then(function () { go('posts'); })
+            .catch(function (err) {
+              /* The server names the offending field for this one, and
+               * that message is the useful part — it is the rare
+               * rejection the author can actually fix. */
+              msg.className = 'err';
+              msg.textContent = errorMessage(err);
+            });
+        };
+
+        wirePostDeletes(view, 'posts');
+      }).catch(function (e) { fail(view, e); });
+    },
+
+    /* ---- tip review ---------------------------------------------------
+     *
+     * The control the whole feature rests on: nothing a trainer writes
+     * reaches a child until someone here reads it and says yes.
+     *
+     * Published posts are listed alongside the queue so a takedown has
+     * something to act on — an unpublish endpoint whose argument cannot
+     * be found from the UI is a control that exists and cannot be used. */
+    postReview: function (view) {
+      Promise.all([
+        api.get('/api/v1/admin/trainer-posts/pending'),
+        api.get('/api/v1/admin/trainer-posts/published')
+      ]).then(function (results) {
+        var pending = results[0];
+        var live = results[1];
+
+        view.innerHTML =
+          '<h2>Tip review</h2>' +
+          '<div class="card">' +
+            '<p class="muted" style="margin:0">Every tip is read here ' +
+            'before players can see it. There is no automatic check — ' +
+            'you are it.</p>' +
+            '<p id="reviewMsg" class="muted" style="margin:8px 0 0"></p>' +
+          '</div>' +
+          '<h3 style="margin:20px 0 8px;font-size:16px">Waiting for review</h3>' +
+          (pending.length
+            ? pending.map(function (p) { return reviewCard(p, true); }).join('')
+            : '<div class="card"><p class="muted">Nothing waiting.</p></div>') +
+          '<h3 style="margin:24px 0 8px;font-size:16px">Live now</h3>' +
+          (live.length
+            ? live.map(function (p) { return reviewCard(p, false); }).join('')
+            : '<div class="card"><p class="muted">Nothing published yet.</p></div>');
+
+        wireReviewButtons(view);
       }).catch(function (e) { fail(view, e); });
     },
 

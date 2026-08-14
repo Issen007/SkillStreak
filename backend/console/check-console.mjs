@@ -91,6 +91,65 @@ for (const cls of emitted) {
   }
 }
 
+// 4. Every SCREAMING_CASE constant the script references is declared in
+//    it. This is the check that would have caught DRILL_AGE_BANDS: used
+//    in two views, declared nowhere, throwing a ReferenceError that
+//    surfaced only as "Something went wrong" in a view nobody had opened
+//    yet. `node --check` cannot see it — it is valid syntax.
+//
+//    Comments and string literals are stripped first. Without that this
+//    reports every "ADR", "HTTP" and "GET" in the prose, which is how the
+//    first version of this check managed to fail on 70 non-problems.
+function stripCommentsAndStrings(code) {
+  let out = '';
+  let i = 0;
+  while (i < code.length) {
+    const two = code.slice(i, i + 2);
+    if (two === '/*') {
+      const end = code.indexOf('*/', i + 2);
+      i = end < 0 ? code.length : end + 2;
+      continue;
+    }
+    if (two === '//') {
+      const end = code.indexOf('\n', i);
+      i = end < 0 ? code.length : end;
+      continue;
+    }
+    const ch = code[i];
+    if (ch === "'" || ch === '"' || ch === '`') {
+      i += 1;
+      while (i < code.length && code[i] !== ch) {
+        i += code[i] === '\\' ? 2 : 1;
+      }
+      i += 1;
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out;
+}
+
+const code = stripCommentsAndStrings(source);
+const declaredConsts = new Set(
+  [...code.matchAll(/\bvar\s+([A-Z][A-Z0-9_]{2,})\s*=/g)].map((m) => m[1]),
+);
+// Browser and standard globals this file legitimately reaches for.
+const knownGlobals = new Set(['NodeFilter', 'JSON', 'URL', 'Promise', 'Math']);
+const undeclared = new Set();
+// `(?<!\.)` so `NodeFilter.SHOW_TEXT` is read as a property access rather
+// than as an undeclared global — a property on something that exists is
+// not a ReferenceError.
+for (const match of code.matchAll(/(?<![.\w])([A-Z][A-Z0-9_]{2,})\b/g)) {
+  const name = match[1];
+  if (!declaredConsts.has(name) && !knownGlobals.has(name)) {
+    undeclared.add(name);
+  }
+}
+for (const name of undeclared) {
+  note(`${name} is referenced but never declared — a ReferenceError at runtime`);
+}
+
 if (failures.length) {
   console.error('Console checks failed:\n');
   for (const f of failures) console.error(`  - ${f}`);
