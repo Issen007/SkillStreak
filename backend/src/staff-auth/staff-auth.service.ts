@@ -88,11 +88,16 @@ export class StaffAuthService {
    * whatever MFA the provider already enforces, without this app storing a
    * second authentication secret.
    *
-   * `max_age: 0` is sent alongside `prompt=login` deliberately: OIDC makes
+   * `max_age` is sent alongside `prompt=login` deliberately: OIDC makes
    * the `auth_time` claim REQUIRED in the ID token whenever `max_age` is
    * requested, which turns "the IdP says it re-authenticated the user just
    * now" into something completeLogin can actually verify, rather than
    * trusting that `prompt=login` was honoured.
+   *
+   * It is a real number of seconds, never `0` — see the call site. Zero
+   * is what OIDC says to send for "must re-authenticate now" and is
+   * exactly what several IdPs drop as falsy, taking the `auth_time`
+   * claim with it and breaking this flow entirely.
    */
   async buildLoginRedirect(
     provider: StaffAuthProvider,
