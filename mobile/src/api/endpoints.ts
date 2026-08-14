@@ -55,6 +55,7 @@ import type {
   PtTeamLinkInviteResult,
   PtTeamLinkRevokeResult,
   PtTeamLinkRow,
+  TrainerPost,
 } from './types';
 
 // The only four endpoints Phase 1's Expo app talks to, per
@@ -576,6 +577,20 @@ export function getMyPtConsents(): Promise<PtConsentSummary[]> {
 
 /** ADR-0023 Decision A4 lever 1 — the child's own, immediate, no-parent-
  * needed exit. Deliberately lower friction than granting ever was. */
+/**
+ * Published trainer tips. Adult-authored, admin-reviewed before anything
+ * appears here.
+ *
+ * No parameters that identify the reader, by design: the same posts go to
+ * everyone, so the server learns nothing about who asked beyond the auth
+ * it already has.
+ */
+export function getTrainerFeed(): Promise<TrainerPost[]> {
+  return apiClient.request<TrainerPost[]>('/feed/trainer-posts', {
+    auth: true,
+  });
+}
+
 export function revokeMyPtConsent(consentId: string): Promise<{ revoked: true }> {
   return apiClient.request<{ revoked: true }>(
     `/players/me/pt-consents/${encodeURIComponent(consentId)}/revoke`,
