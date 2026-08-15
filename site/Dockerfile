@@ -102,7 +102,7 @@ ARG TRY_IT_URL=https://try.skillstreak.app2.isstech.io
 RUN sed -i "s|__TRY_IT_URL__|${TRY_IT_URL}|g" /usr/share/nginx/marketing/index.html \
     && grep -qF "${TRY_IT_URL}" /usr/share/nginx/marketing/index.html
 
-# site/download.html: its visible URL text and step-3/note copy differ
+# site/download.html: its visible URL text and step-1/3/note copy differ
 # depending on whether the QR above targets Expo Go or the web export
 # (qr-build's own /qr-target.txt records which URL actually got encoded,
 # since ARG isn't available in this stage the way it is in qr-build) --
@@ -112,12 +112,15 @@ RUN sed -i "s|__TRY_IT_URL__|${TRY_IT_URL}|g" /usr/share/nginx/marketing/index.h
 # that would break a sed substitution using "/" as its delimiter.
 RUN QR_TARGET="$(cat /tmp/qr-target.txt)" \
     && if [ "${QR_TARGET#exp://}" != "${QR_TARGET}" ]; then \
+         STEP1='Se till att din mobil är ansluten till <strong>samma WiFi-nätverk</strong> som testservern — koden fungerar inte över mobildata eller ett annat nätverk.'; \
          STEP3='Appen öppnas i <strong>Expo Go</strong> — installera det från App Store/Google Play först om du inte redan har det.'; \
          NOTE='💡 Det här öppnar appen i Expo Go, ett gratis utvecklarverktyg — inte en riktig App Store/Google Play-installation av SkillStreak självt (det finns inget publikt släpp än).'; \
        else \
+         STEP1='Skanna koden var du än är — den fungerar över mobildata och vilket nätverk som helst.'; \
          STEP3='Demot öppnas i din mobils webbläsare — ingen installation behövs.'; \
          NOTE='💡 Detta är webbversionen av appen, inte en riktig App Store/Google Play-installation — perfekt för att testa flödet snabbt, men vissa mobilspecifika funktioner (t.ex. kamera för videoinspelning) kan bete sig annorlunda än i en riktig app.'; \
        fi \
+    && sed -i "s|__DOWNLOAD_STEP1__|${STEP1}|" /usr/share/nginx/marketing/download.html \
     && sed -i "s|__DOWNLOAD_QR_URL__|${QR_TARGET}|g" /usr/share/nginx/marketing/download.html \
     && sed -i "s|__DOWNLOAD_STEP3__|${STEP3}|" /usr/share/nginx/marketing/download.html \
     && sed -i "s|__DOWNLOAD_NOTE__|${NOTE}|" /usr/share/nginx/marketing/download.html \
