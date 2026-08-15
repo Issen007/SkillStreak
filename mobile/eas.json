@@ -14,7 +14,6 @@
     },
     "internal": {
       "distribution": "internal",
-      "channel": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "http://192.168.55.71",
         "EXPO_PUBLIC_APP_VERSION": "internal"
@@ -23,8 +22,20 @@
         "buildType": "apk"
       }
     },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.skillstreak.xyz",
+        "EXPO_PUBLIC_APP_VERSION": "preview"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false
+      }
+    },
     "production": {
-      "channel": "production",
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.skillstreak.xyz",
