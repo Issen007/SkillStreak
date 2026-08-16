@@ -19,7 +19,10 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "xyz.skillstreak.app",
-      "blockedPermissions": ["android.permission.WRITE_EXTERNAL_STORAGE"]
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "plugins": [
       "expo-font",
