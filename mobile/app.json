@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "xyz.skillstreak.app"
+      "package": "xyz.skillstreak.app",
+      "blockedPermissions": ["android.permission.WRITE_EXTERNAL_STORAGE"]
     },
     "plugins": [
       "expo-font",
@@ -36,6 +37,12 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-localization"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f65ba87b-0d0c-41de-a4e2-2b8fe69ad137"
+      }
+    },
+    "owner": "issen007-team"
   }
 }
