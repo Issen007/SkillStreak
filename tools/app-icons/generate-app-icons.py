@@ -80,11 +80,25 @@ mono.save(OUT + "android-icon-monochrome.png")
 #    white corners showed as white notches on a dark theme.
 resized(196).save(OUT + "favicon.png")
 
+# 5. Splash artwork. The file being replaced was the untouched Expo
+#    template placeholder — a grid and concentric circles — which never
+#    shipped only because nothing referenced it.
+#
+#    The whole logo, transparent corners and all, rather than the flame
+#    cut out: the splash background is the same black as the artwork's
+#    own backing square, so the square is invisible and no extraction
+#    artifacts can appear along the flame's anti-aliased edge.
+#    Saved at the master's native size rather than 1024: expo-splash-screen
+#    renders this at ~1152px for xxxhdpi, so a 1024 source would be
+#    upscaled on exactly the densest screens.
+logo.save(OUT + "splash-icon.png")
+
 for name in (
     "icon.png",
     "android-icon-foreground.png",
     "android-icon-monochrome.png",
     "favicon.png",
+    "splash-icon.png",
 ):
     im = Image.open(OUT + name)
     print(f"{name:32} {im.size} mode={im.mode} bbox={im.convert('RGBA').split()[3].getbbox()}")
