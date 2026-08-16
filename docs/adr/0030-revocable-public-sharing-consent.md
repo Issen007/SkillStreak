@@ -383,6 +383,60 @@ teeth:
 - Has anything been published that per-clip approval would have caught?
   One instance is the argument for reinstating it, on its own.
 
+## Decision — 10 (added 2026-08-16): sharing always requires a parent, including 13+ self-verified accounts
+
+**Owner's decision, 2026-08-16**, confirming the reading of their own
+"underage person" framing: *"Yes, sharing needs a parent even for the
+13+ self-verified accounts."*
+
+Age-banded self-verification (ADR-0002's addendum) lets a 13+ player
+create an account without a parent in the loop. **It does not extend to
+public-sharing consent.** Concretely:
+
+- A self-verified account with no parent contact on file **cannot enable
+  sharing**. The switch is not merely off — it is unavailable, and the
+  UI says why rather than failing silently.
+- To enable, the player supplies a parent/guardian contact, which is
+  stored in `player_private_info` (encrypted, as the existing parent
+  contact already is) and then goes through **the same mailed approval
+  as Decision 1** — no lighter path because the account was
+  self-verified.
+- Everything downstream is then identical: the monthly reminder
+  (Decision 4), the delivery-failure auto-disable (Decision 5), instant
+  revocation (Decision 2).
+
+**Why this is the right shape and not just extra friction.** Under the
+amended Decision 3 the monthly reminder is the design's only recurring
+control. An account with no parent contact has no recipient for it, so
+admitting that cohort would have meant unsupervised publication outside
+the team — not a weaker control, but none. Self-verification decides
+*who may hold an account*; it was never scoped to decide *whose video
+may leave the bubble*.
+
+**The new weakness this introduces, named rather than buried.** The
+parent contact is an email address asserted by a child who now has a
+direct incentive to assert a convenient one — unlocking sharing. The
+under-13 flow has the same theoretical hole, but there the address gates
+the account's existence and is typically supplied by the parent
+themselves; here it gates a privilege the child actively wants, which is
+a materially stronger reason to enter a second address of their own.
+
+**Interim mitigation, on the same logic as Decision 3's trade:** at
+current scale the operator and coaches know the families, so a parent
+contact added to a self-verified account for sharing purposes should be
+**confirmed by the team's coach or the operator** before the approval
+mail is sent. This leans on exactly the property the interim posture
+already depends on, and it expires with it — Decision 9's triggers
+should reinstate a stronger check at the same time they reinstate
+per-clip approval. Flagged for the security-reviewer pass as the
+sharpest question in this decision.
+
+**Copy consequence.** `SELF_VERIFICATION_CONFIRM_COPY` — the 13+
+cohort's own consent block, 8 strings, one of ADR-0019's six surfaces
+and the one that ADR overlooked entirely — must now say that
+self-verification covers the account and not public sharing. Folds into
+Decision 7's copy work rather than adding a separate task.
+
 ## Consequences
 
 - **ADR-0019 remains the design of record for the feature itself, with
@@ -393,6 +447,12 @@ teeth:
   such.
 - One new entity, account-scoped, with its own approval/revoke codes; one
   scheduled sweep; one email template. No change to `VideoClip`.
+- **Decision 10 adds a flow that did not exist: attaching a parent
+  contact to an already-created self-verified account.** This is not
+  free — it writes to `player_private_info` after account creation, and
+  it needs the coach/operator confirmation step. Worth scoping
+  separately from the switch itself, since it is the one part of this
+  ADR with no existing shape to copy.
 - The reminder is now a **safety-critical scheduled job**: if it stops
   running, Decision 5's auto-disable also stops, and consents that
   should have lapsed stay live. It needs the same monitoring as the
@@ -430,15 +490,15 @@ teeth:
    cohort would have **none at all** — self-verified account creation
    would silently become unsupervised publication outside the team.
 
-   The owner's own sentence points the same way: *"when a underage
-   person want to share content, they need to ask for approval from
-   their parents"* — underage, not under-13. Read literally, sharing
-   requires a parent for everyone under 18, whatever route was used to
-   create the account. **Recommended interim reading: a parent contact
-   is required for public-sharing consent even where account creation
-   did not require one, and a self-verified account with no parent
-   contact cannot enable sharing.** Flagged as an inference from that
-   sentence rather than an explicit decision — it needs the owner's yes.
+   **Answered 2026-08-16 — see Decision 10.** Sharing requires a parent
+   for every underage player, whatever route created the account; a
+   self-verified account with no parent contact cannot enable it. What
+   remains open is not the rule but its weakest joint: **how a
+   parent contact supplied by a motivated 13-year-old is verified.**
+   Decision 10 proposes coach/operator confirmation as an interim
+   measure resting on the same "we know the families" property as
+   Decision 3, and hands it to the security-reviewer pass as that
+   decision's sharpest question.
 5. **Legal basis, and whether this re-consent is sufficient.** Belongs
    with the lawyer already engaged for `privacy-policy-DRAFT.md`,
    alongside its open questions 2, 3 and 5. Specifically: whether an
