@@ -2,11 +2,32 @@
 
 ## Status
 
-**Proposed — 2026-08-15.** Design only. Nothing here is built, and
-**blocking security-reviewer sign-off is required before any schema,
-endpoint or screen exists**, per CLAUDE.md's standing rule and for the
-same reason ADR-0019 carried it: this touches child media leaving the
-team bubble, which is the highest-risk thing this project owns.
+**Proposed — 2026-08-15. Amended 2026-08-16 by the project owner:
+Decision 3 is replaced by a deliberately simpler interim posture, and
+the whole ADR is now explicitly time-boxed.** Design only. Nothing here
+is built, and **blocking security-reviewer sign-off is required before
+any schema, endpoint or screen exists**, per CLAUDE.md's standing rule
+and for the same reason ADR-0019 carried it: this touches child media
+leaving the team bubble, which is the highest-risk thing this project
+owns.
+
+**The 2026-08-16 amendment, in the owner's own framing:**
+
+> *"When a underage person want to share content, they need to ask for
+> approval from their parents and we send a verification email to the
+> parent. They need to approve that, then we will remind them once a
+> month that this is still active and they can any time disable it using
+> the link below. As soon long they don't disable it, it will be enable
+> and that person can share and of their own video any time they want
+> to. This is something we need to work on but for now until we go
+> Public in large scale let's do this until later."*
+
+One consent event, one standing state, one monthly reminder — and no
+per-clip step. Decision 3 as originally written required both; it now
+records the interim shape and what was knowingly traded for it. This is
+a scale-dependent decision with a stated expiry ("until we go Public in
+large scale"), not a permanent one, and Decision 9 records how it gets
+revisited rather than leaving that to memory.
 
 **This ADR does not unblock ADR-0019, and is not a second attempt at
 it.** ADR-0019 already designed the cross-team clip feature in full —
@@ -135,40 +156,76 @@ The parent can disable at any time, and disabling:
    need this urgently is a parent who has never opened the app.
 
 Re-enabling later is a fresh grant, not an undo. It does **not**
-re-publish anything that was un-published; those clips need per-clip
-approval again. A switch that silently restores an old audience is not
-a switch anyone can reason about.
+re-publish anything that was un-published — under the amended Decision 3
+the child must choose to publish those clips again, deliberately, one at
+a time. A switch that silently restores an old audience is not a switch
+anyone can reason about, and this is the one place the interim posture
+must not simplify: "on" means *may publish from now*, never *republish
+what was withdrawn*.
 
-## Decision — 3: the switch gates eligibility — it never publishes anything by itself
+## Decision — 3 (amended 2026-08-16): the switch is the only gate — per-clip approval is deferred, not deleted
 
-Two gates, both required, neither implying the other:
+**Interim posture, owner's decision, valid until the app goes public at
+large scale.** One gate:
 
-| Gate | Scope | Who | ADR |
+| Gate | Scope | Who | Status |
 |---|---|---|---|
 | Public-sharing consent | account, standing | parent | this ADR |
-| Publish approval | one clip | parent | ADR-0019 Decision 1 |
+| ~~Publish approval~~ | ~~one clip~~ | ~~parent~~ | **deferred — ADR-0019 Decision 1, not built** |
 
-Enabling the switch makes a child's clips **eligible** to be put
-forward. It publishes nothing that exists, and nothing uploaded later
-goes public without its own per-clip approval.
+Once the parent approves, the child may publish **their own** clips,
+any of them, whenever they choose, for as long as the consent stays
+enabled. No second approval, no queue, no waiting on a parent who is at
+work.
 
-This is deliberately more friction than the owner's sentence strictly
-requires, and the reason is the failure mode a standing consent invites:
-a parent enables it in January for one specific clip, forgets, and in
-June the child publishes something the parent would never have agreed
-to. Standing consent plus per-item consent is the combination that makes
-the January decision non-load-bearing for the June clip.
+**What this trades, stated plainly so the revisit has something to read
+back.** The original Decision 3 required both gates to defeat one
+specific failure: a parent enables sharing in January for one clip,
+forgets, and in June the child publishes something that parent would
+never have agreed to. Under the interim posture that failure is
+*possible*. What stands in for the per-clip gate is the monthly reminder
+— the January decision is re-put to the parent twelve times a year, and
+each reminder carries both the current count and a one-click disable.
+That is a weaker control than per-item consent and is not pretended to
+be an equal one. It is a considered trade at current scale, where the
+population is a beta of known families and the operator knows the teams
+personally.
 
-It also preserves the property ADR-0019 fought for and ADR-0029 Decision
-9 defended in all three of its rejected variants: **no one but the
-uploader's own parent ever decides that this child's video goes out**.
-Not a captain, not a coach, not the operator, not a team-level setting.
+**What does not change, and is not available to trade:**
+
+- **Only the uploader's own parent ever decides.** Not a captain, not a
+  coach, not the operator, not a team-level toggle. This is the property
+  ADR-0007, ADR-0010, ADR-0019 Decision 2 and all three of ADR-0029
+  Decision 9's rejected variants each defended independently, and
+  simplifying the *number* of gates does not touch *who holds* them.
+- **Only the child's own clips.** A standing consent lets a child
+  publish their own material freely; it grants nothing over anyone
+  else's, and a clip that shows another child is not the uploader's to
+  publish under it. This is the boundary that keeps the interim posture
+  from becoming the captain-publishes variant by accident.
+- **Everything in ADR-0019 that is not Decision 1.** Anonymization
+  (Decision 3), the fixed reaction vocabulary and reporting with
+  auto-revoke (Decision 4), immediate un-publish (Decision 5), erasure
+  (Decision 7) all still apply. Deferring the approval step does not
+  defer the safety rails around what happens after publication.
+
+**A note for the security-reviewer pass this ADR still needs.**
+ADR-0019 was reviewed *with* per-clip approval in place, and its clearance
+should not be read as covering a design without it. The interim posture
+makes that pass more consequential rather than less, and the reviewer
+should be pointed at this decision first.
 
 ## Decision — 4: the monthly reminder is a safety mechanism, and must read like one
 
 While the switch is enabled, the parent receives an email once a month.
 This is the owner's mechanism, and the design question is what it
 contains.
+
+**Under the amended Decision 3 this email is the only recurring control
+in the entire design.** It is no longer a backstop behind a per-clip
+gate; it is the gate, spread over time. Every requirement below is
+therefore load-bearing rather than good practice, and "we'll tune the
+email later" is not available as a shipping compromise.
 
 **It must say:**
 
@@ -276,20 +333,64 @@ tighter version is worth having because this sentence is what every
 future agent will be held to:
 
 > *"Closed team bubbles — no data/video/comments public by default; a
-> user only ever sees their own verified team, except for individual
-> clips whose publication the uploader's own parent has both enabled at
-> the account level (ADR-0030) and approved for that specific clip
-> (ADR-0019)."*
+> user only ever sees their own verified team, except for a player's own
+> clips, which they may publish only while that player's own parent has
+> an active public-sharing consent (ADR-0030)."*
 
-The clause names both gates and names the parent as the only actor, so
-the sentence itself refuses the captain-publishes and team-toggle
-variants that ADR-0007, ADR-0010, ADR-0019 Decision 2 and ADR-0029
-Decision 9 have each already rejected.
+Three things the sentence has to carry, and does: **the player's own**
+clips (never another child's), **their own parent** (never a captain, a
+coach, the operator or a team-level toggle — the variants ADR-0007,
+ADR-0010, ADR-0019 Decision 2 and ADR-0029 Decision 9 each rejected
+independently), and **while active** (the permission is a live state
+that lapses, not a one-time event).
+
+This wording matches the interim posture. When Decision 9's trigger
+reinstates per-clip approval, the sentence needs *"and has approved that
+specific clip (ADR-0019)"* appended — worth noting now, because that is
+the moment the wording would otherwise be left describing the weaker
+design.
+
+## Decision — 9 (added 2026-08-16): the interim posture expires on a trigger and a calendar, not on someone remembering
+
+"Until we go Public in large scale" is the right instinct and the wrong
+kind of sentence to leave a safety trade resting on: it has no edge, so
+it never trips, and the interim posture quietly becomes the permanent
+one. Two mechanisms, because either alone fails.
+
+**A. A named trigger.** Per-clip approval (ADR-0019 Decision 1) is
+reinstated before whichever of these happens first — numbers proposed
+here for the owner to set, not assumed:
+
+1. The app is publicly installable beyond invited testers — open App
+   Store or Play listing rather than TestFlight/internal distribution.
+2. Any team joins that the operator does not know personally. This is
+   the real substance of the trade: the interim posture is defensible
+   because the operator can recognise every family in the beta, and it
+   stops being defensible the moment that is no longer true.
+3. Enabled consents pass ~50, whichever comes first.
+
+**B. A monthly review, at the owner's request** (2026-08-16): *"remind
+me again once a month if we should keep this way or change it for the
+future."* The review asks three questions, and they are written down
+because the answer "still fine" is only meaningful if the question had
+teeth:
+
+- Has any trigger above been met or come close?
+- How many consents are enabled, and how many parents have actually
+  disabled? A disable rate of zero across many months means the reminder
+  is being ignored rather than read, and an ignored reminder is not the
+  control Decision 4 claims it is.
+- Has anything been published that per-clip approval would have caught?
+  One instance is the argument for reinstating it, on its own.
 
 ## Consequences
 
-- ADR-0019 remains the design of record for the feature itself. This ADR
-  adds a gate in front of it and changes none of its eight decisions.
+- **ADR-0019 remains the design of record for the feature itself, with
+  its Decision 1 deferred for the interim period.** Its other seven
+  decisions are unchanged and still apply. This ADR no longer adds a
+  gate in front of ADR-0019 — it temporarily replaces ADR-0019's gate
+  with a coarser one, which is a reduction in control and is recorded as
+  such.
 - One new entity, account-scoped, with its own approval/revoke codes; one
   scheduled sweep; one email template. No change to `VideoClip`.
 - The reminder is now a **safety-critical scheduled job**: if it stops
@@ -320,9 +421,24 @@ Decision 9 have each already rejected.
    named this its hardest question. A 13-year-old who self-verified has
    no parent in the loop, so there is no address for the monthly reminder
    and no one to disable it — which means Decisions 2, 4 and 5 have no
-   actor for that cohort. The honest options are excluding them from
-   public sharing entirely, or requiring a parent contact specifically
-   for this consent even where account creation did not. Not decided.
+   actor for that cohort.
+
+   **The amended Decision 3 makes this sharper, and close to
+   self-answering.** When the reminder was a backstop behind per-clip
+   approval, a cohort without a reminder recipient still had one control.
+   Under the interim posture the reminder is the *only* control, so that
+   cohort would have **none at all** — self-verified account creation
+   would silently become unsupervised publication outside the team.
+
+   The owner's own sentence points the same way: *"when a underage
+   person want to share content, they need to ask for approval from
+   their parents"* — underage, not under-13. Read literally, sharing
+   requires a parent for everyone under 18, whatever route was used to
+   create the account. **Recommended interim reading: a parent contact
+   is required for public-sharing consent even where account creation
+   did not require one, and a self-verified account with no parent
+   contact cannot enable sharing.** Flagged as an inference from that
+   sentence rather than an explicit decision — it needs the owner's yes.
 5. **Legal basis, and whether this re-consent is sufficient.** Belongs
    with the lawyer already engaged for `privacy-policy-DRAFT.md`,
    alongside its open questions 2, 3 and 5. Specifically: whether an
