@@ -249,11 +249,13 @@ them once) — just nothing application-facing uses them anymore.
   as `temp/`'s `skillstreak-deployer` (see `temp/README.md`). Apply it
   once by hand with a kubeconfig that has broader rights, per the deploy
   order above.
-- **The hosted demo's browser-tab title says "SkillStreak (dev)"** —
-  that's `mobile/app.json`'s `name` field, shared with the native app
-  builds. Cosmetic only, not worth a special-case for one export target
-  while the project doesn't have a final name yet anyway (see root
-  `CLAUDE.md`'s naming banner).
+- **The hosted demo's browser-tab title said "SkillStreak (dev)" —
+  RESOLVED 2026-08-17.** That was `mobile/app.json`'s `name` field,
+  shared with the native app builds, left alone while the project had no
+  final name. The name has been settled since 2026-08-10 (see root
+  `CLAUDE.md`), and `name` is now plain `SkillStreak` — it is the app's
+  home-screen label on iOS and Android, so it had to be right before the
+  first store submission regardless of the tab title.
 - **TLS is on staging, not prod, until verified.** `certificate.yaml`
   currently issues certs via `letsencrypt-staging` (untrusted by real
   browsers/clients) — see the warning at the top of this file for the
