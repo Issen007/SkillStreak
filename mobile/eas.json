@@ -46,8 +46,6 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "SET_VIA_EXPO_APPLE_ID_ENV_VAR_OR_SUBMIT_FLAG",
-        "ascAppId": "REPLACE_WITH_NUMERIC_APP_ID_FROM_APP_STORE_CONNECT",
         "appleTeamId": "VMD23MJDNG"
       },
       "android": {
