@@ -27,6 +27,14 @@ export interface Drill {
   locale: string;
   author: string;
   sourceNote: string | null;
+  /**
+   * Whether a coach has actually read this drill and vouched for it.
+   *
+   * Absent means false. Fail-closed on purpose: the failure this guards
+   * against is unreviewed training advice reaching children, and a
+   * forgotten field must not be the thing that publishes it.
+   */
+  coachReviewed: boolean;
   /** Markdown prose. Rendered escaped — it is text a human wrote, not markup. */
   body: string;
 }
@@ -65,8 +73,26 @@ export class DrillLibraryService {
   private readonly drills: Drill[];
 
   constructor() {
-    this.drills = this.loadAll();
-    this.logger.log(`Drill library loaded: ${this.drills.length} drill(s).`);
+    // Unreviewed drills are dropped here, at the boundary, rather than
+    // filtered at each call site. Seven places read this library — the
+    // coach API, drill groups, the health count and the training-plan
+    // corpus among them — and a filter each of them has to remember is a
+    // filter one of them will eventually forget.
+    //
+    // This mirrors Decision 1's reasoning about there being no `drill`
+    // table at all: a draft that never enters `this.drills` cannot be
+    // served by code that does not know drafts exist.
+    const all = this.loadAll();
+    this.drills = all.filter((drill) => drill.coachReviewed);
+
+    const withheld = all.length - this.drills.length;
+    this.logger.log(
+      `Drill library loaded: ${this.drills.length} coach-reviewed drill(s)` +
+        (withheld > 0
+          ? `, ${withheld} withheld awaiting review (set coachReviewed: true to publish)`
+          : '') +
+        '.',
+    );
   }
 
   list(filter?: {
@@ -205,6 +231,15 @@ export function parseDrill(fileName: string, raw: string): Drill {
     );
   }
 
+  // Parsed, not inferred. The previous marker was the word "UTKAST" inside
+  // `sourceNote`, which no code read — so twelve unreviewed drills were
+  // being served to coaches and used as the training-plan model's corpus
+  // while looking, in the files, like they were being held back. A comment
+  // that asserts something the code does not do is worse than no comment,
+  // because it stops anyone checking.
+  const coachReviewed =
+    (fields.get('coachReviewed') ?? '').toLowerCase() === 'true';
+
   return {
     slug: fileName.replace(/\.md$/, ''),
     title: required('title'),
@@ -214,6 +249,7 @@ export function parseDrill(fileName: string, raw: string): Drill {
     locale: required('locale'),
     author,
     sourceNote: fields.get('sourceNote') ?? null,
+    coachReviewed,
     body: body.trim(),
   };
 }

@@ -6,6 +6,7 @@ durationMinutes: 10
 locale: "sv"
 author: "Anonym tränare"
 authorConsentedNamed: false
+coachReviewed: false
 sourceNote: "UTKAST skrivet av Claude 2026-08-13, väntar på tränargranskning"
 ---
 
