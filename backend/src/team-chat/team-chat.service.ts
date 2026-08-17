@@ -359,7 +359,42 @@ export class TeamChatService {
     after: string | undefined,
     limit: number = DEFAULT_CHAT_MESSAGE_LIMIT,
   ): Promise<ChatMessageListItem[]> {
-    await this.playersService.assertTeamMembership(requesterId, teamId);
+    const requester = await this.playersService.assertTeamMembership(
+      requesterId,
+      teamId,
+    );
+
+    /**
+     * Reading chat *text* stays ungated, per ADR-0007's original posture,
+     * and this deliberately does not change that.
+     *
+     * The **clip embed** is gated, because it is not text. Security
+     * review, 2026-08-17: this endpoint gained a media attachment in
+     * ADR-0017 and never revisited its gate, so it minted presigned
+     * playback URLs for a viewer who had passed only
+     * `assertTeamMembership` — no parental consent, no captain approval.
+     * `postMessage` twenty lines below asserts both.
+     *
+     * That was reachable, not theoretical: onboarding returns a working
+     * session token immediately, a joining player's `teamJoinStatus` is
+     * PENDING until a captain approves, and joining needs only an invite
+     * code the codebase itself describes as repeated aloud to recruit
+     * teammates. Meanwhile every tagged challenge clip is attached to a
+     * system message automatically. So an unapproved account with no
+     * parental consent could read playable video of other people's
+     * children — defeating two of CLAUDE.md's four non-negotiables at
+     * once, and directly contradicting ADR-0010's Consequences, which
+     * says reading the feed is gated on consent precisely because "video
+     * of real children is a big enough step up in sensitivity from text".
+     *
+     * Collapsing the embed rather than refusing the request keeps the
+     * text posture intact and needs no client change: the embed contract
+     * is already "one placeholder, always", and a client cannot tell why
+     * a clip is absent.
+     */
+    const maySeeClips =
+      requester.parentalConsentStatus === ParentalConsentStatus.APPROVED &&
+      requester.teamJoinStatus === TeamJoinStatus.APPROVED;
 
     const qb = this.messageRepository
       .createQueryBuilder('message')
@@ -422,11 +457,15 @@ export class TeamChatService {
 
     return Promise.all(
       messages.map(async (message, index) => {
-        const clip = await this.resolveClipEmbedFromRawRow(
-          raw[index] as ChatMessageClipRawRow,
-          teamId,
-          playerById,
-        );
+        const clip = maySeeClips
+          ? await this.resolveClipEmbedFromRawRow(
+              raw[index] as ChatMessageClipRawRow,
+              teamId,
+              playerById,
+            )
+          : // No presigned URL is minted at all for an ungated viewer —
+            // the check is before the mint, not a filter after it.
+            null;
 
         // docs/adr/0013-account-erasure.md Decision 6 / docs/adr/0021-
         // clip-challenge-notifications.md Decision 2 — a null senderPlayerId
