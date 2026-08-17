@@ -46,7 +46,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleTeamId": "VMD23MJDNG"
+        "appleTeamId": "VMD23MJDNG",
+        "appName": "SkillStreak",
+        "sku": "skillstreak-ios-01"
       },
       "android": {
         "serviceAccountKeyPath": "../secrets/play-service-account.json",
