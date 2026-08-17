@@ -199,29 +199,60 @@ their password.
 
 ## 12. Who processes this data
 
-Unusually for an app of this kind, most of the stack is self-hosted,
-which means there are far fewer third parties than a reader might expect:
+Unusually for an app of this kind, the whole software stack is
+self-hosted — no managed database, no third-party object storage, no
+external AI service. The hardware underneath it is rented, so the
+hosting provider sits beneath the first three rows even though no
+service of theirs appears in them:
 
 | What | Who | Third party? |
 |---|---|---|
-| Application and database | Our own Kubernetes cluster | No |
-| Video and image storage | MinIO, running in that same cluster | No |
-| Automatic clip tagging and training-plan generation | Our own GPU cluster | No |
-| Email (consent links, approvals) | An SMTP provider | **Yes — must be named** |
+| Application and database | Our own Kubernetes cluster | Software: none. Hardware: the hosting provider |
+| Video and image storage | MinIO, running in that same cluster | Same |
+| Automatic clip tagging and training-plan generation | Our own GPU cluster | Same |
+| Email (consent links, approvals) | **Google** — `smtp.gmail.com:587`, sending as `noreply@isstech.io` | Yes |
 | Staff sign-in | Google, Microsoft, Apple | Yes |
+
+**The email arrangement is explicitly interim** (owner's decision,
+2026-08-17): mail goes out through Google's SMTP from an `isstech.io`
+address, which is a domain belonging to the owner's other work rather
+than to SkillStreak. A dedicated `skillstreak.xyz` mail domain and its
+own account are planned. Recorded here rather than left implicit because
+consent emails are the mechanism the entire parental-approval model
+rests on, so who carries them is not an incidental detail.
 
 **To be completed before publication**, and these are genuinely open
 rather than rhetorical:
 
-1. **The hosting provider** for the two clusters must be named, since
-   the machines are ours but the datacentre is not.
-2. **The SMTP provider** must be named. The code sends mail through
-   generic SMTP configured per environment (`SMTP_HOST`), so the
-   provider is a deployment choice and cannot be read out of the
-   repository — the owner has to state which one is in use in
-   production.
-3. **Data processing agreements** with both, plus confirmation of
-   whether either implies a transfer outside the EU/EEA.
+1. **The hosting provider must be named.** The owner's description
+   (2026-08-17) is rented dedicated hardware: the provider owns the
+   machines, the owner owns the data.
+
+   **A caution for the lawyer's attention, because the reasoning here
+   does not carry the weight it appears to.** Owning the data is what
+   makes the owner the *controller*; it is the source of the obligations
+   in this document, not an exemption from them. A provider whose disks
+   hold children's personal data is normally a *processor* regardless of
+   who owns the data, and that relationship is what a data processing
+   agreement exists to govern. Dedicated rather than shared hardware may
+   narrow what the provider can reach, and full-disk or
+   application-level encryption narrows it further — both are worth
+   raising — but neither is established here, and neither removes the
+   need to name the provider and hold an agreement with it.
+
+2. **Whether the Google mail account is Workspace or consumer Gmail.**
+   This decides whether a data processing agreement is even available:
+   Google offers one for Workspace, while consumer Gmail runs on
+   consumer terms that do not include one. Since these are the emails
+   carrying parental consent requests, an arrangement with no available
+   DPA would be a real gap rather than a formality. The planned move to
+   a dedicated `skillstreak.xyz` mail account is the natural moment to
+   settle it.
+
+3. **Data processing agreements** with the hosting provider and with
+   Google, plus confirmation of whether either implies a transfer
+   outside the EU/EEA. Google's corporate parent is in the US, so this
+   needs a real answer rather than an assumption.
 
 ## 13. Your rights
 
