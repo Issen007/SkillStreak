@@ -39,8 +39,18 @@ export interface Drill {
   body: string;
 }
 
-/** The listing shape: everything except the body, which is often long. */
-export type DrillSummary = Omit<Drill, 'body'>;
+/**
+ * The listing shape: everything except the body, which is often long,
+ * and except `coachReviewed`.
+ *
+ * That second omission is the point rather than an oversight. Nothing
+ * outside this file can obtain an unreviewed drill — they are dropped in
+ * the constructor — so the field would be `true` in every response it
+ * ever appeared in. A flag that cannot vary tells a reader nothing and
+ * invites a caller to start branching on it, which would recreate at the
+ * edges the filtering this service does once at the centre.
+ */
+export type DrillSummary = Omit<Drill, 'body' | 'coachReviewed'>;
 
 /**
  * The coach drill library (ADR-0029 Decision 2).
