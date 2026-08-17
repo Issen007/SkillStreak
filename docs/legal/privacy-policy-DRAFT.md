@@ -27,8 +27,19 @@
 >    open questions at the end are the ones to put in front of them
 >    first.
 >
-> Every factual claim below was checked against the code on 2026-08-15
-> and cites where it lives, so a reviewer can verify rather than trust.
+> Every factual claim below was re-checked against the code on
+> **2026-08-17** and cites where it lives, so a reviewer can verify
+> rather than trust.
+>
+> **What that re-check changed**, so the diff is not mistaken for
+> cosmetics: the data table was missing four categories the schema
+> actually holds (consent records, safety reports and blocks,
+> streak-saver events, erasure requests); it cited a `team_pool` table
+> that does not exist, now corrected to `team_season_pot`; the trainer
+> tips feed and the public website's click counters were not described
+> at all; and the processors section has gone from "needs naming" to
+> naming the three that are self-hosted and isolating the two that
+> genuinely still need an answer.
 
 ---
 
@@ -64,7 +75,11 @@ The strictest rules follow the children, so they are described first.
 | Training log entries | The streak and the team's shared point pool | `training_log_entry` |
 | Video clips | The team-only clip feed | Object storage; metadata in `video_clip` |
 | Chat messages | Team chat | `team_chat_message` |
-| Badges, streaks, points | The game itself | `badge_award`, `team_pool` |
+| Badges, streaks, points | The game itself | `badge_award`, `team_season_pot` |
+| Consent records | Proof that a parent approved, and when | `parental_consent_record` |
+| Safety records | Reports of a clip or a chat message, and who a child has blocked | `clip_report`, `team_chat_message_report`, `team_chat_block` |
+| Streak-saver events | The "you didn't lose your streak" mechanic | `streak_saver_event` |
+| Erasure requests | Carrying out an account deletion, and proving it happened | `account_erasure_request` |
 
 **We do not collect location.** Not from the device, not from a photo, not
 from a video. The app records *that* a child trained, never *where*. Video
@@ -75,6 +90,14 @@ file cannot carry a location out of the app.
 **We do not use third-party analytics, advertising or tracking SDKs.**
 There are none in the app's dependencies — this is checkable, not a
 promise.
+
+**A note on the safety records**, because they are the row a reader is
+most likely to be surprised by: reporting a clip or a chat message, and
+blocking another player, necessarily record who did it. That is
+unavoidable — a report nobody can act on is not a safety feature — but it
+means a child's use of the safety tools is itself stored data, and a
+lawyer should be asked whether it needs saying more prominently than a
+table row.
 
 ## 4. Consent
 
@@ -110,10 +133,43 @@ Stated honestly:
   silent, and stripped of metadata. This reduces what leaves our main
   system; it is **not** anonymisation, and a close-up frame can still show
   a recognisable face.
-- Tags are internal. They are not shown to players, do not affect points
-  or badges, and are not used to rank anyone.
+- Tags are internal (`video_clip_tag`). They are not shown to players, do
+  not affect points or badges, and are not used to rank anyone.
+- The analysis runs on **our own hardware** — a self-hosted GPU cluster
+  described in section 12 — not on any third-party AI service. No frame
+  of a child is sent to an external model provider.
 
-## 7. How long we keep things
+## 7. Tips from trainers
+
+The app has a reading feed of short coaching tips (`trainer_post`).
+
+- Every post is **written by an adult** — a coach, trainer or the
+  operator — and **read by the operator before** it can appear.
+- It contains **no child's data**. Nothing a player does, writes or
+  uploads reaches it.
+- **Children cannot reply.** There is no comment, reaction or message
+  route in the feature, so no child's words go anywhere through it, and
+  no author can be contacted through it.
+- Authors may not publish contact details. Email addresses, phone numbers
+  and web addresses are rejected, so the feed cannot be used to move a
+  child into a private conversation elsewhere.
+
+It is described here because it is content an adult outside the child's
+team publishes *to* children, which is a thing worth disclosing even
+though it collects nothing.
+
+## 8. The public website
+
+`skillstreak.xyz` counts how often a few links are clicked — "get the
+app", "try it", and similar (`link_click`).
+
+This is **an aggregate counter, not analytics**. One row per link per
+day, incremented in place. There is deliberately no cookie, no IP
+address, no session, no user agent, no referrer and no time of day, so
+the table cannot answer "who clicked" — not because the data is
+protected, but because it was never collected.
+
+## 9. How long we keep things
 
 | Data | Kept for |
 |---|---|
@@ -124,20 +180,92 @@ Stated honestly:
 | Event registrations | 365 days |
 | Account data | Until the account is deleted |
 
-## 8. Deleting an account
+Each figure is a constant in the code (`DEFAULT_CLIP_RETENTION_DAYS` and
+its siblings), enforced by scheduled sweeps rather than by intention.
+
+## 10. Deleting an account
 
 A player can delete their own account from the app (Profile → delete
 account). Deletion removes their personal data, including clips, chat
 messages and training history, subject to the successor rules that apply
 if they are a team captain.
 
-## 9. Staff data
+## 11. Staff data
 
 Staff sign in with Google, Microsoft or Apple. We store the email address
 and display name their provider returns, and a record of which teams
-invited them. We never receive or store their password.
+invited them (`staff_account`, `team_coach`). We never receive or store
+their password.
 
-## 10. Your rights
+## 12. Who processes this data
+
+Unusually for an app of this kind, the whole software stack is
+self-hosted — no managed database, no third-party object storage, no
+external AI service. The hardware underneath it is rented, so the
+hosting provider sits beneath the first three rows even though no
+service of theirs appears in them:
+
+| What | Who | Third party? |
+|---|---|---|
+| Application and database | Our own Kubernetes cluster | Software: none. Hardware: **Safespring** |
+| Video and image storage | MinIO, running in that same cluster | Same |
+| Automatic clip tagging and training-plan generation | Our own GPU cluster | Same |
+| Email (consent links, approvals) | **Google** — `smtp.gmail.com:587`, sending as `noreply@isstech.io` | Yes |
+| Staff sign-in | Google, Microsoft, Apple | Yes |
+
+**The email arrangement is explicitly interim** (owner's decision,
+2026-08-17): mail goes out through Google's SMTP from an `isstech.io`
+address, which is a domain belonging to the owner's other work rather
+than to SkillStreak. A dedicated `skillstreak.xyz` mail domain and its
+own account are planned. Recorded here rather than left implicit because
+consent emails are the mechanism the entire parental-approval model
+rests on, so who carries them is not an incidental detail.
+
+**To be completed before publication**, and these are genuinely open
+rather than rhetorical:
+
+1. **Safespring** — named by the owner, 2026-08-17. Rented hardware:
+   Safespring owns the machines, the owner owns the data and runs
+   everything on top.
+
+   A **Swedish** provider, which is the single most helpful fact in this
+   whole section: it means the largest concentration of children's data
+   here — the database, every video clip, every chat message — is very
+   likely to stay inside the EU/EEA, and the third-country transfer
+   problem that dominates most GDPR reviews does not arise for it. Worth
+   confirming in writing rather than assuming, since the answer should
+   be easy to obtain and is load-bearing: **which region or datacentre
+   the resources actually run in**, and whether any support or backup
+   path reaches outside the EEA.
+
+   **Still required: a data processing agreement.** A caution for the
+   lawyer's attention, because the reasoning that made this look settled
+   does not carry the weight it appears to: owning the data is what
+   makes the owner the *controller*, and that is the source of the
+   obligations in this document rather than an exemption from them. A
+   provider whose disks hold children's personal data is normally a
+   *processor* however the ownership is described, and a DPA is what
+   governs that relationship. Dedicated hardware narrows what the
+   provider can reach and encryption at rest narrows it further — both
+   worth raising — but neither replaces the agreement. A provider of
+   Safespring's kind will have a standard DPA available; it needs
+   signing and filing, not negotiating.
+
+2. **Whether the Google mail account is Workspace or consumer Gmail.**
+   This decides whether a data processing agreement is even available:
+   Google offers one for Workspace, while consumer Gmail runs on
+   consumer terms that do not include one. Since these are the emails
+   carrying parental consent requests, an arrangement with no available
+   DPA would be a real gap rather than a formality. The planned move to
+   a dedicated `skillstreak.xyz` mail account is the natural moment to
+   settle it.
+
+3. **Data processing agreements** with the hosting provider and with
+   Google, plus confirmation of whether either implies a transfer
+   outside the EU/EEA. Google's corporate parent is in the US, so this
+   needs a real answer rather than an assumption.
+
+## 13. Your rights
 
 Under the GDPR you may request access, correction, deletion, restriction,
 portability, and may object to processing. For a child, a parent or
@@ -158,7 +286,9 @@ Put these in front of a lawyer first:
 2. **Legal basis for each purpose.** This draft describes consent, but
    consent is not automatically the right basis for everything (service
    delivery, security logging, and abuse prevention often are not
-   consent-based). Each purpose needs its basis named.
+   consent-based). Each purpose needs its basis named. The safety records
+   in section 3 are the clearest example: a report or a block cannot
+   sensibly rest on the reporting child's consent.
 3. **Age of digital consent.** It is 13 in Sweden but varies from 13 to 16
    across the EU. The app's 13+ self-verification is correct for Sweden
    and may not be for a Finnish or German user — and the app already ships
@@ -167,11 +297,25 @@ Put these in front of a lawyer first:
    legal or similarly significant effect today, so Article 22 likely does
    not apply — but that conclusion should be confirmed rather than
    assumed, and it changes if tags ever drive badges or ranking.
-5. **The cross-team clip feed that has been discussed but not built.**
+5. **The cross-team clip feed, now designed but still not built.**
    Existing parental consent covers team-only visibility. Publishing a
    child's clip beyond their team would need fresh consent, and this
-   document must be updated *before* that ships, not after.
-6. **Processors.** Hosting, object storage and email delivery are
-   third-party services and need naming, with data processing agreements
-   in place.
-7. **Transfers outside the EU/EEA**, if any processor implies them.
+   document must be updated *before* that ships, not after. The design
+   is ADR-0019 as amended by ADR-0030, whose whole mechanism is a
+   separate, revocable, default-off parental consent obtained precisely
+   so that no existing family's team-only promise is reinterpreted. That
+   design is the thing to put in front of the lawyer alongside this
+   document — not after it ships.
+6. **Processors — now named, agreements outstanding.** See section 12.
+   All of them are identified: Safespring for hardware, Google for mail,
+   and Google/Microsoft/Apple for staff sign-in. What remains is
+   paperwork rather than discovery — a DPA with Safespring, and the
+   Workspace-versus-consumer-Gmail question that decides whether a DPA
+   with Google is even available.
+7. **Transfers outside the EU/EEA.** Much smaller than it first looked.
+   Safespring being Swedish means the bulk of the data — database,
+   clips, chat — very likely never leaves the EEA, subject to confirming
+   the region. What remains is Google: a US parent carrying the consent
+   emails, and the staff sign-in identity providers. Those are the
+   transfer questions worth the lawyer's time; the hosting one probably
+   is not.
