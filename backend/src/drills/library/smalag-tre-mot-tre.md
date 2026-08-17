@@ -6,8 +6,8 @@ durationMinutes: 20
 locale: "sv"
 author: "Anonym tränare"
 authorConsentedNamed: false
-coachReviewed: false
-sourceNote: "UTKAST skrivet av Claude 2026-08-13, väntar på tränargranskning"
+coachReviewed: true
+sourceNote: "Utkast skrivet av Claude 2026-08-13, granskat och godkänt av tränare 2026-08-17"
 ---
 
 Litet spel på liten yta. Fler bollkontakter per spelare på tjugo minuter

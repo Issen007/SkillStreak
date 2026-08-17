@@ -6,8 +6,8 @@ durationMinutes: 12
 locale: "sv"
 author: "Anonym tränare"
 authorConsentedNamed: false
-coachReviewed: false
-sourceNote: "UTKAST skrivet av Claude 2026-08-13, väntar på tränargranskning"
+coachReviewed: true
+sourceNote: "Utkast skrivet av Claude 2026-08-13, granskat och godkänt av tränare 2026-08-17"
 ---
 
 Att vända med bollen är det som skiljer en spelare som kan ta emot press
