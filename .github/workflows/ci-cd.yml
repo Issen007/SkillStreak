@@ -857,20 +857,22 @@ jobs:
           echo "Latest tag: ${LATEST_TAG:-none yet}, new tag: $NEW_TAG"
           echo "version=$NEW_TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Create and push the version tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "${{ steps.version.outputs.version }}"
-          git push origin "${{ steps.version.outputs.version }}"
-
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "${{ steps.version.outputs.version }}" \
-            --title "${{ steps.version.outputs.version }}" \
-            --generate-notes
+      # The tag is created LAST, by the release step at the end of this
+      # job — not here, before the work it is supposed to describe.
+      #
+      # It used to be pushed first, as its own step. On 2026-08-17 the
+      # GitHub API returned 503 during a platform incident, `gh release
+      # create` failed, and every step after it was skipped. What
+      # survived was a v0.4.6 tag with no release and no images behind
+      # it — and because "Compute next version" derives the next number
+      # from tag history, that empty tag was still enough to consume the
+      # version. The failure was transient; the hole it left was not.
+      #
+      # Nothing between here and the release needs the tag to exist: the
+      # image steps interpolate `steps.version.outputs.version`, which is
+      # a string, not a ref. So the ordering costs nothing and buys a
+      # clean retry — if a build fails now, no tag is created, and the
+      # next run computes the same version and tries again.
 
       - name: Downcase repository owner for Docker
         run: |
@@ -917,6 +919,24 @@ jobs:
             EXPO_PUBLIC_JOIN_URL=https://skillstreak.xyz
             EXPO_PUBLIC_APP_VERSION=${{ steps.version.outputs.version }}
           tags: ${{ env.LOWER_SITE_IMAGE }}:${{ steps.version.outputs.version }}
+
+      # Last, and it creates the tag as part of creating the release —
+      # `gh release create` tags the target commit itself, so the separate
+      # `git tag && git push` step this replaced was always redundant as
+      # well as premature.
+      #
+      # --target is explicit rather than relying on the checked-out HEAD:
+      # this job checks out with fetch-depth 0 to read tag history, and a
+      # release should name the commit it was built from rather than
+      # whatever the working tree happens to be pointing at.
+      - name: Create GitHub Release and tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.version }}" \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.version.outputs.version }}" \
+            --generate-notes
 
   internal-images:
     name: Build and Push Internal Test Images
