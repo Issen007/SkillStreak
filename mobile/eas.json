@@ -46,9 +46,10 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "SET_VIA_EXPO_APPLE_ID_ENV_VAR_OR_SUBMIT_FLAG",
-        "ascAppId": "REPLACE_WITH_NUMERIC_APP_ID_FROM_APP_STORE_CONNECT",
-        "appleTeamId": "VMD23MJDNG"
+        "appleTeamId": "VMD23MJDNG",
+        "ascAppId": "6753119442",
+        "appName": "SkillStreak",
+        "sku": "skillstreak-ios-01"
       },
       "android": {
         "serviceAccountKeyPath": "../secrets/play-service-account.json",
