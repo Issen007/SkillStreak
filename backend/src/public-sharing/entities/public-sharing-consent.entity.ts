@@ -48,9 +48,22 @@ export enum PublicSharingRevokedReason {
    */
   REMINDER_UNDELIVERABLE = 'reminder_undeliverable',
   /**
-   * Present for symmetry with PtPlayerConsent and never set: player_id is
-   * ON DELETE CASCADE, so erasure hard-deletes the row rather than
-   * leaving a revoked one behind. ADR-0013's free-cleanup treatment.
+   * Present for symmetry with PtPlayerConsent, and not currently set by
+   * any code path.
+   *
+   * It is *intended* that erasure hard-deletes this row via an
+   * ON DELETE CASCADE on `player_id`, the way pt_player_consent does.
+   * **That constraint does not exist yet** — there is no migration for
+   * this table, and the security review (finding 5) caught this comment
+   * asserting it as though it did. Until the migration creates the FK,
+   * an erased player would leave an orphan row here holding their id, an
+   * ACTIVE status and a live revoke code: an incomplete Article 17
+   * erasure on the one table recording consent about child media.
+   *
+   * The migration that creates `public_sharing_consent` MUST carry:
+   *   CONSTRAINT "FK_public_sharing_consent_player"
+   *     FOREIGN KEY ("player_id") REFERENCES "player"("id")
+   *     ON DELETE CASCADE
    */
   ACCOUNT_ERASURE = 'account_erasure',
 }
@@ -108,6 +121,24 @@ export class PublicSharingConsent {
     unique: true,
   })
   revokeCode!: string | null;
+
+  /**
+   * The parent address that granted this consent, encrypted at rest and
+   * frozen at request time (security review, finding 3).
+   *
+   * Every later mail — including years of monthly reminders, and the
+   * disable link inside them — goes here rather than to whatever the
+   * profile says by then. A consent whose notifications follow a changed
+   * address is a consent that can be handed to someone else without the
+   * person who granted it ever knowing, and the app's own contact-change
+   * flow mails its confirmation to the *new* address.
+   */
+  @Column({
+    name: 'recipient_contact_snapshot',
+    type: 'text',
+    nullable: true,
+  })
+  recipientContactSnapshot!: string | null;
 
   @CreateDateColumn({ name: 'requested_at', type: 'timestamptz' })
   requestedAt!: Date;

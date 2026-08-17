@@ -2,6 +2,72 @@
 
 ## Status
 
+**Security-reviewer pass, 2026-08-17 — NOT a sign-off.** The consent
+lifecycle was built (`backend/src/public-sharing/`) and reviewed. The
+review returned **eight blocking findings and five advisory**, and its
+verdict is worth quoting rather than paraphrasing: the implementation
+claimed to mirror `pt-consent.service.ts` while dropping most of the
+protections that make that file safe.
+
+**Closed in the first remediation pass** (each pinned by a test that
+would have passed before the fix):
+
+1. **The approval code was returned to its own caller** and the module
+   mailed nobody, so "child taps Enable" and "child's video may leave the
+   team" were two in-process calls apart. Codes now leave only by email.
+2. **No side-effect-free preview.** The only code-consuming helper
+   mutated, so a corporate link scanner prefetching a URL could have
+   granted the consent. `previewByReviewCode`/`previewByRevokeCode` added.
+3. **Decision 10 was a single read that the shipped contact-change flow
+   defeats.** A player can repoint the parent contact to an address they
+   control, wait out the 24-hour grace, and approve their own consent.
+   Now refuses while a change is pending, and freezes the granting
+   address encrypted for the row's lifetime.
+7. **Re-requesting silently replaced an active consent**, bypassing
+   `deactivate()` — and with it ADR-0019 Decision 5's un-publish hook,
+   leaving clips published with no consent behind them — while erasing
+   the record that a parent ever approved. Now refused outright.
+9. *(advisory)* A missing expiry read as "never expires" rather than
+   "expired". Reversed to match PT.
+
+**Still open, and this does not ship until they are closed:**
+
+- **4 (blocking, and the hardest).** Decision 5's fail-closed disable can
+  essentially never fire for the case it was written for. `MailService`
+  discards nodemailer's `rejected`/`accepted`, there is no bounce or DSN
+  handling anywhere in the app, and with `SMTP_HOST` unset it logs and
+  returns *successfully*. A dead mailbox on a live domain is accepted by
+  the relay and bounced to nobody. Under the amended Decision 3 the
+  reminder is the only recurring control, so this is the finding that
+  most undermines the design. It cannot be fixed inside
+  `public-sharing/` and must be closed **before the reminder sweep is
+  written**.
+- **5 (blocking).** The migration does not exist, and must carry
+  `ON DELETE CASCADE` on `player_id`. Without it an erased child leaves
+  an orphan row holding an ACTIVE status and a live revoke code — an
+  incomplete Article 17 erasure on the one table recording consent about
+  child media.
+- **6 (blocking).** No row locking, where PT takes `pessimistic_write` on
+  all three transitions. Racing approvals mint two revoke codes and leave
+  the parent holding a dead disable link — the one failure Decision 2
+  cannot tolerate.
+- **8 (blocking).** No rate limiting, where PT has a burst cooldown and
+  daily and global caps. Re-requesting also invalidates the disable link
+  a parent already holds, so an unthrottled request endpoint is both
+  inbox harassment and a way to keep "off" perpetually broken.
+- **13 (advisory, but a real obligation).** `isActiveFor` is
+  account-scoped and cannot enforce Decision 3's "only the child's own
+  clips". **That obligation belongs to the ADR-0019 caller** and is
+  recorded here so it is not discovered during integration.
+
+Also noted as sound: no location capture, no PII in this module's logs,
+no injection surface, adequate code entropy, and default-off with no
+backfill. Codes are stored in plaintext columns — parity with PT rather
+than a regression, but `review_code` could be hashed since lookup is by
+exact match, while `revoke_code` cannot be, because Decision 4 requires
+embedding it in every reminder. Worth recording as a deliberate
+constraint.
+
 **Proposed — 2026-08-15. Amended 2026-08-16 by the project owner:
 Decision 3 is replaced by a deliberately simpler interim posture, and
 the whole ADR is now explicitly time-boxed.** Design only. Nothing here

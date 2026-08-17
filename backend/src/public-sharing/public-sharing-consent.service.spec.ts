@@ -70,16 +70,40 @@ function fakeRepo() {
   };
 }
 
-function build(parentContact: string | null = 'parent@example.se') {
+function build(
+  parentContact: string | null = 'parent@example.se',
+  pendingContactChange = false,
+) {
   const repo = fakeRepo();
   const privateInfo = {
     getParentContact: jest.fn(() => Promise.resolve(parentContact)),
+    hasPendingContactChange: jest.fn(() =>
+      Promise.resolve(pendingContactChange),
+    ),
   } as unknown as PlayerPrivateInfoService;
+  const mailService = { sendMail: jest.fn(() => Promise.resolve()) };
+  const configService = {
+    getOrThrow: jest.fn(() => 'Y2ktb25seS10ZXN0LWtleS0zMi1ieXRlcy1sb25nISE='),
+    get: jest.fn(() => 'https://api.example.test'),
+  };
   const service = new PublicSharingConsentService(
     repo as unknown as Repository<PublicSharingConsent>,
     privateInfo,
+    mailService as never,
+    configService as never,
   );
-  return { service, repo, privateInfo };
+  // The codes never leave the service (finding 1), so tests read them
+  // from the row exactly as the database would hold them.
+  const reviewCodeOf = () => repo.rows[0].reviewCode!;
+  const revokeCodeOf = () => repo.rows[0].revokeCode!;
+  return {
+    service,
+    repo,
+    privateInfo,
+    mailService,
+    reviewCodeOf,
+    revokeCodeOf,
+  };
 }
 
 describe('PublicSharingConsentService: granting', () => {
@@ -100,28 +124,30 @@ describe('PublicSharingConsentService: granting', () => {
   });
 
   it('activates on approval and issues a revoke code', async () => {
-    const { service } = build();
-    const { reviewCode } = await service.request('p1');
+    const { service, reviewCodeOf } = build();
+    await service.request('p1');
+    const reviewCode = reviewCodeOf();
 
     const result = await service.approveByReviewCode(reviewCode);
 
-    expect(result?.playerId).toBe('p1');
-    expect(result?.revokeCode).toBeTruthy();
+    expect(result).toEqual({ approved: true });
     expect(await service.isActiveFor('p1')).toBe(true);
   });
 
   it('starts the reminder clock at the grant, not at a calendar boundary', async () => {
     // Decision 6: a family that opts in on the 20th hears on the 20th.
-    const { service, repo } = build();
-    const { reviewCode } = await service.request('p1');
+    const { service, repo, reviewCodeOf } = build();
+    await service.request('p1');
+    const reviewCode = reviewCodeOf();
     await service.approveByReviewCode(reviewCode);
 
     expect(repo.rows[0].lastReminderAt).toBeInstanceOf(Date);
   });
 
   it('does not approve on an expired review code', async () => {
-    const { service, repo } = build();
-    const { reviewCode } = await service.request('p1');
+    const { service, repo, reviewCodeOf } = build();
+    await service.request('p1');
+    const reviewCode = reviewCodeOf();
     repo.rows[0].reviewCodeExpiresAt = new Date(Date.now() - 1000);
 
     expect(await service.approveByReviewCode(reviewCode)).toBeNull();
@@ -129,8 +155,9 @@ describe('PublicSharingConsentService: granting', () => {
   });
 
   it('declining leaves it inactive and burns the code', async () => {
-    const { service } = build();
-    const { reviewCode } = await service.request('p1');
+    const { service, reviewCodeOf } = build();
+    await service.request('p1');
+    const reviewCode = reviewCodeOf();
 
     expect(await service.declineByReviewCode(reviewCode)).toEqual({
       declined: true,
@@ -144,9 +171,10 @@ describe('PublicSharingConsentService: granting', () => {
 describe('PublicSharingConsentService: revoking', () => {
   async function activated() {
     const built = build();
-    const { reviewCode } = await built.service.request('p1');
-    const approved = await built.service.approveByReviewCode(reviewCode);
-    return { ...built, revokeCode: approved!.revokeCode };
+    await built.service.request('p1');
+    const reviewCode = built.reviewCodeOf();
+    await built.service.approveByReviewCode(reviewCode);
+    return { ...built, revokeCode: built.revokeCodeOf() };
   }
 
   it('revokes immediately, with no confirmation step', async () => {
@@ -190,7 +218,8 @@ describe('PublicSharingConsentService: revoking', () => {
 describe('PublicSharingConsentService: the monthly reminder', () => {
   async function activated() {
     const built = build();
-    const { reviewCode } = await built.service.request('p1');
+    await built.service.request('p1');
+    const reviewCode = built.reviewCodeOf();
     await built.service.approveByReviewCode(reviewCode);
     return built;
   }
@@ -268,5 +297,88 @@ describe('PublicSharingConsentService: the monthly reminder', () => {
     // raised to something large, "fails closed" would quietly become
     // "stays open indefinitely behind a dead address".
     expect(MAX_REMINDER_FAILURES).toBeLessThanOrEqual(3);
+  });
+});
+
+/**
+ * The blocking security-review findings, 2026-08-17. Each of these
+ * would have passed before the fix, which is the point of pinning them.
+ */
+describe('PublicSharingConsentService: security-review findings', () => {
+  it('never returns the approval code to its caller (finding 1)', async () => {
+    const { service } = build();
+
+    const result = await service.request('p1');
+
+    // The link's only exit from this process is the parent's inbox.
+    expect(Object.keys(result).sort()).toEqual(['expiresAt', 'requested']);
+    expect(JSON.stringify(result)).not.toContain('reviewCode');
+  });
+
+  it('mails the parent rather than handing the code back (finding 1)', async () => {
+    const { service, mailService, reviewCodeOf } = build();
+    await service.request('p1');
+
+    expect(mailService.sendMail).toHaveBeenCalledTimes(1);
+    const sent = mailService.sendMail.mock.calls[0][0] as {
+      to: string;
+      text: string;
+    };
+    expect(sent.to).toBe('parent@example.se');
+    expect(sent.text).toContain(reviewCodeOf());
+  });
+
+  it('refuses while a contact change is pending (finding 3)', async () => {
+    // Otherwise a player repoints the parent contact at an address they
+    // control, waits out the grace period, and approves their own consent.
+    const { service, repo } = build('parent@example.se', true);
+
+    await expect(service.request('p1')).rejects.toThrow(/contact change/i);
+    expect(repo.rows).toHaveLength(0);
+  });
+
+  it('freezes the granting address so later mail cannot be repointed (finding 3)', async () => {
+    const { service, repo } = build();
+    await service.request('p1');
+
+    expect(repo.rows[0].recipientContactSnapshot).toBeTruthy();
+    // Encrypted at rest, not the bare address.
+    expect(repo.rows[0].recipientContactSnapshot).not.toContain('parent@');
+  });
+
+  it('refuses to re-request over an active consent (finding 7)', async () => {
+    // Overwriting in place skipped deactivate(), and with it ADR-0019's
+    // un-publish hook — leaving clips published with no consent behind
+    // them — and erased the record that a parent ever approved.
+    const { service, reviewCodeOf } = build();
+    await service.request('p1');
+    await service.approveByReviewCode(reviewCodeOf());
+
+    await expect(service.request('p1')).rejects.toThrow(/already active/i);
+    expect(await service.isActiveFor('p1')).toBe(true);
+  });
+
+  it('preview does not mutate or decide (finding 2)', async () => {
+    const { service, repo, reviewCodeOf } = build();
+    await service.request('p1');
+    const before = { ...repo.rows[0] };
+
+    const preview = await service.previewByReviewCode(reviewCodeOf());
+
+    expect(preview).toEqual({ playerId: 'p1', status: 'pending_review' });
+    // A link scanner prefetching the URL must not grant anything.
+    expect(await service.isActiveFor('p1')).toBe(false);
+    expect(repo.rows[0].status).toBe(before.status);
+    expect(repo.rows[0].reviewCode).toBe(before.reviewCode);
+  });
+
+  it('treats a missing expiry as expired, not as eternal (finding 9)', async () => {
+    const { service, repo, reviewCodeOf } = build();
+    await service.request('p1');
+    const code = reviewCodeOf();
+    repo.rows[0].reviewCodeExpiresAt = null;
+
+    expect(await service.previewByReviewCode(code)).toBeNull();
+    expect(await service.approveByReviewCode(code)).toBeNull();
   });
 });
