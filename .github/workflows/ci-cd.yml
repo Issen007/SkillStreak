@@ -428,7 +428,22 @@ jobs:
     # target main (workflow_dispatch has no branches: filter of its own, so
     # github.ref is checked the same way for both event types).
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-    
+    # Serialize deploys to the app cluster, for a different reason than
+    # `release`'s: not a miscounted version, but a wrong image left running.
+    # Two overlapping runs each `kubectl apply` their own commit's tag, and
+    # whichever finishes last wins regardless of which commit is newer — so
+    # a fast second merge can be overwritten by a slower first one and the
+    # cluster silently serves older code than main.
+    #
+    # That is the shape of the 2026-07-30 incident this repo already carries
+    # a warning about (see CLAUDE.md): production ran an image nobody
+    # intended, and CI was green throughout. cancel-in-progress stays false
+    # so a superseded deploy still completes rather than being killed
+    # part-way through a rollout.
+    concurrency:
+      group: deploy-${{ github.ref }}
+      cancel-in-progress: false
+
     permissions:
       contents: read
       packages: write
@@ -683,6 +698,14 @@ jobs:
     # secrets as empty, and there was no way to re-run without an
     # empty commit — the exact situation the hatch was added for.
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    # Same out-of-order-rollout risk as `deploy`, on the other cluster.
+    # A separate group, not a shared one: these two jobs deliberately share
+    # no step and reach different clusters, so blocking one on the other
+    # would couple them for no reason — the whole point of that separation
+    # is that a problem on one cluster cannot reach the other.
+    concurrency:
+      group: deploy-ai-${{ github.ref }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -773,6 +796,22 @@ jobs:
     # the code to be verified-good, not the remote cluster to be healthy.
     needs: [backend-test, compose-smoke-test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Serialize releases. This job reads the full tag history to work out
+    # the next version and then pushes that tag, which is a read-then-write
+    # with nothing holding the gap: two runs that overlap both see the same
+    # latest tag and both allocate from it.
+    #
+    # Not theoretical. On 2026-08-17 GitHub delivered two push events for
+    # the single merge 3beacb2 (PR #77), 27s apart. Both runs succeeded and
+    # both released: v0.4.1 and v0.4.2, same commit, 41s apart.
+    #
+    # cancel-in-progress is deliberately false. Cancelling would drop a
+    # release rather than delay it, and back-to-back merges each legitimately
+    # deserve their own version — queueing is the correct behaviour, not a
+    # cost. It also avoids killing a run mid-`git push --tags`.
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: write
       packages: write
