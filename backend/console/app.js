@@ -194,7 +194,10 @@
    * navigated out of the app". */
   var ROUTE_TAB = {
     team: 'teams', player: 'teams', graphs: 'graphs', drill: 'drills',
-    drillGroups: 'drills', plan: 'plans', bugs: 'bugs'
+    drillGroups: 'drills', plan: 'plans', bugs: 'bugs',
+    // Reached from both "My tips" and "Tip review"; highlights the
+    // authoring tab, since that is where the preview is used most.
+    playerPreview: 'posts'
   };
 
   function tabForRoute(route) {
@@ -607,6 +610,32 @@
 
   /* An author's own tip. Shows the rejection reason, because a rejection
    * a person cannot act on just gets resubmitted unchanged. */
+  /**
+   * The tip currently being previewed as a player would see it.
+   *
+   * Module state rather than a route parameter because the most useful
+   * preview is of a tip that has no id yet — the one being typed in the
+   * compose form. A route like `playerPreview/<id>` could not express
+   * that without inventing a draft id or a round-trip to save one.
+   */
+  var previewPost = null;
+
+  function preview(post) {
+    previewPost = post;
+    go('playerPreview');
+  }
+
+  /** Wires every `data-preview-post` button inside `root`. */
+  function wirePostPreviews(root, posts) {
+    root.querySelectorAll('[data-preview-post]').forEach(function (button) {
+      button.onclick = function () {
+        var id = button.getAttribute('data-preview-post');
+        var found = posts.filter(function (p) { return p.id === id; })[0];
+        if (found) preview(found);
+      };
+    });
+  }
+
   function ownPostCard(post) {
     return '<div class="card">' +
       '<h3 style="margin:0 0 4px;font-size:15px">' + esc(post.title) + '</h3>' +
@@ -614,6 +643,7 @@
         esc(postStatusLabel(post)) + '</p>' +
       '<pre style="white-space:pre-wrap;font:inherit;margin:0 0 10px">' +
         esc(post.body) + '</pre>' +
+      '<button data-preview-post="' + esc(post.id) + '">Preview as player</button> ' +
       '<button data-drop-post="' + esc(post.id) + '">Delete</button>' +
       '</div>';
   }
@@ -629,6 +659,10 @@
         (post.focus ? ' · ' + esc(focusLabel(post.focus)) : '') + '</p>' +
       '<pre style="white-space:pre-wrap;font:inherit;margin:0 0 12px">' +
         esc(post.body) + '</pre>' +
+      // Offered to the reviewer too, and arguably this is where it earns
+      // its keep: the publish decision is about what a child will see,
+      // and this is the only place to see that before deciding.
+      '<button data-preview-post="' + esc(post.id) + '">Preview as player</button> ' +
       (isPending
         ? '<button class="primary" data-publish="' + esc(post.id) + '">Publish</button> ' +
           '<button data-reject="' + esc(post.id) + '">Reject</button>'
@@ -2211,6 +2245,53 @@
      * The content rule is stated up front rather than only enforced on
      * submit: being told after writing four paragraphs that links are not
      * allowed is a worse experience than being told before. */
+    /**
+     * A tip as a player's Tips screen shows it.
+     *
+     * Reads `previewPost`, which the buttons below set — deliberately no
+     * fetch and no id in the route. Everything shown here is already on
+     * the page, and that keeps the preview usable for a tip that does not
+     * exist yet: the compose form previews what is typed, before anything
+     * is sent for review, which is the case worth having.
+     *
+     * It renders HTML while the app renders React Native, so it is a
+     * close approximation and says so on screen rather than implying a
+     * fidelity it cannot have. What it does reproduce exactly is the part
+     * that matters for a review decision: the same four fields, the same
+     * order, the same copy around them, and body text escaped and never
+     * parsed as markup — matching TipsScreen's own deliberate choice,
+     * since this is text about to be put in front of children.
+     */
+    playerPreview: function (view) {
+      if (!previewPost) {
+        view.innerHTML =
+          '<h2>Preview</h2><div class="card"><p class="muted">' +
+          'Nothing to preview. Open a tip and choose “Preview as player”.' +
+          '</p><p><button data-go="posts">Back to my tips</button></p></div>';
+        return;
+      }
+      var post = previewPost;
+      view.innerHTML =
+        '<h2>Preview</h2>' +
+        '<div class="card"><p class="muted" style="margin:0">' +
+          'This is roughly what a player sees in the app’s Tips ' +
+          'screen. Close, not pixel-perfect — the app draws this ' +
+          'natively, not as a web page.' +
+        '</p></div>' +
+        '<div class="phone"><div class="phone-screen">' +
+          '<p class="tips-head">Tips</p>' +
+          '<p class="tips-intro">Tips från tränare. Alla läses ' +
+            'av en administratör innan de hamnar här.</p>' +
+          '<div class="tip-card">' +
+            '<p class="tip-title">' + esc(post.title || '(no title yet)') + '</p>' +
+            '<p class="tip-byline">' + esc(post.authorByline || '(no byline yet)') + '</p>' +
+            '<p class="tip-body">' + esc(post.body || '') + '</p>' +
+          '</div>' +
+          '<p class="tips-end">Det var alla tips just nu.</p>' +
+        '</div></div>' +
+        '<p><button data-go="posts">Back to my tips</button></p>';
+    },
+
     posts: function (view) {
       api.get('/api/v1/trainer-posts/mine').then(function (posts) {
         view.innerHTML =
@@ -2245,7 +2326,8 @@
                 }).join('') + '</select></span>' +
             '</div>' +
             '<p style="margin-top:12px"><button id="postGo" class="primary">' +
-              'Send for review</button></p>' +
+              'Send for review</button> ' +
+              '<button id="postPreview">Preview as player</button></p>' +
             '<p id="postMsg" class="muted"></p>' +
           '</div>' +
           (posts.length
@@ -2282,6 +2364,18 @@
         };
 
         wirePostDeletes(view, 'posts');
+        wirePostPreviews(view, posts);
+
+        // Previews the unsaved draft, which is the point: a tip can be
+        // checked against a child's screen before it is sent for review,
+        // rather than after someone else has already had to read it.
+        document.getElementById('postPreview').onclick = function () {
+          preview({
+            title: document.getElementById('postTitle').value.trim(),
+            authorByline: document.getElementById('postByline').value.trim(),
+            body: document.getElementById('postBody').value.trim(),
+          });
+        };
       }).catch(function (e) { fail(view, e); });
     },
 
@@ -2319,6 +2413,7 @@
             : '<div class="card"><p class="muted">Nothing published yet.</p></div>');
 
         wireReviewButtons(view);
+        wirePostPreviews(view, pending.concat(live));
       }).catch(function (e) { fail(view, e); });
     },
 

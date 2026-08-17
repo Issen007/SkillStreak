@@ -172,6 +172,43 @@
     border-radius: var(--radius); padding: 17px 19px; margin-bottom: 14px;
     box-shadow: var(--shadow);
   }
+
+  /* Player preview.
+     Hard-coded colours and sizes, deliberately not the console's own
+     tokens: these are mobile/src/theme/colors.ts and TipsScreen's own
+     StyleSheet, and the preview is worthless if it drifts to match the
+     console instead of the app. Changing the app's Tips screen means
+     changing these to match — they are a copy, and copies need saying so.
+     ink #1B1B3A, paper #FAFAF7, textMuted #6B6B85. */
+  .phone {
+    max-width: 380px; margin: 0 0 14px; padding: 12px;
+    background: #2b2b33; border-radius: 34px;
+  }
+  .phone-screen {
+    background: #FAFAF7; border-radius: 24px; padding: 16px;
+    max-height: 60vh; overflow-y: auto;
+  }
+  .tips-head {
+    font-size: 24px; font-weight: 700; color: #1B1B3A; margin: 0 0 4px;
+  }
+  .tips-intro { font-size: 14px; color: #6B6B85; margin: 0 0 16px; }
+  .tip-card {
+    background: #FFFFFF; border-radius: 16px; padding: 16px;
+    margin-bottom: 12px;
+  }
+  .tip-title {
+    font-size: 17px; font-weight: 700; color: #1B1B3A; margin: 0 0 2px;
+  }
+  .tip-byline { font-size: 13px; color: #6B6B85; margin: 0 0 10px; }
+  /* pre-wrap so the trainer's own line breaks survive, matching how the
+     app renders the body in a plain <Text>. */
+  .tip-body {
+    font-size: 15px; line-height: 22px; color: #1B1B3A; margin: 0;
+    white-space: pre-wrap;
+  }
+  .tips-end {
+    font-size: 13px; color: #6B6B85; text-align: center; margin: 8px 0 0;
+  }
   .card.stub { border-style: dashed; box-shadow: none; }
 
   /* Stat tiles — the number is the content, so it gets the weight. */
