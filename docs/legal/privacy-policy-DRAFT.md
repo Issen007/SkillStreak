@@ -207,7 +207,7 @@ service of theirs appears in them:
 
 | What | Who | Third party? |
 |---|---|---|
-| Application and database | Our own Kubernetes cluster | Software: none. Hardware: the hosting provider |
+| Application and database | Our own Kubernetes cluster | Software: none. Hardware: **Safespring** |
 | Video and image storage | MinIO, running in that same cluster | Same |
 | Automatic clip tagging and training-plan generation | Our own GPU cluster | Same |
 | Email (consent links, approvals) | **Google** — `smtp.gmail.com:587`, sending as `noreply@isstech.io` | Yes |
@@ -224,21 +224,32 @@ rests on, so who carries them is not an incidental detail.
 **To be completed before publication**, and these are genuinely open
 rather than rhetorical:
 
-1. **The hosting provider must be named.** The owner's description
-   (2026-08-17) is rented dedicated hardware: the provider owns the
-   machines, the owner owns the data.
+1. **Safespring** — named by the owner, 2026-08-17. Rented hardware:
+   Safespring owns the machines, the owner owns the data and runs
+   everything on top.
 
-   **A caution for the lawyer's attention, because the reasoning here
-   does not carry the weight it appears to.** Owning the data is what
-   makes the owner the *controller*; it is the source of the obligations
-   in this document, not an exemption from them. A provider whose disks
-   hold children's personal data is normally a *processor* regardless of
-   who owns the data, and that relationship is what a data processing
-   agreement exists to govern. Dedicated rather than shared hardware may
-   narrow what the provider can reach, and full-disk or
-   application-level encryption narrows it further — both are worth
-   raising — but neither is established here, and neither removes the
-   need to name the provider and hold an agreement with it.
+   A **Swedish** provider, which is the single most helpful fact in this
+   whole section: it means the largest concentration of children's data
+   here — the database, every video clip, every chat message — is very
+   likely to stay inside the EU/EEA, and the third-country transfer
+   problem that dominates most GDPR reviews does not arise for it. Worth
+   confirming in writing rather than assuming, since the answer should
+   be easy to obtain and is load-bearing: **which region or datacentre
+   the resources actually run in**, and whether any support or backup
+   path reaches outside the EEA.
+
+   **Still required: a data processing agreement.** A caution for the
+   lawyer's attention, because the reasoning that made this look settled
+   does not carry the weight it appears to: owning the data is what
+   makes the owner the *controller*, and that is the source of the
+   obligations in this document rather than an exemption from them. A
+   provider whose disks hold children's personal data is normally a
+   *processor* however the ownership is described, and a DPA is what
+   governs that relationship. Dedicated hardware narrows what the
+   provider can reach and encryption at rest narrows it further — both
+   worth raising — but neither replaces the agreement. A provider of
+   Safespring's kind will have a standard DPA available; it needs
+   signing and filing, not negotiating.
 
 2. **Whether the Google mail account is Workspace or consumer Gmail.**
    This decides whether a data processing agreement is even available:
@@ -295,8 +306,16 @@ Put these in front of a lawyer first:
    so that no existing family's team-only promise is reinterpreted. That
    design is the thing to put in front of the lawyer alongside this
    document — not after it ships.
-6. **Processors.** Narrowed rather than closed — see section 12. Three of
-   the five are self-hosted and need no agreement; the hosting provider
-   and the SMTP provider need naming, agreements, and a transfer answer.
-7. **Transfers outside the EU/EEA**, if either remaining processor
-   implies them.
+6. **Processors — now named, agreements outstanding.** See section 12.
+   All of them are identified: Safespring for hardware, Google for mail,
+   and Google/Microsoft/Apple for staff sign-in. What remains is
+   paperwork rather than discovery — a DPA with Safespring, and the
+   Workspace-versus-consumer-Gmail question that decides whether a DPA
+   with Google is even available.
+7. **Transfers outside the EU/EEA.** Much smaller than it first looked.
+   Safespring being Swedish means the bulk of the data — database,
+   clips, chat — very likely never leaves the EEA, subject to confirming
+   the region. What remains is Google: a US parent carrying the consent
+   emails, and the staff sign-in identity providers. Those are the
+   transfer questions worth the lawyer's time; the hosting one probably
+   is not.
