@@ -6,7 +6,8 @@ durationMinutes: 15
 locale: "sv"
 author: "Anonym tränare"
 authorConsentedNamed: false
-sourceNote: "UTKAST skrivet av Claude 2026-08-13, väntar på tränargranskning"
+coachReviewed: true
+sourceNote: "Utkast skrivet av Claude 2026-08-13, granskat och godkänt av tränare 2026-08-17"
 ---
 
 Skottövning där tekniken byggs innan kraften. Barn som lär sig skjuta hårt

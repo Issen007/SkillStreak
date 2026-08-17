@@ -1,6 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseDrill } from './drill-library.service';
+import {
+  ANONYMOUS_AUTHOR,
+  DrillLibraryService,
+  parseDrill,
+} from './drill-library.service';
 
 const VALID = `---
 title: "Kortpassningar under press"
@@ -193,5 +197,85 @@ describe('the drill library files that actually ship', () => {
         parseDrill(file, readFileSync(join(dir, file), 'utf8')),
       ).not.toThrow();
     }
+  });
+});
+
+/**
+ * The review gate.
+ *
+ * These exist because the previous marker was the word "UTKAST" written
+ * into `sourceNote`, which no code read — so twelve unreviewed drills were
+ * served to coaches and used as the training-plan model's corpus while
+ * appearing, in the files, to be held back. The lesson is not "add a
+ * field"; it is that a gate nothing asserts is indistinguishable from no
+ * gate, which is why the service-level test below reads the real library
+ * rather than a fixture.
+ */
+describe('parseDrill: the coach-review gate', () => {
+  const withReview = (value: string | null) =>
+    parseDrill(
+      'x.md',
+      [
+        '---',
+        'title: "T"',
+        'ageBand: "9-11"',
+        'focus: "teknik"',
+        'durationMinutes: 15',
+        'locale: "sv"',
+        `author: "${ANONYMOUS_AUTHOR}"`,
+        ...(value === null ? [] : [`coachReviewed: ${value}`]),
+        '---',
+        '',
+        'Kropp.',
+      ].join('\n'),
+    );
+
+  it('treats a missing coachReviewed as not reviewed', () => {
+    expect(withReview(null).coachReviewed).toBe(false);
+  });
+
+  it('publishes only on an explicit true', () => {
+    expect(withReview('true').coachReviewed).toBe(true);
+    expect(withReview('false').coachReviewed).toBe(false);
+    // Anything that is not "true" is not a review. A typo must fail
+    // closed, in the direction that withholds rather than publishes.
+    expect(withReview('yes').coachReviewed).toBe(false);
+    expect(withReview('TRUE').coachReviewed).toBe(true);
+  });
+});
+
+describe('DrillLibraryService: unreviewed drills are not served', () => {
+  const service = new DrillLibraryService();
+
+  const onDisk = readdirSync(join(__dirname, 'library'))
+    .filter((f) => f.endsWith('.md'))
+    .map((f) =>
+      parseDrill(f, readFileSync(join(__dirname, 'library', f), 'utf8')),
+    );
+
+  it('serves exactly the coach-reviewed files and no others', () => {
+    const reviewed = onDisk.filter((d) => d.coachReviewed).map((d) => d.slug);
+    expect(
+      service
+        .list()
+        .map((d) => d.slug)
+        .sort(),
+    ).toEqual(reviewed.sort());
+  });
+
+  it('cannot reach an unreviewed drill by slug either', () => {
+    // The listing and the lookup are separate paths, and hiding a drill
+    // from one while leaving it fetchable by the other would be the more
+    // dangerous half working.
+    for (const drill of onDisk.filter((d) => !d.coachReviewed)) {
+      expect(service.findBySlug(drill.slug)).toBeNull();
+    }
+  });
+
+  it('withholds something right now, so this suite is not vacuous', () => {
+    // If every drill is approved one day this flips to a bare assertion
+    // that nothing is withheld — which is fine, but it should be a
+    // deliberate edit rather than a test that quietly stopped checking.
+    expect(onDisk.some((d) => !d.coachReviewed)).toBe(true);
   });
 });

@@ -6,6 +6,7 @@ durationMinutes: 15
 locale: "sv"
 author: "Anonym tränare"
 authorConsentedNamed: false
+coachReviewed: true
 sourceNote: "Exempelövning, tillagd när biblioteket byggdes 2026-08-11"
 ---
 

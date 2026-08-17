@@ -6,7 +6,8 @@ durationMinutes: 12
 locale: "sv"
 author: "Anonym tränare"
 authorConsentedNamed: false
-sourceNote: "UTKAST skrivet av Claude 2026-08-13, väntar på tränargranskning"
+coachReviewed: true
+sourceNote: "Utkast skrivet av Claude 2026-08-13, granskat och godkänt av tränare 2026-08-17"
 ---
 
 Ett pass som går att göra var som helst, för dagar då hallen är upptagen
