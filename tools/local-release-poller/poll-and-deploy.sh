@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Polls GitHub for the latest commit on the `prerelease` branch and, if
+# Polls GitHub for the latest commit on the `review` branch and, if
 # it's newer than what's currently deployed, updates the local microk8s
 # cluster's api/site Deployments to that commit's images and waits for the
 # rollout.
 #
 # This cluster (ubuntu01, 192.168.55.x, no public DNS/TLS) is the internal
-# test environment — it tracks `prerelease`, never `main`. The public
+# test environment — it tracks `review`, never `main`. The public
 # isstech-2 cluster is the opposite: it only ever runs what
 # .github/workflows/ci-cd.yml's `deploy`/`release` jobs build from `main`.
 # Keeping these on separate branches is deliberate (see the root
@@ -16,7 +16,7 @@
 # updates the Deployments to point at live on GHCR (ghcr.io/issen007/
 # skillstreak-{api,site}:prerelease-<sha>, pushed by
 # .github/workflows/ci-cd.yml's `internal-images` job, which only runs on
-# pushes to `prerelease`), and it's Kubernetes' own containerd on the node
+# pushes to `review`), and it's Kubernetes' own containerd on the node
 # that actually pulls them once the Deployment's image field changes —
 # this script's own `docker` daemon is a separate image store that has
 # nothing to do with what the cluster runs. GHCR packages here are public,
@@ -142,7 +142,7 @@ site_image="ghcr.io/issen007/skillstreak-site:prerelease-${latest_sha}"
 
 # The internal-images CI job only runs after backend-test/compose-smoke-test
 # pass, and only pushes once both images are built — but there's still a
-# window between "commit landed on prerelease" and "CI finished pushing the
+# window between "commit landed on review" and "CI finished pushing the
 # images" where the latest SHA's images don't exist on GHCR yet. Checking
 # the manifest exists first (rather than letting `kubectl set image` +
 # rollout status time out and report a confusing failure) means a run that
