@@ -1,10 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { DataSource, LessThanOrEqual, Repository } from 'typeorm';
 import { generateHumanCode } from '../common/crypto/human-code.util';
 import { decryptPii, encryptPii } from '../common/crypto/pii-encryption.util';
 import { MailService } from '../mail/mail.service';
+import { RedisService } from '../redis/redis.service';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
 import {
   PublicSharingConsent,
@@ -66,8 +67,10 @@ export class PublicSharingConsentService {
   constructor(
     @InjectRepository(PublicSharingConsent)
     private readonly consents: Repository<PublicSharingConsent>,
+    private readonly dataSource: DataSource,
     private readonly playerPrivateInfoService: PlayerPrivateInfoService,
     private readonly mailService: MailService,
+    private readonly redisService: RedisService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -147,6 +150,31 @@ export class PublicSharingConsentService {
       );
     }
 
+    // Finding 8. Claimed after the validity checks and before anything is
+    // written or mailed, so a refused request changes nothing — and, as
+    // in the PT flow, so that probing the checks still costs the caller
+    // their quota rather than being free.
+    //
+    // Two limits rather than one: a burst cooldown stops a loop, and a
+    // daily cap stops a slow drip doing what the loop could not. Both
+    // matter more here than for an ordinary mailer, because re-requesting
+    // also invalidates the disable link a parent already holds.
+    const cooled =
+      await this.redisService.tryClaimPublicSharingRequestCooldown(playerId);
+    if (!cooled) {
+      throw new Error(
+        'a public-sharing consent request was already sent recently — ' +
+          'wait before asking again',
+      );
+    }
+    const underCap =
+      await this.redisService.tryClaimPublicSharingRequestDailyCap(playerId);
+    if (!underCap) {
+      throw new Error(
+        'too many public-sharing consent requests for this player today',
+      );
+    }
+
     const { code, expiresAt } = generateHumanCode(REVIEW_CODE_TTL_MS);
     const row = existing ?? this.consents.create({ playerId });
 
@@ -213,21 +241,50 @@ export class PublicSharingConsentService {
    * Grants it. Finding 1: the revoke code is mailed, never returned.
    */
   async approveByReviewCode(code: string): Promise<{ approved: true } | null> {
-    const row = await this.findPendingByReviewCode(code);
-    if (!row) return null;
+    // Security review finding 6: locked, matching PT's own approve /
+    // decline / revoke transitions. Two approvals racing — a parent
+    // double-clicking, or a client retry — both read PENDING_REVIEW and
+    // both mint a *different* revoke code. One wins the row; the other
+    // code was already mailed. The parent then holds a disable link that
+    // silently does nothing, which is the single failure Decision 2 says
+    // cannot be tolerated.
+    const locked = await this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(PublicSharingConsent);
+      const row = await repo
+        .createQueryBuilder('c')
+        .setLock('pessimistic_write')
+        .where('c.review_code = :code', { code })
+        .getOne();
+      if (!row || row.status !== PublicSharingConsentStatus.PENDING_REVIEW) {
+        return null;
+      }
+      if (!this.isReviewCodeLive(row)) {
+        row.status = PublicSharingConsentStatus.EXPIRED;
+        row.reviewCode = null;
+        row.reviewCodeExpiresAt = null;
+        await repo.save(row);
+        return null;
+      }
 
-    const { code: revokeCode } = generateHumanCode(0);
-    row.status = PublicSharingConsentStatus.ACTIVE;
-    row.approvedAt = new Date();
-    row.reviewCode = null;
-    row.reviewCodeExpiresAt = null;
-    row.revokeCode = revokeCode;
-    // Decision 6: the clock starts at the grant, so a family that opts in
-    // on the 20th hears on the 20th rather than on the 1st with everyone.
-    row.lastReminderAt = new Date();
-    row.reminderFailureCount = 0;
-    await this.consents.save(row);
+      const { code: revokeCode } = generateHumanCode(0);
+      row.status = PublicSharingConsentStatus.ACTIVE;
+      row.approvedAt = new Date();
+      row.reviewCode = null;
+      row.reviewCodeExpiresAt = null;
+      row.revokeCode = revokeCode;
+      // Decision 6: the clock starts at the grant, so a family that opts
+      // in on the 20th hears on the 20th rather than on the 1st with
+      // everyone.
+      row.lastReminderAt = new Date();
+      row.reminderFailureCount = 0;
+      await repo.save(row);
+      return { row, revokeCode };
+    });
+    if (!locked) return null;
+    const { row, revokeCode } = locked;
 
+    // Mailed outside the transaction: an SMTP round trip should not hold
+    // a row lock, and the consent is already durable by this point.
     await this.sendBestEffort(
       this.recipientOf(row),
       'SkillStreak: delning är påslagen',
@@ -241,16 +298,26 @@ export class PublicSharingConsentService {
   }
 
   async declineByReviewCode(code: string): Promise<{ declined: true } | null> {
-    const row = await this.findPendingByReviewCode(code);
-    if (!row) return null;
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(PublicSharingConsent);
+      const row = await repo
+        .createQueryBuilder('c')
+        .setLock('pessimistic_write')
+        .where('c.review_code = :code', { code })
+        .getOne();
+      if (!row || row.status !== PublicSharingConsentStatus.PENDING_REVIEW) {
+        return null;
+      }
+      if (!this.isReviewCodeLive(row)) return null;
 
-    row.status = PublicSharingConsentStatus.DECLINED;
-    row.declinedAt = new Date();
-    row.reviewCode = null;
-    row.reviewCodeExpiresAt = null;
-    await this.consents.save(row);
+      row.status = PublicSharingConsentStatus.DECLINED;
+      row.declinedAt = new Date();
+      row.reviewCode = null;
+      row.reviewCodeExpiresAt = null;
+      await repo.save(row);
 
-    return { declined: true };
+      return { declined: true as const };
+    });
   }
 
   /**
@@ -262,10 +329,28 @@ export class PublicSharingConsentService {
    */
   async revokeByRevokeCode(code: string): Promise<{ revoked: true } | null> {
     if (!code) return null;
-    const row = await this.consents.findOne({ where: { revokeCode: code } });
-    if (!row || row.status !== PublicSharingConsentStatus.ACTIVE) return null;
+    // Locked like the other two. A revoke racing an approve could
+    // otherwise clobber it and leave the row ACTIVE with the revoke code
+    // cleared — sharing on, and no way for the parent to turn it off.
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(PublicSharingConsent);
+      const row = await repo
+        .createQueryBuilder('c')
+        .setLock('pessimistic_write')
+        .where('c.revoke_code = :code', { code })
+        .getOne();
+      if (!row || row.status !== PublicSharingConsentStatus.ACTIVE) return null;
 
-    return this.deactivate(row, PublicSharingRevokedReason.PARENT_REVOKED);
+      row.status = PublicSharingConsentStatus.REVOKED;
+      row.revokedAt = new Date();
+      row.revokedReason = PublicSharingRevokedReason.PARENT_REVOKED;
+      row.reviewCode = null;
+      row.reviewCodeExpiresAt = null;
+      row.revokeCode = null;
+      await repo.save(row);
+
+      return { revoked: true as const };
+    });
   }
 
   /** Every consent whose monthly reminder is due. */

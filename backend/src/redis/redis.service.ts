@@ -65,6 +65,16 @@ function clipProcessingLockKey(clipId: string): string {
   return `lock:clip-processing:${clipId}`;
 }
 
+// ADR-0030 finding 8. Two independent limits on asking a parent to
+// approve public sharing, mirroring the PT consent flow's own pair.
+function publicSharingRequestCooldownKey(playerId: string): string {
+  return `cooldown:public-sharing-request:${playerId}`;
+}
+
+function publicSharingRequestDailyKey(playerId: string): string {
+  return `ratelimit:public-sharing-request:${playerId}`;
+}
+
 function clipUploadRateLimitKey(playerId: string): string {
   return `clip-upload:${playerId}:window`;
 }
@@ -230,6 +240,15 @@ const CLIP_COMPLETE_RATE_LIMIT_MAX_PER_WINDOW = 30;
  * refuses a retry the caller can repeat.
  */
 const CLIP_PROCESSING_LOCK_TTL_SECONDS = 300;
+
+/**
+ * ADR-0030 finding 8. Fifteen minutes between requests, three a day.
+ * Deliberately tighter than the clip limits: a parent should receive at
+ * most a handful of these ever, so a legitimate user will never notice
+ * the ceiling, while a compromised session hits it immediately.
+ */
+const PUBLIC_SHARING_REQUEST_COOLDOWN_SECONDS = 15 * 60;
+const PUBLIC_SHARING_REQUEST_MAX_PER_DAY = 3;
 const CLIP_COMPLETE_RATE_LIMIT_WINDOW_SECONDS = 60 * 60;
 
 // docs/adr/0010-video-storage-and-serving.md Decision 4 — same per-reporter
@@ -582,6 +601,43 @@ export class RedisService {
    */
   async releaseClipProcessing(clipId: string): Promise<void> {
     await this.client.del(clipProcessingLockKey(clipId));
+  }
+
+  /**
+   * Burst cooldown on asking a parent for public-sharing consent.
+   *
+   * Security review finding 8. The threat is the one ADR-0013 already
+   * names for the PT flow — "a compromised session spamming a family's
+   * inbox with a scary email" — with an extra edge here: re-requesting
+   * also invalidates the disable link the parent already holds, so an
+   * unthrottled request endpoint is both harassment and a way to keep a
+   * parent's "off" button perpetually broken.
+   */
+  async tryClaimPublicSharingRequestCooldown(
+    playerId: string,
+    ttlSeconds: number = PUBLIC_SHARING_REQUEST_COOLDOWN_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      publicSharingRequestCooldownKey(playerId),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
+  }
+
+  /** Daily cap on the same, so a slow drip cannot do what a burst cannot. */
+  async tryClaimPublicSharingRequestDailyCap(
+    playerId: string,
+    maxPerDay: number = PUBLIC_SHARING_REQUEST_MAX_PER_DAY,
+  ): Promise<boolean> {
+    const key = publicSharingRequestDailyKey(playerId);
+    const count = await this.client.incr(key);
+    if (count === 1) {
+      await this.client.expire(key, 24 * 60 * 60);
+    }
+    return count <= maxPerDay;
   }
 
   /** Per-reporter cooldown for clip reports (ADR-0010 Decision 4). */
