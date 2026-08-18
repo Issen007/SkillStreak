@@ -165,3 +165,152 @@ describe('PublicFeedService: pagination', () => {
     expect(captured.params?.limit).toBe(51);
   });
 });
+
+/**
+ * Publish and un-publish.
+ *
+ * The asymmetry between them is the design, not an oversight: publishing
+ * is gated on a live parental consent, un-publishing is gated on nothing
+ * at all. ADR-0019 Decision 5 requires un-publish to be "immediate and
+ * unconditional, exactly matching self-delete's existing guarantee".
+ */
+function buildWrites(overrides: Record<string, unknown> = {}) {
+  const clip = {
+    id: '11111111-1111-4111-8111-111111111111',
+    uploaderPlayerId: 'player-1',
+    status: VideoClipStatus.PUBLISHED,
+    publishedPubliclyAt: null,
+    ...overrides,
+  } as unknown as VideoClip;
+
+  const clips = {
+    findOne: jest.fn(() => Promise.resolve(clip)),
+    update: jest.fn(() => Promise.resolve({ affected: 1 })),
+    createQueryBuilder: jest.fn(),
+  };
+  const consentService = {
+    isActiveFor: jest.fn(() => Promise.resolve(true)),
+  };
+  const service = new PublicFeedService(
+    clips as unknown as Repository<VideoClip>,
+    consentService as never,
+  );
+  return { service, clips, consentService, clip };
+}
+
+describe('PublicFeedService.publish', () => {
+  it('publishes the uploader’s own clip when consent is active', async () => {
+    const { service, clips, clip } = buildWrites();
+
+    const result = await service.publish('player-1', clip.id);
+
+    expect(result).toEqual({ clipId: clip.id, publishedPublicly: true });
+    expect(clips.update).toHaveBeenCalledWith(
+      { id: clip.id, uploaderPlayerId: 'player-1' },
+      { publishedPubliclyAt: expect.any(Date) },
+    );
+  });
+
+  it('refuses when the parent’s consent is not active', async () => {
+    const { service, clips, consentService, clip } = buildWrites();
+    consentService.isActiveFor.mockResolvedValue(false);
+
+    await expect(service.publish('player-1', clip.id)).rejects.toThrow(
+      /sharing outside the team is turned off/i,
+    );
+    expect(clips.update).not.toHaveBeenCalled();
+  });
+
+  it('re-reads consent rather than trusting an earlier check', async () => {
+    // A parent who revoked yesterday must not have a clip published under
+    // their name today because a session cached a `true`.
+    const { service, consentService, clip } = buildWrites();
+    await service.publish('player-1', clip.id);
+
+    expect(consentService.isActiveFor).toHaveBeenCalledWith('player-1');
+  });
+
+  it('refuses another child’s clip', async () => {
+    // "The player's own clips, never another child's" — the first thing
+    // CLAUDE.md's amended closed-bubble rule promises.
+    const { service, clips, clip } = buildWrites({
+      uploaderPlayerId: 'someone-else',
+    });
+
+    await expect(service.publish('player-1', clip.id)).rejects.toThrow(
+      /only the uploader/i,
+    );
+    expect(clips.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses a clip that is no longer published to its team', async () => {
+    const { service, clips, clip } = buildWrites({
+      status: VideoClipStatus.HIDDEN,
+    });
+
+    await expect(service.publish('player-1', clip.id)).rejects.toThrow();
+    expect(clips.update).not.toHaveBeenCalled();
+  });
+
+  it('does not bump an already-public clip back to the top', async () => {
+    // Otherwise re-publishing is a free way to farm the feed's ordering.
+    const { service, clips, clip } = buildWrites({
+      publishedPubliclyAt: new Date('2026-08-01T00:00:00Z'),
+    });
+
+    await service.publish('player-1', clip.id);
+
+    expect(clips.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('PublicFeedService.unpublish', () => {
+  it('un-publishes without consulting consent at all', async () => {
+    // The case where a parent has just revoked is the case where getting
+    // a clip out fastest matters most. A child locked out of
+    // un-publishing by the same event that should have removed the clip
+    // would be the worst failure this design has.
+    const { service, clips, consentService, clip } = buildWrites({
+      publishedPubliclyAt: new Date(),
+    });
+    consentService.isActiveFor.mockResolvedValue(false);
+
+    const result = await service.unpublish('player-1', clip.id);
+
+    expect(result).toEqual({ clipId: clip.id, publishedPublicly: false });
+    expect(consentService.isActiveFor).not.toHaveBeenCalled();
+    expect(clips.update).toHaveBeenCalledWith(
+      { id: clip.id, uploaderPlayerId: 'player-1' },
+      { publishedPubliclyAt: null },
+    );
+  });
+
+  it('works on a clip that is hidden or reported', async () => {
+    // "even with open reports, right now, no exceptions".
+    const { service, clips, clip } = buildWrites({
+      status: VideoClipStatus.HIDDEN,
+      publishedPubliclyAt: new Date(),
+    });
+
+    await expect(service.unpublish('player-1', clip.id)).resolves.toEqual({
+      clipId: clip.id,
+      publishedPublicly: false,
+    });
+    expect(clips.update).toHaveBeenCalled();
+  });
+
+  it('still refuses another child’s clip', async () => {
+    const { service, clip } = buildWrites({ uploaderPlayerId: 'someone-else' });
+
+    await expect(service.unpublish('player-1', clip.id)).rejects.toThrow(
+      /only the uploader/i,
+    );
+  });
+
+  it('is idempotent on a clip that was never public', async () => {
+    const { service, clips, clip } = buildWrites();
+
+    await expect(service.unpublish('player-1', clip.id)).resolves.toBeTruthy();
+    expect(clips.update).not.toHaveBeenCalled();
+  });
+});

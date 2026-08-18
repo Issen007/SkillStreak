@@ -381,6 +381,25 @@ export class NotYourClipException extends AppException {
   }
 }
 
+/**
+ * ADR-0030: a player tried to publish a clip beyond their team while
+ * their parent's public-sharing consent was not active — never granted,
+ * declined, revoked, or auto-disabled after undeliverable reminders.
+ *
+ * Deliberately says only that sharing is off. Which of those four it is
+ * is a fact about the parent's decisions, and the child does not need it
+ * to understand what to do next.
+ */
+export class PublicSharingNotConsentedException extends AppException {
+  constructor() {
+    super(
+      'public_sharing_not_consented',
+      'Sharing outside the team is turned off for this account.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
 export class ClipAlreadyReportedException extends AppException {
   constructor() {
     super(

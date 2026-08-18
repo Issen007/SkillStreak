@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import {
+  ClipNotFoundException,
+  NotYourClipException,
+  PublicSharingNotConsentedException,
+} from '../common/errors/exceptions';
+import { PublicSharingConsentService } from '../public-sharing/public-sharing-consent.service';
 import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
 
 /** One card in the public feed. Deliberately small — see the class doc. */
@@ -66,7 +72,100 @@ export class PublicFeedService {
   constructor(
     @InjectRepository(VideoClip)
     private readonly clips: Repository<VideoClip>,
+    private readonly consentService: PublicSharingConsentService,
   ) {}
+
+  /**
+   * The uploader puts one of their own clips into the public feed.
+   *
+   * Three checks, and the third is the one CLAUDE.md's amended
+   * closed-bubble rule turns on: the clip must be the requester's own
+   * (never another child's), it must still be published to its team, and
+   * the requester's parent must have an **active** public-sharing
+   * consent at this moment.
+   *
+   * The consent is re-read here rather than trusted from any earlier
+   * step. A parent who revoked yesterday must not have a clip published
+   * under their name today because some session cached a `true`.
+   */
+  async publish(
+    requesterId: string,
+    clipId: string,
+  ): Promise<{ clipId: string; publishedPublicly: true }> {
+    const clip = await this.ownClipOrThrow(requesterId, clipId);
+
+    if (clip.status !== VideoClipStatus.PUBLISHED) {
+      // A hidden or still-uploading clip cannot become publicly visible;
+      // the database CHECK refuses the state too.
+      throw new ClipNotFoundException();
+    }
+    if (!(await this.consentService.isActiveFor(requesterId))) {
+      throw new PublicSharingNotConsentedException();
+    }
+
+    // Idempotent: re-publishing an already-public clip keeps its original
+    // timestamp rather than jumping it back to the top of the feed, which
+    // would otherwise be a free way to farm the feed's ordering.
+    if (!clip.publishedPubliclyAt) {
+      await this.clips.update(
+        { id: clip.id, uploaderPlayerId: requesterId },
+        { publishedPubliclyAt: new Date() },
+      );
+    }
+    return { clipId, publishedPublicly: true };
+  }
+
+  /**
+   * The uploader takes their clip back out of the public feed.
+   *
+   * **Deliberately unconditional**, and the asymmetry with `publish` is
+   * the point. ADR-0019 Decision 5 requires un-publish to be "immediate
+   * and unconditional, exactly matching self-delete's existing
+   * guarantee" — so there is no consent check, no report check and no
+   * confirmation step here.
+   *
+   * Requiring an active consent to un-publish would be precisely
+   * backwards: the case where a parent has just revoked is the case where
+   * getting a clip out fastest matters most, and a child locked out of
+   * un-publishing by the same event that should have removed the clip is
+   * the worst possible failure of this design.
+   *
+   * Note the clip is already invisible to the feed the moment consent
+   * lapses, because the feed joins consent — this is for the case where
+   * the child simply changes their mind.
+   */
+  async unpublish(
+    requesterId: string,
+    clipId: string,
+  ): Promise<{ clipId: string; publishedPublicly: false }> {
+    const clip = await this.ownClipOrThrow(requesterId, clipId);
+
+    if (clip.publishedPubliclyAt) {
+      await this.clips.update(
+        { id: clip.id, uploaderPlayerId: requesterId },
+        { publishedPubliclyAt: null },
+      );
+    }
+    return { clipId, publishedPublicly: false };
+  }
+
+  /**
+   * Ownership, scoped by uploader rather than by team.
+   *
+   * "The player's own clips, never another child's" is the first thing
+   * CLAUDE.md's amended rule promises, so it is enforced in one place
+   * both endpoints go through rather than repeated at each.
+   */
+  private async ownClipOrThrow(
+    requesterId: string,
+    clipId: string,
+  ): Promise<VideoClip> {
+    if (!/^[0-9a-f-]{36}$/i.test(clipId)) throw new ClipNotFoundException();
+    const clip = await this.clips.findOne({ where: { id: clipId } });
+    if (!clip) throw new ClipNotFoundException();
+    if (clip.uploaderPlayerId !== requesterId) throw new NotYourClipException();
+    return clip;
+  }
 
   async list(
     viewerId: string,
