@@ -18,6 +18,7 @@ import {
   SystemChatEventType,
   TeamChatMessage,
 } from '../team-chat/entities/team-chat-message.entity';
+import { CLIP_MAX_FILE_SIZE_BYTES } from './video-clip.constants';
 import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
 import { VideoClipsService } from './video-clips.service';
 
@@ -70,6 +71,8 @@ function buildService(
   const redisService = {
     tryClaimClipUploadAllowance: jest.fn().mockResolvedValue(true),
     tryClaimClipCompleteAllowance: jest.fn().mockResolvedValue(true),
+    tryClaimClipProcessing: jest.fn().mockResolvedValue(true),
+    releaseClipProcessing: jest.fn().mockResolvedValue(undefined),
     tryClaimClipReportCooldown: jest.fn().mockResolvedValue(true),
     tryClaimClipReportNotifyCooldown: jest.fn().mockResolvedValue(true),
   };
@@ -485,13 +488,21 @@ describe('VideoClipsService.completeUpload — security-review regressions', () 
     expect(chatModerationCheck.check).not.toHaveBeenCalled();
   });
 
-  it('does not charge an allowance when no metadata is supplied', async () => {
+  // Reversed by the video-subsystem security review, 2026-08-17 (finding
+  // 2). This previously asserted that an empty body cost nothing, which
+  // meant the one path with no per-player ceiling was also the path that
+  // downloads the whole object and runs ffmpeg. The allowance is the
+  // ceiling on how often an account can ask for that work, so it is now
+  // claimed whether or not metadata came with the request.
+  it('charges an allowance even when no metadata is supplied', async () => {
     const { service, videoClipRepository, redisService } = buildService();
     videoClipRepository.findOne.mockResolvedValue(pendingClip());
 
     await service.completeUpload('team-1', 'player-1', 'clip-1');
 
-    expect(redisService.tryClaimClipCompleteAllowance).not.toHaveBeenCalled();
+    expect(redisService.tryClaimClipCompleteAllowance).toHaveBeenCalledWith(
+      'player-1',
+    );
   });
 
   // Finding 4. This endpoint accepts the bytes into the feed, so parental
@@ -1275,5 +1286,90 @@ describe('VideoClipStatus', () => {
     expect(VideoClipStatus.PENDING_UPLOAD).toBe('pending_upload');
     expect(VideoClipStatus.PUBLISHED).toBe('published');
     expect(VideoClipStatus.HIDDEN).toBe('hidden');
+  });
+});
+
+/**
+ * Video-subsystem security review, 2026-08-17 — advisory findings 2 and 3.
+ * Both are availability rather than privacy, and both were invisible
+ * because the guard that existed looked like it covered them.
+ */
+describe('VideoClipsService.completeUpload: bounding the expensive half', () => {
+  function pendingClip(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'clip-1',
+      teamId: 'team-1',
+      uploaderPlayerId: 'player-1',
+      storageKey: 'clips/team-1/clip-1.mp4',
+      mimeType: 'video/mp4',
+      durationSeconds: 10,
+      createdAt: new Date(),
+      caption: null,
+      taggedPlayerId: null,
+      status: VideoClipStatus.PENDING_UPLOAD,
+      ...overrides,
+    } as unknown as VideoClip;
+  }
+
+  it('refuses a second concurrent complete on the same clip', async () => {
+    // The conditional UPDATE that prevents double-publish lands only
+    // AFTER the download, ffprobe, ffmpeg and re-upload — so without an
+    // admission check, N callers each did the whole round trip. At the
+    // 75 MB ceiling on two replicas that is an OOM, not a slowdown.
+    const { service, videoClipRepository, redisService } = buildService();
+    videoClipRepository.findOne.mockResolvedValue(pendingClip());
+    redisService.tryClaimClipProcessing.mockResolvedValue(false);
+
+    await expect(
+      service.completeUpload('team-1', 'player-1', 'clip-1'),
+    ).rejects.toThrow(ClipUploadRateLimitedException);
+  });
+
+  it('claims the lock per clip, not per player', async () => {
+    // Two completes on the SAME clip are the case that multiplies the
+    // per-object work, so the key has to be the clip.
+    const { service, videoClipRepository, redisService } = buildService();
+    videoClipRepository.findOne.mockResolvedValue(pendingClip());
+
+    await service.completeUpload('team-1', 'player-1', 'clip-1');
+
+    expect(redisService.tryClaimClipProcessing).toHaveBeenCalledWith('clip-1');
+  });
+
+  it('releases the lock when processing fails, so a retry is not blocked', async () => {
+    // A failed complete leaves the row pending_upload and the client may
+    // legitimately retry; holding the claim for its TTL would turn one
+    // transient ffmpeg error into minutes of refused retries.
+    const {
+      service,
+      videoClipRepository,
+      redisService,
+      videoProcessingService,
+    } = buildService();
+    videoClipRepository.findOne.mockResolvedValue(pendingClip());
+    videoProcessingService.remuxStripMetadata.mockRejectedValue(
+      new Error('ffmpeg exploded'),
+    );
+
+    await expect(
+      service.completeUpload('team-1', 'player-1', 'clip-1'),
+    ).rejects.toThrow();
+    expect(redisService.releaseClipProcessing).toHaveBeenCalledWith('clip-1');
+  });
+
+  it('passes a byte ceiling to the object read (finding 3)', async () => {
+    // The HEAD size check and the GET observe a key that stays
+    // client-writable in between, so the read itself must be bounded —
+    // the pre-check cannot bind the bytes that actually arrive.
+    const { service, videoClipRepository, objectStorageService } =
+      buildService();
+    videoClipRepository.findOne.mockResolvedValue(pendingClip());
+
+    await service.completeUpload('team-1', 'player-1', 'clip-1');
+
+    expect(objectStorageService.getObjectBuffer).toHaveBeenCalledWith(
+      expect.any(String),
+      CLIP_MAX_FILE_SIZE_BYTES,
+    );
   });
 });
