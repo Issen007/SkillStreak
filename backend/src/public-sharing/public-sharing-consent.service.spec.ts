@@ -62,6 +62,30 @@ function fakeRepo() {
     find: jest.fn(({ where }: { where: Record<string, unknown> }) =>
       Promise.resolve(rows.filter((r) => matches(r, where))),
     ),
+    // The locked reads go through a query builder rather than findOne.
+    // Only the three calls the service makes are supported: setLock,
+    // where('c.<column> = :code'), getOne.
+    createQueryBuilder: () => {
+      let column: string | null = null;
+      let value: unknown = null;
+      const qb = {
+        setLock: () => qb,
+        where: (clause: string, params: Record<string, unknown>) => {
+          column = clause.includes('review_code') ? 'reviewCode' : 'revokeCode';
+          value = params.code;
+          return qb;
+        },
+        getOne: () =>
+          Promise.resolve(
+            rows.find(
+              (r) =>
+                column !== null &&
+                (r as unknown as Record<string, unknown>)[column] === value,
+            ) ?? null,
+          ),
+      };
+      return qb;
+    },
     update: jest.fn((id: string, patch: Partial<PublicSharingConsent>) => {
       const row = rows.find((r) => r.id === id);
       if (row) Object.assign(row, patch);
@@ -81,15 +105,30 @@ function build(
       Promise.resolve(pendingContactChange),
     ),
   } as unknown as PlayerPrivateInfoService;
-  const mailService = { sendMail: jest.fn(() => Promise.resolve()) };
+  const mailService = {
+    sendMail: jest.fn(() => Promise.resolve({ handedOff: true, rejected: [] })),
+  };
+  const redisService = {
+    tryClaimPublicSharingRequestCooldown: jest.fn(() => Promise.resolve(true)),
+    tryClaimPublicSharingRequestDailyCap: jest.fn(() => Promise.resolve(true)),
+  };
+  // Runs the callback inline against the same fake repository, which is
+  // all these tests need — the lock itself is a database behaviour and
+  // belongs to the e2e suite, not here.
+  const dataSource = {
+    transaction: (fn: (m: unknown) => unknown) =>
+      Promise.resolve(fn({ getRepository: () => repo })),
+  };
   const configService = {
     getOrThrow: jest.fn(() => 'Y2ktb25seS10ZXN0LWtleS0zMi1ieXRlcy1sb25nISE='),
     get: jest.fn(() => 'https://api.example.test'),
   };
   const service = new PublicSharingConsentService(
     repo as unknown as Repository<PublicSharingConsent>,
+    dataSource as never,
     privateInfo,
     mailService as never,
+    redisService as never,
     configService as never,
   );
   // The codes never leave the service (finding 1), so tests read them
@@ -101,6 +140,7 @@ function build(
     repo,
     privateInfo,
     mailService,
+    redisService,
     reviewCodeOf,
     revokeCodeOf,
   };
@@ -380,5 +420,54 @@ describe('PublicSharingConsentService: security-review findings', () => {
 
     expect(await service.previewByReviewCode(code)).toBeNull();
     expect(await service.approveByReviewCode(code)).toBeNull();
+  });
+});
+
+/**
+ * Security review finding 8 — rate limiting on asking a parent.
+ *
+ * The threat ADR-0013 names for the PT flow ("a compromised session
+ * spamming a family's inbox with a scary email") plus one specific to
+ * this design: re-requesting invalidates the disable link the parent
+ * already holds, so an unthrottled endpoint is also a way to keep a
+ * parent's "off" button perpetually broken.
+ */
+describe('PublicSharingConsentService: request rate limiting', () => {
+  it('refuses a request inside the burst cooldown', async () => {
+    const { service, redisService, repo } = build();
+    redisService.tryClaimPublicSharingRequestCooldown.mockResolvedValue(false);
+
+    await expect(service.request('p1')).rejects.toThrow(/recently/i);
+    // Nothing written and nothing mailed — a refused request must leave
+    // the existing consent state, and the parent's link, untouched.
+    expect(repo.rows).toHaveLength(0);
+  });
+
+  it('refuses a request over the daily cap', async () => {
+    const { service, redisService } = build();
+    redisService.tryClaimPublicSharingRequestDailyCap.mockResolvedValue(false);
+
+    await expect(service.request('p1')).rejects.toThrow(/too many/i);
+  });
+
+  it('sends no mail when a limit refuses the request', async () => {
+    const { service, redisService, mailService } = build();
+    redisService.tryClaimPublicSharingRequestCooldown.mockResolvedValue(false);
+
+    await expect(service.request('p1')).rejects.toThrow();
+    expect(mailService.sendMail).not.toHaveBeenCalled();
+  });
+
+  it('claims the limits only after the validity checks pass', async () => {
+    // A request that was going to be refused anyway should not consume
+    // the caller's quota — but probing the checks should still cost, as
+    // in the PT flow. Here the parent contact is missing, so the request
+    // fails before either claim.
+    const { service, redisService } = build(null);
+
+    await expect(service.request('p1')).rejects.toThrow(/parent contact/i);
+    expect(
+      redisService.tryClaimPublicSharingRequestCooldown,
+    ).not.toHaveBeenCalled();
   });
 });

@@ -30,31 +30,50 @@ would have passed before the fix):
 9. *(advisory)* A missing expiry read as "never expires" rather than
    "expired". Reversed to match PT.
 
-**Still open, and this does not ship until they are closed:**
+**Still open, and this does not ship until they are closed** — after the
+2026-08-18 pass, one blocking finding remains:
 
-- **4 (blocking, and the hardest).** Decision 5's fail-closed disable can
-  essentially never fire for the case it was written for. `MailService`
-  discards nodemailer's `rejected`/`accepted`, there is no bounce or DSN
-  handling anywhere in the app, and with `SMTP_HOST` unset it logs and
-  returns *successfully*. A dead mailbox on a live domain is accepted by
-  the relay and bounced to nobody. Under the amended Decision 3 the
-  reminder is the only recurring control, so this is the finding that
-  most undermines the design. It cannot be fixed inside
-  `public-sharing/` and must be closed **before the reminder sweep is
-  written**.
-- **5 (blocking).** The migration does not exist, and must carry
-  `ON DELETE CASCADE` on `player_id`. Without it an erased child leaves
-  an orphan row holding an ACTIVE status and a live revoke code — an
-  incomplete Article 17 erasure on the one table recording consent about
-  child media.
-- **6 (blocking).** No row locking, where PT takes `pessimistic_write` on
-  all three transitions. Racing approvals mint two revoke codes and leave
-  the parent holding a dead disable link — the one failure Decision 2
-  cannot tolerate.
-- **8 (blocking).** No rate limiting, where PT has a burst cooldown and
-  daily and global caps. Re-requesting also invalidates the disable link
-  a parent already holds, so an unthrottled request endpoint is both
-  inbox harassment and a way to keep "off" perpetually broken.
+- **4 (blocking, and the hardest) — partially closed 2026-08-18, still
+  open.** `MailService` now returns a `MailSendResult` rather than void:
+  it surfaces recipients the SMTP server refuses at handoff, and reports
+  an unconfigured mailer as *not sent* instead of silently succeeding.
+  That closes the two failure modes an in-process send can actually
+  observe.
+
+  **It does not close the one Decision 5 was written for.** A relay
+  accepts mail for a dead mailbox on a live domain and bounces it later,
+  out of band — invisible to the sending process. Closing that needs a
+  bounce mailbox parsed for DSNs, or a provider with a delivery webhook.
+  The current provider is Gmail SMTP, recorded in the privacy policy as
+  interim, so the natural moment is the move to a dedicated
+  `skillstreak.xyz` mail account.
+
+  Under the amended Decision 3 the monthly reminder is the design's only
+  recurring control, so this remains the finding that most undermines it,
+  and it must be closed **before the reminder sweep is written** — a
+  sweep built on handoff-only signalling would report healthy while the
+  case it exists to catch went undetected.
+- ~~**5 (blocking).**~~ **Closed 2026-08-18.** The migration now exists
+  (`1787600000000-AddPublicSharingConsent`) and carries
+  `ON DELETE CASCADE` on `player_id`, so account erasure removes the row
+  rather than orphaning an ACTIVE consent with a live revoke code. It
+  also adds a CHECK constraint asserting that an `active` row has both a
+  `revoke_code` and a `last_reminder_at` — closing advisory finding 9's
+  two latent states at the database rather than trusting the service: an
+  active consent with no revoke code is a parent who cannot turn sharing
+  off, and one with no `last_reminder_at` is invisible to the sweep
+  forever.
+- ~~**6 (blocking).**~~ **Closed 2026-08-18.** `approveByReviewCode`,
+  `declineByReviewCode` and `revokeByRevokeCode` now run inside a
+  transaction with `pessimistic_write` on a code-keyed row, matching PT.
+  Mail is sent outside the transaction, so an SMTP round trip never holds
+  a row lock.
+- ~~**8 (blocking).**~~ **Closed 2026-08-18.** `request()` claims a
+  15-minute burst cooldown and a 3-per-day cap, both after the validity
+  checks and before anything is written or mailed. Tighter than the clip
+  limits on purpose: a parent should receive at most a handful of these
+  ever, so a legitimate user never meets the ceiling while a compromised
+  session hits it immediately.
 - **13 (advisory, but a real obligation).** `isActiveFor` is
   account-scoped and cannot enforce Decision 3's "only the child's own
   clips". **That obligation belongs to the ADR-0019 caller** and is

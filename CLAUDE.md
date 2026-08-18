@@ -126,10 +126,30 @@ done — Claude Code may merge these itself, via a plain `git merge` +
 `git push`. This is fine specifically because it's `review`, not `main` —
 the rule above is unconditional and unaffected.
 
-When `review` has accumulated enough finished work, Claude Code **may
-open the `review` → `main` PR** and should hand over the link; the project
-owner merges it. That merge is what triggers the versioning/release
-pipeline below.
+**One `review` → `main` merge per day, in the morning** (project owner's
+decision, 2026-08-18). Work accumulates on `review` through the day and
+ships in a single daily release rather than a merge per change — this
+replaces the previous "when `review` has accumulated enough finished
+work" cadence, which in practice meant several main merges a day and a
+release pipeline run for each.
+
+Claude Code **opens the `review` → `main` PR and hands over the link**;
+the project owner merges it. That merge is what triggers the
+versioning/release pipeline below. **Open the PR as soon as there is
+something worth merging, without being asked** — on 2026-08-17 four
+separate "I merged it to main" reports turned out to have merged nothing,
+because the work had been pushed to `review` with no PR for the UI to
+show. Twice that left production running code the owner believed had
+shipped.
+
+**Security fixes are the exception and do not wait for the morning.** If
+a change closes a live vulnerability — anything touching child data,
+media visibility, auth or consent — say so plainly and open the PR
+immediately, flagging why it should not sit overnight. The daily cadence
+exists to reduce release churn, not to delay a fix. The 2026-08-17 chat
+clip embed gap (children's video served to accounts with no parental
+consent, on teams that had not approved them) is the shape of thing this
+carve-out is for.
 
 *(Corrected 2026-08-10: this section previously said the `gh` CLI token
 "cannot create or merge pull requests — a real, repeatedly-confirmed

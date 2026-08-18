@@ -27,6 +27,28 @@ export interface SendMailOptions {
 // clearly-logged no-op when SMTP_HOST isn't set, rather than failing app
 // boot — see env.validation.ts's comment — since this is being configured
 // incrementally.
+/**
+ * The subset of nodemailer's send result this service reads. Declared
+ * rather than imported because nodemailer types these as `any`, which
+ * defeats the point of reading them at all.
+ */
+interface SmtpHandoffInfo {
+  accepted?: unknown[];
+  rejected?: unknown[];
+}
+
+/**
+ * The outcome of one SMTP handoff — NOT proof of delivery. See sendMail.
+ */
+export interface MailSendResult {
+  /** The server accepted at least one recipient. */
+  handedOff: boolean;
+  /** Recipients the server refused outright, at handoff. */
+  rejected: string[];
+  /** Why nothing was handed off. Absent when `handedOff` is true. */
+  reason?: 'not_configured' | 'all_rejected';
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -83,14 +105,50 @@ export class MailService {
     }
   }
 
-  async sendMail(options: SendMailOptions): Promise<void> {
+  /**
+   * Sends one message and reports what the SMTP server did with it.
+   *
+   * **Read the limits before treating `handedOff: true` as delivery.**
+   * This reports the SMTP *handoff*, which is the only thing an
+   * in-process send can observe. It catches:
+   *
+   * - a transport failure (still thrown, as before)
+   * - recipients the server refuses at handoff, in `rejected`
+   * - SMTP not being configured at all, which used to return silently and
+   *   indistinguishably from success
+   *
+   * It does **not** catch an asynchronous bounce. A relay accepts a
+   * message for a dead mailbox on a live domain and bounces it later to
+   * the envelope sender — out of band, invisible here. Catching that
+   * needs a bounce mailbox parsed for DSNs, or a provider with a delivery
+   * webhook; neither exists yet, and the current provider is Gmail SMTP
+   * (k8s/configmap.yaml), recorded in the privacy policy as an interim
+   * arrangement.
+   *
+   * That gap matters most to ADR-0030 Decision 5, whose fail-closed
+   * disable is meant to fire when a parent's address goes dead — the
+   * exact case this cannot see. The ADR's Status records it as still
+   * open, and the reminder sweep must not be written as though this
+   * closed it.
+   */
+  async sendMail(options: SendMailOptions): Promise<MailSendResult> {
     if (!this.transporter) {
       this.logger.warn(
         `Mail not sent (SMTP not configured): to=${options.to} subject="${options.subject}"`,
       );
-      return;
+      // Reported as not handed off, deliberately. It used to return void
+      // here, so a caller had no way to tell "sent" from "silently
+      // discarded because nobody set SMTP_HOST" — and a consent flow
+      // whose mail is the entire control cannot afford that ambiguity.
+      return { handedOff: false, rejected: [], reason: 'not_configured' };
     }
-    await this.transporter.sendMail({
+
+    // nodemailer types `sendMail`'s result loosely, so the two fields we
+    // need arrive as `any` and trip the unsafe-member-access rules.
+    // Narrowed once, here, rather than sprinkling casts at each read —
+    // and narrowed to exactly the two fields this method uses, so the
+    // assertion cannot quietly cover more than it was written for.
+    const info = (await this.transporter.sendMail({
       from: this.from,
       to: options.to,
       subject: options.subject,
@@ -99,6 +157,23 @@ export class MailService {
       ...(options.attachments?.length
         ? { attachments: options.attachments }
         : {}),
-    });
+    })) as SmtpHandoffInfo;
+
+    // Previously discarded entirely. Coerced through String because
+    // nodemailer may return either a bare address or an object form.
+    const rejected = (info?.rejected ?? []).map((r) => String(r));
+    const accepted = (info?.accepted ?? []).map((a) => String(a));
+
+    if (rejected.length > 0) {
+      this.logger.warn(
+        `SMTP rejected ${rejected.length} recipient(s) for "${options.subject}".`,
+      );
+    }
+
+    return {
+      handedOff: accepted.length > 0,
+      rejected,
+      ...(accepted.length === 0 ? { reason: 'all_rejected' as const } : {}),
+    };
   }
 }

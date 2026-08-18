@@ -60,7 +60,7 @@ export class PtPlayerConsent {
 
   // Single-use, mailed at request time — generateHumanCode, the same
   // utility every mailed-code flow in this app already reuses. 7-day TTL
-  // (see pt.constants.ts), matching ClipPublicationRequest's own
+  // (see pt.constants.ts), matching ADR-0019's ClipPublicationRequest design's
   // reasoning: this is at least as weighty a read as approving a clip.
   @Column({
     name: 'review_code',
@@ -169,6 +169,6 @@ export class PtPlayerConsent {
 
   // "One active (pending_review/approved) row per (pt_staff_account_id,
   // player_id)" — enforced by a partial unique index (see the migration),
-  // identical mechanism to ClipPublicationRequest's own single-active-row
+  // identical mechanism to ADR-0019's ClipPublicationRequest design's single-active-row
   // invariant.
 }

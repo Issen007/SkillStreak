@@ -33,7 +33,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 //     it held along with it).
 //     A partial unique index enforces "at most one ACTIVE
 //     (pending_review/approved) row per (pt_staff_account_id, player_id)",
-//     identical mechanism to ClipPublicationRequest's own invariant.
+//     identical mechanism to ADR-0019's ClipPublicationRequest design.
 export class AddPtTeamLinkAndPlayerConsent1786000000000 implements MigrationInterface {
   name = 'AddPtTeamLinkAndPlayerConsent1786000000000';
 

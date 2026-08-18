@@ -173,7 +173,26 @@ export class ObjectStorageService implements OnModuleInit {
         }
       }
     }
-    await this.configureMaxObjectSizePolicy();
+    // configureMaxObjectSizePolicy is deliberately NOT called. See its
+    // own comment: the condition key it relies on is rejected outright by
+    // MinIO and does not exist for bucket policies on AWS, so the call
+    // could never enforce anything on any backend this project uses.
+    //
+    // What tipped it from "harmless best-effort" to "remove the call"
+    // (security review 2026-08-18, finding 4): PutBucketPolicy REPLACES,
+    // it does not merge. Production now points at Safespring
+    // (MINIO_ENDPOINT in k8s/configmap.yaml), a third-party object store
+    // whose bucket policy the operator may reasonably manage themselves —
+    // so every API pod start was attempting to overwrite it wholesale, to
+    // install a rule that cannot work. It fails closed today only because
+    // the scoped MINIO_CLIPS_* credential grants no policy operations,
+    // which means the safety came from a credential the code never
+    // mentions rather than from the code.
+    //
+    // The method is kept, unreferenced, because its comment is the
+    // written record of why presigned PUTs cannot be size-bound at the
+    // storage layer — the reasoning behind completeUpload's maxBytes
+    // ceiling, which is the control that actually holds.
     await this.configureCorsPolicy();
   }
 
@@ -198,11 +217,22 @@ export class ObjectStorageService implements OnModuleInit {
    * (e.g. ADR-0010's own presigned-URL-copy-paste gap). The call below is
    * kept as a harmless best-effort attempt (logs a warning and falls back
    * cleanly, never breaks the upload path) rather than removed outright,
-   * because: (a) real AWS S3 does document support for this condition key,
-   * so this becomes a real, working control for free if this project ever
-   * moves off self-hosted MinIO onto AWS S3 per ADR-0010's own portability
-   * framing (see docs/BACKLOG.md's Safespring S3 entry); (b) a future
-   * MinIO release may add support.
+   * because a future MinIO release may add support.
+   *
+   * **Correction, 2026-08-18 (security review, finding 4).** This used to
+   * also claim the call "becomes a real, working control for free" on AWS
+   * S3, "because real AWS S3 does document support for this condition
+   * key". That is wrong, and worth stating rather than quietly deleting:
+   * `s3:content-length-range` is a condition of browser-based **POST**
+   * form policies, not a bucket-policy condition key for `s3:PutObject`.
+   * On AWS the `NumericGreaterThan` would evaluate against an absent key
+   * and the `Deny` would simply never fire. So portability does not
+   * rescue this — the gap is the same everywhere.
+   *
+   * The honest statement is that a presigned PUT cannot be size-bound at
+   * the storage layer at all, on any of these backends. What actually
+   * bounds it is the `maxBytes` ceiling `completeUpload` passes to
+   * `getObjectBuffer`, which abandons the stream when crossed.
    *
    * **Narrower residual gap than it looks in isolation, 2026-07-30**: two
    * independent app-level controls already close most of what this policy
@@ -281,10 +311,21 @@ export class ObjectStorageService implements OnModuleInit {
    * MinIO is only ever driven by the SDK/curl directly, never a real
    * browser, so no CORS policy is needed there either.
    *
-   * Best-effort, matching `configureMaxObjectSizePolicy`'s own posture —
-   * logged loudly on failure rather than crashing boot, since a self-hosted
-   * MinIO too old to support `PutBucketCors` should degrade to "web upload
-   * doesn't work, native app still does," not "the API won't start."
+   * Best-effort — logged loudly on failure rather than crashing boot,
+   * since a self-hosted MinIO too old to support `PutBucketCors` should
+   * degrade to "web upload doesn't work, native app still does," not "the
+   * API won't start."
+   *
+   * **This still runs at every boot, and PutBucketCors REPLACES rather
+   * than merges** (security review 2026-08-18, finding 4). Unlike the
+   * size policy — which was removed from the boot path because it could
+   * never work — this one does something real: browser uploads from the
+   * web export need it. But it means the bucket's CORS configuration is
+   * owned by this code, not by whoever administers the bucket, and
+   * production now points at Safespring rather than an in-cluster MinIO.
+   * If an operator ever sets CORS out of band there, this will silently
+   * overwrite it on the next pod start. Worth knowing before debugging
+   * why a hand-applied rule keeps disappearing.
    *
    * `PUT` only, deliberately not `GET`/`HEAD` (security-reviewer finding,
    * 2026-07-31): clip *playback* on web is a plain `<video>`-element-style

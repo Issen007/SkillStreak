@@ -2257,7 +2257,7 @@
      * It renders HTML while the app renders React Native, so it is a
      * close approximation and says so on screen rather than implying a
      * fidelity it cannot have. What it does reproduce exactly is the part
-     * that matters for a review decision: the same four fields, the same
+     * that matters for a review decision: the same three fields, the same
      * order, the same copy around them, and body text escaped and never
      * parsed as markup — matching TipsScreen's own deliberate choice,
      * since this is text about to be put in front of children.
