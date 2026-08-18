@@ -44,8 +44,23 @@ LLM-backed feature for coaches to generate training plans from a prompt
 Any feature touching accounts, media, or data must satisfy these (from the
 docs/PROJECT.md's Privacy by Design section) before anything else:
 
-- **Closed team bubbles** — no data/video/comments public by default; a user
-  only ever sees their own verified team.
+- **Closed team bubbles** — no data/video/comments public by default; a
+  user only ever sees their own verified team, **except for a player's own
+  clips, which they may publish only while that player's own parent has an
+  active public-sharing consent** (ADR-0030). Amended by the project owner
+  2026-08-18, closing ADR-0019's owner-only prerequisite.
+
+  Three things that clause carries deliberately, and which no
+  implementation may loosen: **the player's own** clips, never another
+  child's; **their own parent**, never a captain, a coach, the operator or
+  a team-level toggle — the variants ADR-0007, ADR-0010, ADR-0019
+  Decision 2 and ADR-0029 Decision 9 each rejected independently; and
+  **while active**, so the permission is a live state that lapses rather
+  than a one-time event.
+
+  Everything outside that clause is unchanged and still non-negotiable.
+  Chat, training logs, real names and another child's clips never leave
+  the team, consent or no consent.
 - **Anonymization option** — screen names (e.g. "FloorballStar15") must be
   usable instead of real names.
 - **Parental approval flow** — required before any account can upload
