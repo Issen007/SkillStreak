@@ -316,14 +316,18 @@ describe('VideoClipsService.createUploadUrl', () => {
         status: VideoClipStatus.PENDING_UPLOAD,
       }),
     );
-    // storage_key is server-generated and updated onto the row after
-    // creation (ADR-0010 Decision 1) — never accepted as input.
-    expect(videoClipRepository.update).toHaveBeenCalledWith(
-      { id: 'clip-new' },
-      { storageKey: 'clips/team-1/clip-new.mp4' },
-    );
+    // storage_key is server-generated, never accepted as input (ADR-0010
+    // Decision 1) — and now written by the INSERT itself rather than
+    // patched on afterwards, so the row is never briefly UNIQUE-colliding
+    // on '' (security review finding 5). The presigned URL is signed for
+    // whatever key the row was created with.
+    const created = videoClipRepository.create.mock.calls[0][0] as {
+      id: string;
+      storageKey: string;
+    };
+    expect(created.storageKey).toBe(`clips/team-1/${created.id}.mp4`);
     expect(objectStorageService.createPresignedPutUrl).toHaveBeenCalledWith(
-      'clips/team-1/clip-new.mp4',
+      created.storageKey,
       'video/mp4',
       expect.any(Number),
     );
@@ -1371,5 +1375,45 @@ describe('VideoClipsService.completeUpload: bounding the expensive half', () => 
       expect.any(String),
       CLIP_MAX_FILE_SIZE_BYTES,
     );
+  });
+});
+
+/**
+ * Video-subsystem security review — findings 4 and 5, the last two.
+ */
+describe('VideoClipsService.createUploadUrl: the storage key at insert', () => {
+  it('never writes a row with an empty storage key', async () => {
+    // storage_key is UNIQUE, and the key used to be patched in one round
+    // trip AFTER the insert. Two overlapping uploads anywhere in the app
+    // therefore collided on '' — and the loser got a unique-violation 500
+    // after its daily upload allowance had already been claimed.
+    const { service, videoClipRepository } = buildService();
+
+    await service.createUploadUrl('team-1', 'player-1', {
+      mimeType: 'video/mp4',
+      fileSizeBytes: 1000,
+      durationSeconds: 10,
+    } as never);
+
+    const created = videoClipRepository.create.mock.calls[0][0] as {
+      id: string;
+      storageKey: string;
+    };
+    expect(created.storageKey).not.toBe('');
+    expect(created.storageKey).toContain(created.id);
+  });
+
+  it('needs no follow-up update to set the key', async () => {
+    // One INSERT rather than INSERT + UPDATE: the id is allocated before
+    // the write, so there is nothing left to patch.
+    const { service, videoClipRepository } = buildService();
+
+    await service.createUploadUrl('team-1', 'player-1', {
+      mimeType: 'video/mp4',
+      fileSizeBytes: 1000,
+      durationSeconds: 10,
+    } as never);
+
+    expect(videoClipRepository.update).not.toHaveBeenCalled();
   });
 });

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Inject,
@@ -231,14 +232,31 @@ export class VideoClipsService {
     await this.assertTaggedPlayerAllowed(teamId, dto.taggedPlayerId);
     await this.assertCaptionAllowed(dto.caption);
 
+    // The id is allocated here rather than by the database, so the storage
+    // key is known before the insert instead of being patched in
+    // afterwards. That patch-up left the row briefly holding
+    // `storageKey: ''`, and `storage_key` is UNIQUE — so two uploads
+    // anywhere in the app that overlapped in that one-round-trip window
+    // collided on the empty string, and the loser got a unique-violation
+    // 500 *after* its daily upload allowance had already been claimed.
+    // Security review 2026-08-17, finding 5.
+    //
+    // Still server-generated and never client-supplied (ADR-0010
+    // Decision 1); randomUUID is the same v4 shape the database column
+    // would have produced. It also removes a write: one INSERT rather
+    // than an INSERT plus an UPDATE.
+    const clipId = randomUUID();
+    const storageKey = `clips/${teamId}/${clipId}.${extensionForMimeType(
+      dto.mimeType,
+    )}`;
+
     const clip = await this.videoClipRepository.save(
       this.videoClipRepository.create({
+        id: clipId,
         teamId,
         uploaderPlayerId: requesterId,
         taggedPlayerId: dto.taggedPlayerId ?? null,
-        // Server-generated, never client-supplied (ADR-0010 Decision 1) —
-        // filled in below once we have the row's real id.
-        storageKey: '',
+        storageKey,
         mimeType: dto.mimeType,
         fileSizeBytes: dto.fileSizeBytes,
         durationSeconds: dto.durationSeconds,
@@ -246,11 +264,6 @@ export class VideoClipsService {
         status: VideoClipStatus.PENDING_UPLOAD,
       }),
     );
-
-    const storageKey = `clips/${teamId}/${clip.id}.${extensionForMimeType(
-      dto.mimeType,
-    )}`;
-    await this.videoClipRepository.update({ id: clip.id }, { storageKey });
 
     const uploadUrl = await this.objectStorageService.createPresignedPutUrl(
       storageKey,
