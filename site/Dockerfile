@@ -61,6 +61,18 @@ RUN npx expo export --platform web --output-dir /app/web-export
 # actually for even when no dev server exists (the normal/CI/real-deploy
 # case). Node is available here (this stage already has it); the
 # nginx:alpine runtime stage below does not, hence a separate stage.
+# The privacy policy page is GENERATED from docs/legal/privacy-policy-DRAFT.md
+# at build time, never committed as a second copy. A policy that says one
+# thing in the repository and another on the website is worse than no page
+# at all, and that drift is invisible until someone diffs them by hand.
+# The renderer throws on any line it cannot classify, so a dropped clause
+# fails the build instead of shipping silently.
+FROM node:22-alpine AS privacy-build
+WORKDIR /src
+COPY docs/legal/privacy-policy-DRAFT.md docs/legal/privacy-policy-DRAFT.md
+COPY site/tools/render-privacy.mjs site/tools/render-privacy.mjs
+RUN node site/tools/render-privacy.mjs
+
 FROM node:22-alpine AS qr-build
 ARG TRY_IT_URL=https://try.skillstreak.app2.isstech.io
 ARG EXPO_GO_URL=""
@@ -74,6 +86,9 @@ COPY site/nginx.conf /etc/nginx/conf.d/default.conf
 COPY site/index.html /usr/share/nginx/marketing/index.html
 COPY site/download.html /usr/share/nginx/marketing/download.html
 COPY site/assets/ /usr/share/nginx/marketing/assets/
+# Served at /privacy — nginx's `try_files $uri/` resolves the directory to
+# its index.html, so the URL needs no extension.
+COPY --from=privacy-build /src/site/privacy/index.html /usr/share/nginx/marketing/privacy/index.html
 COPY --from=mobile-build /app/web-export/ /usr/share/nginx/app/
 COPY --from=qr-build /qr.svg /tmp/qr.svg
 COPY --from=qr-build /qr-target.txt /tmp/qr-target.txt
