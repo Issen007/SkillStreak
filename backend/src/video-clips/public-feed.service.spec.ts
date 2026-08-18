@@ -207,7 +207,7 @@ describe('PublicFeedService.publish', () => {
     expect(result).toEqual({ clipId: clip.id, publishedPublicly: true });
     expect(clips.update).toHaveBeenCalledWith(
       { id: clip.id, uploaderPlayerId: 'player-1' },
-      { publishedPubliclyAt: expect.any(Date) },
+      { publishedPubliclyAt: expect.any(Date) as Date },
     );
   });
 

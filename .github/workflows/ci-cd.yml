@@ -164,19 +164,21 @@ jobs:
         run: pnpm run test:e2e
 
   mobile-typecheck:
-    name: Mobile typecheck + expo-doctor
+    name: Mobile typecheck
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: mobile
-    # mobile/README.md names these two as "the quick sanity checks worth
-    # running before calling a change done" — every prior phase's
-    # frontend-developer pass has run them by hand, but nothing enforced it
-    # in CI, so a change that skipped that manual step (or a non-agent PR)
-    # could merge with a broken build unnoticed. This job automates exactly
-    # those two checks, nothing more — it doesn't attempt a simulator/device
-    # run (none exists in CI any more than in this project's own dev
-    # sandbox, per mobile/README.md's own noted gap).
+    # mobile/README.md names typecheck and expo-doctor as "the quick sanity
+    # checks worth running before calling a change done" — every prior
+    # phase's frontend-developer pass ran them by hand, but nothing
+    # enforced it in CI, so a change that skipped that manual step could
+    # merge with a broken build unnoticed.
+    #
+    # This job now runs ONLY the typecheck; expo-doctor moved to its own
+    # advisory job below, on 2026-08-18. It still attempts no
+    # simulator/device run — none exists in CI any more than in this
+    # project's own dev sandbox, per mobile/README.md's noted gap.
     steps:
       - uses: actions/checkout@v4
 
@@ -201,6 +203,52 @@ jobs:
 
       - name: Typecheck
         run: npx tsc --noEmit
+
+  # expo-doctor is SPLIT OUT and deliberately cannot fail the run.
+  #
+  # It reports Expo SDK dependency drift, which is worth seeing and is not
+  # worth blocking on. From 2026-08-17 it failed every single run — expo
+  # 54.0.36 vs ~54.0.37 and expo-file-system 19.0.23 vs ~19.0.24 — and
+  # bumping them is not currently safe: expo@54.0.37 pulls a second
+  # expo-constants that pnpm's isolated linker keeps alongside the first,
+  # and duplicate native modules are a worse problem than two patch
+  # versions of drift.
+  #
+  # The cost of leaving it able to fail was not cosmetic. Eight
+  # consecutive runs on main showed red; six of them deployed perfectly
+  # well, and the two real failures — a GitHub 503 during Version and
+  # Release, and a lint error that skipped the deploy entirely — looked
+  # exactly like the six that were fine. A pipeline that is always red
+  # stops carrying information, and the project owner had to ask why it
+  # was noisy rather than seeing at a glance that something had broken.
+  #
+  # `tsc --noEmit` stays in the job above, blocking, because that is the
+  # check that catches a genuinely broken app.
+  mobile-expo-doctor:
+    name: Mobile expo-doctor (advisory)
+    runs-on: ubuntu-latest
+    # Reports, never blocks. If this ever needs to gate a merge again,
+    # removing this line is the whole change — and it should be removed
+    # once the SDK drift resolves, not left off out of habit.
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.11.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: expo-doctor
         run: npx expo-doctor
