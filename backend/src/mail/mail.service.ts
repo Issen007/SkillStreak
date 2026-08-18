@@ -28,6 +28,16 @@ export interface SendMailOptions {
 // boot — see env.validation.ts's comment — since this is being configured
 // incrementally.
 /**
+ * The subset of nodemailer's send result this service reads. Declared
+ * rather than imported because nodemailer types these as `any`, which
+ * defeats the point of reading them at all.
+ */
+interface SmtpHandoffInfo {
+  accepted?: unknown[];
+  rejected?: unknown[];
+}
+
+/**
  * The outcome of one SMTP handoff — NOT proof of delivery. See sendMail.
  */
 export interface MailSendResult {
@@ -133,7 +143,12 @@ export class MailService {
       return { handedOff: false, rejected: [], reason: 'not_configured' };
     }
 
-    const info = await this.transporter.sendMail({
+    // nodemailer types `sendMail`'s result loosely, so the two fields we
+    // need arrive as `any` and trip the unsafe-member-access rules.
+    // Narrowed once, here, rather than sprinkling casts at each read —
+    // and narrowed to exactly the two fields this method uses, so the
+    // assertion cannot quietly cover more than it was written for.
+    const info = (await this.transporter.sendMail({
       from: this.from,
       to: options.to,
       subject: options.subject,
@@ -142,11 +157,12 @@ export class MailService {
       ...(options.attachments?.length
         ? { attachments: options.attachments }
         : {}),
-    });
+    })) as SmtpHandoffInfo;
 
-    // nodemailer returns these per send; they were previously discarded.
-    const rejected = (info?.rejected ?? []).map(String);
-    const accepted = (info?.accepted ?? []).map(String);
+    // Previously discarded entirely. Coerced through String because
+    // nodemailer may return either a bare address or an object form.
+    const rejected = (info?.rejected ?? []).map((r) => String(r));
+    const accepted = (info?.accepted ?? []).map((a) => String(a));
 
     if (rejected.length > 0) {
       this.logger.warn(
