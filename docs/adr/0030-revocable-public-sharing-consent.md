@@ -411,8 +411,10 @@ Open Question 5 below and belongs with the lawyer, not with this ADR.
 
 ## Decision — 8: the CLAUDE.md sentence this design needs is narrower than the one ADR-0019 proposed
 
-Still owner-only — no agent in this repo may make this edit or proceed
-as though it were made. But the double gate in Decision 3 means the
+**CLOSED 2026-08-18.** The project owner directed the amendment and it is
+now live in CLAUDE.md, in the wording below. ADR-0019's owner-only
+CLAUDE.md prerequisite is therefore satisfied; its *consent-copy*
+prerequisite is not — see the note at the end of this decision. But the double gate in Decision 3 means the
 amendment can be tighter than ADR-0019's suggested wording, and the
 tighter version is worth having because this sentence is what every
 future agent will be held to:
@@ -434,6 +436,17 @@ reinstates per-clip approval, the sentence needs *"and has approved that
 specific clip (ADR-0019)"* appended — worth noting now, because that is
 the moment the wording would otherwise be left describing the weaker
 design.
+
+**The other prerequisite is deliberately still open, and its timing
+matters.** ADR-0019's review requires the "only your own team" claim —
+live across six surfaces — to be corrected *"before or alongside shipping
+this feature."* Alongside, not now: cross-team publishing does not exist
+yet, so today that claim is simply true. Rewriting it into a conditional
+while nothing can actually leave a team would make the copy *less*
+accurate than it is, and would tell families their promise had weakened
+before anything had changed. The correction lands in the same change that
+builds ADR-0019's feed, and Decision 7 records what each of the six
+surfaces needs.
 
 ## Decision — 9 (added 2026-08-16): the interim posture expires on a trigger and a calendar, not on someone remembering
 

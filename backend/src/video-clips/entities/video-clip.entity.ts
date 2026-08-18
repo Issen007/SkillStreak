@@ -174,4 +174,36 @@ export class VideoClip {
     nullable: true,
   })
   challengeAcknowledgedAt!: Date | null;
+
+  /**
+   * When the uploader chose to publish this clip beyond their own team.
+   * NULL — the default and the overwhelming majority — means team-only.
+   *
+   * **A column rather than a table, and that is ADR-0019 Decision 5's
+   * requirement rather than a shortcut:** "public-visibility state has no
+   * independent lifecycle of its own". A row with its own statuses would
+   * have one, and would then need reconciling with `status` every time a
+   * clip is hidden, reported, erased or swept.
+   *
+   * **It is not sufficient on its own.** A clip is publicly visible only
+   * while the uploader's parent *also* has an active public-sharing
+   * consent (ADR-0030), which the feed query enforces with a join rather
+   * than by copying consent state onto the clip. That is deliberate:
+   * revoking consent then removes every clip from the feed in the same
+   * instant, with nothing to sweep and nothing that can be forgotten —
+   * ADR-0030 Decision 2's "disabling un-publishes everything currently
+   * public", made structural instead of procedural.
+   *
+   * ADR-0019's own Decision 8 sketched this as a join to
+   * `clip_publication_request`, the per-clip *parental* approval that
+   * ADR-0030's amended Decision 3 replaced with the standing switch.
+   * That table is therefore never built; the child's own choice of which
+   * clips to publish is this column.
+   */
+  @Column({
+    name: 'published_publicly_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  publishedPubliclyAt!: Date | null;
 }
