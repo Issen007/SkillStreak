@@ -56,6 +56,8 @@ function buildService(
     messages?: unknown[];
     messagesRaw?: unknown[];
     moderationAllowed?: boolean;
+    parentalConsentStatus?: ParentalConsentStatus;
+    teamJoinStatus?: TeamJoinStatus;
   } = {},
 ) {
   const player = {
@@ -63,8 +65,9 @@ function buildService(
     teamId: 'team-1',
     screenName: 'FloorballStar15',
     avatarId: 'fox',
-    parentalConsentStatus: ParentalConsentStatus.APPROVED,
-    teamJoinStatus: TeamJoinStatus.APPROVED,
+    parentalConsentStatus:
+      overrides.parentalConsentStatus ?? ParentalConsentStatus.APPROVED,
+    teamJoinStatus: overrides.teamJoinStatus ?? TeamJoinStatus.APPROVED,
   };
 
   const playersService = {
@@ -789,5 +792,92 @@ describe('ChatMessageStatus', () => {
   it('is visible by default (per the entity)', () => {
     expect(ChatMessageStatus.VISIBLE).toBe('visible');
     expect(ChatMessageStatus.HIDDEN).toBe('hidden');
+  });
+});
+
+/**
+ * Security review, 2026-08-17 (blocking finding 1).
+ *
+ * `listMessages` gained a clip attachment in ADR-0017 and never revisited
+ * its gate, so it minted presigned playback URLs for anyone who passed
+ * `assertTeamMembership` alone — no parental consent, no captain
+ * approval — while `postMessage` in the same file asserts both.
+ *
+ * Reading chat text stays ungated by design (ADR-0007). Only the embed is
+ * gated, so these tests assert exactly that split.
+ */
+describe('TeamChatService.listMessages: clip embeds are consent-gated', () => {
+  const clipMessage = {
+    id: 'msg-clip',
+    senderPlayerId: 'player-1',
+    authorType: ChatMessageAuthorType.PLAYER,
+    systemEventType: null,
+    content: 'kolla',
+    createdAt: new Date('2026-08-17T10:00:00Z'),
+  };
+  const clipRaw = {
+    clip_id: 'clip-1',
+    clip_storage_key: 'clips/team-1/clip-1.mp4',
+    clip_thumbnail_key: null,
+    clip_duration_seconds: 8,
+    clip_uploader_player_id: 'player-1',
+    clip_tagged_player_id: null,
+  };
+
+  it('mints no playback URL for a player awaiting parental consent', async () => {
+    const { service, objectStorageService } = buildService({
+      messages: [clipMessage],
+      messagesRaw: [clipRaw],
+      parentalConsentStatus: ParentalConsentStatus.PENDING,
+    });
+
+    const result = await service.listMessages(
+      'team-1',
+      'player-1',
+      undefined,
+      50,
+    );
+
+    expect(result[0].clip).toBeNull();
+    // Checked before the mint, not filtered after it — an unapproved
+    // viewer must not cause a signed URL to exist at all.
+    expect(objectStorageService.createPresignedGetUrl).not.toHaveBeenCalled();
+  });
+
+  it('mints no playback URL for a player awaiting captain approval', async () => {
+    const { service, objectStorageService } = buildService({
+      messages: [clipMessage],
+      messagesRaw: [clipRaw],
+      teamJoinStatus: TeamJoinStatus.PENDING,
+    });
+
+    const result = await service.listMessages(
+      'team-1',
+      'player-1',
+      undefined,
+      50,
+    );
+
+    expect(result[0].clip).toBeNull();
+    expect(objectStorageService.createPresignedGetUrl).not.toHaveBeenCalled();
+  });
+
+  it('still returns the message text — only the embed is gated', async () => {
+    // ADR-0007's chat-read posture is deliberately unchanged.
+    const { service } = buildService({
+      messages: [clipMessage],
+      messagesRaw: [clipRaw],
+      parentalConsentStatus: ParentalConsentStatus.PENDING,
+    });
+
+    const result = await service.listMessages(
+      'team-1',
+      'player-1',
+      undefined,
+      50,
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0].content).toBe('kolla');
   });
 });

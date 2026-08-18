@@ -73,10 +73,24 @@ export class TrainerPost {
    *
    * The operator review IS the control here — there is no automated
    * judgement of whether a tip is appropriate for a nine-year-old, and
-   * pretending otherwise would be worse than admitting it. So the record
-   * of who approved it has to survive, which is why the FK is SET NULL
-   * rather than CASCADE: an operator leaving must not delete the
-   * evidence that a review happened.
+   * pretending otherwise would be worse than admitting it. So this FK is
+   * SET NULL rather than CASCADE: a *reviewer* leaving must not delete
+   * the evidence that a review happened.
+   *
+   * **That guarantee is narrower than it reads, and the narrowing is not
+   * intentional.** `author_staff_account_id` is ON DELETE CASCADE (see
+   * the migration), so if the departing operator is the post's *author*,
+   * the whole row goes — this column with it. The evidence survives a
+   * reviewer leaving, not an author leaving.
+   *
+   * Not reachable today: nothing in the backend deletes a `staff_account`
+   * row, so it needs direct database action. But ADR-0023 Decision A7
+   * treats clean staff-account deletion as a designed operation, so this
+   * is a gap to close before that is built — either by making the author
+   * FK SET NULL too (the post survives; `author_byline` is already
+   * denormalised, so it stays readable) or by saying plainly that
+   * deleting an author deletes their posts. Found by the comment audit,
+   * 2026-08-17.
    */
   @Column({
     name: 'reviewed_by_staff_account_id',

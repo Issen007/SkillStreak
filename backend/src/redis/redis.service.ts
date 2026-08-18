@@ -57,6 +57,14 @@ function clipCompleteRateLimitKey(playerId: string): string {
   return `ratelimit:clip-complete:${playerId}`;
 }
 
+// Admission control for the expensive half of completeUpload, keyed by
+// clip rather than by player: the cost being bounded is per-object work
+// (a full download into heap plus an ffmpeg run), and two completes on
+// the SAME clip are the case that multiplies it.
+function clipProcessingLockKey(clipId: string): string {
+  return `lock:clip-processing:${clipId}`;
+}
+
 function clipUploadRateLimitKey(playerId: string): string {
   return `clip-upload:${playerId}:window`;
 }
@@ -214,6 +222,14 @@ const CLIP_UPLOAD_RATE_LIMIT_MAX_PER_WINDOW = 10;
 // 30/hour is generous for the real flow (one complete per upload, plus a
 // couple of retries) and useless for enumeration.
 const CLIP_COMPLETE_RATE_LIMIT_MAX_PER_WINDOW = 30;
+
+/**
+ * How long one clip's processing claim is held (security review finding
+ * 2). Generous on purpose: expiry releases the lock, so too short admits
+ * the concurrent work the lock exists to prevent, while too long only
+ * refuses a retry the caller can repeat.
+ */
+const CLIP_PROCESSING_LOCK_TTL_SECONDS = 300;
 const CLIP_COMPLETE_RATE_LIMIT_WINDOW_SECONDS = 60 * 60;
 
 // docs/adr/0010-video-storage-and-serving.md Decision 4 — same per-reporter
@@ -521,6 +537,51 @@ export class RedisService {
       await this.client.expire(key, windowSeconds);
     }
     return count <= maxPerWindow;
+  }
+
+  /**
+   * Exclusive claim on processing one clip. SET NX, so the first caller
+   * wins and every concurrent one is refused rather than queued.
+   *
+   * Security review 2026-08-17, finding 2: `completeUpload` checked the
+   * row was `pending_upload` and only flipped the status *after*
+   * downloading the object, writing it to disk, running ffprobe and
+   * ffmpeg, and uploading the result. Nothing in between excluded a
+   * second caller, so N concurrent completes on one pending clip each
+   * buffered the whole file into the API pod's heap and each spawned
+   * ffmpeg. At the 75 MB ceiling on a two-replica deployment that is an
+   * OOM, not a slowdown.
+   *
+   * The TTL must outlast a legitimate slow completion, since expiry
+   * releases the lock: a clip that takes longer than this would admit a
+   * second worker. Sized well above the observed worst case rather than
+   * tightly, because the cost of holding it slightly too long (one
+   * retry refused) is far smaller than releasing it too early.
+   */
+  async tryClaimClipProcessing(
+    clipId: string,
+    ttlSeconds: number = CLIP_PROCESSING_LOCK_TTL_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      clipProcessingLockKey(clipId),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
+  }
+
+  /**
+   * Releases the processing claim early.
+   *
+   * Called on both success and failure: a failed complete leaves the row
+   * `pending_upload` so the client may legitimately retry, and making
+   * them wait out the TTL would turn one transient ffmpeg error into
+   * minutes of refused retries.
+   */
+  async releaseClipProcessing(clipId: string): Promise<void> {
+    await this.client.del(clipProcessingLockKey(clipId));
   }
 
   /** Per-reporter cooldown for clip reports (ADR-0010 Decision 4). */

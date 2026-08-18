@@ -26,13 +26,53 @@ export interface ObjectHead {
   contentType: string | null;
 }
 
-async function streamToBuffer(body: unknown): Promise<Buffer> {
+/**
+ * Thrown when an object is larger than the caller was willing to read.
+ *
+ * A distinct error rather than a generic one so the caller can tell "the
+ * object grew past the limit" apart from a transport failure — they mean
+ * different things and only one of them is worth deleting the object for.
+ */
+export class ObjectTooLargeError extends Error {
+  constructor(readonly limitBytes: number) {
+    super(`Object exceeds ${limitBytes} bytes`);
+    this.name = 'ObjectTooLargeError';
+  }
+}
+
+/**
+ * @param maxBytes hard ceiling on what will be held in memory. The stream
+ *   is abandoned the moment it is crossed.
+ *
+ * Security review finding 3: `completeUpload` HEADs the object to check
+ * its size and then GETs it, and the object at that key stays
+ * client-writable in between — the presigned PUT URL is valid for five
+ * minutes and can be reused. So the size that was checked and the bytes
+ * that arrive are two different observations, and a client that overwrites
+ * between them was reading unbounded into heap. Bounding the read is what
+ * actually holds; the HEAD check is now an early, cheap rejection rather
+ * than the control.
+ */
+async function streamToBuffer(
+  body: unknown,
+  maxBytes: number = Number.POSITIVE_INFINITY,
+): Promise<Buffer> {
   if (body instanceof Readable) {
     const chunks: Buffer[] = [];
+    let total = 0;
     for await (const chunk of body) {
-      chunks.push(
-        Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array),
-      );
+      const buf = Buffer.isBuffer(chunk)
+        ? chunk
+        : Buffer.from(chunk as Uint8Array);
+      total += buf.length;
+      if (total > maxBytes) {
+        // Destroy rather than just break: leaving the socket to drain the
+        // rest of a deliberately oversized object would spend exactly the
+        // bandwidth this limit exists to refuse.
+        body.destroy();
+        throw new ObjectTooLargeError(maxBytes);
+      }
+      chunks.push(buf);
     }
     return Buffer.concat(chunks);
   }
@@ -327,11 +367,16 @@ export class ObjectStorageService implements OnModuleInit {
     }
   }
 
-  async getObjectBuffer(key: string): Promise<Buffer> {
+  /**
+   * @param maxBytes refuse (and abandon) anything larger. Callers holding
+   *   a size limit must pass it — the object is client-writable and may
+   *   have grown since it was last measured.
+   */
+  async getObjectBuffer(key: string, maxBytes?: number): Promise<Buffer> {
     const result = await this.client.send(
       new GetObjectCommand({ Bucket: this.bucket, Key: key }),
     );
-    return streamToBuffer(result.Body);
+    return streamToBuffer(result.Body, maxBytes);
   }
 
   /** Overwrites (or creates) the object at this key — used at `complete` to

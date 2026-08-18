@@ -434,20 +434,23 @@ export class VideoClipsService {
         ? metadata.taggedPlayerId || null
         : undefined;
 
-    if (
-      metadata.caption !== undefined ||
-      metadata.taggedPlayerId !== undefined
-    ) {
-      // `upload-url` claims its allowance before running the filter, on
-      // purpose, "so repeated filter-probing on the caption still costs the
-      // uploader's quota, not free". This path needs its own for the same
-      // reason — owning one pending clip would otherwise buy unlimited
-      // probes at the generic 300/min/IP backstop.
-      const claimed =
-        await this.redisService.tryClaimClipCompleteAllowance(requesterId);
-      if (!claimed) {
-        throw new ClipUploadRateLimitedException();
-      }
+    // Claimed unconditionally. It used to be claimed only when caption or
+    // tag was present, which left an empty-bodied complete costing the
+    // player nothing — and an empty body still triggers the whole
+    // download/ffprobe/ffmpeg/upload round trip. Security review finding
+    // 2: the per-player allowance is the ceiling on how often one account
+    // can ask for that work, so gating it on metadata meant the expensive
+    // path was the one path with no per-player ceiling at all.
+    //
+    // The original reason for claiming here still holds too: `upload-url`
+    // claims before running the filter "so repeated filter-probing on the
+    // caption still costs the uploader's quota, not free", and owning one
+    // pending clip would otherwise buy unlimited probes behind the generic
+    // 300/min/IP backstop.
+    const claimed =
+      await this.redisService.tryClaimClipCompleteAllowance(requesterId);
+    if (!claimed) {
+      throw new ClipUploadRateLimitedException();
     }
 
     if (suppliedTag !== undefined) {
@@ -499,8 +502,19 @@ export class VideoClipsService {
     // (getObjectBuffer) on this single-replica API pod before ever
     // rejecting it — a real memory-exhaustion, not just storage-
     // exhaustion, path bounded only by the daily upload-count rate limit,
-    // not by size. Rejecting here, before getObjectBuffer is ever called,
-    // closes both risks. Reuses the same 422 clip_processing_failed
+    // not by size.
+    //
+    // Rejecting here is an early, cheap refusal — NOT the control.
+    // Security review finding 3: this HEAD and the GET below are two
+    // observations of a key that stays client-writable between them (the
+    // presigned PUT is valid for five minutes and can be reused), so a
+    // client that overwrites in the gap defeats a check made here. What
+    // actually bounds memory is the maxBytes ceiling passed to
+    // getObjectBuffer, which abandons the stream the moment it is
+    // crossed. This check still earns its place by rejecting the honest
+    // oversize case without spending a download.
+    //
+    // Reuses the same 422 clip_processing_failed
     // path/cleanup as a failed remux (delete the bad object, leave the row
     // pending_upload) rather than inventing a new error code — the mobile
     // client's existing "retry from a fresh upload" handling for that code
@@ -519,11 +533,33 @@ export class VideoClipsService {
       throw new ClipProcessingFailedException();
     }
 
+    // Admission control for the expensive half — security review finding
+    // 2. Everything below downloads the whole object into heap, writes it
+    // to disk, runs ffprobe and ffmpeg, and uploads the result. The only
+    // thing that previously excluded a second caller was the conditional
+    // UPDATE at the very end, which lands *after* all of it: N concurrent
+    // completes on one pending clip therefore each did the full round
+    // trip, and at the 75 MB ceiling on a two-replica deployment that is
+    // an OOM rather than a slowdown.
+    //
+    // Refused, not queued. A second caller on the same clip is either a
+    // retry or an attack, and neither is owed the work — the first call
+    // is still running and will publish.
+    const processingClaimed = await this.redisService.tryClaimClipProcessing(
+      clip.id,
+    );
+    if (!processingClaimed) {
+      throw new ClipUploadRateLimitedException();
+    }
+
     let inputPath: string | null = null;
     let outputPath: string | null = null;
     try {
+      // Bounded, not trusted: see the HEAD check above for why its result
+      // cannot be relied on by the time these bytes arrive.
       const objectBytes = await this.objectStorageService.getObjectBuffer(
         clip.storageKey,
+        CLIP_MAX_FILE_SIZE_BYTES,
       );
       const extension = extensionForMimeType(clip.mimeType as ClipMimeType);
       inputPath = await this.videoProcessingService.writeTempFile(
@@ -643,6 +679,11 @@ export class VideoClipsService {
         await this.videoProcessingService.deleteTempFileIfExists(inputPath);
       if (outputPath)
         await this.videoProcessingService.deleteTempFileIfExists(outputPath);
+      // Released on failure as well as success: a failed complete leaves
+      // the row `pending_upload` so the client may legitimately retry, and
+      // holding the claim for its full TTL would turn one transient ffmpeg
+      // error into minutes of refused retries.
+      await this.redisService.releaseClipProcessing(clip.id);
     }
   }
 
