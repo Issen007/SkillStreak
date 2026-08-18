@@ -45,12 +45,13 @@ would have passed before the fix):
   bounce mailbox parsed for DSNs, or a provider with a delivery webhook.
   The current provider is Gmail SMTP, recorded in the privacy policy as
   interim, so the natural moment is the move to a dedicated
-  `skillstreak.xyz` mail account. A dead mailbox on a live domain is accepted by
-  the relay and bounced to nobody. Under the amended Decision 3 the
-  reminder is the only recurring control, so this is the finding that
-  most undermines the design. It cannot be fixed inside
-  `public-sharing/` and must be closed **before the reminder sweep is
-  written**.
+  `skillstreak.xyz` mail account.
+
+  Under the amended Decision 3 the monthly reminder is the design's only
+  recurring control, so this remains the finding that most undermines it,
+  and it must be closed **before the reminder sweep is written** — a
+  sweep built on handoff-only signalling would report healthy while the
+  case it exists to catch went undetected.
 - **5 (blocking).** The migration does not exist, and must carry
   `ON DELETE CASCADE` on `player_id`. Without it an erased child leaves
   an orphan row holding an ACTIVE status and a live revoke code — an
