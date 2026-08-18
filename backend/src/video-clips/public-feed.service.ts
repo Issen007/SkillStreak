@@ -6,6 +6,8 @@ import {
   NotYourClipException,
   PublicSharingNotConsentedException,
 } from '../common/errors/exceptions';
+import { Player } from '../players/entities/player.entity';
+import { PublicSharingAccessService } from '../public-sharing/public-sharing-access.service';
 import { PublicSharingConsentService } from '../public-sharing/public-sharing-consent.service';
 import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
 
@@ -72,7 +74,13 @@ export class PublicFeedService {
   constructor(
     @InjectRepository(VideoClip)
     private readonly clips: Repository<VideoClip>,
+    // Only ever read for the viewer's own `team_id`, to answer the
+    // rollout gate. Resolved here rather than passed in by the controller
+    // so that no caller can gate on a team the viewer is not in.
+    @InjectRepository(Player)
+    private readonly players: Repository<Player>,
     private readonly consentService: PublicSharingConsentService,
+    private readonly access: PublicSharingAccessService,
   ) {}
 
   /**
@@ -93,6 +101,14 @@ export class PublicFeedService {
     clipId: string,
   ): Promise<{ clipId: string; publishedPublicly: true }> {
     const clip = await this.ownClipOrThrow(requesterId, clipId);
+
+    // The rollout gate, checked before consent. A team outside the
+    // allow-list cannot publish even with a live parental consent —
+    // widening the feature is a deployment decision, not something a
+    // family can opt into ahead of it.
+    if (!this.access.isEnabledForTeam(clip.teamId)) {
+      throw new PublicSharingNotConsentedException();
+    }
 
     if (clip.status !== VideoClipStatus.PUBLISHED) {
       // A hidden or still-uploading clip cannot become publicly visible;
@@ -172,6 +188,20 @@ export class PublicFeedService {
     cursor?: string,
     limit: number = PUBLIC_FEED_PAGE_SIZE,
   ): Promise<PublicFeedPage> {
+    // Reading is gated as well as publishing. A team not in the rollout
+    // should not see other teams' children either — the feature is off
+    // for them in both directions, which is what "off" has to mean.
+    //
+    // An empty page rather than a 403: the feed is a screen the app may
+    // route to before it knows the answer, and "nothing here yet" is the
+    // honest thing to render for a team the rollout has not reached.
+    const viewer = await this.players.findOne({
+      where: { id: viewerId },
+      select: { teamId: true },
+    });
+    if (!this.access.isEnabledForTeam(viewer?.teamId)) {
+      return { items: [], nextCursor: null };
+    }
     const take = Math.min(Math.max(limit, 1), MAX_PAGE_SIZE);
     const decoded = decodeCursor(cursor);
 

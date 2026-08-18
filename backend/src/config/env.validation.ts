@@ -303,6 +303,21 @@ class EnvironmentVariables {
   // and same positiveIntFromConfig parsing as the knobs above.
   @IsOptional()
   EVENT_REGISTRATION_RETENTION_DAYS?: string;
+
+  /**
+   * ADR-0030 — comma-separated team ids allowed to share clips outside
+   * their team. Empty or unset means nobody, which is the intended
+   * production value until the rollout widens.
+   *
+   * **`@IsOptional()` alone, deliberately no `@IsNotEmpty()`.** That pair
+   * is the trap this repo has hit before: `@IsOptional()` only skips
+   * validation for `undefined`/`null`, so a ConfigMap key present with an
+   * empty value still reaches `@IsNotEmpty()` and crashes the pod at
+   * boot. An empty string is not a misconfiguration here — it is the
+   * off switch, and the most likely value in production for a while.
+   */
+  @IsOptional()
+  PUBLIC_SHARING_ENABLED_TEAM_IDS?: string;
 }
 
 // Fails fast on boot rather than surfacing a confusing runtime error the

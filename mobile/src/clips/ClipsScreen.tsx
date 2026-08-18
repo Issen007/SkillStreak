@@ -17,12 +17,24 @@ import { ClipPlayerModal } from './components/ClipPlayerModal';
 import { ClipReportSheet } from './components/ClipReportSheet';
 import { ClipReportConfirmationSheet } from './components/ClipReportConfirmationSheet';
 import { ClipDeleteSheet } from './components/ClipDeleteSheet';
+import { ClipShareSheet } from './components/ClipShareSheet';
 import { UploadFlow } from './upload/UploadFlow';
 import { BlockSheet } from '../chat/components/BlockSheet';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Toast } from '../components/Toast';
 import { LoadingOrRetry } from '../components/LoadingOrRetry';
-import { blockChatPlayer, deleteClip, getClips, getMe, reportClip } from '../api/endpoints';
+import {
+  blockChatPlayer,
+  deleteClip,
+  getClips,
+  getMe,
+  getPublicSharingStatus,
+  publishClipPublicly,
+  reportClip,
+  requestPublicSharing,
+  unpublishClipPublicly,
+} from '../api/endpoints';
+import type { PublicSharingStatus } from '../api/types';
 import { ApiError } from '../api/ApiError';
 import {
   addCachedChatBlock,
@@ -97,6 +109,13 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportConfirmation, setReportConfirmation] = useState<ReportConfirmationState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClipFeedItem | null>(null);
+  // ADR-0030. `sharingStatus` is null until the first fetch answers; the
+  // share row stays hidden until then rather than flashing an affordance
+  // that may not apply to this team.
+  const [sharingStatus, setSharingStatus] = useState<PublicSharingStatus | null>(null);
+  const [shareTarget, setShareTarget] = useState<ClipFeedItem | null>(null);
+  const [shareSubmitting, setShareSubmitting] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [blockTarget, setBlockTarget] = useState<BlockTarget | null>(null);
   const [blockSubmitting, setBlockSubmitting] = useState(false);
@@ -106,6 +125,24 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
 
   const hasOpenedRef = useRef(false);
   const hasLoadedOnceRef = useRef(false);
+
+  /**
+   * ADR-0030. Re-read on focus and on app resume alongside the existing
+   * consent fetch, because the thing that changes it happens outside the
+   * app entirely: a parent clicking Approve — or Revoke — in their inbox.
+   * A cached `canShare` is exactly what must not decide whether a child's
+   * video can leave the team.
+   */
+  const fetchSharingStatus = useCallback(async () => {
+    try {
+      setSharingStatus(await getPublicSharingStatus());
+    } catch {
+      // Deliberately silent, and it fails closed: the share row is hidden
+      // while status is null, so a failed fetch removes the affordance
+      // rather than leaving a stale one that might now be wrong.
+      setSharingStatus(null);
+    }
+  }, []);
 
   useEffect(() => {
     void getHasSeenClipIntro().then(setHasSeenIntroState);
@@ -155,18 +192,22 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
   }, [teamId, t]);
 
   useEffect(() => {
-    if (hasSeenIntro === true) void fetchInitial();
-  }, [hasSeenIntro, fetchInitial]);
+    if (hasSeenIntro === true) {
+      void fetchInitial();
+      void fetchSharingStatus();
+    }
+  }, [hasSeenIntro, fetchInitial, fetchSharingStatus]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active' && hasLoadedOnceRef.current) {
         void fetchConsentStatus();
+        void fetchSharingStatus();
         void fetchInitial();
       }
     });
     return () => subscription.remove();
-  }, [fetchConsentStatus, fetchInitial]);
+  }, [fetchConsentStatus, fetchSharingStatus, fetchInitial]);
 
   // Cleared the moment the tab is opened, per the flow doc — not on
   // scrolling to the bottom (identical convention to ChatScreen).
@@ -273,6 +314,64 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       }
     } finally {
       setReportSubmitting(false);
+    }
+  };
+
+  const handleTapShare = (clip: ClipFeedItem) => {
+    setShareError(null);
+    setShareTarget(clip);
+    // Refreshed on open as well: the sheet is where the decision is made,
+    // and a parent may have revoked since the tab was last focused.
+    void fetchSharingStatus();
+  };
+
+  const handleAskParent = async () => {
+    setShareSubmitting(true);
+    setShareError(null);
+    try {
+      await requestPublicSharing();
+      await fetchSharingStatus();
+    } catch {
+      setShareError(t('clipShareSheet.errorGeneric'));
+    } finally {
+      setShareSubmitting(false);
+    }
+  };
+
+  const handleSharePublish = async () => {
+    if (!shareTarget) return;
+    setShareSubmitting(true);
+    setShareError(null);
+    try {
+      await publishClipPublicly(shareTarget.clipId);
+      // Refetched rather than patched locally: the server is the only
+      // thing that knows whether the publish actually took, and this is
+      // the state that decides who can see a child.
+      await Promise.all([fetchInitial(), fetchSharingStatus()]);
+      setShareTarget(null);
+    } catch {
+      // The most likely cause is a consent revoked since the sheet opened,
+      // so the status is re-read before the message is shown — that way
+      // reopening the sheet shows the true state rather than the old one.
+      await fetchSharingStatus();
+      setShareError(t('clipShareSheet.errorRevoked'));
+    } finally {
+      setShareSubmitting(false);
+    }
+  };
+
+  const handleShareUnpublish = async () => {
+    if (!shareTarget) return;
+    setShareSubmitting(true);
+    setShareError(null);
+    try {
+      await unpublishClipPublicly(shareTarget.clipId);
+      await fetchInitial();
+      setShareTarget(null);
+    } catch {
+      setShareError(t('clipShareSheet.errorGeneric'));
+    } finally {
+      setShareSubmitting(false);
     }
   };
 
@@ -452,6 +551,11 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
         onTapDelete={() => {
           if (activeClip) handleTapDelete(activeClip);
         }}
+        onTapShare={
+          sharingStatus?.available && activeClip
+            ? () => handleTapShare(activeClip)
+            : undefined
+        }
         onClose={() => setActiveClip(null)}
       />
 
@@ -468,6 +572,18 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
         reportedScreenName={reportConfirmation?.uploaderScreenName ?? ''}
         onBlock={() => void handleReportConfirmationBlock()}
         onDone={() => setReportConfirmation(null)}
+      />
+
+      <ClipShareSheet
+        visible={shareTarget !== null}
+        loading={shareSubmitting}
+        status={sharingStatus}
+        isShared={shareTarget?.publishedPublicly ?? false}
+        error={shareError}
+        onAskParent={() => void handleAskParent()}
+        onPublish={() => void handleSharePublish()}
+        onUnpublish={() => void handleShareUnpublish()}
+        onClose={() => setShareTarget(null)}
       />
 
       <ClipDeleteSheet

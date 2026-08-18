@@ -44,7 +44,9 @@
   "clipCard": {
     "challengeChip": "🎯 Défie {{screenName}}",
     "report": "🚩 Signaler",
-    "delete": "🗑️ Supprimer la vidéo"
+    "delete": "🗑️ Supprimer la vidéo",
+    "share": "Partager en dehors de l'équipe",
+    "shared": "Partagée en dehors de l'équipe"
   },
   "clipPlayerModal": {
     "close": "Fermer",
@@ -121,5 +123,21 @@
     "heading": "Ton Shorts est en ligne ! 🎉",
     "sub": "L'équipe peut le voir maintenant.",
     "done": "Vers le fil"
+  },
+  "clipShareSheet": {
+    "headingOff": "Partager en dehors de l'équipe",
+    "bodyNone": "Pour l'instant, tes vidéos ne sont visibles que par ton équipe. Pour les partager avec d'autres joueurs de floorball, un parent doit d'abord donner son accord.",
+    "ask": "Demander à mon parent",
+    "headingPending": "Nous avons demandé à ton parent",
+    "bodyPending": "Nous avons envoyé un e-mail. Dès qu'il accepte, tu pourras partager. Cela peut prendre un jour ou deux.",
+    "headingOn": "Partager cette vidéo",
+    "bodyOn": "D'autres joueurs de floorball peuvent voir la vidéo, ton pseudo et ton avatar. Ils ne voient jamais ton vrai nom, ton équipe ni où tu t'entraînes.",
+    "publish": "Partager la vidéo",
+    "headingShared": "Cette vidéo est partagée",
+    "bodyShared": "Cette vidéo est visible en dehors de ton équipe en ce moment. Tu peux arrêter de la partager quand tu veux — elle disparaît aussitôt.",
+    "unpublish": "Arrêter de partager",
+    "close": "Fermer",
+    "errorGeneric": "Ça n'a pas marché. Réessaie dans un instant.",
+    "errorRevoked": "Le partage est désactivé pour ton compte. Demande à ton parent."
   }
 }

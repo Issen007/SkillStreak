@@ -44,7 +44,9 @@
   "clipCard": {
     "challengeChip": "🎯 Haastaa käyttäjän {{screenName}}",
     "report": "🚩 Ilmoita",
-    "delete": "🗑️ Poista video"
+    "delete": "🗑️ Poista video",
+    "share": "Jaa joukkueen ulkopuolelle",
+    "shared": "Jaetaan joukkueen ulkopuolelle"
   },
   "clipPlayerModal": {
     "close": "Sulje",
@@ -121,5 +123,21 @@
     "heading": "Shorts-videosi on julkaistu! 🎉",
     "sub": "Joukkue näkee sen nyt.",
     "done": "Syötteeseen"
+  },
+  "clipShareSheet": {
+    "headingOff": "Jaa joukkueen ulkopuolelle",
+    "bodyNone": "Juuri nyt videosi näkyvät vain omalle joukkueellesi. Jotta voit jakaa ne muille salibandyn harrastajille, huoltajan täytyy ensin antaa lupa.",
+    "ask": "Kysy huoltajalta",
+    "headingPending": "Olemme kysyneet huoltajaltasi",
+    "bodyPending": "Lähetimme sähköpostin. Heti kun hän antaa luvan, voit alkaa jakaa. Siinä voi mennä päivä tai pari.",
+    "headingOn": "Jaa tämä video",
+    "bodyOn": "Muut salibandyn harrastajat näkevät videon, näyttönimesi ja avatarisi. He eivät koskaan näe oikeaa nimeäsi, joukkuettasi tai sitä missä harjoittelet.",
+    "publish": "Jaa video",
+    "headingShared": "Tämä video on jaettu",
+    "bodyShared": "Tämä video näkyy juuri nyt joukkueesi ulkopuolelle. Voit lopettaa jakamisen milloin tahansa — video katoaa heti.",
+    "unpublish": "Lopeta videon jakaminen",
+    "close": "Sulje",
+    "errorGeneric": "Se ei onnistunut juuri nyt. Yritä hetken kuluttua uudelleen.",
+    "errorRevoked": "Jakaminen on kytketty pois päältä tililtäsi. Kysy huoltajaltasi."
   }
 }

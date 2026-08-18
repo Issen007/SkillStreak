@@ -107,3 +107,23 @@ data:
   # case this floor exists to prevent). Lowering it needs a fresh
   # security-reviewer pass, not just an edit here.
   USAGE_REPORT_MIN_TEAMS_PER_BUCKET: "5"
+  # docs/adr/0030-revocable-public-sharing-consent.md — which teams may
+  # share clips outside their own team. Comma-separated team ids.
+  #
+  # **Empty means nobody, and that is the correct default.** This is a
+  # rollout allow-list rather than a boolean because TestFlight builds use
+  # the `production` EAS profile and therefore talk to this very cluster —
+  # a plain on/off switch could not have told a tester from a real family,
+  # so "on for testing" would have meant on for the whole beta.
+  #
+  # That distinction matters while ADR-0030 finding 4 is open: the monthly
+  # reminder is the design's only recurring control and it still cannot
+  # detect an asynchronous bounce, so a consent behind a dead parent
+  # address would stay live indefinitely. A handful of known families is
+  # the scale at which the ADR argued that trade is defensible.
+  #
+  # To enable a team: `kubectl -n skillstreak get pods` won't tell you the
+  # id — query it (`SELECT id, name FROM team WHERE name = '...'`) and put
+  # it here, then restart the api Deployment. Widening to everyone should
+  # wait for finding 4 and Decision 9's review (due 2026-09-16).
+  PUBLIC_SHARING_ENABLED_TEAM_IDS: ""

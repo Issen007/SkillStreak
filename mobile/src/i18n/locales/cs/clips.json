@@ -44,7 +44,9 @@
   "clipCard": {
     "challengeChip": "🎯 Vyzývá uživatele {{screenName}}",
     "report": "🚩 Nahlásit",
-    "delete": "🗑️ Smazat video"
+    "delete": "🗑️ Smazat video",
+    "share": "Sdílet mimo tým",
+    "shared": "Sdílí se mimo tým"
   },
   "clipPlayerModal": {
     "close": "Zavřít",
@@ -121,5 +123,21 @@
     "heading": "Tvoje Shorts video je nahoře! 🎉",
     "sub": "Tým ho teď může vidět.",
     "done": "Na feed"
+  },
+  "clipShareSheet": {
+    "headingOff": "Sdílet mimo tým",
+    "bodyNone": "Tvoje videa teď vidí jen tvůj tým. Aby je mohli vidět i ostatní, kdo hrají florbal, musí to nejdřív povolit rodič.",
+    "ask": "Zeptat se rodiče",
+    "headingPending": "Zeptali jsme se tvého rodiče",
+    "bodyPending": "Poslali jsme e-mail. Jakmile souhlasí, můžeš začít sdílet. Může to trvat den nebo dva.",
+    "headingOn": "Sdílet toto video",
+    "bodyOn": "Ostatní, kdo hrají florbal, uvidí video, tvoje zobrazované jméno a avatara. Nikdy neuvidí tvoje skutečné jméno, tvůj tým ani kde trénuješ.",
+    "publish": "Sdílet video",
+    "headingShared": "Toto video se sdílí",
+    "bodyShared": "Toto video je právě teď vidět i mimo tvůj tým. Sdílení můžeš kdykoli ukončit — video hned zmizí.",
+    "unpublish": "Ukončit sdílení videa",
+    "close": "Zavřít",
+    "errorGeneric": "Teď se to nepovedlo. Zkus to za chvíli znovu.",
+    "errorRevoked": "Sdílení je pro tvůj účet vypnuté. Zeptej se rodiče."
   }
 }

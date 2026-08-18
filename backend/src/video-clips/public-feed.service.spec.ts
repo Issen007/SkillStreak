@@ -15,6 +15,16 @@ import {
  * "revoking consent does nothing until someone runs a sweep". Behaviour
  * against real rows belongs in the e2e suite.
  */
+// The rollout allow-list (PublicSharingAccessService). These tests are
+// about the four gates and the publish/unpublish rules, so the allow-list
+// is stubbed open — the gate itself has its own tests. `TEAM` is the team
+// every fixture clip and viewer belongs to.
+const TEAM = 'team-1';
+const openAccess = { isEnabledForTeam: (id?: string | null) => id === TEAM };
+const viewerRepo = {
+  findOne: jest.fn().mockResolvedValue({ teamId: TEAM }),
+};
+
 function buildService() {
   const captured: { sql?: string; params?: Record<string, unknown> } = {};
   const qb: Record<string, unknown> = {};
@@ -57,6 +67,9 @@ function buildService() {
   const clips = { createQueryBuilder: jest.fn(() => qb) };
   const service = new PublicFeedService(
     clips as unknown as Repository<VideoClip>,
+    viewerRepo as never,
+    undefined as never,
+    openAccess as never,
   );
   return { service, captured, qb };
 }
@@ -178,6 +191,9 @@ function buildWrites(overrides: Record<string, unknown> = {}) {
   const clip = {
     id: '11111111-1111-4111-8111-111111111111',
     uploaderPlayerId: 'player-1',
+    // The rollout allow-list gates on the clip's own team, so the fixture
+    // has to belong to one — an undefined teamId is (correctly) refused.
+    teamId: TEAM,
     status: VideoClipStatus.PUBLISHED,
     publishedPubliclyAt: null,
     ...overrides,
@@ -193,7 +209,9 @@ function buildWrites(overrides: Record<string, unknown> = {}) {
   };
   const service = new PublicFeedService(
     clips as unknown as Repository<VideoClip>,
+    viewerRepo as never,
     consentService as never,
+    openAccess as never,
   );
   return { service, clips, consentService, clip };
 }

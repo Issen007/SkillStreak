@@ -44,7 +44,9 @@
   "clipCard": {
     "challengeChip": "🎯 Udfordrer {{screenName}}",
     "report": "🚩 Anmeld",
-    "delete": "🗑️ Slet videoen"
+    "delete": "🗑️ Slet videoen",
+    "share": "Del uden for holdet",
+    "shared": "Deles uden for holdet"
   },
   "clipPlayerModal": {
     "close": "Luk",
@@ -121,5 +123,21 @@
     "heading": "Din Shorts er oppe! 🎉",
     "sub": "Holdet kan se den nu.",
     "done": "Til feedet"
+  },
+  "clipShareSheet": {
+    "headingOff": "Del uden for holdet",
+    "bodyNone": "Lige nu kan kun dit hold se dine videoer. For at dele dem med andre, der spiller floorball, skal en forælder først sige ja.",
+    "ask": "Spørg min forælder",
+    "headingPending": "Vi har spurgt din forælder",
+    "bodyPending": "Vi har sendt en mail. Så snart de siger ja, kan du begynde at dele. Det kan tage en dag eller to.",
+    "headingOn": "Del denne video",
+    "bodyOn": "Andre, der spiller floorball, kan se videoen, dit skærmnavn og din avatar. De ser aldrig dit rigtige navn, dit hold eller hvor du træner.",
+    "publish": "Del video",
+    "headingShared": "Videoen deles",
+    "bodyShared": "Denne video er synlig uden for dit hold lige nu. Du kan stoppe med at dele, når du vil — så forsvinder den med det samme.",
+    "unpublish": "Stop med at dele videoen",
+    "close": "Luk",
+    "errorGeneric": "Det virkede ikke lige nu. Prøv igen om lidt.",
+    "errorRevoked": "Deling er slået fra for din konto lige nu. Spørg din forælder."
   }
 }
