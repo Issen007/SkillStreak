@@ -32,11 +32,20 @@ would have passed before the fix):
 
 **Still open, and this does not ship until they are closed:**
 
-- **4 (blocking, and the hardest).** Decision 5's fail-closed disable can
-  essentially never fire for the case it was written for. `MailService`
-  discards nodemailer's `rejected`/`accepted`, there is no bounce or DSN
-  handling anywhere in the app, and with `SMTP_HOST` unset it logs and
-  returns *successfully*. A dead mailbox on a live domain is accepted by
+- **4 (blocking, and the hardest) — partially closed 2026-08-18, still
+  open.** `MailService` now returns a `MailSendResult` rather than void:
+  it surfaces recipients the SMTP server refuses at handoff, and reports
+  an unconfigured mailer as *not sent* instead of silently succeeding.
+  That closes the two failure modes an in-process send can actually
+  observe.
+
+  **It does not close the one Decision 5 was written for.** A relay
+  accepts mail for a dead mailbox on a live domain and bounces it later,
+  out of band — invisible to the sending process. Closing that needs a
+  bounce mailbox parsed for DSNs, or a provider with a delivery webhook.
+  The current provider is Gmail SMTP, recorded in the privacy policy as
+  interim, so the natural moment is the move to a dedicated
+  `skillstreak.xyz` mail account. A dead mailbox on a live domain is accepted by
   the relay and bounced to nobody. Under the amended Decision 3 the
   reminder is the only recurring control, so this is the finding that
   most undermines the design. It cannot be fixed inside

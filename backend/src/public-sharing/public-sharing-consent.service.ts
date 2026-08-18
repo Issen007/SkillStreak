@@ -47,10 +47,17 @@ export interface ConsentPreview {
  * - An active consent cannot be silently replaced by a new request
  *   (finding 7).
  *
- * Still open and tracked in the ADR: bounce detection (finding 4, which
- * lives in MailService, not here), row locking (6), rate limiting (8),
- * and the migration that must carry the ON DELETE CASCADE this table's
- * erasure behaviour depends on (5).
+ * Partially closed since: MailService now reports its SMTP handoff
+ * instead of returning void, so `sendBestEffort` can tell a refused
+ * address — or an unconfigured mailer — from a sent one. **That is not
+ * bounce detection.** An asynchronous bounce stays invisible, and that is
+ * precisely the case Decision 5's fail-closed disable was written for, so
+ * finding 4 remains open.
+ *
+ * Still open and tracked in the ADR: asynchronous bounce detection
+ * (finding 4), row locking (6), rate limiting (8), and the migration that
+ * must carry the ON DELETE CASCADE this table's erasure behaviour depends
+ * on (5).
  */
 @Injectable()
 export class PublicSharingConsentService {
@@ -398,16 +405,28 @@ export class PublicSharingConsentService {
     to: string | null,
     subject: string,
     text: string,
-  ): Promise<void> {
-    if (!to) return;
+  ): Promise<boolean> {
+    if (!to) return false;
     try {
       // Plain text only for now: these are short, and an HTML body would
       // need the same escaping and template review the consent-page
       // templates already carry. Worth doing before this is exposed.
-      await this.mailService.sendMail({ to, subject, text, html: text });
+      const result = await this.mailService.sendMail({
+        to,
+        subject,
+        text,
+        html: text,
+      });
+      if (!result.handedOff) {
+        this.logger.warn(
+          `Public-sharing consent mail not handed off (${result.reason}).`,
+        );
+      }
+      return result.handedOff;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Public-sharing consent mail failed: ${message}`);
+      return false;
     }
   }
 }
