@@ -70,8 +70,16 @@ function assertConsentApproved(status: ParentalConsentStatus): void {
 
 // Added 2026-07-27 — a second, independent gate alongside
 // assertConsentApproved above (see TeamJoinApprovalRequiredException).
-// Mirrors that function's exact call sites (createUploadUrl, listClips,
-// reportClip) rather than introducing new gating scope.
+// Mirrors that function's exact call sites rather than introducing new
+// gating scope. Both fire at all five: createUploadUrl, completeUpload,
+// listClips, listPendingChallenges and reportClip.
+//
+// The list used to name only three — completeUpload and
+// listPendingChallenges were added later and never appended. It read as
+// an authoritative inventory of where parental consent is enforced on
+// the clip surface, so anyone auditing that question would have checked
+// three methods and concluded two were ungated. Corrected by the comment
+// audit, 2026-08-17; keep it in step or drop the enumeration entirely.
 function assertTeamJoinApproved(status: TeamJoinStatus): void {
   if (status !== TeamJoinStatus.APPROVED) {
     throw new TeamJoinApprovalRequiredException();

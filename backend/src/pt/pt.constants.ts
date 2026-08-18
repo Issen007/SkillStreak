@@ -1,5 +1,5 @@
 // docs/adr/0023-pt-role-and-staff-sso-rbac.md Decision A3 — "recommend 7
-// days, matching ClipPublicationRequest's own reasoning ('a genuinely
+// days, matching ADR-0019's (unbuilt) ClipPublicationRequest design's reasoning ('a genuinely
 // bigger single-sitting ask than a 15min/24h code')... deciding whether to
 // let a specific adult see your child's training history is at least as
 // weighty a read as watching a clip before approving it."
