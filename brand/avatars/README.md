@@ -1,7 +1,20 @@
 # Avatar art
 
 23 characters sliced from `temp/images/avatar.png` (the project owner's
-sample sheet), 512×512 PNG, backgrounds normalised to white.
+sample sheet), backgrounds normalised to white.
+
+**Re-sliced 2026-08-18 by `reslice-avatars.mjs` in this directory.** The
+first pass wrote 512×512 files from source tiles roughly 340px wide — an
+upscale — which the app then downscaled again to 256. That round trip
+invented detail and then averaged it away. These are now cropped once at
+native resolution and downsampled exactly once, and cropped to the
+character rather than to the card, so the subject fills materially more
+of the frame (panda 34% → 51%, hare 25% → 38%).
+
+Sizes: this directory keeps the native crop (~340px, full colour, the
+archival intermediate). `mobile/assets/avatars/` gets 256×256 quantised
+to 192 colours, which made the shipped bundle *smaller* than before the
+re-slice (1.30 MB → 0.93 MB) despite carrying more detail.
 
 ## What these are
 
