@@ -70,8 +70,8 @@ RUN npx expo export --platform web --output-dir /app/web-export
 FROM node:22-alpine AS privacy-build
 WORKDIR /src
 COPY docs/legal/privacy-policy-DRAFT.md docs/legal/privacy-policy-DRAFT.md
-COPY site/build/render-privacy.mjs site/build/render-privacy.mjs
-RUN node site/build/render-privacy.mjs
+COPY site/tools/render-privacy.mjs site/tools/render-privacy.mjs
+RUN node site/tools/render-privacy.mjs
 
 FROM node:22-alpine AS qr-build
 ARG TRY_IT_URL=https://try.skillstreak.app2.isstech.io
