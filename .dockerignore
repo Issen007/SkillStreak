@@ -10,7 +10,14 @@ node_modules
 .git
 temp/
 k8s/
-docs/
+# docs/ is excluded wholesale EXCEPT the privacy policy, which site/
+# Dockerfile renders into the published /privacy page. Keeping the source
+# out of the image while the page claims to be generated from it would
+# make the build unreproducible.
+docs/*
+!docs/legal/
+docs/legal/*
+!docs/legal/privacy-policy-DRAFT.md
 coverage
 .expo
 **/.expo

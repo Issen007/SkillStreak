@@ -254,3 +254,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Generated at build time from docs/legal/privacy-policy-DRAFT.md by
+# site/build/render-privacy.mjs. Committing it would create a second copy
+# of a legal document that can silently drift from the source.
+site/privacy/
