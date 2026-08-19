@@ -26,7 +26,7 @@ function build(options: { config?: EnvMap } = {}) {
     }),
   };
   const consentService = {
-    recordReminderBounce: jest
+    recordReminderUndeliverable: jest
       .fn()
       .mockResolvedValue({ matched: true, counted: true, disabled: false }),
   };
@@ -130,13 +130,15 @@ describe('BounceMailboxService: what a message is allowed to prove', () => {
 
     const outcome = await process(service, hardBounce());
 
-    expect(consentService.recordReminderBounce).toHaveBeenCalledWith(TOKEN);
+    expect(consentService.recordReminderUndeliverable).toHaveBeenCalledWith(
+      TOKEN,
+    );
     expect(outcome).toMatchObject({ dsn: true, permanent: 1, attributed: 1 });
   });
 
   it('reports a disabled consent back in the run summary', async () => {
     const { service, consentService } = build({ config: CONFIGURED });
-    consentService.recordReminderBounce.mockResolvedValue({
+    consentService.recordReminderUndeliverable.mockResolvedValue({
       matched: true,
       counted: true,
       disabled: true,
@@ -155,7 +157,7 @@ describe('BounceMailboxService: what a message is allowed to prove', () => {
     );
 
     expect(outcome).toMatchObject({ dsn: false, permanent: 0 });
-    expect(consentService.recordReminderBounce).not.toHaveBeenCalled();
+    expect(consentService.recordReminderUndeliverable).not.toHaveBeenCalled();
   });
 
   it('does not act on a 4.x.x delayed notice', async () => {
@@ -169,7 +171,7 @@ describe('BounceMailboxService: what a message is allowed to prove', () => {
     const outcome = await process(service, raw);
 
     expect(outcome).toMatchObject({ dsn: true, permanent: 0, attributed: 0 });
-    expect(consentService.recordReminderBounce).not.toHaveBeenCalled();
+    expect(consentService.recordReminderUndeliverable).not.toHaveBeenCalled();
   });
 
   it('counts an untokened permanent failure as unattributed, and acts on nothing', async () => {
@@ -187,12 +189,14 @@ describe('BounceMailboxService: what a message is allowed to prove', () => {
       attributed: 0,
       unattributed: 1,
     });
-    expect(consentService.recordReminderBounce).not.toHaveBeenCalled();
+    expect(consentService.recordReminderUndeliverable).not.toHaveBeenCalled();
   });
 
   it('treats a token matching no current reminder as unattributed', async () => {
     const { service, consentService } = build({ config: CONFIGURED });
-    consentService.recordReminderBounce.mockResolvedValue({ matched: false });
+    consentService.recordReminderUndeliverable.mockResolvedValue({
+      matched: false,
+    });
 
     const outcome = await process(service, hardBounce());
 

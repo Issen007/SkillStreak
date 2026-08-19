@@ -10,6 +10,7 @@ import { PublicSharingReminderService } from './public-sharing-reminder.service'
  */
 function build({ bounceConfigured = true } = {}) {
   const consentService = {
+    countActive: jest.fn().mockResolvedValue(3),
     findDueReminders: jest.fn().mockResolvedValue([]),
     sendReminder: jest.fn().mockResolvedValue({ sent: true, disabled: false }),
   };
@@ -61,6 +62,27 @@ describe('PublicSharingReminderService', () => {
 
     expect(consentService.sendReminder).not.toHaveBeenCalled();
     expect(errorLogService.record).not.toHaveBeenCalled();
+  });
+
+  it('still reports the unsupervised gap on a day nothing is due', async () => {
+    // Security review 2026-08-19, finding 7. The alarm used to sit after
+    // the `due.length === 0` early return, so on a small beta it only
+    // fired on the handful of days a month a reminder happened to fall
+    // due — close to the silence the ADR objected to. Missing bounce
+    // detection is a standing condition, not a per-send event.
+    const { service, consentService, errorLogService } = build({
+      bounceConfigured: false,
+    });
+    consentService.findDueReminders.mockResolvedValue([]);
+    consentService.countActive.mockResolvedValue(7);
+
+    await service.sendDueReminders();
+
+    expect(errorLogService.record).toHaveBeenCalledTimes(1);
+    const recorded = errorLogService.record.mock.calls[0][0];
+    // Counts live consents, not today's due ones — the number that says
+    // how much is actually unsupervised.
+    expect(recorded.error.message).toContain('7 active consent(s)');
   });
 
   it('skips the run when another replica already claimed it', async () => {

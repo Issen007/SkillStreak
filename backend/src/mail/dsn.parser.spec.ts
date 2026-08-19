@@ -366,3 +366,61 @@ describe('parseDsn: MTA shape variations', () => {
     expect(report.isDsn).toBe(false);
   });
 });
+
+describe('parseDsn: resource safety on hostile input', () => {
+  // Security review 2026-08-19, finding 3. This parses unauthenticated
+  // mail sent to an address every parent already has (it is the envelope
+  // sender of their own reminders), so a super-linear path here is a
+  // denial of service against the whole API process, not just this poll.
+  it('stays linear on a long whitespace run followed by a non-space', () => {
+    // The pathological shape for `/[\r\s]+$/`: the engine consumes the
+    // whole run, fails `$`, backtracks one, and repeats — from every
+    // starting offset. Measured before the fix: 27ms at 10k chars, 1.8s
+    // at 80k, extrapolating to minutes on a 1MB line.
+    const build = (n: number) =>
+      [
+        'Content-Type: multipart/report; report-type=delivery-status; boundary="B"',
+        '',
+        '--B',
+        'Content-Type: text/plain',
+        '',
+        ' '.repeat(n) + 'x',
+        '',
+        '--B--',
+        '',
+      ].join('\r\n');
+
+    const time = (n: number) => {
+      const started = process.hrtime.bigint();
+      parseDsn(build(n));
+      return Number(process.hrtime.bigint() - started) / 1e6;
+    };
+
+    time(20_000); // warm up, so JIT does not distort the comparison
+    const small = time(50_000);
+    const large = time(400_000);
+
+    // 8x the input. Linear would be ~8x the time; quadratic would be
+    // ~64x. A generous ceiling still fails loudly on a return to
+    // backtracking, without being flaky on a busy machine.
+    expect(large).toBeLessThan(Math.max(small * 20, 250));
+  });
+
+  it('parses a 2MB single-line body without stalling', () => {
+    const raw = [
+      'Content-Type: multipart/report; report-type=delivery-status; boundary="B"',
+      '',
+      '--B',
+      'Content-Type: text/plain',
+      '',
+      ' '.repeat(2_000_000) + 'x',
+      '',
+      '--B--',
+      '',
+    ].join('\r\n');
+
+    const started = Date.now();
+    parseDsn(raw);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+});

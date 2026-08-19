@@ -135,7 +135,16 @@ function splitMultipart(body: string, boundary: string): string[] {
   let current: string[] | null = null;
 
   for (const line of lines) {
-    const trimmedEnd = line.replace(/[\r\s]+$/, '');
+    // `trimEnd()`, not a regex. This ran `/[\r\s]+$/` over every body line
+    // of every multipart, and that pattern backtracks quadratically on a
+    // run of whitespace followed by a non-whitespace character: measured
+    // 27ms at 10k chars, 1.8s at 80k, extrapolating to minutes on a 1MB
+    // line. Since this parses unauthenticated mail sent to an address
+    // every parent already has, one message could pin the API's event
+    // loop — not merely this poll — for as long as the sender cared to
+    // make it. `trimEnd` is native and linear. (Security review,
+    // 2026-08-19, finding 3.)
+    const trimmedEnd = line.trimEnd();
     if (trimmedEnd === delimiter) {
       if (current !== null) parts.push(current.join('\n'));
       current = [];

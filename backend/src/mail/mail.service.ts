@@ -150,8 +150,14 @@ export class MailService {
    */
   async sendMail(options: SendMailOptions): Promise<MailSendResult> {
     if (!this.transporter) {
+      // The recipient is deliberately NOT logged. On the consent path that
+      // address is a parent's, and logging it identifies a specific child
+      // by implication — the new monthly reminder would otherwise write
+      // one line per family per month into application logs whenever SMTP
+      // was unconfigured (security review 2026-08-19, finding 8). The
+      // subject is enough to tell which mail failed.
       this.logger.warn(
-        `Mail not sent (SMTP not configured): to=${options.to} subject="${options.subject}"`,
+        `Mail not sent (SMTP not configured): subject="${options.subject}"`,
       );
       // Reported as not handed off, deliberately. It used to return void
       // here, so a caller had no way to tell "sent" from "silently

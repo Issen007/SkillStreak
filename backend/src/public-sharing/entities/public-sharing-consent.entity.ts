@@ -175,7 +175,7 @@ export class PublicSharingConsent {
    *
    * **"Success" here means "no bounce came back for the previous
    * reminder", not "the send returned without throwing"** — see
-   * `lastReminderBouncedAt`. That distinction is the whole of finding 4.
+   * `lastReminderFailureAt`. That distinction is the whole of finding 4.
    */
   @Column({ name: 'reminder_failure_count', type: 'int', default: 0 })
   reminderFailureCount!: number;
@@ -207,35 +207,39 @@ export class PublicSharingConsent {
   lastReminderToken!: string | null;
 
   /**
-   * When a permanent bounce for the most recent reminder came back.
+   * When the most recent reminder was found undeliverable.
    *
    * **This is what makes the failure counter able to reach 2 at all.**
    * A bounce is asynchronous: it arrives days after the send, long after
    * `lastReminderAt` was stamped. If each send simply reset the counter,
-   * the sequence would be send → reset to 0 → bounce → 1 → send → reset
-   * to 0 → bounce → 1, forever, and Decision 5's disable could never
-   * fire no matter how permanently dead the address was.
+   * the sequence would be send → reset to 0 → fail → 1 → send → reset
+   * to 0 → fail → 1, forever, and Decision 5's disable could never fire
+   * no matter how permanently dead the address was.
    *
    * So the counter is evaluated against the PREVIOUS reminder's outcome
-   * at the moment the next one goes out: this timestamp being at or
-   * after `lastReminderAt` means the last reminder bounced and the streak
-   * continues; otherwise the streak is broken and the count resets.
+   * at the moment the next one goes out.
+   *
+   * *Renamed from `bounced` 2026-08-19 (security review, finding 1).* It
+   * records **either** kind of delivery failure — an asynchronous bounce
+   * or a synchronous refusal at SMTP handoff — because both mean the
+   * same thing to Decision 5's "undeliverable", and keeping them in
+   * separate places is what made the synchronous one uncountable.
    */
   @Column({
-    name: 'last_reminder_bounced_at',
+    name: 'last_reminder_failure_at',
     type: 'timestamptz',
     nullable: true,
   })
-  lastReminderBouncedAt!: Date | null;
+  lastReminderFailureAt!: Date | null;
 
   /**
-   * WHICH reminder the bounce above was for.
+   * WHICH reminder that failure was for.
    *
    * **This, not the timestamp, is what the logic compares.** The
    * timestamp answers "when did mail to this parent last fail", which is
    * worth having for an audit; it cannot reliably answer "has this
    * particular reminder already been counted", because a send and a
-   * bounce can carry the same instant — a duplicate DSN arriving in the
+   * failure can carry the same instant — a duplicate DSN arriving in the
    * same tick as the next send, or two pods with skewed clocks. Comparing
    * it against `last_reminder_at` made a second real bounce look like a
    * duplicate of the first and silently dropped it, which would have left
@@ -243,13 +247,13 @@ export class PublicSharingConsent {
    * to catch.
    *
    * Equal to `last_reminder_token` means the current reminder has already
-   * bounced; different (or null) means it has not.
+   * been recorded as failed; different (or null) means it has not.
    */
   @Column({
-    name: 'last_reminder_bounced_token',
+    name: 'last_reminder_failure_token',
     type: 'varchar',
     length: 128,
     nullable: true,
   })
-  lastReminderBouncedToken!: string | null;
+  lastReminderFailureToken!: string | null;
 }

@@ -157,6 +157,13 @@ data:
   # it a dedicated account rather than pointing it at a shared inbox;
   # messages are deleted once read.
   #
+  # **Verify what "deleted" means on the account you pick.** The poll
+  # issues \Deleted + UID EXPUNGE. On Gmail/Workspace that removes the
+  # INBOX label and leaves the message in All Mail unless the account is
+  # set to "immediately delete forever" — and deletion is the entire
+  # mitigation for this mailbox holding live revoke codes. Check it once,
+  # at provisioning (security review 2026-08-19, finding 6).
+  #
   # Environment parity: this is a per-cluster value like every other
   # address in this file. The internal test cluster should use its own
   # mailbox, not production's — a shared one would let a test bounce

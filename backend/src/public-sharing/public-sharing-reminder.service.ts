@@ -63,7 +63,6 @@ export class PublicSharingReminderService {
 
     try {
       const due = await this.consentService.findDueReminders();
-      if (due.length === 0) return;
 
       // **The degraded case, made loud on purpose.**
       //
@@ -75,23 +74,33 @@ export class PublicSharingReminderService {
       // again and Decision 5's disable cannot fire. So it is recorded as
       // a job failure every run, with the number of consents affected,
       // and shows up in the admin console beside real breakage.
+      // **Checked before the early return, and keyed on how many consents
+      // exist rather than how many are due today** (security review
+      // 2026-08-19, finding 7). It used to sit after `due.length === 0`,
+      // so on a small beta the "we are running blind" alarm only fired on
+      // the handful of days a month when a reminder happened to fall due
+      // — close to the silence the ADR objected to. Supervision being
+      // absent is a standing condition, not a per-send event.
       if (!this.bounceMailboxService.isConfigured()) {
+        const supervised = await this.consentService.countActive();
         this.logger.error(
-          `Sending ${due.length} public-sharing reminder(s) with NO bounce ` +
-            'detection configured — an undeliverable reminder cannot be ' +
-            'observed, so ADR-0030 Decision 5 cannot disable a consent ' +
-            'behind a dead parent address. Set BOUNCE_IMAP_HOST/USER/' +
-            'PASSWORD.',
+          `Public-sharing reminders are running with NO bounce detection ` +
+            `configured — an undeliverable reminder cannot be observed, so ` +
+            `ADR-0030 Decision 5 cannot disable a consent behind a dead ` +
+            `parent address. ${supervised} active consent(s) are ` +
+            `unsupervised. Set BOUNCE_IMAP_HOST/USER/PASSWORD.`,
         );
         await this.errorLogService.record({
           source: 'job',
           jobName,
           error: new Error(
             `public-sharing reminders are running without bounce detection; ` +
-              `${due.length} active consent(s) are unsupervised`,
+              `${supervised} active consent(s) are unsupervised`,
           ),
         });
       }
+
+      if (due.length === 0) return;
 
       let sent = 0;
       let disabled = 0;

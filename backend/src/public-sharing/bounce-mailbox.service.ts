@@ -26,7 +26,7 @@ import { PublicSharingConsentService } from './public-sharing-consent.service';
  * This service is the missing half. Mail sent to the configured address
  * lands in a real mailbox; every poll reads what arrived, parses the
  * delivery reports, and hands each permanent failure to
- * `recordReminderBounce`.
+ * `recordReminderUndeliverable`.
  *
  * ## Attribution is by token only, deliberately
  *
@@ -56,6 +56,16 @@ import { PublicSharingConsentService } from './public-sharing-consent.service';
  * only ever turns sharing *off*, which is the safe way for this
  * particular secret to leak — but "bounded" is not "fine".
  */
+/**
+ * A delivery report is a small message. Anything larger is not one, and
+ * reading it into memory is free denial of service for anyone who knows
+ * the bounce address. 256 KiB is generous for a DSN quoting an original.
+ */
+const MAX_MESSAGE_BYTES = 256 * 1024;
+
+/** Per-run ceiling, so one flood cannot make an hourly job unbounded. */
+const MAX_MESSAGES_PER_RUN = 200;
+
 @Injectable()
 export class BounceMailboxService {
   private readonly logger = new Logger(BounceMailboxService.name);
@@ -125,6 +135,7 @@ export class BounceMailboxService {
             `${summary.permanent} permanent failure(s), ` +
             `${summary.attributed} attributed, ` +
             `${summary.unattributed} unattributed, ` +
+            `${summary.skipped} skipped, ` +
             `${summary.disabled} consent(s) disabled.`,
         );
       }
@@ -149,6 +160,7 @@ export class BounceMailboxService {
     attributed: number;
     unattributed: number;
     disabled: number;
+    skipped: number;
   }> {
     const summary = {
       messages: 0,
@@ -157,6 +169,7 @@ export class BounceMailboxService {
       attributed: 0,
       unattributed: 0,
       disabled: 0,
+      skipped: 0,
     };
 
     const client = new ImapFlow({
@@ -184,53 +197,75 @@ export class BounceMailboxService {
         this.configService.get<string>('BOUNCE_IMAP_MAILBOX') ?? 'INBOX';
       const lock = await client.getMailboxLock(mailbox);
       try {
-        const processedUids: number[] = [];
-
-        // `seen: false` rather than everything: a message we already read
-        // and failed to delete (a crash between the two) is not re-counted
-        // against a consent. The idempotency guard in
-        // `recordReminderBounce` is the real defence, but not needing it
-        // is better than relying on it.
+        // `seen: false` filters out anything a previous run already
+        // handled but could not delete. **imapflow fetches with
+        // `BODY.PEEK`, so nothing sets `\Seen` on its own** — this filter
+        // only means anything because the failure path below flags
+        // explicitly. Before that it was a no-op, and a message that
+        // threw was re-fetched and re-thrown every hour forever, with
+        // every real bounce queued behind it going unprocessed.
         for await (const message of client.fetch(
           { seen: false },
-          { source: true, uid: true },
+          // Bounded fetch. A delivery report is small; anything larger is
+          // not one, and reading it into memory is a free denial of
+          // service for anyone who knows the bounce address — which is
+          // the envelope sender of every reminder, so every parent does.
+          { source: { maxLength: MAX_MESSAGE_BYTES }, uid: true },
         )) {
+          // Per-run ceiling, so one flood cannot make an hourly job
+          // unbounded. The remainder is read next hour, and the stop is
+          // logged rather than silently truncating.
+          if (summary.messages >= MAX_MESSAGES_PER_RUN) {
+            this.logger.warn(
+              `Bounce intake: stopping at ${MAX_MESSAGES_PER_RUN} messages ` +
+                'this run; the rest will be read on the next poll.',
+            );
+            break;
+          }
           summary.messages += 1;
           const raw = message.source?.toString('utf8') ?? '';
 
-          let outcome: {
-            dsn: boolean;
-            permanent: number;
-            attributed: number;
-            unattributed: number;
-            disabled: number;
-          };
           try {
-            outcome = await this.processMessage(raw);
+            const outcome = await this.processMessage(raw);
+            if (outcome.dsn) summary.dsns += 1;
+            summary.permanent += outcome.permanent;
+            summary.attributed += outcome.attributed;
+            summary.unattributed += outcome.unattributed;
+            summary.disabled += outcome.disabled;
+
+            // **Deleted here, one at a time, immediately** — not batched
+            // at the end. A throw later in the loop used to discard the
+            // whole pending list, so messages already counted stayed in
+            // the mailbox and were counted again on the next poll.
+            // Deleted rather than archived because these quote reminder
+            // bodies, which carry live revoke links.
+            const deleted = await client.messageDelete([message.uid], {
+              uid: true,
+            });
+            if (!deleted) {
+              // imapflow returns false rather than throwing. Worth saying
+              // out loud: an undeleted message is a live revoke code left
+              // sitting in a mailbox.
+              this.logger.warn(
+                `Bounce intake: could not delete message uid ${message.uid}; ` +
+                  'it quotes a reminder and should be removed by hand.',
+              );
+            }
           } catch (error) {
             // One malformed or hostile message must not stop the drain,
-            // or a single stuck message would block every real bounce
-            // behind it forever. Left undeleted for a human to find.
+            // and must not be retried forever either. Flagged `\Seen` so
+            // the next run's filter skips it; left undeleted so a human
+            // can still look at it.
             this.logger.warn(
               `Skipping one bounce-mailbox message that failed to process: ${
                 error instanceof Error ? error.message : String(error)
               }`,
             );
-            continue;
+            summary.skipped += 1;
+            await client
+              .messageFlagsAdd([message.uid], ['\\Seen'], { uid: true })
+              .catch(() => undefined);
           }
-
-          if (outcome.dsn) summary.dsns += 1;
-          summary.permanent += outcome.permanent;
-          summary.attributed += outcome.attributed;
-          summary.unattributed += outcome.unattributed;
-          summary.disabled += outcome.disabled;
-          processedUids.push(message.uid);
-        }
-
-        if (processedUids.length > 0) {
-          // Deleted, not archived. See the class docstring: these quote
-          // reminder bodies, which contain live revoke links.
-          await client.messageDelete(processedUids, { uid: true });
         }
       } finally {
         lock.release();
@@ -251,7 +286,7 @@ export class BounceMailboxService {
    * Note what is NOT logged: no address, no diagnostic text, no message
    * body. A bounce identifies a parent's email and, by implication, a
    * specific child — this app's logs are not a place for either. The
-   * consent id in `recordReminderBounce`'s own warning is enough to
+   * consent id in `recordReminderUndeliverable`'s own warning is enough to
    * investigate with.
    */
   private async processMessage(raw: string): Promise<{
@@ -304,7 +339,7 @@ export class BounceMailboxService {
       };
     }
 
-    const result = await this.consentService.recordReminderBounce(
+    const result = await this.consentService.recordReminderUndeliverable(
       report.originalToken,
     );
 

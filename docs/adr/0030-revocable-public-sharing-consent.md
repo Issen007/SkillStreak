@@ -671,6 +671,73 @@ is kept for audit only.
   revoke link inside them is a parent's only standing lever and
   withholding it would remove a control rather than add one.
 
+### Security review, 2026-08-19 — three blocking findings, all fixed
+
+The first implementation of this decision did not survive review. Each
+finding is recorded because each one is a way this control could have
+looked healthy while doing nothing — the same failure shape as finding 4
+itself.
+
+1. **The synchronous evidence path could never reach the threshold.**
+   `sendReminder` settled the streak by asking whether the previous
+   reminder had failed, and that question is answered by a token — but a
+   refusal at SMTP handoff incremented a counter without recording one.
+   The next send therefore saw no failure against the previous reminder
+   and reset the count. Six months against a permanently refused address
+   produced `[1,1,1,1,1,1]` and left the consent ACTIVE — and a 550 at
+   RCPT TO is the *most common* dead-mailbox case on domains that reject
+   synchronously. The bug this Decision exists to fix, surviving on the
+   other evidence path. **Fixed** by recording both kinds of evidence
+   against the reminder's token through one method; the columns are now
+   `last_reminder_failure_*` rather than `..._bounced_*`, because
+   Decision 5 says *undeliverable*, not *bounced*. The tokenless
+   `recordReminderFailure` is deleted rather than deprecated.
+
+2. **The sweep could resurrect a consent a parent had just revoked.**
+   `sendReminder` operated on an entity loaded at the top of the sweep,
+   possibly minutes stale, and wrote it back with `save()`. TypeORM diffs
+   against the current row and writes every differing column, so a revoke
+   landing in that window was overwritten: `status` back to `active`, the
+   old revoke code restored, `revoked_at` nulled — after the parent had
+   been told sharing was off. Confirmed against real Postgres. **Fixed**
+   by replacing the whole-entity save with a conditional
+   `UPDATE … WHERE id = ? AND status = 'active'`, so the write loses that
+   race instead of winning it, and by moving the failure intake into a
+   `pessimistic_write` transaction like the other mutating paths.
+
+3. **One email could pin the API's event loop for hours, and re-pin it
+   every hour.** The multipart splitter ran `/[\r\s]+$/` over every body
+   line; that pattern backtracks quadratically on a whitespace run
+   followed by a non-space (27ms at 10k chars, 1.8s at 80k, minutes at
+   1MB). Anyone who knows the bounce address can send one — every parent
+   does, since it is the envelope sender of their own reminders. It was
+   also self-renewing: imapflow fetches with `BODY.PEEK`, so nothing was
+   ever flagged `\Seen`, and deletion happened only after the whole loop
+   completed, so a message that hung or threw was re-read forever with
+   every real bounce queued behind it. **Fixed** with `trimEnd()` (native,
+   linear), a 256 KiB bounded fetch, a per-run message ceiling,
+   per-message deletion immediately after success, and an explicit
+   `\Seen` flag on the failure path so a poisonous message is skipped
+   next run rather than retried forever.
+
+Three advisory findings were also fixed: a correlation token surviving a
+revoke → re-request → approve cycle, so a straggling DSN about the old
+grant was charged against the new one; `BOUNCE_IMAP_PASSWORD` missing
+from `k8s/api-deployment.yaml`, which wires Secret keys individually — so
+the mailbox could never have been switched on as documented; and the
+"running unsupervised" alarm sitting *after* the sweep's early return, so
+it only fired on days a reminder happened to fall due. The recipient
+address is also no longer logged when SMTP is unconfigured.
+
+**One residual the review raised and this ADR does not close:**
+`messageDelete` issues `\Deleted` + `UID EXPUNGE`, which on Gmail /
+Workspace removes the INBOX label but leaves the message in All Mail
+unless the account is configured to delete forever. Since deletion is the
+whole mitigation for "this mailbox holds live revoke codes", **the
+account's IMAP deletion behaviour must be verified when it is
+provisioned** — a configuration step, not a code change, and it is listed
+with the provisioning task.
+
 ### What this does NOT change
 
 Decision 9's `PUBLIC_SHARING_ENABLED_TEAM_IDS` allow-list stays as it is.
