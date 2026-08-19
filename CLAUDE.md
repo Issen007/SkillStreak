@@ -5,7 +5,7 @@ Guidance for Claude Code when working in this repository.
 ## Project status
 
 Fas 1–3 are done; Fas 4 (Kubernetes & public launch) is in progress — see
-[docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) for the live English checklist
+`docs/internal/ACTION_PLAN.md` for the live English checklist
 and [docs/PROJECT.md](docs/PROJECT.md) for the prioritized Swedish
 roadmap. This is a real, substantial, working app already serving a live
 beta on a real Kubernetes cluster — backend (NestJS), mobile (Expo), a
@@ -90,10 +90,17 @@ adding geolocation for "nearby teams", etc.).
 ## Roadmap
 
 Full roadmap lives in [docs/PROJECT.md](docs/PROJECT.md) (Swedish, Fas
-1–6, prioritized order) and [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md)
+1–6, prioritized order) and `docs/internal/ACTION_PLAN.md`
 (English, phase-by-phase checklist with reasoning/review trail). Don't
 restate phase contents here — they change often enough that a second copy
 would just go stale; read those docs directly instead.
+
+`docs/internal/` is **gitignored** — ACTION_PLAN.md, BACKLOG.md,
+CONTINUE.md and FUTURE_IDEAS.md live only in the working tree, are not in
+git history, and are not baked into the CI-built image. That is why they
+are written as plain paths above rather than as links: a markdown link
+would 404 for anyone reading this file on GitHub. It also means edits to
+them are local-only and never show up in a commit or a PR diff.
 
 When asked to "start building" or "what's next," default to the first
 unchecked, actually-buildable item in those two docs (skip anything
@@ -117,7 +124,7 @@ the architect draft an ADR for X"):
 7. **ide-buddy** — default day-to-day pairing/debugging when nothing above
    clearly fits.
 
-See [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) for how these map onto the Fas 1–6
+See `docs/internal/ACTION_PLAN.md` for how these map onto the Fas 1–6
 roadmap.
 
 ## Language notes
@@ -258,10 +265,19 @@ currently running.
 
 ## Open decisions to surface, not silently pick
 
-- Final app name (still open — see docs/PROJECT.md banner for candidates).
+- ~~Final app name~~ — **decided 2026-08-10: SkillStreak**, per the
+  Project status section above. Struck through rather than deleted so the
+  closure is visible to anyone who remembers this as open.
+  `docs/PROJECT.md`'s banner — which had gone on publicly soliciting name
+  suggestions and listing five candidates long after the decision — was
+  corrected to match on 2026-08-19.
+
+  *(Nothing is open in this section right now. Keep the heading: it is
+  where the next unresolved product call goes, and an empty list is a
+  more honest signal than a deleted section.)*
 
 (The three Phase 0 data-model gaps previously tracked here — isolating
 `real_name`, consent gating account creation, constraining
 `BadgeAward.context` — were resolved via ADR-0002's addendum and shipped
-in Phase 1; see docs/ACTION_PLAN.md's Phase 0 section for the closed
+in Phase 1; see `docs/internal/ACTION_PLAN.md`'s Phase 0 section for the closed
 checklist if that history is ever needed.)
