@@ -16,6 +16,7 @@ jobs:
   backend-test:
     name: Backend lint, build, test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: backend
@@ -96,11 +97,59 @@ jobs:
       # than hoping it's already there. `working-directory: .` overrides
       # the job's `backend`-scoped default, since apt-get has no
       # dependency on being inside that directory.
+      # Hardened 2026-08-19 after this exact step hung for six hours on
+      # two consecutive main merges (runs 32159513264 and 32217227952),
+      # burning GitHub's 6h default before being cancelled. Both times the
+      # avatar re-slice and the clip-sharing release simply never shipped —
+      # production sat on an older image while the merges looked done.
+      #
+      # Three separate causes are covered, because the logs could not
+      # distinguish them and any one of them stalls forever by default:
+      #   * unattended-upgrades holding the dpkg lock on a fresh runner —
+      #     apt-get waits on it indefinitely, so wait bounded instead;
+      #   * a prompt with no tty — DEBIAN_FRONTEND=noninteractive;
+      #   * a slow/unreachable mirror — per-command timeout plus a retry.
+      #
+      # `timeout-minutes` is the real backstop: whatever the cause, this
+      # step now fails in minutes and says so, instead of pretending to
+      # work until the daily release window has passed.
       - name: Install ffmpeg
         working-directory: .
+        timeout-minutes: 8
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y ffmpeg
+          set -euo pipefail
+
+          if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
+            echo "ffmpeg and ffprobe already present — skipping install."
+            ffmpeg -version | head -1
+            exit 0
+          fi
+
+          # Bounded wait for the dpkg/apt locks rather than apt's own
+          # unbounded one. 120s is generous for unattended-upgrades on a
+          # fresh runner; past that, something is wrong and we want to know.
+          for i in $(seq 1 24); do
+            if sudo fuser /var/lib/dpkg/lock-frontend \
+                          /var/lib/apt/lists/lock >/dev/null 2>&1; then
+              echo "apt lock held, waiting (${i}/24)…"
+              sleep 5
+            else
+              break
+            fi
+          done
+
+          for attempt in 1 2 3; do
+            if timeout 120 sudo -E apt-get update -y \
+               && timeout 180 sudo -E apt-get install -y --no-install-recommends ffmpeg; then
+              break
+            fi
+            echo "apt-get attempt ${attempt} failed or timed out; retrying…"
+            [ "$attempt" = 3 ] && { echo "::error::ffmpeg install failed after 3 attempts"; exit 1; }
+            sleep 10
+          done
+
           command -v ffmpeg && command -v ffprobe && ffmpeg -version | head -1
 
       - name: Start MinIO (official image, manual run — see comment above)
@@ -166,6 +215,7 @@ jobs:
   mobile-typecheck:
     name: Mobile typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: mobile
@@ -227,6 +277,7 @@ jobs:
   mobile-expo-doctor:
     name: Mobile expo-doctor (advisory)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # Reports, never blocks. If this ever needs to gate a merge again,
     # removing this line is the whole change — and it should be removed
     # once the SDK drift resolves, not left off out of habit.
@@ -256,6 +307,7 @@ jobs:
   docker-build:
     name: Docker image builds
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -286,6 +338,7 @@ jobs:
   clip-tagger:
     name: clip-tagger lint + test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: ai/clip-tagger
@@ -344,6 +397,7 @@ jobs:
   compose-smoke-test:
     name: docker-compose smoke test
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs: docker-build
     steps:
       - uses: actions/checkout@v4
@@ -393,6 +447,7 @@ jobs:
     # empty commit — the exact situation the hatch was added for.
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -469,6 +524,7 @@ jobs:
   deploy:
     name: Deploy to Kubernetes Cluster
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # 1. ONLY run this job if the tests AND the smoke tests pass perfectly
     needs: [backend-test, compose-smoke-test]
     # 2. ONLY run this job if the code is being merged/pushed into main (not
@@ -755,6 +811,7 @@ jobs:
       group: deploy-ai-${{ github.ref }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -837,6 +894,7 @@ jobs:
   release:
     name: Version and Release
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     # Independent of the `deploy` job on purpose: versioning/publishing a
     # release shouldn't be blocked by the remote cluster's own deploy
     # flakiness (that cluster's rollout has its own history of issues,
@@ -989,6 +1047,7 @@ jobs:
   internal-images:
     name: Build and Push Internal Test Images
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # `review` only ever deploys to the internal microk8s cluster on
     # ubuntu01 (192.168.55.x, no public DNS/TLS) — never the public
     # isstech-2 cluster, which only ever runs what's built from `main` (see
