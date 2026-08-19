@@ -64,6 +64,20 @@ describe('PublicSharingReminderService', () => {
     expect(errorLogService.record).not.toHaveBeenCalled();
   });
 
+  it('does not write an error row when no consent exists to be unsupervised', async () => {
+    // Security review 2026-08-19, second pass. With the allow-list empty
+    // this would otherwise write one row a day, forever, saying nothing
+    // is wrong — in the one channel that reports this gap.
+    const { service, consentService, errorLogService } = build({
+      bounceConfigured: false,
+    });
+    consentService.countActive.mockResolvedValue(0);
+
+    await service.sendDueReminders();
+
+    expect(errorLogService.record).not.toHaveBeenCalled();
+  });
+
   it('still reports the unsupervised gap on a day nothing is due', async () => {
     // Security review 2026-08-19, finding 7. The alarm used to sit after
     // the `due.length === 0` early return, so on a small beta it only

@@ -14,7 +14,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   `Message-ID`, because MTAs differ in which they return with a failed
  *   original.
  *
- * - `last_reminder_failure_at` / `last_reminder_failure_token` record
+ * - `last_reminder_bounced_at` / `last_reminder_bounced_token` record
  *   that a permanent bounce came back, and which reminder it was for.
  *   The token is the one the logic compares — a timestamp cannot tell a
  *   second real bounce from a duplicate of the first when a send and a
@@ -41,13 +41,13 @@ export class AddReminderBounceTracking1787800000000 implements MigrationInterfac
       `ALTER TABLE "public_sharing_consent" ADD "last_reminder_token" character varying(128)`,
     );
     await queryRunner.query(
-      `ALTER TABLE "public_sharing_consent" ADD "last_reminder_failure_at" TIMESTAMP WITH TIME ZONE`,
+      `ALTER TABLE "public_sharing_consent" ADD "last_reminder_bounced_at" TIMESTAMP WITH TIME ZONE`,
     );
     // Which reminder that bounce was for. Deliberately NOT unique: it
     // holds a copy of a value from `last_reminder_token`, not an
     // independent identity.
     await queryRunner.query(
-      `ALTER TABLE "public_sharing_consent" ADD "last_reminder_failure_token" character varying(128)`,
+      `ALTER TABLE "public_sharing_consent" ADD "last_reminder_bounced_token" character varying(128)`,
     );
     // Unique, not merely indexed. One token pointing at two consents
     // would mis-attribute a bounce, and a mis-attributed bounce revokes
@@ -65,10 +65,10 @@ export class AddReminderBounceTracking1787800000000 implements MigrationInterfac
       `DROP INDEX "public"."UQ_public_sharing_consent_last_reminder_token"`,
     );
     await queryRunner.query(
-      `ALTER TABLE "public_sharing_consent" DROP COLUMN "last_reminder_failure_token"`,
+      `ALTER TABLE "public_sharing_consent" DROP COLUMN "last_reminder_bounced_token"`,
     );
     await queryRunner.query(
-      `ALTER TABLE "public_sharing_consent" DROP COLUMN "last_reminder_failure_at"`,
+      `ALTER TABLE "public_sharing_consent" DROP COLUMN "last_reminder_bounced_at"`,
     );
     await queryRunner.query(
       `ALTER TABLE "public_sharing_consent" DROP COLUMN "last_reminder_token"`,

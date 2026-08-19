@@ -503,21 +503,41 @@ export class PublicSharingConsentService {
       row.reminderFailureCount = 0;
     }
 
-    // Backstop only: the bounce intake already disables at the threshold
-    // the moment the second bounce lands, so reaching this means a bounce
-    // was recorded while that path could not complete. Checked anyway,
+    // Backstop only: the failure intake already disables at the threshold
+    // the moment the second report lands, so reaching this means one was
+    // recorded while that path could not complete. Checked anyway,
     // because the cost of being wrong is a child's clips staying
     // publishable behind an address nobody reads.
+    //
+    // **Conditional, like the claim below, and for the same reason**
+    // (security review 2026-08-19, second pass). This used to call
+    // `deactivate(row)`, which saves the whole stale entity through the
+    // default repository outside any transaction. That cannot resurrect
+    // an active consent — it only ever writes REVOKED — but against a
+    // concurrent parent revoke it would overwrite `revoked_at` and
+    // `revoked_reason` with `reminder_undeliverable`, destroying the
+    // record that a parent used their disable link. That record is what
+    // Article 7(1) demonstrability rests on and what Decision 9's monthly
+    // review exists to read.
     if (row.reminderFailureCount >= MAX_REMINDER_FAILURES) {
-      await this.deactivate(
-        row,
-        PublicSharingRevokedReason.REMINDER_UNDELIVERABLE,
+      const disabled = await this.consents.update(
+        { id: row.id, status: PublicSharingConsentStatus.ACTIVE },
+        {
+          status: PublicSharingConsentStatus.REVOKED,
+          revokedAt: now,
+          revokedReason: PublicSharingRevokedReason.REMINDER_UNDELIVERABLE,
+          reviewCode: null,
+          reviewCodeExpiresAt: null,
+          revokeCode: null,
+        },
       );
-      this.logger.warn(
-        `Public-sharing consent ${row.id} disabled at reminder time: ` +
-          `${row.reminderFailureCount} consecutive undeliverable reminders.`,
-      );
-      return { sent: false, disabled: true };
+      if (disabled.affected) {
+        this.logger.warn(
+          `Public-sharing consent ${row.id} disabled at reminder time: ` +
+            `${row.reminderFailureCount} consecutive undeliverable reminders.`,
+        );
+      }
+      return { sent: false, disabled: Boolean(disabled.affected) };
     }
 
     // Minted per send, from a CSPRNG, and carrying nothing derived from
@@ -761,15 +781,6 @@ export class PublicSharingConsentService {
     row.revokeCode = null;
   }
 
-  private async deactivate(
-    row: PublicSharingConsent,
-    reason: PublicSharingRevokedReason,
-  ): Promise<{ revoked: true }> {
-    this.applyDeactivation(row, reason);
-    await this.consents.save(row);
-    return { revoked: true };
-  }
-
   /**
    * Finding 9. Null means NOT live, matching PT's `isReviewCodeLive`.
    * Reading a missing expiry as "never expires" is the wrong direction to
@@ -782,23 +793,25 @@ export class PublicSharingConsentService {
     );
   }
 
-  private async findPendingByReviewCode(
-    code: string,
-  ): Promise<PublicSharingConsent | null> {
-    if (!code) return null;
-    const row = await this.consents.findOne({ where: { reviewCode: code } });
-    if (!row || row.status !== PublicSharingConsentStatus.PENDING_REVIEW) {
-      return null;
-    }
-    if (!this.isReviewCodeLive(row)) {
-      row.status = PublicSharingConsentStatus.EXPIRED;
-      row.reviewCode = null;
-      row.reviewCodeExpiresAt = null;
-      await this.consents.save(row);
-      return null;
-    }
-    return row;
-  }
+  /*
+   * `deactivate(row)` used to live here and is removed (security review
+   * 2026-08-19, second pass). Every caller now either holds a locked row
+   * inside a transaction — and so uses `applyDeactivation` plus its own
+   * repository — or issues a conditional UPDATE. Saving a whole,
+   * possibly-stale entity through the default repository is the shape
+   * that produced the revoke-resurrection bug, and leaving a helper
+   * around that still does it is an invitation to reintroduce it.
+   */
+
+  /*
+   * `findPendingByReviewCode` used to live here and is removed (security
+   * review 2026-08-19, second pass). It had no callers — `previewByReviewCode`
+   * and `approveByReviewCode` each do their own lookup — and it carried a
+   * third unlocked read-modify-write on this entity (expire → save), which
+   * is the shape that produced the revoke-resurrection bug. Dead code that
+   * models a pattern the rest of the file has moved away from is worse
+   * than no code.
+   */
 
   private appPublicUrl(): string {
     return this.configService.get<string>('APP_PUBLIC_URL') ?? '';

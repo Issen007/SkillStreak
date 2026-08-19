@@ -83,21 +83,37 @@ export class PublicSharingReminderService {
       // absent is a standing condition, not a per-send event.
       if (!this.bounceMailboxService.isConfigured()) {
         const supervised = await this.consentService.countActive();
-        this.logger.error(
-          `Public-sharing reminders are running with NO bounce detection ` +
-            `configured — an undeliverable reminder cannot be observed, so ` +
-            `ADR-0030 Decision 5 cannot disable a consent behind a dead ` +
-            `parent address. ${supervised} active consent(s) are ` +
-            `unsupervised. Set BOUNCE_IMAP_HOST/USER/PASSWORD.`,
-        );
-        await this.errorLogService.record({
-          source: 'job',
-          jobName,
-          error: new Error(
-            `public-sharing reminders are running without bounce detection; ` +
-              `${supervised} active consent(s) are unsupervised`,
-          ),
-        });
+        if (supervised === 0) {
+          // Nothing is at risk yet — no consent exists to go unsupervised
+          // — so this is a note, not an incident. **Deliberately not an
+          // error-log row** (security review 2026-08-19, second pass):
+          // today, with the allow-list empty, that would write one row a
+          // day forever saying nothing is wrong, and the error log is the
+          // only channel that reports this gap. Teaching the operator to
+          // scroll past it is how the channel stops working on the day it
+          // finally matters.
+          this.logger.warn(
+            'Public-sharing reminders have no bounce detection configured. ' +
+              'No active consents yet, so nothing is unsupervised — but ' +
+              'set BOUNCE_IMAP_HOST/USER/PASSWORD before enabling a team.',
+          );
+        } else {
+          this.logger.error(
+            `Public-sharing reminders are running with NO bounce detection ` +
+              `configured — an undeliverable reminder cannot be observed, so ` +
+              `ADR-0030 Decision 5 cannot disable a consent behind a dead ` +
+              `parent address. ${supervised} active consent(s) are ` +
+              `unsupervised. Set BOUNCE_IMAP_HOST/USER/PASSWORD.`,
+          );
+          await this.errorLogService.record({
+            source: 'job',
+            jobName,
+            error: new Error(
+              `public-sharing reminders are running without bounce ` +
+                `detection; ${supervised} active consent(s) are unsupervised`,
+            ),
+          });
+        }
       }
 
       if (due.length === 0) return;

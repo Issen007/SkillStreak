@@ -197,31 +197,61 @@ export class BounceMailboxService {
         this.configService.get<string>('BOUNCE_IMAP_MAILBOX') ?? 'INBOX';
       const lock = await client.getMailboxLock(mailbox);
       try {
-        // `seen: false` filters out anything a previous run already
-        // handled but could not delete. **imapflow fetches with
-        // `BODY.PEEK`, so nothing sets `\Seen` on its own** — this filter
-        // only means anything because the failure path below flags
-        // explicitly. Before that it was a no-op, and a message that
-        // threw was re-fetched and re-thrown every hour forever, with
-        // every real bounce queued behind it going unprocessed.
-        for await (const message of client.fetch(
-          { seen: false },
+        // **Every IMAP command is issued outside the fetch generator, and
+        // that is not a style choice.**
+        //
+        // The obvious shape — `for await (const m of client.fetch(...))`
+        // with a `messageDelete` in the body — deadlocks. imapflow's
+        // reader awaits `handleResponse`, which awaits the untagged FETCH
+        // handler, which awaits the consumer callback; so while the loop
+        // body runs, no server response is read at all, including the
+        // tagged OK that a newly queued command needs in order to
+        // proceed. The delete therefore never dispatches, the client
+        // blocks for the whole 5-minute socket timeout and throws
+        // NoConnection.
+        //
+        // Reproduced against a real socket: the "delete inside the loop"
+        // shape sent `UID FETCH` and then nothing — no STORE, no EXPUNGE
+        // — while the "act afterwards" shape completed in 42ms. The
+        // consequence was one message processed per run, nothing ever
+        // deleted, and the same message re-read every hour forever, while
+        // `isConfigured()` reported the mailbox healthy and silenced the
+        // reminder sweep's "unsupervised" alarm. (Security review
+        // 2026-08-19, blocking finding 1.)
+        //
+        // Resolving the UIDs up front and fetching each one on its own
+        // keeps per-message durability — a message is deleted the moment
+        // it is handled, not batched at the end where one throw discards
+        // the lot — without ever holding the generator open.
+        //
+        // `{ seen: false }` skips anything a previous run flagged after
+        // failing to process it. imapflow fetches with `BODY.PEEK`, so
+        // nothing sets `\Seen` on its own; the flag on the failure path
+        // below is what makes this filter mean anything, and what stops a
+        // poisonous message being retried forever.
+        // `search` returns `false` rather than an empty array when the
+        // server declines, so normalise before touching it.
+        const found = await client.search({ seen: false }, { uid: true });
+        const uids: number[] = Array.isArray(found) ? found : [];
+        const batch = uids.slice(0, MAX_MESSAGES_PER_RUN);
+        if (uids.length > batch.length) {
+          this.logger.warn(
+            `Bounce intake: ${uids.length} unread message(s), handling ` +
+              `${batch.length} this run; the rest follow next poll.`,
+          );
+        }
+
+        for (const uid of batch) {
           // Bounded fetch. A delivery report is small; anything larger is
-          // not one, and reading it into memory is a free denial of
-          // service for anyone who knows the bounce address — which is
-          // the envelope sender of every reminder, so every parent does.
-          { source: { maxLength: MAX_MESSAGE_BYTES }, uid: true },
-        )) {
-          // Per-run ceiling, so one flood cannot make an hourly job
-          // unbounded. The remainder is read next hour, and the stop is
-          // logged rather than silently truncating.
-          if (summary.messages >= MAX_MESSAGES_PER_RUN) {
-            this.logger.warn(
-              `Bounce intake: stopping at ${MAX_MESSAGES_PER_RUN} messages ` +
-                'this run; the rest will be read on the next poll.',
-            );
-            break;
-          }
+          // not one, and reading it whole is free denial of service for
+          // anyone who knows the bounce address — which is the envelope
+          // sender of every reminder, so every parent does.
+          const message = await client.fetchOne(
+            String(uid),
+            { source: { maxLength: MAX_MESSAGE_BYTES } },
+            { uid: true },
+          );
+          if (!message) continue;
           summary.messages += 1;
           const raw = message.source?.toString('utf8') ?? '';
 
@@ -233,38 +263,43 @@ export class BounceMailboxService {
             summary.unattributed += outcome.unattributed;
             summary.disabled += outcome.disabled;
 
-            // **Deleted here, one at a time, immediately** — not batched
-            // at the end. A throw later in the loop used to discard the
-            // whole pending list, so messages already counted stayed in
-            // the mailbox and were counted again on the next poll.
-            // Deleted rather than archived because these quote reminder
+            // Deleted immediately, not batched: these quote reminder
             // bodies, which carry live revoke links.
-            const deleted = await client.messageDelete([message.uid], {
-              uid: true,
-            });
+            const deleted = await client.messageDelete([uid], { uid: true });
             if (!deleted) {
-              // imapflow returns false rather than throwing. Worth saying
-              // out loud: an undeleted message is a live revoke code left
-              // sitting in a mailbox.
+              // imapflow returns false rather than throwing. Said out
+              // loud because an undeleted message is a live revoke code
+              // left sitting in a mailbox.
               this.logger.warn(
-                `Bounce intake: could not delete message uid ${message.uid}; ` +
-                  'it quotes a reminder and should be removed by hand.',
+                `Bounce intake: could not delete message uid ${uid}; it ` +
+                  'quotes a reminder and should be removed by hand.',
               );
             }
           } catch (error) {
             // One malformed or hostile message must not stop the drain,
-            // and must not be retried forever either. Flagged `\Seen` so
-            // the next run's filter skips it; left undeleted so a human
-            // can still look at it.
+            // and must not be retried forever either.
             this.logger.warn(
               `Skipping one bounce-mailbox message that failed to process: ${
                 error instanceof Error ? error.message : String(error)
               }`,
             );
             summary.skipped += 1;
-            await client
-              .messageFlagsAdd([message.uid], ['\\Seen'], { uid: true })
-              .catch(() => undefined);
+            // Flagged so the next run's `seen: false` filter skips it;
+            // left undeleted so a human can still look at it. A failure
+            // to flag is reported rather than swallowed — silently
+            // failing here recreates the retry-forever loop, and a
+            // read-only mailbox or a server that refuses the STORE
+            // produces it without any deadlock involved.
+            const flagged = await client
+              .messageFlagsAdd([uid], ['\\Seen'], { uid: true })
+              .catch(() => false);
+            if (!flagged) {
+              this.logger.error(
+                `Bounce intake: could not flag unprocessable message uid ` +
+                  `${uid} as seen — it will be retried on every poll and ` +
+                  'may block the mailbox draining. Remove it by hand.',
+              );
+            }
           }
         }
       } finally {
