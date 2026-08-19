@@ -5,7 +5,7 @@ Guidance for Claude Code when working in this repository.
 ## Project status
 
 Fas 1–3 are done; Fas 4 (Kubernetes & public launch) is in progress — see
-[docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) for the live English checklist
+`docs/internal/ACTION_PLAN.md` for the live English checklist
 and [docs/PROJECT.md](docs/PROJECT.md) for the prioritized Swedish
 roadmap. This is a real, substantial, working app already serving a live
 beta on a real Kubernetes cluster — backend (NestJS), mobile (Expo), a
@@ -90,10 +90,17 @@ adding geolocation for "nearby teams", etc.).
 ## Roadmap
 
 Full roadmap lives in [docs/PROJECT.md](docs/PROJECT.md) (Swedish, Fas
-1–6, prioritized order) and [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md)
+1–6, prioritized order) and `docs/internal/ACTION_PLAN.md`
 (English, phase-by-phase checklist with reasoning/review trail). Don't
 restate phase contents here — they change often enough that a second copy
 would just go stale; read those docs directly instead.
+
+`docs/internal/` is **gitignored** — ACTION_PLAN.md, BACKLOG.md,
+CONTINUE.md and FUTURE_IDEAS.md live only in the working tree, are not in
+git history, and are not baked into the CI-built image. That is why they
+are written as plain paths above rather than as links: a markdown link
+would 404 for anyone reading this file on GitHub. It also means edits to
+them are local-only and never show up in a commit or a PR diff.
 
 When asked to "start building" or "what's next," default to the first
 unchecked, actually-buildable item in those two docs (skip anything
@@ -117,7 +124,7 @@ the architect draft an ADR for X"):
 7. **ide-buddy** — default day-to-day pairing/debugging when nothing above
    clearly fits.
 
-See [docs/ACTION_PLAN.md](docs/ACTION_PLAN.md) for how these map onto the Fas 1–6
+See `docs/internal/ACTION_PLAN.md` for how these map onto the Fas 1–6
 roadmap.
 
 ## Language notes
@@ -216,10 +223,28 @@ docker-compose smoke test on every PR into `main` (and into `review` too,
 per the branch strategy above). The workflow file only
 runs the checks — making them a *required* status check that blocks
 merging is a GitHub branch-protection setting on the repo itself, not
-something version-controlled here. That still needs to be turned on
-(Settings → Branches → branch protection rules for `main` and
-`review`) for "always tested before merge" to actually be enforced,
-not just advisory.
+something version-controlled here.
+
+**This is now turned on** (verified 2026-08-19 against the live
+`branches/*/protection` API; this section previously said it still needed
+doing, which had gone stale). Both `main` and `review` require the same
+four checks, with "require branches to be up to date" on:
+
+  `Backend lint, build, test` · `Docker image builds` ·
+  `clip-tagger lint + test` · `docker-compose smoke test`
+
+Two consequences worth knowing before you plan a change:
+
+- **`Mobile typecheck` and `Mobile expo-doctor` are NOT required** — the
+  mobile side of a PR is advisory and cannot block a merge. Don't rely on
+  CI to catch a broken `tsc`; run it yourself.
+- **Strict mode means a stale branch is unmergeable**, so `review` may
+  need `main` merged back into it before a PR will go green — which is
+  the normal reason a PR that passed yesterday won't merge today.
+
+No review approval is required on either branch, so the "never merge to
+`main`" rule at the top of this section is still a policy this repo keeps
+by hand, not something GitHub enforces.
 
 ## Environment parity — every URL/link must match wherever it's deployed
 
@@ -258,10 +283,19 @@ currently running.
 
 ## Open decisions to surface, not silently pick
 
-- Final app name (still open — see docs/PROJECT.md banner for candidates).
+- ~~Final app name~~ — **decided 2026-08-10: SkillStreak**, per the
+  Project status section above. Struck through rather than deleted so the
+  closure is visible to anyone who remembers this as open.
+  `docs/PROJECT.md`'s banner — which had gone on publicly soliciting name
+  suggestions and listing five candidates long after the decision — was
+  corrected to match on 2026-08-19.
+
+  *(Nothing is open in this section right now. Keep the heading: it is
+  where the next unresolved product call goes, and an empty list is a
+  more honest signal than a deleted section.)*
 
 (The three Phase 0 data-model gaps previously tracked here — isolating
 `real_name`, consent gating account creation, constraining
 `BadgeAward.context` — were resolved via ADR-0002's addendum and shipped
-in Phase 1; see docs/ACTION_PLAN.md's Phase 0 section for the closed
+in Phase 1; see `docs/internal/ACTION_PLAN.md`'s Phase 0 section for the closed
 checklist if that history is ever needed.)

@@ -19,6 +19,25 @@ export interface SendMailOptions {
    * links only, and should stay that way.
    */
   attachments?: MailAttachment[];
+  /**
+   * Overrides the `Message-ID` nodemailer would otherwise generate.
+   *
+   * Set by the public-sharing reminder so a DSN arriving days later can
+   * be traced back to the consent it was for (ADR-0030 finding 4). Most
+   * MTAs return the original `Message-ID` with a bounce even when they
+   * strip `X-` headers, which is why the correlation token is minted into
+   * it as well as into the header below.
+   */
+  messageId?: string;
+  /**
+   * Extra headers to stamp on the outgoing message.
+   *
+   * Deliberately not a general-purpose escape hatch: the only current
+   * caller sets `X-SkillStreak-Consent`. Values reach nodemailer
+   * verbatim, so a caller must never put user-supplied text here — a
+   * newline in a header value is header injection.
+   */
+  headers?: Record<string, string>;
 }
 
 // Wraps SMTP sending (Google Workspace relay by default — see
@@ -117,24 +136,28 @@ export class MailService {
    * - SMTP not being configured at all, which used to return silently and
    *   indistinguishably from success
    *
-   * It does **not** catch an asynchronous bounce. A relay accepts a
-   * message for a dead mailbox on a live domain and bounces it later to
-   * the envelope sender — out of band, invisible here. Catching that
-   * needs a bounce mailbox parsed for DSNs, or a provider with a delivery
-   * webhook; neither exists yet, and the current provider is Gmail SMTP
-   * (k8s/configmap.yaml), recorded in the privacy policy as an interim
-   * arrangement.
+   * It still does **not** catch an asynchronous bounce, and it never
+   * can: a relay accepts a message for a dead mailbox on a live domain
+   * and bounces it later to the envelope sender, out of band and long
+   * after this method has returned.
    *
-   * That gap matters most to ADR-0030 Decision 5, whose fail-closed
-   * disable is meant to fire when a parent's address goes dead — the
-   * exact case this cannot see. The ADR's Status records it as still
-   * open, and the reminder sweep must not be written as though this
-   * closed it.
+   * **That case is covered elsewhere now, not here** — see
+   * `bounce-mailbox.service.ts`, which polls a dedicated mailbox and
+   * parses the returned DSNs (ADR-0030 finding 4, closed 2026-08-19).
+   * A caller needing delivery evidence must use that signal:
+   * `handedOff: true` from this method remains a statement about one
+   * SMTP conversation and nothing more.
    */
   async sendMail(options: SendMailOptions): Promise<MailSendResult> {
     if (!this.transporter) {
+      // The recipient is deliberately NOT logged. On the consent path that
+      // address is a parent's, and logging it identifies a specific child
+      // by implication — the new monthly reminder would otherwise write
+      // one line per family per month into application logs whenever SMTP
+      // was unconfigured (security review 2026-08-19, finding 8). The
+      // subject is enough to tell which mail failed.
       this.logger.warn(
-        `Mail not sent (SMTP not configured): to=${options.to} subject="${options.subject}"`,
+        `Mail not sent (SMTP not configured): subject="${options.subject}"`,
       );
       // Reported as not handed off, deliberately. It used to return void
       // here, so a caller had no way to tell "sent" from "silently
@@ -157,6 +180,8 @@ export class MailService {
       ...(options.attachments?.length
         ? { attachments: options.attachments }
         : {}),
+      ...(options.messageId ? { messageId: options.messageId } : {}),
+      ...(options.headers ? { headers: options.headers } : {}),
     })) as SmtpHandoffInfo;
 
     // Previously discarded entirely. Coerced through String because

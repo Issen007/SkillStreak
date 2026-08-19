@@ -5,6 +5,7 @@ import {
   PublicSharingConsentStatus,
   PublicSharingRevokedReason,
 } from './entities/public-sharing-consent.entity';
+import { CORRELATION_HEADER } from '../mail/dsn.parser';
 import {
   MAX_REMINDER_FAILURES,
   PublicSharingConsentService,
@@ -50,6 +51,9 @@ function fakeRepo() {
         revokedReason: null,
         lastReminderAt: null,
         reminderFailureCount: 0,
+        lastReminderToken: null,
+        lastReminderFailureAt: null,
+        lastReminderFailureToken: null,
         ...partial,
       }) as PublicSharingConsent,
     save: jest.fn((row: PublicSharingConsent) => {
@@ -71,8 +75,16 @@ function fakeRepo() {
       const qb = {
         setLock: () => qb,
         where: (clause: string, params: Record<string, unknown>) => {
-          column = clause.includes('review_code') ? 'reviewCode' : 'revokeCode';
-          value = params.code;
+          if (clause.includes('last_reminder_token')) {
+            column = 'lastReminderToken';
+            value = params.token;
+          } else if (clause.includes('review_code')) {
+            column = 'reviewCode';
+            value = params.code;
+          } else {
+            column = 'revokeCode';
+            value = params.code;
+          }
           return qb;
         },
         getOne: () =>
@@ -86,11 +98,30 @@ function fakeRepo() {
       };
       return qb;
     },
-    update: jest.fn((id: string, patch: Partial<PublicSharingConsent>) => {
-      const row = rows.find((r) => r.id === id);
-      if (row) Object.assign(row, patch);
-      return Promise.resolve({ affected: row ? 1 : 0 });
-    }),
+    // Accepts either a bare id or a criteria object. The conditional
+    // form is what stops the reminder sweep writing a stale `status` over
+    // a concurrent revoke, so the fake has to honour the predicate rather
+    // than matching on id alone — otherwise the test for that race would
+    // pass against a fake that cannot express it.
+    update: jest.fn(
+      (
+        criteria: string | Partial<PublicSharingConsent>,
+        patch: Partial<PublicSharingConsent>,
+      ) => {
+        const where =
+          typeof criteria === 'string' ? { id: criteria } : criteria;
+        const row = rows.find((r) =>
+          Object.entries(where).every(
+            ([k, v]) => (r as unknown as Record<string, unknown>)[k] === v,
+          ),
+        );
+        if (row) Object.assign(row, patch);
+        return Promise.resolve({ affected: row ? 1 : 0 });
+      },
+    ),
+    count: jest.fn(({ where }: { where: Record<string, unknown> }) =>
+      Promise.resolve(rows.filter((r) => matches(r, where)).length),
+    ),
   };
 }
 
@@ -295,50 +326,535 @@ describe('PublicSharingConsentService: the monthly reminder', () => {
     // Decision 5 disables at two, not one — a parent whose mail server
     // had one bad afternoon should not lose the consent for it.
     const { service, repo } = await activated();
+    const row = repo.rows[0];
+    await service.sendReminder(row);
 
-    const result = await service.recordReminderFailure(repo.rows[0].id);
+    const result = await service.recordReminderUndeliverable(
+      row.lastReminderToken!,
+    );
 
-    expect(result.disabled).toBe(false);
+    expect(result).toMatchObject({ disabled: false });
     expect(await service.isActiveFor('p1')).toBe(true);
   });
 
   it('disables on the second consecutive failure', async () => {
     const { service, repo } = await activated();
-    const id = repo.rows[0].id;
+    const row = repo.rows[0];
 
-    await service.recordReminderFailure(id);
-    const result = await service.recordReminderFailure(id);
+    await service.sendReminder(row);
+    await service.recordReminderUndeliverable(row.lastReminderToken!);
+    await service.sendReminder(row);
+    const result = await service.recordReminderUndeliverable(
+      row.lastReminderToken!,
+    );
 
-    expect(result.disabled).toBe(true);
+    expect(result).toMatchObject({ disabled: true });
     expect(await service.isActiveFor('p1')).toBe(false);
-    expect(repo.rows[0].revokedReason).toBe(
+    expect(row.revokedReason).toBe(
       PublicSharingRevokedReason.REMINDER_UNDELIVERABLE,
     );
   });
 
-  it('advances the clock on failure, so two failures take two months', async () => {
+  it('advances the clock on a send, so two failures take two months', async () => {
     // Without this, a permanently undeliverable address stays perpetually
     // due, is retried on every sweep, and reaches the disable threshold
     // in minutes — turning "two missed months" into "two attempts".
     const { service, repo } = await activated();
-    const id = repo.rows[0].id;
-    await service.recordReminderFailure(id);
+    const row = repo.rows[0];
+    await service.sendReminder(row);
+    await service.recordReminderUndeliverable(row.lastReminderToken!);
 
     expect(await service.findDueReminders()).toHaveLength(0);
   });
 
-  it('a delivered reminder clears the failure streak', async () => {
+  it('a reminder that was delivered clears the failure streak', async () => {
     const { service, repo } = await activated();
-    const id = repo.rows[0].id;
-    await service.recordReminderFailure(id);
+    const row = repo.rows[0];
+    await service.sendReminder(row);
+    await service.recordReminderUndeliverable(row.lastReminderToken!);
+    expect(row.reminderFailureCount).toBe(1);
 
-    await service.recordReminderSent(id);
+    // Month 2 goes out (streak carried), month 3 judges it as delivered.
+    await service.sendReminder(row);
+    await service.sendReminder(row);
 
-    expect(repo.rows[0].reminderFailureCount).toBe(0);
-    // And the next single failure must not now disable it.
-    expect((await service.recordReminderFailure(id)).disabled).toBe(false);
+    expect(row.reminderFailureCount).toBe(0);
+    expect(await service.isActiveFor('p1')).toBe(true);
+  });
+});
+
+/**
+ * ADR-0030 finding 4 — asynchronous bounce detection.
+ *
+ * These are the tests for the thing that kept the reminder sweep
+ * unwritten for a month. A bounce arrives DAYS after the send that
+ * caused it, so the naive shape — reset the counter whenever a reminder
+ * goes out — makes Decision 5's disable mathematically unreachable no
+ * matter how dead the address is. The first test here is that exact
+ * sequence.
+ */
+describe('PublicSharingConsentService: asynchronous bounces', () => {
+  async function activated() {
+    const built = build();
+    await built.service.request('p1');
+    await built.service.approveByReviewCode(built.reviewCodeOf());
+    return built;
+  }
+
+  it('disables after two consecutive reminders bounce, one month apart', async () => {
+    // The regression that motivated the whole design. Under a
+    // "reset on send" counter this runs 0 → 1 → 0 → 1 forever and the
+    // consent stays live behind a permanently dead address.
+    const { service, repo } = await activated();
+    const row = repo.rows[0];
+
+    // Month 1: reminder goes out, bounces days later.
+    await service.sendReminder(row);
+    const firstToken = row.lastReminderToken!;
+    expect(firstToken).toBeTruthy();
+    await service.recordReminderUndeliverable(firstToken);
+    expect(row.reminderFailureCount).toBe(1);
+    expect(await service.isActiveFor('p1')).toBe(true);
+
+    // Month 2: the previous reminder DID bounce, so the streak survives
+    // the new send rather than being reset by it.
+    await service.sendReminder(row);
+    expect(row.reminderFailureCount).toBe(1);
+    const secondToken = row.lastReminderToken!;
+    expect(secondToken).not.toBe(firstToken);
+
+    const result = await service.recordReminderUndeliverable(secondToken);
+
+    expect(result).toMatchObject({ matched: true, disabled: true });
+    expect(await service.isActiveFor('p1')).toBe(false);
+    expect(row.revokedReason).toBe(
+      PublicSharingRevokedReason.REMINDER_UNDELIVERABLE,
+    );
   });
 
+  it('a month that delivered resets the streak a bounced month started', async () => {
+    // The counter is settled one send LATE, by construction: a send can
+    // only ever judge the reminder before it, because its own bounce has
+    // not had time to arrive. Reading the timeline is the only way this
+    // test makes sense, so it is spelled out.
+    const { service, repo } = await activated();
+    const row = repo.rows[0];
+
+    // Month 1 goes out and bounces.
+    await service.sendReminder(row);
+    await service.recordReminderUndeliverable(row.lastReminderToken!);
+    expect(row.reminderFailureCount).toBe(1);
+
+    // Month 2's send judges month 1, which bounced — so the streak is
+    // carried, NOT reset. This is the step that makes reaching 2
+    // possible at all.
+    await service.sendReminder(row);
+    expect(row.reminderFailureCount).toBe(1);
+
+    // No bounce comes back for month 2.
+
+    // Month 3's send judges month 2, which was delivered — so the streak
+    // resets here.
+    await service.sendReminder(row);
+    expect(row.reminderFailureCount).toBe(0);
+
+    // Which makes month 3 bouncing a first failure, not a second.
+    const result = await service.recordReminderUndeliverable(
+      row.lastReminderToken!,
+    );
+
+    expect(result).toMatchObject({ counted: true, disabled: false });
+    expect(row.reminderFailureCount).toBe(1);
+    expect(await service.isActiveFor('p1')).toBe(true);
+  });
+
+  it('a late DSN for a superseded reminder is ignored, not miscounted', async () => {
+    // Month 2's bounce arriving after month 3 has already gone out. The
+    // token no longer matches, so it cannot be charged against the wrong
+    // month — the honest cost of token-only attribution, pinned here so
+    // it stays a known behaviour rather than a surprise.
+    const { service, repo } = await activated();
+    const row = repo.rows[0];
+
+    await service.sendReminder(row);
+    const staleToken = row.lastReminderToken!;
+    await service.sendReminder(row);
+
+    expect(await service.recordReminderUndeliverable(staleToken)).toEqual({
+      matched: false,
+    });
+    expect(row.reminderFailureCount).toBe(0);
+  });
+
+  it('counts two bounces for the SAME reminder only once', async () => {
+    // A duplicate DSN, or one MTA reporting the same failure twice, is
+    // one missed month — not two. Without this idempotency a single dead
+    // address disables a consent within minutes of the first send, which
+    // turns Decision 5's "two consecutive undeliverable reminders" into
+    // "two delivery reports".
+    const { service, repo } = await activated();
+    const row = repo.rows[0];
+    await service.sendReminder(row);
+    const token = row.lastReminderToken!;
+
+    const first = await service.recordReminderUndeliverable(token);
+    const second = await service.recordReminderUndeliverable(token);
+
+    expect(first).toMatchObject({ counted: true, disabled: false });
+    expect(second).toMatchObject({ counted: false, disabled: false });
+    expect(row.reminderFailureCount).toBe(1);
+    expect(await service.isActiveFor('p1')).toBe(true);
+  });
+
+  it('reports an unknown token as unmatched rather than guessing', async () => {
+    const { service } = await activated();
+
+    expect(
+      await service.recordReminderUndeliverable('not-a-real-token'),
+    ).toEqual({
+      matched: false,
+    });
+  });
+
+  it('ignores an empty token', async () => {
+    const { service } = await activated();
+    expect(await service.recordReminderUndeliverable('')).toEqual({
+      matched: false,
+    });
+  });
+
+  it('ignores a bounce for a consent the parent already revoked', async () => {
+    // The parent revoked while the DSN was still in transit. There is
+    // nothing left to disable, and counting it would be recording a
+    // failure against a consent that no longer exists.
+    const { service, repo, revokeCodeOf } = await activated();
+    const row = repo.rows[0];
+    await service.sendReminder(row);
+    const token = row.lastReminderToken!;
+    await service.revokeByRevokeCode(revokeCodeOf());
+
+    const result = await service.recordReminderUndeliverable(token);
+
+    expect(result).toMatchObject({ matched: true, counted: false });
+    expect(row.revokedReason).toBe(PublicSharingRevokedReason.PARENT_REVOKED);
+  });
+
+  it('stamps a fresh unguessable token on every reminder', async () => {
+    const { service, repo } = await activated();
+    const row = repo.rows[0];
+
+    const tokens = new Set<string>();
+    for (let i = 0; i < 5; i += 1) {
+      await service.sendReminder(row);
+      tokens.add(row.lastReminderToken!);
+      // Break the streak each time so the loop does not disable it.
+      row.lastReminderFailureAt = null;
+    }
+
+    expect(tokens.size).toBe(5);
+    for (const token of tokens) {
+      // base64url, and long enough that guessing one is not a way to
+      // disable a stranger's consent.
+      expect(token).toMatch(/^[A-Za-z0-9_-]{24,}$/);
+    }
+  });
+
+  it('carries the token out on the message, in both places a DSN may return', async () => {
+    const { service, repo, mailService } = await activated();
+    const row = repo.rows[0];
+    mailService.sendMail.mockClear();
+
+    await service.sendReminder(row);
+
+    const sent = mailService.sendMail.mock.calls[0][0] as {
+      messageId?: string;
+      headers?: Record<string, string>;
+      text: string;
+    };
+    const token = row.lastReminderToken!;
+    // The header is the strong signal; the Message-ID is the fallback
+    // for MTAs that strip X- headers when returning the original.
+    expect(sent.headers?.[CORRELATION_HEADER]).toBe(token);
+    expect(sent.messageId).toContain(token);
+  });
+
+  it('persists the token before sending, so a fast bounce still matches', async () => {
+    // A DSN can arrive while the SMTP call is still returning. If the
+    // token were saved after the send, that bounce would find no row to
+    // attribute itself to and the failure would go uncounted.
+    const { service, repo, mailService } = await activated();
+    const row = repo.rows[0];
+    let tokenAtSendTime: string | null = null;
+    mailService.sendMail.mockImplementationOnce(() => {
+      tokenAtSendTime = row.lastReminderToken;
+      return Promise.resolve({ handedOff: true, rejected: [] });
+    });
+
+    await service.sendReminder(row);
+
+    expect(tokenAtSendTime).toBe(row.lastReminderToken);
+    expect(tokenAtSendTime).toBeTruthy();
+  });
+
+  it('counts a refused-at-handoff address through the same counter', async () => {
+    // The synchronous half, closed 2026-08-18. Both evidence paths feed
+    // one streak rather than each needing its own threshold.
+    const { service, repo, mailService } = await activated();
+    const row = repo.rows[0];
+    mailService.sendMail.mockResolvedValue({
+      handedOff: false,
+      rejected: ['parent@example.se'],
+      reason: 'all_rejected',
+    });
+
+    await service.sendReminder(row);
+
+    expect(row.reminderFailureCount).toBe(1);
+  });
+
+  it('does not send, and does not mint a token, for an inactive consent', async () => {
+    const { service, repo, revokeCodeOf, mailService } = await activated();
+    const row = repo.rows[0];
+    await service.revokeByRevokeCode(revokeCodeOf());
+    mailService.sendMail.mockClear();
+
+    const result = await service.sendReminder(row);
+
+    expect(result).toEqual({ sent: false, disabled: false });
+    expect(mailService.sendMail).not.toHaveBeenCalled();
+  });
+
+  it('treats a row with undefined bounce columns as not bounced', async () => {
+    // A fixture or a partially-hydrated row can carry `undefined` where
+    // the database would hold `null`; the check must not mistake that
+    // for a recorded bounce, nor throw on it.
+    const { service, repo } = await activated();
+    const row = repo.rows[0];
+    for (const field of [
+      'lastReminderFailureAt',
+      'lastReminderFailureToken',
+      'lastReminderToken',
+      'lastReminderAt',
+    ]) {
+      (row as unknown as Record<string, unknown>)[field] = undefined;
+    }
+
+    await expect(service.sendReminder(row)).resolves.toMatchObject({
+      sent: true,
+    });
+    expect(row.reminderFailureCount).toBe(0);
+  });
+
+  it('counts a second bounce that lands in the same tick as its send', async () => {
+    // The regression behind switching idempotency from timestamps to
+    // tokens. With a `bouncedAt >= sentAt` comparison, a send and a
+    // bounce sharing one instant made the second GENUINE bounce look
+    // like a duplicate of the first, so it was dropped and the consent
+    // that should have been disabled stayed live.
+    const { service, repo } = await activated();
+    const row = repo.rows[0];
+    const at = new Date('2026-08-19T10:00:00.000Z');
+
+    await service.sendReminder(row, at);
+    await service.recordReminderUndeliverable(row.lastReminderToken!, at);
+    expect(row.reminderFailureCount).toBe(1);
+
+    // Same instant throughout — only the token distinguishes the months.
+    await service.sendReminder(row, at);
+    const result = await service.recordReminderUndeliverable(
+      row.lastReminderToken!,
+      at,
+    );
+
+    expect(result).toMatchObject({ counted: true, disabled: true });
+    expect(await service.isActiveFor('p1')).toBe(false);
+  });
+});
+
+describe('PublicSharingConsentService: security review 2026-08-19', () => {
+  async function activated() {
+    const built = build();
+    await built.service.request('p1');
+    await built.service.approveByReviewCode(built.reviewCodeOf());
+    return built;
+  }
+
+  // --- Finding 1 (blocking) ------------------------------------------
+  it('disables an address the SMTP server refuses every month', async () => {
+    // THE REGRESSION. A 550 at RCPT TO is the most common dead-mailbox
+    // case on domains that reject synchronously, and it used to be
+    // uncountable: the failure was recorded without a token, so the next
+    // send saw nothing against the previous reminder and reset the
+    // streak. Six months produced counts [1,1,1,1,1,1] and the consent
+    // stayed ACTIVE forever.
+    const { service, repo, mailService } = await activated();
+    const row = repo.rows[0];
+    mailService.sendMail.mockResolvedValue({
+      handedOff: false,
+      rejected: ['parent@example.se'],
+      reason: 'all_rejected',
+    });
+
+    const counts: number[] = [];
+    for (let month = 0; month < 6; month += 1) {
+      await service.sendReminder(row);
+      counts.push(row.reminderFailureCount);
+    }
+
+    expect(counts[0]).toBe(1);
+    expect(counts[1]).toBe(MAX_REMINDER_FAILURES);
+    expect(await service.isActiveFor('p1')).toBe(false);
+    expect(row.revokedReason).toBe(
+      PublicSharingRevokedReason.REMINDER_UNDELIVERABLE,
+    );
+  });
+
+  it('disables when the mailer is not configured at all', async () => {
+    // `not_configured` is also a delivery failure — a reminder nobody
+    // ever sent supervises nothing.
+    const { service, repo, mailService } = await activated();
+    const row = repo.rows[0];
+    mailService.sendMail.mockResolvedValue({
+      handedOff: false,
+      rejected: [],
+      reason: 'not_configured',
+    });
+
+    await service.sendReminder(row);
+    await service.sendReminder(row);
+
+    expect(await service.isActiveFor('p1')).toBe(false);
+  });
+
+  it('mixes the two evidence paths into one streak', async () => {
+    // A handoff refusal one month and a bounce the next is still two
+    // consecutive undeliverable reminders.
+    const { service, repo, mailService } = await activated();
+    const row = repo.rows[0];
+
+    mailService.sendMail.mockResolvedValueOnce({
+      handedOff: false,
+      rejected: ['parent@example.se'],
+      reason: 'all_rejected',
+    });
+    await service.sendReminder(row);
+    expect(row.reminderFailureCount).toBe(1);
+
+    await service.sendReminder(row);
+    const result = await service.recordReminderUndeliverable(
+      row.lastReminderToken!,
+    );
+
+    expect(result).toMatchObject({ disabled: true });
+    expect(await service.isActiveFor('p1')).toBe(false);
+  });
+
+  // --- Finding 2 (blocking) ------------------------------------------
+  it('does not resurrect a consent revoked while the sweep was running', async () => {
+    // THE REGRESSION. `row` is loaded once at the top of the sweep and
+    // may be minutes stale. Saving the whole entity wrote its stale
+    // `status`, revoke code and null `revoked_at` back over a concurrent
+    // revoke — turning a child's sharing back on after the parent had
+    // been told it was off. Verified against real Postgres before the fix.
+    const { service, repo, revokeCodeOf, mailService } = await activated();
+    // A genuine separate copy, the way `findDueReminders()` hands the
+    // sweep its own hydrated entity — not the same object the fake
+    // repository stores, or mutating it would move the database too and
+    // the test could not express the race at all.
+    const staleRow = { ...repo.rows[0] };
+
+    // The parent revokes after the sweep took that copy.
+    await service.revokeByRevokeCode(revokeCodeOf());
+    expect(repo.rows[0].status).toBe(PublicSharingConsentStatus.REVOKED);
+    mailService.sendMail.mockClear();
+
+    const result = await service.sendReminder(staleRow);
+
+    expect(result).toEqual({ sent: false, disabled: false });
+    expect(mailService.sendMail).not.toHaveBeenCalled();
+    expect(repo.rows[0].status).toBe(PublicSharingConsentStatus.REVOKED);
+    expect(repo.rows[0].revokeCode).toBeNull();
+  });
+
+  // --- Third pass, A2: the backstop path ------------------------------
+  it('the threshold backstop revokes a stale row that is already at the limit', async () => {
+    // Unreachable through the normal flow — the failure intake disables
+    // the moment the second report lands — so nothing exercised it. Two
+    // consecutive fix rounds each shipped a defect in exactly the half
+    // nobody ran, which is reason enough to run this one.
+    const { service, repo, mailService } = await activated();
+    const row = repo.rows[0];
+    // The count only survives into the backstop if the PREVIOUS reminder
+    // is recorded as failed — a bare count with no failure token means
+    // the streak was broken and is correctly reset. Setting it that way
+    // was the first version of this test, and it silently exercised the
+    // reset instead.
+    row.lastReminderToken = 'carried-token';
+    row.lastReminderFailureToken = 'carried-token';
+    row.lastReminderFailureAt = new Date();
+    row.reminderFailureCount = MAX_REMINDER_FAILURES;
+    mailService.sendMail.mockClear();
+
+    const result = await service.sendReminder(row);
+
+    expect(result).toEqual({ sent: false, disabled: true });
+    expect(mailService.sendMail).not.toHaveBeenCalled();
+    expect(repo.rows[0].status).toBe(PublicSharingConsentStatus.REVOKED);
+    expect(repo.rows[0].revokedReason).toBe(
+      PublicSharingRevokedReason.REMINDER_UNDELIVERABLE,
+    );
+    expect(repo.rows[0].revokeCode).toBeNull();
+  });
+
+  it('the backstop does not overwrite a revoke the parent already made', async () => {
+    // The reason this path is a conditional UPDATE rather than a
+    // whole-entity save: against a concurrent parent revoke it would
+    // otherwise rewrite revoked_at/revoked_reason as
+    // `reminder_undeliverable`, destroying the record that a parent used
+    // their disable link — the record Article 7(1) demonstrability rests
+    // on and Decision 9's monthly review reads.
+    const { service, repo, revokeCodeOf, mailService } = await activated();
+    const staleRow = { ...repo.rows[0] };
+    staleRow.lastReminderToken = 'carried-token';
+    staleRow.lastReminderFailureToken = 'carried-token';
+    staleRow.lastReminderFailureAt = new Date();
+    staleRow.reminderFailureCount = MAX_REMINDER_FAILURES;
+
+    await service.revokeByRevokeCode(revokeCodeOf());
+    mailService.sendMail.mockClear();
+
+    const result = await service.sendReminder(staleRow);
+
+    expect(result).toEqual({ sent: false, disabled: false });
+    expect(repo.rows[0].revokedReason).toBe(
+      PublicSharingRevokedReason.PARENT_REVOKED,
+    );
+  });
+
+  // --- Finding 4 (advisory) ------------------------------------------
+  it('clears the correlation token when a consent is re-requested', async () => {
+    // Otherwise a straggling DSN about the PREVIOUS grant — possibly to
+    // a different parent address entirely — is charged against the new
+    // one, putting a freshly approved consent one report from revocation.
+    const { service, repo, revokeCodeOf, reviewCodeOf } = await activated();
+    const row = repo.rows[0];
+    await service.sendReminder(row);
+    const staleToken = row.lastReminderToken!;
+
+    await service.revokeByRevokeCode(revokeCodeOf());
+    await service.request('p1');
+    await service.approveByReviewCode(reviewCodeOf());
+
+    expect(row.lastReminderToken).not.toBe(staleToken);
+    expect(await service.recordReminderUndeliverable(staleToken)).toEqual({
+      matched: false,
+    });
+    expect(row.reminderFailureCount).toBe(0);
+    expect(await service.isActiveFor('p1')).toBe(true);
+  });
+});
+
+describe('PublicSharingConsentService: reminder constants', () => {
   it('needs fewer failures than a month has sweeps to matter', () => {
     // Guards the constant itself: if MAX_REMINDER_FAILURES were ever
     // raised to something large, "fails closed" would quietly become

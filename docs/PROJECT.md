@@ -1,9 +1,14 @@
-# 🔥 SkillStreak / [Söker Namn!] - Rörelseglädje Genom Gamification
+# 🔥 SkillStreak - Rörelseglädje Genom Gamification
 
 > Det här är projektets ursprungliga vision/pitch. Letar du efter hur du
 > installerar och kör appen? Se [../README.md](../README.md) i repots rot.
 
-> 💡 **PROJEKTET SÖKER NAMN:** Just nu letar vi efter det ultimata, moderna namnet på den här appen! Har du ett förslag som går hem hos kidsen 2026? Skapa en Issue eller var med i diskussionen! Namnidéer vi bollar just nu är bland annat *SkillFlex, FloorGrind, StreakUp, ZorroGo* och *SquadPulse*.
+> ✅ **NAMNET ÄR BESTÄMT: SkillStreak** (2026-08-10). Namnfrågan är
+> stängd — appens bundle-id och paketnamn (`xyz.skillstreak.app`) kodar
+> namnet och är permanenta från första publicering i butikerna. Tack till
+> alla som skickade in förslag (*SkillFlex, FloorGrind, StreakUp, ZorroGo*
+> och *SquadPulse* var de sista kandidaterna). Nya namnförslag behövs
+> alltså inte längre.
 
 Välkommen till **SkillStreak**! Detta är ett open-source-initiativ skapat av en innebandytränare för att vända ungdomars skärmtid (TikTok, Snapchat, Instagram) till aktiv rörelse, fysträning och innebandyutveckling på egentid.
 
@@ -63,7 +68,7 @@ Projektet byggs med en modern stack som är optimerad för att utvecklas effekti
 
 > **2026-07-26:** roadmapen nedan är omskriven för att (a) faktiskt matcha
 > vad som är klart — Fas 1-3 var kraftigt eftersläpande här jämfört med
-> [`docs/ACTION_PLAN.md`](ACTION_PLAN.md)s levande checklista — och (b) slå
+> `docs/internal/ACTION_PLAN.md`s levande checklista — och (b) slå
 > ihop `docs/BACKLOG.md`s tidigare oprioriterade idélista med rätt fas,
 > i prioritetsordning inom varje fas. `docs/BACKLOG.md` är kvar som en
 > ren "inkorg" för nya, ännu otriagerade idéer — så fort en idé får en

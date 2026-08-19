@@ -30,29 +30,26 @@ would have passed before the fix):
 9. *(advisory)* A missing expiry read as "never expires" rather than
    "expired". Reversed to match PT.
 
-**Still open, and this does not ship until they are closed** — after the
-2026-08-18 pass, one blocking finding remains:
+**All blocking findings are now closed.** The last one went 2026-08-19:
 
-- **4 (blocking, and the hardest) — partially closed 2026-08-18, still
-  open.** `MailService` now returns a `MailSendResult` rather than void:
-  it surfaces recipients the SMTP server refuses at handoff, and reports
-  an unconfigured mailer as *not sent* instead of silently succeeding.
-  That closes the two failure modes an in-process send can actually
-  observe.
+- ~~**4 (blocking, and the hardest).**~~ **Closed 2026-08-19**, in two
+  stages. The 2026-08-18 pass made `MailService` return a
+  `MailSendResult` rather than void, surfacing recipients the SMTP server
+  refuses at handoff and reporting an unconfigured mailer as *not sent*
+  instead of silently succeeding — the two failure modes an in-process
+  send can observe.
 
-  **It does not close the one Decision 5 was written for.** A relay
-  accepts mail for a dead mailbox on a live domain and bounces it later,
-  out of band — invisible to the sending process. Closing that needs a
-  bounce mailbox parsed for DSNs, or a provider with a delivery webhook.
-  The current provider is Gmail SMTP, recorded in the privacy policy as
-  interim, so the natural moment is the move to a dedicated
-  `skillstreak.xyz` mail account.
+  The remaining one, and the one Decision 5 was actually written for, is
+  the **asynchronous bounce**: a relay accepts mail for a dead mailbox on
+  a live domain and bounces it later, out of band, invisible to the
+  sending process. That is closed by the mechanism in **Decision 12**
+  below — a dedicated bounce mailbox, polled and parsed for DSNs — chosen
+  over a provider delivery webhook by the project owner on 2026-08-19.
 
-  Under the amended Decision 3 the monthly reminder is the design's only
-  recurring control, so this remains the finding that most undermines it,
-  and it must be closed **before the reminder sweep is written** — a
-  sweep built on handoff-only signalling would report healthy while the
-  case it exists to catch went undetected.
+  **The reminder sweep exists as of the same commit, and not before.**
+  This ADR's requirement that finding 4 close first was not ceremony: a
+  sweep built on handoff-only signalling would have reported healthy
+  while the case it exists to catch went undetected.
 - ~~**5 (blocking).**~~ **Closed 2026-08-18.** The migration now exists
   (`1787600000000-AddPublicSharingConsent`) and carries
   `ON DELETE CASCADE` on `player_id`, so account erasure removes the row
@@ -553,14 +550,19 @@ every family" would have been the same switch, and the second is not what
 was asked for.
 
 **Why that mattered enough to change the design rather than accept it.**
-Finding 4 is still open — the monthly reminder cannot detect an
-asynchronous bounce, so a consent behind a dead parent address stays live
-indefinitely. Decision 9 argued the interim single-gate posture is
-defensible *at small scale, among families the coach knows personally*.
-The allow-list is that argument made mechanical: it is not a test harness
-that happens to limit exposure, it is the boundary of the reasoning this
-ADR already committed to. Removing the gate entirely belongs with finding
-4's closure and Decision 9's review, not before.
+When this was written, finding 4 was open — the monthly reminder could
+not detect an asynchronous bounce, so a consent behind a dead parent
+address stayed live indefinitely. Decision 9 argued the interim
+single-gate posture is defensible *at small scale, among families the
+coach knows personally*. The allow-list is that argument made mechanical:
+it is not a test harness that happens to limit exposure, it is the
+boundary of the reasoning this ADR already committed to.
+
+*Updated 2026-08-19: finding 4 is now closed (Decision 12), which removes
+one of the two arguments for keeping the list narrow. **The other one
+stands.** Decision 9's "small scale, among families the coach knows" is
+independent of bounce detection, so removing the gate still belongs with
+that review — due 2026-09-16 — rather than with finding 4's closure.*
 
 **Empty means nobody, deliberately.** A misconfigured or forgotten
 deployment must fail toward no child sharing, never toward all of them.
@@ -570,6 +572,181 @@ pair is a trap this repo has hit before, since `@IsOptional()` only skips
 pod at boot. Here blank is not a misconfiguration; it is the off switch,
 and the expected production value for now. `env.validation.spec.ts` holds
 a regression test for exactly that.
+
+## Decision 12 — bounce detection is a polled mailbox parsed for DSNs
+
+*Added 2026-08-19. Closes finding 4, and is what let Decision 6's
+reminder sweep be written at all.*
+
+The choice was between the two options finding 4 itself named: a bounce
+mailbox parsed for DSNs, or a mail provider with a delivery webhook. The
+project owner chose the mailbox on 2026-08-19.
+
+**Why it is the better fit here regardless.** A webhook is a
+provider-specific integration, and this app's provider is explicitly
+interim — Gmail SMTP, recorded as such in the privacy policy. Building
+against a webhook would have meant either committing to a provider
+before the mail story is settled, or writing an adapter for a provider
+we do not have. A DSN is a standard (RFC 3464) that every MTA emits, so
+the parser survives the provider change that is coming anyway.
+
+### How it works
+
+1. Every monthly reminder carries a random per-send **correlation
+   token**, stamped twice: as an `X-SkillStreak-Consent` header, and as
+   the local part of the `Message-ID` (`<psc.{token}@domain>`). Two
+   places because MTAs differ in which they return with a failed
+   original — several strip `X-` headers, almost all preserve
+   `Message-ID`.
+2. `BounceMailboxService` polls a dedicated IMAP mailbox hourly, behind
+   the same cross-pod Redis run-claim every other scheduled job here
+   uses.
+3. `dsn.parser.ts` parses each message. A **permanent** failure requires
+   `Action: failed` **and** a `5.x.x` status — both, because MTAs exist
+   that send `failed` with a 4.x.x on a final retry, and others that
+   report a 5.x.x on a `delayed` notice. Requiring both is what keeps a
+   temporarily unreachable parent from being counted as a dead address.
+4. The token is recovered from the returned original headers and handed
+   to `recordReminderUndeliverable`, which counts it toward Decision 5.
+
+### The counter had to change shape, and this is the subtle part
+
+Decision 5 disables after **two consecutive undeliverable reminders**.
+The obvious implementation — reset the failure count whenever a reminder
+goes out — is unimplementable against an asynchronous signal, because
+the bounce arrives *days after* the send. The sequence would run:
+
+> send → reset to 0 → bounce → 1 → send → reset to 0 → bounce → 1 → …
+
+forever. The disable could never fire, no matter how permanently dead
+the address was. A job that looked like it was working.
+
+So the counter is settled **one send late, by construction**: a send can
+only judge the reminder *before* it, whose DSN has by now either arrived
+or not. `sendReminder` asks "did the previous reminder bounce?" and
+carries or clears the streak accordingly. Silence is the only positive
+delivery signal SMTP offers, and here it is legitimately treated as one.
+
+**Attribution is by token, not by timestamp.** The first implementation
+compared `last_reminder_bounced_at >= last_reminder_at` to decide whether
+a bounce had already been counted. That is wrong whenever a send and a
+bounce land on the same instant — a duplicate DSN in the same tick, two
+pods with skewed clocks — because the second *genuine* bounce then reads
+as a duplicate of the first and is dropped, leaving live exactly the
+consent that should have been disabled. `last_reminder_bounced_token`
+identifies exactly one send, so the comparison is total. The timestamp
+is kept for audit only.
+
+### Residuals, stated rather than discovered later
+
+- **Attribution is token-only.** A DSN returning neither our header nor
+  the `Message-ID` cannot be attributed and is counted, logged and
+  otherwise ignored. Matching on the recipient address instead was
+  considered and rejected: siblings on the same team share one parent
+  address, so a recipient match cannot say *which* consent, and acting on
+  it would revoke a consent a parent granted on evidence that does not
+  identify the family. The unattributed count is logged every run, so how
+  often this actually happens becomes a measurement — and that number,
+  not speculation, is what should justify building a fallback.
+- **A late DSN for a superseded reminder is ignored.** Once the next
+  month's reminder has gone out, the previous token no longer matches.
+  Pinned by a test so it stays a known behaviour.
+- **The mailbox holds credentials.** A DSN quotes the message that
+  failed, and a reminder contains the parent's revoke link — so this
+  mailbox accumulates live revoke codes. It wants a dedicated account,
+  messages are deleted once read, and nothing from a body is logged or
+  persisted. The exposure is bounded by direction (a revoke code only
+  ever turns sharing *off*, which is the safe way for this particular
+  secret to leak) but bounded is not nil.
+- **A spoofed DSN can disable a consent.** Anyone can send mail to the
+  mailbox. Forging one requires guessing a 24-byte random token, and the
+  parser refuses anything without a well-formed per-recipient status
+  block rather than trusting the `report-type` parameter a forger would
+  set. The failure direction is also the safe one: the worst outcome is
+  that a child's sharing is switched off.
+- **While the mailbox is unconfigured, the gap is loud rather than
+  silent.** The poll skips, and the reminder sweep names how many
+  consents are running unsupervised — an error-log row on every run once
+  any consent exists, and a plain warning while the count is zero, since
+  an error a day saying nothing is wrong is how the one channel that
+  reports this gap gets ignored. Reminders still go out, because the
+  revoke link inside them is a parent's only standing lever and
+  withholding it would remove a control rather than add one.
+
+### Security review, 2026-08-19 — three blocking findings, all fixed
+
+The first implementation of this decision did not survive review. Each
+finding is recorded because each one is a way this control could have
+looked healthy while doing nothing — the same failure shape as finding 4
+itself.
+
+1. **The synchronous evidence path could never reach the threshold.**
+   `sendReminder` settled the streak by asking whether the previous
+   reminder had failed, and that question is answered by a token — but a
+   refusal at SMTP handoff incremented a counter without recording one.
+   The next send therefore saw no failure against the previous reminder
+   and reset the count. Six months against a permanently refused address
+   produced `[1,1,1,1,1,1]` and left the consent ACTIVE — and a 550 at
+   RCPT TO is the *most common* dead-mailbox case on domains that reject
+   synchronously. The bug this Decision exists to fix, surviving on the
+   other evidence path. **Fixed** by recording both kinds of evidence
+   against the reminder's token through one method; the columns are now
+   `last_reminder_failure_*` rather than `..._bounced_*`, because
+   Decision 5 says *undeliverable*, not *bounced*. The tokenless
+   `recordReminderFailure` is deleted rather than deprecated.
+
+2. **The sweep could resurrect a consent a parent had just revoked.**
+   `sendReminder` operated on an entity loaded at the top of the sweep,
+   possibly minutes stale, and wrote it back with `save()`. TypeORM diffs
+   against the current row and writes every differing column, so a revoke
+   landing in that window was overwritten: `status` back to `active`, the
+   old revoke code restored, `revoked_at` nulled — after the parent had
+   been told sharing was off. Confirmed against real Postgres. **Fixed**
+   by replacing the whole-entity save with a conditional
+   `UPDATE … WHERE id = ? AND status = 'active'`, so the write loses that
+   race instead of winning it, and by moving the failure intake into a
+   `pessimistic_write` transaction like the other mutating paths.
+
+3. **One email could pin the API's event loop for hours, and re-pin it
+   every hour.** The multipart splitter ran `/[\r\s]+$/` over every body
+   line; that pattern backtracks quadratically on a whitespace run
+   followed by a non-space (27ms at 10k chars, 1.8s at 80k, minutes at
+   1MB). Anyone who knows the bounce address can send one — every parent
+   does, since it is the envelope sender of their own reminders. It was
+   also self-renewing: imapflow fetches with `BODY.PEEK`, so nothing was
+   ever flagged `\Seen`, and deletion happened only after the whole loop
+   completed, so a message that hung or threw was re-read forever with
+   every real bounce queued behind it. **Fixed** with `trimEnd()` (native,
+   linear), a 256 KiB bounded fetch, a per-run message ceiling,
+   per-message deletion immediately after success, and an explicit
+   `\Seen` flag on the failure path so a poisonous message is skipped
+   next run rather than retried forever.
+
+Three advisory findings were also fixed: a correlation token surviving a
+revoke → re-request → approve cycle, so a straggling DSN about the old
+grant was charged against the new one; `BOUNCE_IMAP_PASSWORD` missing
+from `k8s/api-deployment.yaml`, which wires Secret keys individually — so
+the mailbox could never have been switched on as documented; and the
+"running unsupervised" alarm sitting *after* the sweep's early return, so
+it only fired on days a reminder happened to fall due. The recipient
+address is also no longer logged when SMTP is unconfigured.
+
+**One residual the review raised and this ADR does not close:**
+`messageDelete` issues `\Deleted` + `UID EXPUNGE`, which on Gmail /
+Workspace removes the INBOX label but leaves the message in All Mail
+unless the account is configured to delete forever. Since deletion is the
+whole mitigation for "this mailbox holds live revoke codes", **the
+account's IMAP deletion behaviour must be verified when it is
+provisioned** — a configuration step, not a code change, and it is listed
+with the provisioning task.
+
+### What this does NOT change
+
+Decision 9's `PUBLIC_SHARING_ENABLED_TEAM_IDS` allow-list stays as it is.
+Finding 4's closure removes one of the arguments for keeping the rollout
+narrow, but not the other: Decision 9 also rests on "small scale, among
+families the coach knows personally". Widening belongs with that review,
+due 2026-09-16, not with this commit.
 
 ## Consequences
 

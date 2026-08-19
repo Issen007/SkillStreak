@@ -115,7 +115,22 @@ jobs:
       # work until the daily release window has passed.
       - name: Install ffmpeg
         working-directory: .
-        timeout-minutes: 8
+        # 18, not 8. The two attempts below can legitimately take a while
+        # against a slow mirror, and killing them early turns a survivable
+        # hiccup into a failed release.
+        #
+        # The real worst case is 16.2 min, not the ~14 an earlier version
+        # of this comment claimed — that arithmetic forgot the lock-wait
+        # loop above: 24x5s = 2 min, then 2 x (120s update + 300s install)
+        # + 10s sleep = 14.2 min. At a 15-minute ceiling the runner would
+        # kill the step ~70s BEFORE the loop could emit its own
+        # `::error::ffmpeg install failed` line, so the legible failure
+        # the 2026-08-18 hardening exists to produce would be replaced by
+        # a generic step-timeout. 18 keeps the margin.
+        #
+        # This is still nowhere near the six-hour default that made a hung
+        # apt eat two releases, which is what the ceiling is for.
+        timeout-minutes: 18
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -140,13 +155,32 @@ jobs:
             fi
           done
 
-          for attempt in 1 2 3; do
-            if timeout 120 sudo -E apt-get update -y \
-               && timeout 180 sudo -E apt-get install -y --no-install-recommends ffmpeg; then
+          # Retuned 2026-08-19 after this step failed three times in one
+          # day (and passed once) on PRs #91's commits. The 2026-08-18
+          # hardening did its job — a legible failure in minutes instead
+          # of a six-hour hang — but the budgets were too tight for a
+          # genuinely slow Azure mirror: `apt-get install` was being
+          # killed at 180s mid-download, not hanging.
+          #
+          # `Acquire::Retries` and `Acquire::http::Timeout` are the real
+          # improvement. They let apt give up on ONE slow connection and
+          # retry it, which is far cheaper than burning a whole outer
+          # attempt, and they mean a stalled download errors with a
+          # message instead of sitting mute until `timeout` kills it.
+          # With those in place two outer attempts are worth more than
+          # three tight ones.
+          #
+          # Worst case including the lock wait above is ~16.2 min against
+          # the step's 18-minute ceiling, so the loop always gets to
+          # report its own error rather than being cut off by the runner.
+          APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
+          for attempt in 1 2; do
+            if timeout 120 sudo -E apt-get $APT_OPTS update -y \
+               && timeout 300 sudo -E apt-get $APT_OPTS install -y --no-install-recommends ffmpeg; then
               break
             fi
             echo "apt-get attempt ${attempt} failed or timed out; retrying…"
-            [ "$attempt" = 3 ] && { echo "::error::ffmpeg install failed after 3 attempts"; exit 1; }
+            [ "$attempt" = 2 ] && { echo "::error::ffmpeg install failed after 2 attempts"; exit 1; }
             sleep 10
           done
 

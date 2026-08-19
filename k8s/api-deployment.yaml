@@ -124,6 +124,31 @@ spec:
                 secretKeyRef:
                   name: skillstreak-secret
                   key: SMTP_PASSWORD
+            # ADR-0030 finding 4 — the bounce mailbox's IMAP password.
+            # The HOST/USER/PORT/SECURE/MAILBOX halves come from the
+            # ConfigMap via envFrom above; only the password is a Secret,
+            # because that mailbox accumulates live parental revoke codes.
+            #
+            # **This entry is load-bearing and was missed on the first
+            # pass** (security review 2026-08-19, finding 5). This
+            # Deployment wires every Secret key individually rather than
+            # with envFrom, so adding a key to secret.yaml.example alone
+            # does nothing: the variable never reaches the pod,
+            # `isConfigured()` returns false, and the poll silently skips
+            # while looking correctly configured from the outside. That is
+            # the same "missing live Secret key" shape this project has
+            # hit before.
+            #
+            # `optional: true` so the api still boots before the mailbox
+            # is provisioned — blank is a supported state, and the
+            # reminder sweep reports the gap loudly rather than the pod
+            # crash-looping.
+            - name: BOUNCE_IMAP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: skillstreak-secret
+                  key: BOUNCE_IMAP_PASSWORD
+                  optional: true
             # Fas 3 (docs/adr/0010-video-storage-and-serving.md) — MinIO
             # credentials. MINIO_ENDPOINT/BUCKET/CLIP_* come from the
             # ConfigMap via envFrom above.

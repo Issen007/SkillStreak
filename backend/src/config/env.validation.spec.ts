@@ -100,4 +100,33 @@ describe('validateEnv', () => {
       }),
     ).not.toThrow();
   });
+
+  // ADR-0030 finding 4's bounce mailbox. Same trap, six more keys — and
+  // blank is the value every environment starts with, since the mailbox
+  // has to be provisioned before it can be pointed at. A ConfigMap
+  // shipping these as empty strings must boot the pod, not crash it.
+  it('boots with the bounce-mailbox settings absent or blank', () => {
+    const blank = {
+      BOUNCE_IMAP_HOST: '',
+      BOUNCE_IMAP_PORT: '',
+      BOUNCE_IMAP_USER: '',
+      BOUNCE_IMAP_PASSWORD: '',
+      BOUNCE_IMAP_SECURE: '',
+      BOUNCE_IMAP_MAILBOX: '',
+    };
+
+    expect(() => validateEnv(baseRequiredEnv())).not.toThrow();
+    expect(() => validateEnv({ ...baseRequiredEnv(), ...blank })).not.toThrow();
+    expect(() =>
+      validateEnv({
+        ...baseRequiredEnv(),
+        BOUNCE_IMAP_HOST: 'imap.example.net',
+        BOUNCE_IMAP_PORT: '993',
+        BOUNCE_IMAP_USER: 'bounces@skillstreak.xyz',
+        BOUNCE_IMAP_PASSWORD: 'secret',
+        BOUNCE_IMAP_SECURE: 'true',
+        BOUNCE_IMAP_MAILBOX: 'INBOX',
+      }),
+    ).not.toThrow();
+  });
 });
