@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
+import { ErrorLogModule } from '../error-log/error-log.module';
 import { MailModule } from '../mail/mail.module';
 import { PlayerPrivateInfoModule } from '../player-private-info/player-private-info.module';
 import { Player } from '../players/entities/player.entity';
@@ -8,10 +9,12 @@ import { RedisModule } from '../redis/redis.module';
 import { VideoClip } from '../video-clips/entities/video-clip.entity';
 import { PublicFeedService } from '../video-clips/public-feed.service';
 import { PublicSharingConsent } from './entities/public-sharing-consent.entity';
+import { BounceMailboxService } from './bounce-mailbox.service';
 import { PublicSharingAccessService } from './public-sharing-access.service';
 import { PublicSharingConsentService } from './public-sharing-consent.service';
 import { PublicSharingController } from './public-sharing.controller';
 import { PublicSharingPublicController } from './public-sharing-public.controller';
+import { PublicSharingReminderService } from './public-sharing-reminder.service';
 
 /**
  * docs/adr/0030-revocable-public-sharing-consent.md.
@@ -36,16 +39,25 @@ import { PublicSharingPublicController } from './public-sharing-public.controlle
     PlayerPrivateInfoModule,
     MailModule,
     RedisModule,
+    // For the two scheduled jobs below: a failed run gets a row rather
+    // than disappearing into an unobserved rejected promise, the same
+    // way every other @Cron-owning module here records one.
+    ErrorLogModule,
   ],
   controllers: [PublicSharingController, PublicSharingPublicController],
   providers: [
     PublicSharingConsentService,
     PublicSharingAccessService,
     PublicFeedService,
+    // ADR-0030 finding 4, closed 2026-08-19. The order matters for
+    // reading, not for DI: the bounce mailbox is what supplies the
+    // delivery signal, and the reminder sweep is what was waiting on it.
+    BounceMailboxService,
+    PublicSharingReminderService,
   ],
-  // Exported for the reminder sweep (ADR-0030 Decision 9) once finding 4
-  // — the bounce detection the monthly reminder still cannot do — is
-  // closed and the scheduled job can honestly be turned on.
+  // The reminder sweep and the bounce intake both live in this module
+  // now (finding 4 closed 2026-08-19), so nothing outside needs them.
+  // The two services below stay exported for ADR-0019's feed.
   exports: [PublicSharingConsentService, PublicSharingAccessService],
 })
 export class PublicSharingModule {}

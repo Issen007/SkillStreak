@@ -51,16 +51,14 @@ export enum PublicSharingRevokedReason {
    * Present for symmetry with PtPlayerConsent, and not currently set by
    * any code path.
    *
-   * It is *intended* that erasure hard-deletes this row via an
-   * ON DELETE CASCADE on `player_id`, the way pt_player_consent does.
-   * **That constraint does not exist yet** — there is no migration for
-   * this table, and the security review (finding 5) caught this comment
-   * asserting it as though it did. Until the migration creates the FK,
-   * an erased player would leave an orphan row here holding their id, an
-   * ACTIVE status and a live revoke code: an incomplete Article 17
-   * erasure on the one table recording consent about child media.
+   * Erasure hard-deletes this row via the ON DELETE CASCADE on
+   * `player_id`, the way pt_player_consent does — so no code path needs
+   * to set this reason, and the row is gone rather than revoked.
    *
-   * The migration that creates `public_sharing_consent` MUST carry:
+   * **The constraint exists as of `1787600000000-AddPublicSharingConsent`
+   * (2026-08-18).** This comment previously said it did not, which was
+   * true when the security review's finding 5 caught the entity asserting
+   * it — that finding is now closed, and the migration carries:
    *   CONSTRAINT "FK_public_sharing_consent_player"
    *     FOREIGN KEY ("player_id") REFERENCES "player"("id")
    *     ON DELETE CASCADE
@@ -174,7 +172,84 @@ export class PublicSharingConsent {
    * disables at 2. Counting consecutively rather than cumulatively
    * matters: a parent whose mail server had one bad afternoon two years
    * ago should not be one bad afternoon away from losing the consent.
+   *
+   * **"Success" here means "no bounce came back for the previous
+   * reminder", not "the send returned without throwing"** — see
+   * `lastReminderBouncedAt`. That distinction is the whole of finding 4.
    */
   @Column({ name: 'reminder_failure_count', type: 'int', default: 0 })
   reminderFailureCount!: number;
+
+  /**
+   * The correlation token stamped on the most recent reminder, so a
+   * bounce arriving days later can be attributed back to this row
+   * (ADR-0030 finding 4).
+   *
+   * It rides out on the message twice — as an `X-SkillStreak-Consent`
+   * header and inside the `Message-ID` — because MTAs differ in which
+   * they return with the failed original. See `dsn.parser.ts`.
+   *
+   * **Random and per-send, never derived from the player or the
+   * address.** A token that encoded either would leak which child a
+   * bounce concerned to anyone who saw one, and the bounce mailbox is
+   * the least protected place any of this appears.
+   *
+   * Unique so that one token can never point at two consents: a
+   * mis-attributed bounce would revoke the wrong family's consent.
+   */
+  @Column({
+    name: 'last_reminder_token',
+    type: 'varchar',
+    length: 128,
+    nullable: true,
+    unique: true,
+  })
+  lastReminderToken!: string | null;
+
+  /**
+   * When a permanent bounce for the most recent reminder came back.
+   *
+   * **This is what makes the failure counter able to reach 2 at all.**
+   * A bounce is asynchronous: it arrives days after the send, long after
+   * `lastReminderAt` was stamped. If each send simply reset the counter,
+   * the sequence would be send → reset to 0 → bounce → 1 → send → reset
+   * to 0 → bounce → 1, forever, and Decision 5's disable could never
+   * fire no matter how permanently dead the address was.
+   *
+   * So the counter is evaluated against the PREVIOUS reminder's outcome
+   * at the moment the next one goes out: this timestamp being at or
+   * after `lastReminderAt` means the last reminder bounced and the streak
+   * continues; otherwise the streak is broken and the count resets.
+   */
+  @Column({
+    name: 'last_reminder_bounced_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  lastReminderBouncedAt!: Date | null;
+
+  /**
+   * WHICH reminder the bounce above was for.
+   *
+   * **This, not the timestamp, is what the logic compares.** The
+   * timestamp answers "when did mail to this parent last fail", which is
+   * worth having for an audit; it cannot reliably answer "has this
+   * particular reminder already been counted", because a send and a
+   * bounce can carry the same instant — a duplicate DSN arriving in the
+   * same tick as the next send, or two pods with skewed clocks. Comparing
+   * it against `last_reminder_at` made a second real bounce look like a
+   * duplicate of the first and silently dropped it, which would have left
+   * Decision 5's disable unreachable for exactly the addresses it exists
+   * to catch.
+   *
+   * Equal to `last_reminder_token` means the current reminder has already
+   * bounced; different (or null) means it has not.
+   */
+  @Column({
+    name: 'last_reminder_bounced_token',
+    type: 'varchar',
+    length: 128,
+    nullable: true,
+  })
+  lastReminderBouncedToken!: string | null;
 }

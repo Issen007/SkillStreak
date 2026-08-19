@@ -61,4 +61,18 @@ export const ERROR_LOG_JOB_NAMES = {
   /** ADR-0028 Decision 7's 365-day sweep for generated training plans. */
   trainingPlanRetention: 'training-plan:retention',
   eventRegistrationRetention: 'event-registration:retention',
+  /**
+   * ADR-0030 Decision 6's monthly reminder — the design's only recurring
+   * control over a live public-sharing consent. A failure here is not
+   * ordinary job noise: while it is not running, Decision 5's
+   * fail-closed disable is not running either, and consents that should
+   * have lapsed stay live.
+   */
+  publicSharingReminder: 'public-sharing:reminder',
+  /**
+   * ADR-0030 finding 4's bounce-mailbox poll. Same standing: this is the
+   * only thing that can observe an asynchronous bounce, so while it is
+   * down the reminder sweep is sending into the dark.
+   */
+  publicSharingBounceIntake: 'public-sharing:bounce-intake',
 } as const;

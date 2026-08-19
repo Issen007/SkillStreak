@@ -116,14 +116,54 @@ data:
   # a plain on/off switch could not have told a tester from a real family,
   # so "on for testing" would have meant on for the whole beta.
   #
-  # That distinction matters while ADR-0030 finding 4 is open: the monthly
-  # reminder is the design's only recurring control and it still cannot
-  # detect an asynchronous bounce, so a consent behind a dead parent
-  # address would stay live indefinitely. A handful of known families is
-  # the scale at which the ADR argued that trade is defensible.
+  # ADR-0030 finding 4 is CLOSED as of 2026-08-19 — the bounce mailbox
+  # below gives the monthly reminder a real delivery signal, so Decision
+  # 5's fail-closed disable can now actually fire on a dead parent
+  # address. **That does not by itself mean this list should be widened.**
+  # The allow-list also carries Decision 9's "small scale, among families
+  # the coach knows" argument, and widening belongs with that review (due
+  # 2026-09-16), not with finding 4's closure alone. Note also that the
+  # disable only works while BOUNCE_IMAP_* below is actually configured.
   #
   # To enable a team: `kubectl -n skillstreak get pods` won't tell you the
   # id — query it (`SELECT id, name FROM team WHERE name = '...'`) and put
   # it here, then restart the api Deployment. Widening to everyone should
   # wait for finding 4 and Decision 9's review (due 2026-09-16).
   PUBLIC_SHARING_ENABLED_TEAM_IDS: ""
+
+  # --- Bounce mailbox (ADR-0030 finding 4) ---------------------------------
+  #
+  # The IMAP mailbox that receives delivery-status notifications for mail
+  # this app sends. `BounceMailboxService` polls it hourly, parses the
+  # DSNs, and counts a permanent (5.x.x) failure for a monthly
+  # public-sharing reminder toward Decision 5's disable.
+  #
+  # **Why this exists at all:** an asynchronous bounce is invisible to the
+  # sending process. A relay accepts mail for a dead mailbox on a live
+  # domain and bounces it later, out of band. Without this mailbox the
+  # reminder sweep cannot tell a delivered reminder from one that vanished,
+  # and a consent behind a dead parent address stays live forever.
+  #
+  # **Blank is a supported state, and a loud one.** The poll skips, and the
+  # reminder sweep records a job failure on EVERY run naming how many
+  # consents are running unsupervised — visible in the admin console. That
+  # is deliberate: the ADR's objection to writing the sweep early was that
+  # it "would report healthy while the case it exists to catch went
+  # undetected", so the degraded state must never be quiet.
+  #
+  # BOUNCE_IMAP_PASSWORD is in the Secret, never here — this mailbox
+  # accumulates live parental revoke codes, because a DSN quotes the
+  # reminder that failed and that reminder carries the disable link. Give
+  # it a dedicated account rather than pointing it at a shared inbox;
+  # messages are deleted once read.
+  #
+  # Environment parity: this is a per-cluster value like every other
+  # address in this file. The internal test cluster should use its own
+  # mailbox, not production's — a shared one would let a test bounce
+  # disable a real family's consent.
+  BOUNCE_IMAP_HOST: ""
+  BOUNCE_IMAP_PORT: "993"
+  BOUNCE_IMAP_USER: ""
+  # Implicit TLS on 993. Only the literal `false` turns it off.
+  BOUNCE_IMAP_SECURE: "true"
+  BOUNCE_IMAP_MAILBOX: "INBOX"

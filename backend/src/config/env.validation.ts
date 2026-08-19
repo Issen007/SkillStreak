@@ -318,6 +318,46 @@ class EnvironmentVariables {
    */
   @IsOptional()
   PUBLIC_SHARING_ENABLED_TEAM_IDS?: string;
+
+  /**
+   * ADR-0030 finding 4 — the bounce mailbox that makes Decision 5's
+   * fail-closed disable able to fire at all.
+   *
+   * All five are `@IsOptional()` alone, for the same reason
+   * PUBLIC_SHARING_ENABLED_TEAM_IDS is: a present-but-blank ConfigMap key
+   * must not crash the pod at boot, and blank is a legitimate value here
+   * — it means "no bounce mailbox yet", which is the state every
+   * environment starts in.
+   *
+   * **Unset is not silently tolerated, though.** `BounceMailboxService`
+   * skips its poll, and the reminder sweep records a job failure on every
+   * run naming how many consents are running unsupervised. That is the
+   * deliberate opposite of the "reports healthy while undetected" failure
+   * the ADR warned about — the gap is loud, and visible in the admin
+   * console, rather than assumed away.
+   *
+   * BOUNCE_IMAP_PASSWORD belongs in the Secret, never the ConfigMap: it
+   * opens a mailbox that accumulates live revoke codes.
+   */
+  @IsOptional()
+  BOUNCE_IMAP_HOST?: string;
+
+  @IsOptional()
+  BOUNCE_IMAP_PORT?: string;
+
+  @IsOptional()
+  BOUNCE_IMAP_USER?: string;
+
+  @IsOptional()
+  BOUNCE_IMAP_PASSWORD?: string;
+
+  /** Anything other than the literal `false` keeps implicit TLS on. */
+  @IsOptional()
+  BOUNCE_IMAP_SECURE?: string;
+
+  /** Defaults to INBOX. */
+  @IsOptional()
+  BOUNCE_IMAP_MAILBOX?: string;
 }
 
 // Fails fast on boot rather than surfacing a confusing runtime error the

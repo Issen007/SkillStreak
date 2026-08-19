@@ -11,20 +11,26 @@ import { ConfigService } from '@nestjs/config';
  * testing" and "on for everyone" would have been the same switch.
  *
  * That matters more than usual here. ADR-0030's interim posture makes the
- * monthly reminder the design's only recurring control, and finding 4 is
- * still open: the reminder cannot detect an asynchronous bounce, so a
- * consent behind a dead parent address would stay live indefinitely. A
- * handful of known families is exactly the scale at which the interim
- * trade was argued to be defensible — Decision 9 says so in as many
- * words — so the allow-list is not merely a test harness, it is the
- * honest boundary of that argument.
+ * monthly reminder the design's only recurring control. A handful of
+ * known families is exactly the scale at which that trade was argued to
+ * be defensible — Decision 9 says so in as many words — so the
+ * allow-list is not merely a test harness, it is the honest boundary of
+ * that argument.
+ *
+ * **Finding 4 closed 2026-08-19** (Decision 12: a bounce mailbox parsed
+ * for DSNs), so the reminder can now actually detect an undeliverable
+ * address and Decision 5's disable can fire. That removes one of the two
+ * reasons this list is narrow; Decision 9's own "small scale" argument
+ * is the other, and it is untouched.
  *
  * Empty or unset means **nobody**, deliberately. A misconfigured
  * deployment must not silently open child media to everyone; the failure
  * direction is the whole point of the setting existing.
  *
  * Widening later is one env var in the production ConfigMap. Removing the
- * gate entirely should wait for finding 4 and for Decision 9's review.
+ * gate entirely should wait for Decision 9's review (due 2026-09-16) —
+ * and note that the disable it relies on only works while the bounce
+ * mailbox is actually configured.
  */
 @Injectable()
 export class PublicSharingAccessService {

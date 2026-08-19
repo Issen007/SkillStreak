@@ -33,9 +33,12 @@ const MAX_PAGE_SIZE = 50;
  * ADR-0019's public clip feed, as amended by ADR-0030.
  *
  * **Nothing calls this yet.** There is no controller and no screen; this
- * is the query shape, built ahead of the feature so the remaining
- * blocker — ADR-0030 finding 4, the reminder that cannot detect a bounce
- * — is the only thing left when the mail provider question resolves.
+ * is the query shape, built ahead of the feature.
+ *
+ * The blocker it was waiting on — ADR-0030 finding 4, the reminder that
+ * could not detect a bounce — closed 2026-08-19 (ADR-0030 Decision 12).
+ * What still gates the feature is the `PUBLIC_SHARING_ENABLED_TEAM_IDS`
+ * allow-list and Decision 9's review, due 2026-09-16.
  *
  * Four gates, all in one statement, and the ordering of the reasoning
  * matters more than the SQL:

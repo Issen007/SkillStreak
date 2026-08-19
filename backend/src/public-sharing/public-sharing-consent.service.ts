@@ -1,9 +1,11 @@
+import { randomBytes } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, LessThanOrEqual, Repository } from 'typeorm';
 import { generateHumanCode } from '../common/crypto/human-code.util';
 import { decryptPii, encryptPii } from '../common/crypto/pii-encryption.util';
+import { buildConsentMessageId, CORRELATION_HEADER } from '../mail/dsn.parser';
 import { MailService } from '../mail/mail.service';
 import { RedisService } from '../redis/redis.service';
 import { Player } from '../players/entities/player.entity';
@@ -66,17 +68,21 @@ export interface ConsentPreview {
  * - An active consent cannot be silently replaced by a new request
  *   (finding 7).
  *
- * Partially closed since: MailService now reports its SMTP handoff
- * instead of returning void, so `sendBestEffort` can tell a refused
- * address — or an unconfigured mailer — from a sent one. **That is not
- * bounce detection.** An asynchronous bounce stays invisible, and that is
- * precisely the case Decision 5's fail-closed disable was written for, so
- * finding 4 remains open.
+ * **Finding 4 is closed as of 2026-08-19**, and closing it is what let
+ * the reminder sweep be written at all. Two evidence paths now feed the
+ * same failure counter: the SMTP handoff result (a refused recipient, or
+ * an unconfigured mailer), and — the one Decision 5 was actually written
+ * for — an asynchronous bounce, recovered by `BounceMailboxService`
+ * polling a dedicated mailbox and parsing the returned DSNs.
  *
- * Still open and tracked in the ADR: asynchronous bounce detection
- * (finding 4), row locking (6), rate limiting (8), and the migration that
- * must carry the ON DELETE CASCADE this table's erasure behaviour depends
- * on (5).
+ * The consequence for this file is `sendReminder`: the failure streak is
+ * settled by asking whether the PREVIOUS reminder bounced, because a
+ * bounce for the current one cannot have arrived yet. Read its docstring
+ * before changing anything about the counter — the obvious shape (reset
+ * on send) makes Decision 5's disable unreachable.
+ *
+ * Findings 5, 6 and 8 closed 2026-08-18 (migration with ON DELETE
+ * CASCADE, row locking, rate limiting).
  */
 @Injectable()
 export class PublicSharingConsentService {
@@ -437,12 +443,198 @@ export class PublicSharingConsentService {
     });
   }
 
-  /** A reminder went out. Clears the failure streak. */
-  async recordReminderSent(id: string, now: Date = new Date()): Promise<void> {
-    await this.consents.update(id, {
-      lastReminderAt: now,
-      reminderFailureCount: 0,
+  /**
+   * Sends one monthly reminder, and settles the PREVIOUS one's outcome
+   * on the way.
+   *
+   * **The ordering here is the whole of finding 4.** A bounce is
+   * asynchronous — it arrives days after the send that caused it — so
+   * "did this send succeed?" is unanswerable at send time and always
+   * was. What IS answerable is "did the previous reminder bounce?",
+   * because by now its DSN has either come back or it hasn't. That is
+   * the question this asks, and it is why the failure counter is
+   * evaluated here rather than reset here.
+   *
+   * The old `recordReminderSent` reset the counter to 0 on every send.
+   * Combined with an asynchronous bounce that arrives afterwards, the
+   * sequence would have run send → 0 → bounce → 1 → send → 0 → bounce →
+   * 1 forever: Decision 5's disable could never fire, no matter how
+   * permanently dead the address was. The method is gone rather than
+   * kept, so nothing can call it by habit.
+   */
+  async sendReminder(
+    row: PublicSharingConsent,
+    now: Date = new Date(),
+  ): Promise<{ sent: boolean; disabled: boolean }> {
+    if (row.status !== PublicSharingConsentStatus.ACTIVE) {
+      return { sent: false, disabled: false };
+    }
+
+    // Did the previous reminder bounce? A bounce timestamped at or after
+    // the last send is a bounce for that send.
+    if (!this.previousReminderBounced(row)) {
+      // The streak is broken. Note this resets on "no bounce came back",
+      // which is genuinely the only positive delivery signal SMTP offers
+      // — there is no delivery receipt to wait for. Silence is evidence
+      // here in a way it is not for the handoff result.
+      row.reminderFailureCount = 0;
+    }
+
+    // Backstop only: the bounce intake already disables at the threshold
+    // the moment the second bounce lands, so reaching this means a bounce
+    // was recorded while that path could not complete. Checked anyway,
+    // because the cost of being wrong is a child's clips staying
+    // publishable behind an address nobody reads.
+    if (row.reminderFailureCount >= MAX_REMINDER_FAILURES) {
+      await this.deactivate(
+        row,
+        PublicSharingRevokedReason.REMINDER_UNDELIVERABLE,
+      );
+      this.logger.warn(
+        `Public-sharing consent ${row.id} disabled at reminder time: ` +
+          `${row.reminderFailureCount} consecutive undeliverable reminders.`,
+      );
+      return { sent: false, disabled: true };
+    }
+
+    // Minted per send, from a CSPRNG, and carrying nothing derived from
+    // the player or the address — a bounce mailbox is the least protected
+    // place any of this appears, and a token that encoded who it was
+    // about would leak that to anyone who saw one.
+    const token = randomBytes(24).toString('base64url');
+
+    // Persisted BEFORE the send. A bounce can arrive while the SMTP call
+    // is still returning; if the token were saved afterwards the DSN
+    // would find no row to attribute itself to and the failure would go
+    // uncounted — the same silent gap, one race narrower.
+    row.lastReminderToken = token;
+    row.lastReminderAt = now;
+    await this.consents.save(row);
+
+    const sent = await this.sendBestEffort(
+      this.recipientOf(row),
+      'SkillStreak: delning utanför laget är fortfarande påslagen',
+      `Delning utanför laget är fortfarande påslagen för ` +
+        `${await this.screenNameOf(row.playerId)}.\n\n` +
+        `Du kan stänga av den när som helst: ` +
+        `${this.revokeUrl(row.revokeCode ?? '')}\n\n` +
+        `Du får det här mejlet en gång i månaden så länge delningen är ` +
+        `påslagen.`,
+      {
+        messageId: buildConsentMessageId(token, this.mailDomain()),
+        headers: { [CORRELATION_HEADER]: token },
+      },
+    );
+
+    // A refused-at-handoff address is a real failure signal too, and the
+    // one the 2026-08-18 pass already closed. Recorded through the same
+    // counter so the two evidence paths accumulate together rather than
+    // each needing its own threshold.
+    if (!sent) {
+      await this.recordReminderFailure(row.id, now);
+    }
+
+    return { sent, disabled: false };
+  }
+
+  /**
+   * A DSN came back saying this reminder permanently failed.
+   *
+   * Called by `BounceMailboxService` with the correlation token it
+   * recovered from the returned original headers — never with an address
+   * alone. See that service for why attribution is token-only.
+   */
+  async recordReminderBounce(
+    token: string,
+    now: Date = new Date(),
+  ): Promise<
+    { matched: false } | { matched: true; counted: boolean; disabled: boolean }
+  > {
+    if (!token) return { matched: false };
+    const row = await this.consents.findOne({
+      where: { lastReminderToken: token },
     });
+    if (!row) return { matched: false };
+
+    // A consent that is no longer active has nothing left to disable —
+    // the parent may have revoked it in the days the bounce spent in
+    // transit.
+    if (row.status !== PublicSharingConsentStatus.ACTIVE) {
+      return { matched: true, counted: false, disabled: false };
+    }
+    if (row.lastReminderAt === null) {
+      return { matched: true, counted: false, disabled: false };
+    }
+
+    // Idempotent per reminder. A duplicate DSN, or one MTA reporting the
+    // same failure twice, must not advance the streak — two bounces for
+    // ONE reminder is one missed month, not two. Without this, Decision
+    // 5's "two consecutive undeliverable reminders" would quietly become
+    // "two delivery reports", and a single dead address could disable a
+    // consent within minutes of the first send.
+    if (this.previousReminderBounced(row)) {
+      return { matched: true, counted: false, disabled: false };
+    }
+
+    row.lastReminderBouncedAt = now;
+    row.lastReminderBouncedToken = row.lastReminderToken;
+    row.reminderFailureCount += 1;
+
+    if (row.reminderFailureCount >= MAX_REMINDER_FAILURES) {
+      await this.deactivate(
+        row,
+        PublicSharingRevokedReason.REMINDER_UNDELIVERABLE,
+      );
+      this.logger.warn(
+        `Public-sharing consent ${row.id} disabled: ` +
+          `${row.reminderFailureCount} consecutive reminders bounced.`,
+      );
+      return { matched: true, counted: true, disabled: true };
+    }
+
+    await this.consents.save(row);
+    return { matched: true, counted: true, disabled: false };
+  }
+
+  /**
+   * Whether a bounce has already been recorded for the most recent
+   * reminder — the single comparison both the sweep and the bounce
+   * intake turn on, so they cannot drift apart.
+   *
+   * **Compares tokens, not timestamps, and that is load-bearing.** The
+   * first version of this asked whether `lastReminderBouncedAt >=
+   * lastReminderAt`. That is wrong whenever a send and a bounce land on
+   * the same instant — a duplicate DSN arriving in the same tick, two
+   * pods with skewed clocks — because the second genuine bounce then
+   * looks like a duplicate of the first and is dropped. The consent it
+   * should have disabled stays live, which is precisely the failure this
+   * whole mechanism exists to prevent. A token identifies exactly one
+   * send, so the comparison is total.
+   *
+   * Truthiness rather than `!== null` because a hand-built row (a
+   * fixture, a partial from a migration window) can carry `undefined`
+   * where the database holds `null`.
+   */
+  private previousReminderBounced(row: PublicSharingConsent): boolean {
+    return Boolean(
+      row.lastReminderBouncedToken &&
+      row.lastReminderToken &&
+      row.lastReminderBouncedToken === row.lastReminderToken,
+    );
+  }
+
+  /**
+   * The domain the correlation Message-ID is minted under.
+   *
+   * Derived from SMTP_FROM rather than hardcoded, so the internal test
+   * cluster and production each stamp their own — per CLAUDE.md's
+   * environment-parity rule, a value like this must never be one
+   * environment's baked into both.
+   */
+  private mailDomain(): string {
+    const from = this.configService.get<string>('SMTP_FROM') ?? '';
+    const match = /@([A-Za-z0-9.-]+)/.exec(from);
+    return match ? match[1] : 'skillstreak.xyz';
   }
 
   /**
@@ -550,14 +742,18 @@ export class PublicSharingConsentService {
 
   /**
    * Mail failures must not roll back a consent decision that has already
-   * been persisted — the same best-effort posture as PT's. Note this is
-   * NOT the delivery signal Decision 5 needs: see finding 4, which lives
-   * in MailService and is still open.
+   * been persisted — the same best-effort posture as PT's.
+   *
+   * The boolean it returns is still only an SMTP *handoff* result, not
+   * delivery. For a reminder it is one of two evidence paths; the other,
+   * and the one Decision 5 was written for, arrives asynchronously via
+   * `BounceMailboxService`.
    */
   private async sendBestEffort(
     to: string | null,
     subject: string,
     text: string,
+    correlation?: { messageId: string; headers: Record<string, string> },
   ): Promise<boolean> {
     if (!to) return false;
     try {
@@ -569,6 +765,7 @@ export class PublicSharingConsentService {
         subject,
         text,
         html: text,
+        ...(correlation ?? {}),
       });
       if (!result.handedOff) {
         this.logger.warn(
