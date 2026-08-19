@@ -776,6 +776,61 @@ describe('PublicSharingConsentService: security review 2026-08-19', () => {
     expect(repo.rows[0].revokeCode).toBeNull();
   });
 
+  // --- Third pass, A2: the backstop path ------------------------------
+  it('the threshold backstop revokes a stale row that is already at the limit', async () => {
+    // Unreachable through the normal flow — the failure intake disables
+    // the moment the second report lands — so nothing exercised it. Two
+    // consecutive fix rounds each shipped a defect in exactly the half
+    // nobody ran, which is reason enough to run this one.
+    const { service, repo, mailService } = await activated();
+    const row = repo.rows[0];
+    // The count only survives into the backstop if the PREVIOUS reminder
+    // is recorded as failed — a bare count with no failure token means
+    // the streak was broken and is correctly reset. Setting it that way
+    // was the first version of this test, and it silently exercised the
+    // reset instead.
+    row.lastReminderToken = 'carried-token';
+    row.lastReminderFailureToken = 'carried-token';
+    row.lastReminderFailureAt = new Date();
+    row.reminderFailureCount = MAX_REMINDER_FAILURES;
+    mailService.sendMail.mockClear();
+
+    const result = await service.sendReminder(row);
+
+    expect(result).toEqual({ sent: false, disabled: true });
+    expect(mailService.sendMail).not.toHaveBeenCalled();
+    expect(repo.rows[0].status).toBe(PublicSharingConsentStatus.REVOKED);
+    expect(repo.rows[0].revokedReason).toBe(
+      PublicSharingRevokedReason.REMINDER_UNDELIVERABLE,
+    );
+    expect(repo.rows[0].revokeCode).toBeNull();
+  });
+
+  it('the backstop does not overwrite a revoke the parent already made', async () => {
+    // The reason this path is a conditional UPDATE rather than a
+    // whole-entity save: against a concurrent parent revoke it would
+    // otherwise rewrite revoked_at/revoked_reason as
+    // `reminder_undeliverable`, destroying the record that a parent used
+    // their disable link — the record Article 7(1) demonstrability rests
+    // on and Decision 9's monthly review reads.
+    const { service, repo, revokeCodeOf, mailService } = await activated();
+    const staleRow = { ...repo.rows[0] };
+    staleRow.lastReminderToken = 'carried-token';
+    staleRow.lastReminderFailureToken = 'carried-token';
+    staleRow.lastReminderFailureAt = new Date();
+    staleRow.reminderFailureCount = MAX_REMINDER_FAILURES;
+
+    await service.revokeByRevokeCode(revokeCodeOf());
+    mailService.sendMail.mockClear();
+
+    const result = await service.sendReminder(staleRow);
+
+    expect(result).toEqual({ sent: false, disabled: false });
+    expect(repo.rows[0].revokedReason).toBe(
+      PublicSharingRevokedReason.PARENT_REVOKED,
+    );
+  });
+
   // --- Finding 4 (advisory) ------------------------------------------
   it('clears the correlation token when a consent is re-requested', async () => {
     // Otherwise a straggling DSN about the PREVIOUS grant — possibly to

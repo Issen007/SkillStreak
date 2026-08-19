@@ -115,10 +115,22 @@ jobs:
       # work until the daily release window has passed.
       - name: Install ffmpeg
         working-directory: .
-        # 15, not 8: the two attempts below can legitimately take ~14 min
-        # against a slow mirror, and killing them at 8 turns a survivable
-        # mirror hiccup into a failed release.
-        timeout-minutes: 15
+        # 18, not 8. The two attempts below can legitimately take a while
+        # against a slow mirror, and killing them early turns a survivable
+        # hiccup into a failed release.
+        #
+        # The real worst case is 16.2 min, not the ~14 an earlier version
+        # of this comment claimed — that arithmetic forgot the lock-wait
+        # loop above: 24x5s = 2 min, then 2 x (120s update + 300s install)
+        # + 10s sleep = 14.2 min. At a 15-minute ceiling the runner would
+        # kill the step ~70s BEFORE the loop could emit its own
+        # `::error::ffmpeg install failed` line, so the legible failure
+        # the 2026-08-18 hardening exists to produce would be replaced by
+        # a generic step-timeout. 18 keeps the margin.
+        #
+        # This is still nowhere near the six-hour default that made a hung
+        # apt eat two releases, which is what the ceiling is for.
+        timeout-minutes: 18
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -158,9 +170,9 @@ jobs:
           # With those in place two outer attempts are worth more than
           # three tight ones.
           #
-          # Worst case is now ~14 min against the step's 15-minute
-          # ceiling, so a genuine outage still fails inside the release
-          # window rather than eating it.
+          # Worst case including the lock wait above is ~16.2 min against
+          # the step's 18-minute ceiling, so the loop always gets to
+          # report its own error rather than being cut off by the runner.
           APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
           for attempt in 1 2; do
             if timeout 120 sudo -E apt-get $APT_OPTS update -y \

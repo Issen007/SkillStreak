@@ -128,6 +128,27 @@ export class BounceMailboxService {
 
     try {
       const summary = await this.drainMailbox();
+
+      // **A message we could neither delete nor flag gets an error-log
+      // row, not just a log line** (security review 2026-08-19, third
+      // pass, A1). Until this, the only way anything reached the admin
+      // console from here was `drainMailbox` throwing — so a mailbox
+      // that accepted SELECT but refused STORE/EXPUNGE would degrade to
+      // "reads the same messages forever, deletes nothing" while every
+      // run reported success. The error log is the one channel an
+      // operator actually watches.
+      if (summary.stuck > 0) {
+        await this.errorLogService.record({
+          source: 'job',
+          jobName,
+          error: new Error(
+            `bounce mailbox: ${summary.stuck} message(s) could not be ` +
+              'deleted or flagged and will be re-read on every poll; they ' +
+              'hold live revoke codes and are blocking the mailbox draining',
+          ),
+        });
+      }
+
       if (summary.messages > 0) {
         this.logger.log(
           `Bounce intake: ${summary.messages} message(s), ` +
@@ -136,6 +157,7 @@ export class BounceMailboxService {
             `${summary.attributed} attributed, ` +
             `${summary.unattributed} unattributed, ` +
             `${summary.skipped} skipped, ` +
+            `${summary.stuck} stuck, ` +
             `${summary.disabled} consent(s) disabled.`,
         );
       }
@@ -161,6 +183,7 @@ export class BounceMailboxService {
     unattributed: number;
     disabled: number;
     skipped: number;
+    stuck: number;
   }> {
     const summary = {
       messages: 0,
@@ -170,6 +193,7 @@ export class BounceMailboxService {
       unattributed: 0,
       disabled: 0,
       skipped: 0,
+      stuck: 0,
     };
 
     const client = new ImapFlow({
@@ -267,12 +291,26 @@ export class BounceMailboxService {
             // bodies, which carry live revoke links.
             const deleted = await client.messageDelete([uid], { uid: true });
             if (!deleted) {
-              // imapflow returns false rather than throwing. Said out
-              // loud because an undeleted message is a live revoke code
-              // left sitting in a mailbox.
-              this.logger.warn(
-                `Bounce intake: could not delete message uid ${uid}; it ` +
-                  'quotes a reminder and should be removed by hand.',
+              // imapflow returns false rather than throwing.
+              //
+              // **Escalated, counted, and reported to the error log**
+              // (security review 2026-08-19, third pass, A1). A message
+              // the server refuses to delete is left both undeleted and
+              // unflagged, so `UID SEARCH UNSEEN` returns it again every
+              // poll, forever. Two things follow, and both are the shape
+              // this whole mechanism exists to avoid: deletion is the
+              // entire mitigation for this mailbox holding live revoke
+              // codes, so that mitigation stops working silently; and
+              // once MAX_MESSAGES_PER_RUN of them accumulate they
+              // permanently occupy the batch — `slice` takes the lowest
+              // UIDs — so real bounces are never read while
+              // `isConfigured()` keeps the reminder sweep's
+              // "unsupervised" alarm switched off.
+              summary.stuck += 1;
+              this.logger.error(
+                `Bounce intake: could not delete message uid ${uid}. It ` +
+                  'quotes a reminder, so it holds a live revoke code, and ' +
+                  'it will be re-read on every poll until removed by hand.',
               );
             }
           } catch (error) {
@@ -294,6 +332,7 @@ export class BounceMailboxService {
               .messageFlagsAdd([uid], ['\\Seen'], { uid: true })
               .catch(() => false);
             if (!flagged) {
+              summary.stuck += 1;
               this.logger.error(
                 `Bounce intake: could not flag unprocessable message uid ` +
                   `${uid} as seen — it will be retried on every poll and ` +

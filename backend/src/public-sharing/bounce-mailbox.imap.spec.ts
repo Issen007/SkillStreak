@@ -52,7 +52,11 @@ function dsnFor(token: string): string {
 }
 
 /** A mock IMAP server that records every command line it receives. */
-function startImapServer(uids: number[], bodyFor: (uid: number) => string) {
+function startImapServer(
+  uids: number[],
+  bodyFor: (uid: number) => string,
+  refuse: { store?: boolean; expunge?: boolean } = {},
+) {
   const commands: string[] = [];
   const server: Server = createServer((sock) => {
     sock.write(`* OK [CAPABILITY ${CAPS}] mock ready\r\n`);
@@ -90,8 +94,10 @@ function startImapServer(uids: number[], bodyFor: (uid: number) => string) {
             `* 1 FETCH (UID ${uid} BODY[] {${body.length}}\r\n${body})\r\n` +
               `${tag} OK done\r\n`,
           );
-        } else if (cmd === 'UID' && (sub === 'STORE' || sub === 'EXPUNGE')) {
-          sock.write(`${tag} OK done\r\n`);
+        } else if (cmd === 'UID' && sub === 'STORE') {
+          sock.write(`${tag} ${refuse.store ? 'NO refused' : 'OK done'}\r\n`);
+        } else if (cmd === 'UID' && sub === 'EXPUNGE') {
+          sock.write(`${tag} ${refuse.expunge ? 'NO refused' : 'OK done'}\r\n`);
         } else {
           sock.write(`${tag} OK done\r\n`);
         }
@@ -101,7 +107,11 @@ function startImapServer(uids: number[], bodyFor: (uid: number) => string) {
   return { server, commands };
 }
 
-function buildService(port: number, consentService: unknown) {
+function buildService(
+  port: number,
+  consentService: unknown,
+  errorLogService: unknown = { record: jest.fn().mockResolvedValue(undefined) },
+) {
   const config: Record<string, string> = {
     BOUNCE_IMAP_HOST: '127.0.0.1',
     BOUNCE_IMAP_PORT: String(port),
@@ -117,7 +127,7 @@ function buildService(port: number, consentService: unknown) {
   return new BounceMailboxService(
     configService as never,
     consentService as never,
-    { record: jest.fn().mockResolvedValue(undefined) } as never,
+    errorLogService as never,
     { tryClaimScheduledJobRun: jest.fn().mockResolvedValue(true) } as never,
   );
 }
@@ -217,5 +227,108 @@ describe('BounceMailboxService over a real IMAP socket', () => {
     await run([11, 12], () => dsnFor(TOKEN), consentService);
 
     expect(Date.now() - started).toBeLessThan(5_000);
+  }, 30_000);
+});
+
+describe('BounceMailboxService: limits and stuck messages', () => {
+  let server: Server | undefined;
+
+  afterEach(async () => {
+    if (server) await new Promise((r) => server!.close(() => r(undefined)));
+    server = undefined;
+  });
+
+  async function run(
+    uids: number[],
+    consentService: unknown,
+    opts: {
+      refuse?: { store?: boolean; expunge?: boolean };
+      errorLogService?: unknown;
+    } = {},
+  ) {
+    const started = startImapServer(uids, () => dsnFor(TOKEN), opts.refuse);
+    server = started.server;
+    await new Promise((r) =>
+      started.server.listen(0, '127.0.0.1', () => r(undefined)),
+    );
+    const port = (started.server.address() as { port: number }).port;
+    const service = buildService(
+      port,
+      consentService,
+      opts.errorLogService ?? {
+        record: jest.fn().mockResolvedValue(undefined),
+      },
+    );
+    await service.pollBounceMailbox();
+    return started.commands;
+  }
+
+  const ok = () => ({
+    recordReminderUndeliverable: jest
+      .fn()
+      .mockResolvedValue({ matched: true, counted: true, disabled: false }),
+  });
+
+  it('caps a flood at MAX_MESSAGES_PER_RUN', async () => {
+    // Otherwise one flood turns an hourly job into an unbounded one.
+    // Uncovered until now, so raising or removing the cap would have
+    // passed CI silently.
+    const uids = Array.from({ length: 205 }, (_, i) => i + 1);
+
+    const commands = await run(uids, ok());
+
+    expect(commands.filter((c) => /UID FETCH/i.test(c))).toHaveLength(200);
+  }, 60_000);
+
+  it('fetches a bounded slice of the message, not the whole thing', async () => {
+    // The 256 KiB partial is a server-side bound, and it is what stops a
+    // huge message being read into memory by anyone who knows the bounce
+    // address. Asserted on the wire because it is expressed only in the
+    // fetch options.
+    const commands = await run([11], ok());
+
+    const fetch = commands.find((c) => /UID FETCH/i.test(c));
+    expect(fetch).toMatch(/BODY\.PEEK\[\]<0\.262144>/);
+  }, 30_000);
+
+  it('reports a message it cannot delete to the error log', async () => {
+    // A mailbox that accepts SELECT but refuses EXPUNGE leaves the
+    // message undeleted AND unflagged, so it is re-read every poll
+    // forever — deletion being the whole mitigation for this mailbox
+    // holding live revoke codes. A warn line is not enough; the error
+    // log is the channel an operator watches.
+    const errorLogService = {
+      record: jest.fn<Promise<void>, [{ jobName: string; error: Error }]>(() =>
+        Promise.resolve(),
+      ),
+    };
+
+    await run([11], ok(), { refuse: { expunge: true }, errorLogService });
+
+    expect(errorLogService.record).toHaveBeenCalledTimes(1);
+    const recorded = errorLogService.record.mock.calls[0][0];
+    expect(recorded.jobName).toBe('public-sharing:bounce-intake');
+    expect(recorded.error.message).toMatch(/could not be deleted or flagged/);
+  }, 30_000);
+
+  it('reports a message it can neither process nor flag', async () => {
+    const errorLogService = { record: jest.fn().mockResolvedValue(undefined) };
+    const failing = {
+      recordReminderUndeliverable: jest
+        .fn()
+        .mockRejectedValue(new Error('database down')),
+    };
+
+    await run([11], failing, { refuse: { store: true }, errorLogService });
+
+    expect(errorLogService.record).toHaveBeenCalledTimes(1);
+  }, 30_000);
+
+  it('says nothing to the error log on a clean run', async () => {
+    const errorLogService = { record: jest.fn().mockResolvedValue(undefined) };
+
+    await run([11], ok(), { errorLogService });
+
+    expect(errorLogService.record).not.toHaveBeenCalled();
   }, 30_000);
 });

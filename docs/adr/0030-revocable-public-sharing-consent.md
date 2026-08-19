@@ -607,7 +607,7 @@ the parser survives the provider change that is coming anyway.
    report a 5.x.x on a `delayed` notice. Requiring both is what keeps a
    temporarily unreachable parent from being counted as a dead address.
 4. The token is recovered from the returned original headers and handed
-   to `recordReminderBounce`, which counts it toward Decision 5.
+   to `recordReminderUndeliverable`, which counts it toward Decision 5.
 
 ### The counter had to change shape, and this is the subtle part
 
@@ -665,9 +665,11 @@ is kept for audit only.
   set. The failure direction is also the safe one: the worst outcome is
   that a child's sharing is switched off.
 - **While the mailbox is unconfigured, the gap is loud rather than
-  silent.** The poll skips, and the reminder sweep records a job failure
-  on *every* run naming how many consents are running unsupervised,
-  visible in the admin console. Reminders still go out, because the
+  silent.** The poll skips, and the reminder sweep names how many
+  consents are running unsupervised — an error-log row on every run once
+  any consent exists, and a plain warning while the count is zero, since
+  an error a day saying nothing is wrong is how the one channel that
+  reports this gap gets ignored. Reminders still go out, because the
   revoke link inside them is a parent's only standing lever and
   withholding it would remove a control rather than add one.
 

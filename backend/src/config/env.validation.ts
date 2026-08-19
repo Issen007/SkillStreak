@@ -330,11 +330,12 @@ class EnvironmentVariables {
    * environment starts in.
    *
    * **Unset is not silently tolerated, though.** `BounceMailboxService`
-   * skips its poll, and the reminder sweep records a job failure on every
-   * run naming how many consents are running unsupervised. That is the
-   * deliberate opposite of the "reports healthy while undetected" failure
-   * the ADR warned about — the gap is loud, and visible in the admin
-   * console, rather than assumed away.
+   * skips its poll, and the reminder sweep names how many consents are
+   * running unsupervised — as an error-log row on every run once any
+   * consent exists, and as a plain warning while the count is still zero
+   * (an error a day saying nothing is wrong is how the one channel that
+   * reports this gap gets ignored). That is the deliberate opposite of
+   * the "reports healthy while undetected" failure the ADR warned about.
    *
    * BOUNCE_IMAP_PASSWORD belongs in the Secret, never the ConfigMap: it
    * opens a mailbox that accumulates live revoke codes.
