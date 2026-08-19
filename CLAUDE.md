@@ -223,10 +223,28 @@ docker-compose smoke test on every PR into `main` (and into `review` too,
 per the branch strategy above). The workflow file only
 runs the checks — making them a *required* status check that blocks
 merging is a GitHub branch-protection setting on the repo itself, not
-something version-controlled here. That still needs to be turned on
-(Settings → Branches → branch protection rules for `main` and
-`review`) for "always tested before merge" to actually be enforced,
-not just advisory.
+something version-controlled here.
+
+**This is now turned on** (verified 2026-08-19 against the live
+`branches/*/protection` API; this section previously said it still needed
+doing, which had gone stale). Both `main` and `review` require the same
+four checks, with "require branches to be up to date" on:
+
+  `Backend lint, build, test` · `Docker image builds` ·
+  `clip-tagger lint + test` · `docker-compose smoke test`
+
+Two consequences worth knowing before you plan a change:
+
+- **`Mobile typecheck` and `Mobile expo-doctor` are NOT required** — the
+  mobile side of a PR is advisory and cannot block a merge. Don't rely on
+  CI to catch a broken `tsc`; run it yourself.
+- **Strict mode means a stale branch is unmergeable**, so `review` may
+  need `main` merged back into it before a PR will go green — which is
+  the normal reason a PR that passed yesterday won't merge today.
+
+No review approval is required on either branch, so the "never merge to
+`main`" rule at the top of this section is still a policy this repo keeps
+by hand, not something GitHub enforces.
 
 ## Environment parity — every URL/link must match wherever it's deployed
 
