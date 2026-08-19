@@ -1,0 +1,431 @@
+<title>SkillStreak — Fas 6: Utforska, reaktioner & Arkiv</title>
+<style>
+  :root {
+    --chrome-bg: #F1EFEA;
+    --chrome-bg-alt: #E8E4DC;
+    --chrome-text: #1B1B3A;
+    --chrome-text-muted: #6B6B85;
+    --chrome-line: #D8D4CA;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --chrome-bg: #16151C;
+      --chrome-bg-alt: #1E1D26;
+      --chrome-text: #F1EFEA;
+      --chrome-text-muted: #9A97AC;
+      --chrome-line: #322F3C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --chrome-bg: #16151C;
+    --chrome-bg-alt: #1E1D26;
+    --chrome-text: #F1EFEA;
+    --chrome-text-muted: #9A97AC;
+    --chrome-line: #322F3C;
+  }
+
+  /* App palette — style-guide.md. Fixed, not theme-dependent: these are
+     the product's own colours, shown as they appear on a phone. */
+  :root {
+    --flame: #FF6B35;
+    --gold: #FFB800;
+    --ink: #1B1B3A;
+    --paper: #FAFAF7;
+    --success: #3DAA6B;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--chrome-bg);
+    color: var(--chrome-text);
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    padding: 40px 20px 80px;
+  }
+
+  h1 { font-size: 26px; margin: 0; text-align: center; }
+  .sub {
+    color: var(--chrome-text-muted);
+    max-width: 640px;
+    text-align: center;
+    line-height: 1.55;
+    margin: 0;
+    font-size: 15px;
+  }
+  .note {
+    max-width: 640px;
+    border-left: 3px solid var(--flame);
+    padding: 10px 14px;
+    background: var(--chrome-bg-alt);
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 26px;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 1200px;
+  }
+
+  figure { margin: 0; width: 268px; }
+  figcaption {
+    font-size: 13px;
+    color: var(--chrome-text-muted);
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+  figcaption b { color: var(--chrome-text); }
+
+  /* Phone shell */
+  .phone {
+    width: 268px;
+    height: 540px;
+    border-radius: 30px;
+    background: var(--paper);
+    border: 8px solid #2B2A33;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    color: var(--ink);
+  }
+  .phone.dark { background: #101018; color: #FAFAF7; }
+
+  .bar {
+    padding: 10px 14px 8px;
+    font-weight: 800;
+    font-size: 15px;
+    border-bottom: 1px solid rgba(0,0,0,.07);
+  }
+  .phone.dark .bar { border-bottom-color: rgba(255,255,255,.1); }
+
+  .seg {
+    display: flex;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  .seg span {
+    flex: 1;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 0;
+    border-radius: 999px;
+    background: rgba(0,0,0,.06);
+  }
+  .seg span.on { background: var(--flame); color: #fff; }
+  .phone.dark .seg span { background: rgba(255,255,255,.1); }
+  .phone.dark .seg span.on { background: var(--flame); }
+
+  /* Full-bleed feed */
+  .video {
+    flex: 1;
+    background: linear-gradient(160deg, #23222B, #3A3849);
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+  }
+  .rail {
+    position: absolute;
+    right: 8px;
+    bottom: 74px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .rail i {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: rgba(0,0,0,.45);
+    display: flex; align-items: center; justify-content: center;
+    font-style: normal; font-size: 17px;
+  }
+  .rail i.picked { background: var(--flame); }
+  .meta {
+    padding: 12px 14px 14px;
+    color: #fff;
+    font-size: 12.5px;
+    line-height: 1.45;
+    text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  }
+  .meta b { font-size: 13.5px; }
+
+  /* Grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+    padding: 10px 12px;
+  }
+  .cell {
+    aspect-ratio: 9/14;
+    border-radius: 8px;
+    background: linear-gradient(160deg, #CFCBC2, #A9A5B4);
+    position: relative;
+  }
+  .cell.pub::after {
+    content: "🌍";
+    position: absolute; top: 4px; right: 4px; font-size: 11px;
+  }
+  .quiet {
+    font-size: 11px;
+    color: var(--chrome-text-muted);
+    padding: 4px 14px 12px;
+    line-height: 1.45;
+  }
+
+  /* Sheets */
+  .sheet {
+    margin-top: auto;
+    background: var(--paper);
+    border-radius: 18px 18px 0 0;
+    padding: 16px 16px 18px;
+    box-shadow: 0 -8px 24px rgba(0,0,0,.16);
+  }
+  .sheet h4 { margin: 0 0 8px; font-size: 15px; }
+  .sheet p { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; }
+  .btn {
+    display: block;
+    text-align: center;
+    padding: 10px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 13px;
+    margin-top: 7px;
+  }
+  .btn.primary { background: var(--flame); color: #fff; }
+  .btn.ghost { background: rgba(0,0,0,.06); color: var(--ink); }
+  .btn.dim { background: rgba(0,0,0,.06); color: #9A97AC; }
+
+  .rowline {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 14px;
+    font-size: 13px;
+    border-top: 1px solid rgba(0,0,0,.07);
+  }
+  .rowline b { font-weight: 800; }
+
+  /* Web review page */
+  .web {
+    width: 268px; height: 540px;
+    border-radius: 12px;
+    border: 1px solid var(--chrome-line);
+    background: #fff;
+    color: var(--ink);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .webbar {
+    background: var(--chrome-bg-alt);
+    font-size: 10.5px;
+    padding: 7px 10px;
+    color: var(--chrome-text-muted);
+    border-bottom: 1px solid var(--chrome-line);
+  }
+  .webbody { padding: 16px 14px; font-size: 12.5px; line-height: 1.55; }
+  .webbody h3 { margin: 0 0 10px; font-size: 15px; }
+  .placeholder {
+    border: 1px dashed #C4C0B6;
+    border-radius: 10px;
+    padding: 26px 10px;
+    text-align: center;
+    color: #7A7788;
+    font-size: 12px;
+    margin: 10px 0;
+  }
+  .played {
+    border-radius: 10px;
+    background: linear-gradient(160deg, #23222B, #3A3849);
+    height: 108px;
+    margin: 10px 0;
+  }
+  .check {
+    display: flex; gap: 8px; align-items: flex-start;
+    background: #F4F2ED;
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    margin: 12px 0 4px;
+  }
+  .box {
+    width: 15px; height: 15px; border: 2px solid var(--ink);
+    border-radius: 4px; flex: none; margin-top: 1px;
+  }
+  .legend {
+    max-width: 640px; font-size: 13.5px; line-height: 1.6;
+    color: var(--chrome-text-muted);
+  }
+  .legend b { color: var(--chrome-text); }
+</style>
+
+<h1>Fas 6 — Utforska, reaktioner &amp; Arkiv</h1>
+<p class="sub">
+  Skisser till <code>docs/design/phase6-public-feed-flows.md</code>.
+  Inget av det här är byggt. Flöden, tillstånd och copy är det som är
+  bestämt här — inte exakt layout.
+</p>
+
+<div class="note">
+  <b>Interimsmodellen är det som faktiskt körs.</b> Barnet delar själv, och
+  servern kräver: eget klipp → laget i <code>PUBLIC_SHARING_ENABLED_TEAM_IDS</code>
+  → klippet är <code>published</code> → förälderns kontonivå-samtycke är aktivt.
+  Per-klipp-granskningen (P1 nedan) är ADR-0019:s måldesign och är
+  <i>uppskjuten</i> — den ritas här för att de två kraven på den inte ska
+  återuppfinnas senare.
+</div>
+
+<div class="row">
+
+  <figure>
+    <div class="phone dark">
+      <div class="bar">Shorts</div>
+      <div class="seg"><span>Utforska</span><span class="on">Arkiv</span></div>
+      <div class="grid">
+        <div class="cell"></div><div class="cell pub"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      </div>
+      <div class="quiet">Arkiv är standardfliken — appen öppnar i ditt eget
+        och lagets material, inte i ett flöde av främlingar.</div>
+    </div>
+    <figcaption><b>A1 — Arkiv (standard)</b> Laget · Mina · Sparade.
+      🌍 markerar klipp som just nu är delade. Rutnät, inte flöde: det här
+      är att bläddra i sitt eget, inte att konsumera.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone dark">
+      <div class="bar">Shorts</div>
+      <div class="seg"><span class="on">Utforska</span><span>Arkiv</span></div>
+      <div class="video">
+        <div class="rail">
+          <i class="picked">🔥</i><i>💪</i><i>🎯</i><i>👏</i>
+          <i>🔖</i><i>⚑</i>
+        </div>
+        <div class="meta">
+          <b>FloorballStar15</b><br>
+          Kreativ dribbling · 12 s
+        </div>
+      </div>
+    </div>
+    <figcaption><b>F1 — Utforska</b> Skärmnamn, bildtext, längd. Inget
+      lagnamn, ingen taggad lagkamrat, inga siffror. Namnet går inte att
+      trycka på — ingen publik profil finns.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone dark">
+      <div class="bar">Shorts</div>
+      <div class="seg"><span class="on">Utforska</span><span>Arkiv</span></div>
+      <div class="video">
+        <div class="sheet">
+          <h4>Anmäl klippet</h4>
+          <p>Varför anmäler du det här?</p>
+          <div class="btn ghost">Det känns otäckt eller elakt</div>
+          <div class="btn ghost">Någon är med utan att vilja det</div>
+          <div class="btn ghost">Det hör inte hemma i appen</div>
+          <div class="btn ghost">Något annat</div>
+          <div class="btn primary">Skicka anmälan</div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>F3 — Anmäl</b> Fasta skäl, ingen fritext — samma
+      resonemang som reaktionerna. Andra raden finns för det ett barn
+      oftast behöver men sällan har ord för.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone">
+      <div class="bar">Mitt klipp</div>
+      <div style="flex:1;background:linear-gradient(160deg,#23222B,#3A3849)"></div>
+      <div class="rowline"><span><b>Dela utanför laget</b></span><span>🌍</span></div>
+      <div class="rowline" style="color:#6B6B85"><span>Delning är avstängd</span><span>›</span></div>
+      <div class="quiet">Rad 1: kan delas. Rad 2: inget föräldrasamtycke —
+        leder till flödet som redan finns. Är laget inte med i
+        allow-listan visas <b>ingen rad alls</b>.</div>
+    </div>
+    <figcaption><b>A2 — kontrollens tillstånd</b> Frånvaro, inte
+      utgråning, när laget saknas i allow-listan: en avstängd knapp gör
+      reklam för något barnet inte kan få.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone">
+      <div class="bar">Mitt klipp</div>
+      <div style="flex:1;background:linear-gradient(160deg,#23222B,#3A3849)"></div>
+      <div class="sheet">
+        <h4>Dela utanför laget?</h4>
+        <p>Alla som använder SkillStreak kommer kunna se det här klippet —
+          inte bara ditt lag.</p>
+        <p><b>Ditt namn i appen syns. Ditt lags namn syns inte.</b></p>
+        <p>Du kan ta bort delningen när du vill, och då försvinner klippet
+          från Utforska direkt.</p>
+        <div class="btn primary">Ja, dela klippet</div>
+        <div class="btn ghost">Avbryt</div>
+      </div>
+    </div>
+    <figcaption><b>A3 — bekräfta</b> Enda medvetna farthindret i designen.
+      Säger vad som ändras, vad som avslöjas och inte, och leder med att
+      det går att ångra. Ingen "visa inte igen".</figcaption>
+  </figure>
+
+  <figure>
+    <div class="web">
+      <div class="webbar">https://api.skillstreak.xyz/… — steg 1</div>
+      <div class="webbody">
+        <h3>Ditt barn vill dela ett klipp</h3>
+        <p><b>FloorballStar15</b><br>"Kreativ dribbling" · 12 sekunder</p>
+        <div class="placeholder">▶ Visa klippet</div>
+        <div class="btn dim">Godkänn</div>
+        <p style="font-size:11px;color:#7A7788;margin-top:8px">
+          Godkänn låses upp när du sett klippet.</p>
+      </div>
+    </div>
+    <figcaption><b>P1, steg 1 — måldesign</b> Sidan laddar <i>inte</i>
+      videon. En länkskanner i en mejlgateway som öppnar länken automatiskt
+      ska inte kunna dra in ett barns video i en tredjepartssandlåda.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="web">
+      <div class="webbar">https://api.skillstreak.xyz/… — steg 2</div>
+      <div class="webbody">
+        <h3>Ditt barn vill dela ett klipp</h3>
+        <div class="played"></div>
+        <div class="check">
+          <div class="box"></div>
+          <div>Alla som syns i klippet är med i samma lag som mitt barn,
+            och alla har sagt ja till att vara med.</div>
+        </div>
+        <div class="btn dim">Godkänn</div>
+        <div class="btn ghost">Godkänn inte</div>
+      </div>
+    </div>
+    <figcaption><b>P1, steg 2 — måldesign</b> Kryssrutan är obligatorisk
+      och otickad. Granskaren är enda människan som kan upptäcka ett
+      återuppladdat klipp på ett annat barn. Det är en försäkran, inte en
+      kontroll — och det står så i dokumentet.</figcaption>
+  </figure>
+
+</div>
+
+<p class="legend">
+  <b>Det som medvetet inte finns:</b> fritextkommentarer (uppskjutna av
+  ADR-0019 beslut 4), publika profiler eller följ-funktion, delning ut ur
+  appen, och <b>publika reaktionssiffror</b> — uppladdaren ser sina egna
+  siffror i Arkiv, men flödet visar inga totaler. Det sista är ett
+  produktbeslut som är flaggat för projektägaren, inte antaget: en synlig
+  räknare på ett barns ansikte, rankad mot andra barns, är precis den
+  mekanik appen byggdes som ett alternativ till.
+</p>
