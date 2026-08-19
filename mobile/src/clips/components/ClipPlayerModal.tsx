@@ -33,6 +33,10 @@ interface ClipPlayerModalProps {
   onTapMeta: () => void;
   onTapReport?: () => void;
   onTapDelete?: () => void;
+  /** ADR-0030. Absent means the rollout has not reached this team, and no
+   * share affordance is drawn at all — a disabled one would invite a child
+   * to keep tapping something nothing they can do will unlock. */
+  onTapShare?: () => void;
   onClose: () => void;
 }
 
@@ -67,6 +71,7 @@ function ClipPlayerModalContent({
   onTapMeta,
   onTapReport,
   onTapDelete,
+  onTapShare,
   onClose,
 }: ClipPlayerModalContentProps) {
   const { t } = useTranslation('clips');
@@ -275,6 +280,13 @@ function ClipPlayerModalContent({
               <Text style={styles.reportLink}>{t('clipCard.report')}</Text>
             </Pressable>
           ) : null}
+          {revealed && isOwn && onTapShare ? (
+            <Pressable onPress={onTapShare} accessibilityRole="button" style={styles.actionRow}>
+              <Text style={clip.publishedPublicly ? styles.sharedLink : styles.shareLink}>
+                {clip.publishedPublicly ? t('clipCard.shared') : t('clipCard.share')}
+              </Text>
+            </Pressable>
+          ) : null}
           {revealed && isOwn ? (
             <Pressable onPress={onTapDelete} accessibilityRole="button" style={styles.actionRow}>
               <Text style={styles.deleteLink}>{t('clipCard.delete')}</Text>
@@ -287,6 +299,18 @@ function ClipPlayerModalContent({
 }
 
 const styles = StyleSheet.create({
+  shareLink: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  // Bold + success green: "already shared" is a state the child should be
+  // able to read at a glance without opening the sheet, not another offer.
+  sharedLink: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    color: colors.success,
+  },
   container: {
     flex: 1,
     // The app's existing "night court" dark token (style-guide.md), not a

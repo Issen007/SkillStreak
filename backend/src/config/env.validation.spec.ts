@@ -80,4 +80,24 @@ describe('validateEnv', () => {
       validateEnv({ ...baseRequiredEnv(), STAFF_JWT_SECRET: '' }),
     ).toThrow(/Invalid environment configuration/);
   });
+  // ADR-0030's rollout allow-list. An empty value is the *off* switch and
+  // the expected production setting for a while — booting must not depend
+  // on the key being absent rather than blank, which is the distinction
+  // `@IsOptional()` alone makes and `@IsOptional() + @IsNotEmpty()`
+  // silently breaks.
+  it('boots with the public-sharing allow-list absent or blank', () => {
+    expect(() => validateEnv(baseRequiredEnv())).not.toThrow();
+    expect(() =>
+      validateEnv({
+        ...baseRequiredEnv(),
+        PUBLIC_SHARING_ENABLED_TEAM_IDS: '',
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validateEnv({
+        ...baseRequiredEnv(),
+        PUBLIC_SHARING_ENABLED_TEAM_IDS: 'team-a,team-b',
+      }),
+    ).not.toThrow();
+  });
 });

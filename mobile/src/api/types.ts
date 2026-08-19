@@ -801,6 +801,9 @@ export interface ClipFeedItem {
   playbackUrl: string;
   createdAt: string;
   reportedByMe: boolean;
+  /** ADR-0030 — whether this clip is currently visible outside the team.
+   * Drives the share row's on/off state on the owner's own clips. */
+  publishedPublicly: boolean;
 }
 
 export interface ClipsResponse {
@@ -953,4 +956,29 @@ export interface TrainerPost {
   ageBand: string | null;
   focus: string | null;
   publishedAt: string | null;
+}
+
+/** ADR-0030 — the state of a player's own public-sharing permission. */
+export interface PublicSharingStatus {
+  /** Whether the feature exists for this player's team at all (the rollout
+   * allow-list). False means show no share affordance — not a disabled
+   * one — because there is nothing the child could do to change it. */
+  available: boolean;
+  /** Allow-list AND active parental consent, resolved server-side. */
+  canShare: boolean;
+  /** `none` deliberately covers declined, revoked and expired as well as
+   * never-asked: from the child's screen these are one situation, and
+   * telling a child their parent actively said no is a conversation for
+   * the family rather than a status chip. */
+  consent: 'none' | 'pending' | 'active';
+}
+
+export interface PublicSharingRequestResult {
+  requested: true;
+  expiresAt: string;
+}
+
+export interface ClipPublicationResult {
+  clipId: string;
+  publishedPublicly: boolean;
 }

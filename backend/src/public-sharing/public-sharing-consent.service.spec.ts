@@ -123,8 +123,14 @@ function build(
     getOrThrow: jest.fn(() => 'Y2ktb25seS10ZXN0LWtleS0zMi1ieXRlcy1sb25nISE='),
     get: jest.fn(() => 'https://api.example.test'),
   };
+  // Only ever read for screen_name — the name the parent's consent page
+  // and request email use to say *which* child is being consented for.
+  const players = {
+    findOne: jest.fn().mockResolvedValue({ screenName: 'FloorballStar15' }),
+  };
   const service = new PublicSharingConsentService(
     repo as unknown as Repository<PublicSharingConsent>,
+    players as never,
     dataSource as never,
     privateInfo,
     mailService as never,
@@ -138,6 +144,7 @@ function build(
   return {
     service,
     repo,
+    players,
     privateInfo,
     mailService,
     redisService,
@@ -405,7 +412,13 @@ describe('PublicSharingConsentService: security-review findings', () => {
 
     const preview = await service.previewByReviewCode(reviewCodeOf());
 
-    expect(preview).toEqual({ playerId: 'p1', status: 'pending_review' });
+    expect(preview).toEqual({
+      playerId: 'p1',
+      status: 'pending_review',
+      // Screen name, never real name — the parent has to know which of
+      // their children they are approving for.
+      screenName: 'FloorballStar15',
+    });
     // A link scanner prefetching the URL must not grant anything.
     expect(await service.isActiveFor('p1')).toBe(false);
     expect(repo.rows[0].status).toBe(before.status);

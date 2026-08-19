@@ -535,6 +535,42 @@ and the one that ADR overlooked entirely — must now say that
 self-verification covers the account and not public sharing. Folds into
 Decision 7's copy work rather than adding a separate task.
 
+## Decision — 11 (added 2026-08-18): the rollout is an allow-list of team ids, not a feature boolean
+
+`PUBLIC_SHARING_ENABLED_TEAM_IDS` — comma-separated team ids, empty by
+default, read once at boot by `PublicSharingAccessService`. A team not on
+the list cannot publish, cannot see the public feed, and cannot even ask
+for a consent: `POST /me/public-sharing/request` refuses before any mail
+is sent, since asking a parent to approve a feature their child's team
+cannot use would be requesting consent to nothing.
+
+**Why a list rather than a boolean, which is the whole point.** The
+project owner asked for the feature to default ON during TestFlight
+testing. A server-side boolean cannot deliver that: TestFlight builds use
+the `production` EAS profile and therefore talk to `api.skillstreak.xyz`,
+the same cluster serving the live beta. "On for testers" and "on for
+every family" would have been the same switch, and the second is not what
+was asked for.
+
+**Why that mattered enough to change the design rather than accept it.**
+Finding 4 is still open — the monthly reminder cannot detect an
+asynchronous bounce, so a consent behind a dead parent address stays live
+indefinitely. Decision 9 argued the interim single-gate posture is
+defensible *at small scale, among families the coach knows personally*.
+The allow-list is that argument made mechanical: it is not a test harness
+that happens to limit exposure, it is the boundary of the reasoning this
+ADR already committed to. Removing the gate entirely belongs with finding
+4's closure and Decision 9's review, not before.
+
+**Empty means nobody, deliberately.** A misconfigured or forgotten
+deployment must fail toward no child sharing, never toward all of them.
+The env var is declared `@IsOptional()` **without** `@IsNotEmpty()` — that
+pair is a trap this repo has hit before, since `@IsOptional()` only skips
+`undefined`/`null` and a ConfigMap key present-but-blank would crash the
+pod at boot. Here blank is not a misconfiguration; it is the off switch,
+and the expected production value for now. `env.validation.spec.ts` holds
+a regression test for exactly that.
+
 ## Consequences
 
 - **ADR-0019 remains the design of record for the feature itself, with

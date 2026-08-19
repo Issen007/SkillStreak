@@ -44,7 +44,9 @@
   "clipCard": {
     "challengeChip": "🎯 Challenging {{screenName}}",
     "report": "🚩 Report",
-    "delete": "🗑️ Delete video"
+    "delete": "🗑️ Delete video",
+    "share": "Share outside the team",
+    "shared": "Shared outside the team"
   },
   "clipPlayerModal": {
     "close": "Close",
@@ -121,5 +123,21 @@
     "heading": "Your Shorts is up! 🎉",
     "sub": "Your team can see it now.",
     "done": "To the feed"
+  },
+  "clipShareSheet": {
+    "headingOff": "Share outside the team",
+    "bodyNone": "Right now your videos are only visible to your team. To share them with other floorball players, a parent has to say yes first.",
+    "ask": "Ask my parent",
+    "headingPending": "We've asked your parent",
+    "bodyPending": "We've sent an email. As soon as they say yes you can start sharing. It might take a day or two.",
+    "headingOn": "Share this video",
+    "bodyOn": "Other floorball players can see the video, your screen name and your avatar. They never see your real name, your team or where you train.",
+    "publish": "Share video",
+    "headingShared": "This video is shared",
+    "bodyShared": "This video is visible outside your team right now. You can stop sharing whenever you like — it disappears straight away.",
+    "unpublish": "Stop sharing this video",
+    "close": "Close",
+    "errorGeneric": "That didn't work just now. Try again in a moment.",
+    "errorRevoked": "Sharing is switched off for your account right now. Ask your parent."
   }
 }

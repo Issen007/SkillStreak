@@ -7,6 +7,7 @@ import type {
   CaptainTransferResponse,
   ChallengeAckResponse,
   ChatMessagesResponse,
+  ClipPublicationResult,
   ClipsResponse,
   CompleteClipUploadResponse,
   ConsentReminderResponse,
@@ -33,6 +34,8 @@ import type {
   RedeemSessionResponse,
   ReportChatMessageRequest,
   ReportChatMessageResponse,
+  PublicSharingRequestResult,
+  PublicSharingStatus,
   ReportClipRequest,
   ReportClipResponse,
   RequestContactChangeRequest,
@@ -624,5 +627,62 @@ export function revokeTeamPtLink(
   return apiClient.request<PtTeamLinkRevokeResult>(
     `/teams/${encodeURIComponent(teamId)}/pt-links/${encodeURIComponent(linkId)}/revoke`,
     { method: 'POST', auth: true },
+  );
+}
+
+// --- ADR-0030: sharing a clip outside the team ---------------------------
+//
+// Three gates stand between a child and a public clip, and the app is only
+// allowed to know the *answer*, never to reconstruct the reasoning: the
+// team must be in the rollout allow-list, the child's parent must have an
+// active consent, and the child must choose the individual clip. The first
+// two collapse into `canShare` server-side deliberately — the rule lives in
+// one place, not in two that can drift.
+
+/** GET /me/public-sharing — auth required. Cheap; safe to call on focus. */
+export function getPublicSharingStatus(): Promise<PublicSharingStatus> {
+  return apiClient.request<PublicSharingStatus>('/me/public-sharing', {
+    method: 'GET',
+    auth: true,
+  });
+}
+
+/** POST /me/public-sharing/request — auth required. Emails the parent an
+ * approval link. Returns only that it was sent and when the link dies; the
+ * code itself never reaches the app, which is the single property that
+ * makes a mailed consent mean anything. Rate limited server-side (5/hour,
+ * plus a 15-minute cooldown and 3/day cap under it) — a `429` here is
+ * expected, not exceptional, and the UI should say "check the inbox"
+ * rather than retry. */
+export function requestPublicSharing(): Promise<PublicSharingRequestResult> {
+  return apiClient.request<PublicSharingRequestResult>(
+    '/me/public-sharing/request',
+    { method: 'POST', auth: true },
+  );
+}
+
+/** POST /clips/:clipId/public — auth required. Fails with
+ * `public_sharing_not_consented` if the parent has revoked since the app
+ * last checked, which is why the button re-reads status on failure rather
+ * than trusting the cached `canShare`. */
+export function publishClipPublicly(
+  clipId: string,
+): Promise<ClipPublicationResult> {
+  return apiClient.request<ClipPublicationResult>(
+    `/clips/${encodeURIComponent(clipId)}/public`,
+    { method: 'POST', auth: true },
+  );
+}
+
+/** DELETE /clips/:clipId/public — auth required, and deliberately gated on
+ * nothing but ownership. Taking a clip down must never be blocked by the
+ * things that gate putting it up: a parent who has just revoked is exactly
+ * the case where removal matters most. */
+export function unpublishClipPublicly(
+  clipId: string,
+): Promise<ClipPublicationResult> {
+  return apiClient.request<ClipPublicationResult>(
+    `/clips/${encodeURIComponent(clipId)}/public`,
+    { method: 'DELETE', auth: true },
   );
 }

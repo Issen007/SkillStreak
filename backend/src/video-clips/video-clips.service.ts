@@ -116,6 +116,14 @@ export interface ClipFeedItem {
   playbackUrl: string;
   createdAt: string;
   reportedByMe: boolean;
+  /**
+   * ADR-0030 — whether this clip is currently in the public feed.
+   *
+   * A boolean rather than the timestamp: the app renders a toggle, and
+   * exposing when a clip went public invites building an "oldest shared"
+   * ordering that nothing has consented to.
+   */
+  publishedPublicly: boolean;
 }
 
 export interface DeleteClipResponse {
@@ -865,6 +873,7 @@ export class VideoClipsService {
           playbackUrl,
           createdAt: clip.createdAt.toISOString(),
           reportedByMe: reportedClipIds.has(clip.id),
+          publishedPublicly: clip.publishedPubliclyAt !== null,
         };
       }),
     );

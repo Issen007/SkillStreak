@@ -44,7 +44,9 @@
   "clipCard": {
     "challengeChip": "🎯 Utfordrer {{screenName}}",
     "report": "🚩 Rapporter",
-    "delete": "🗑️ Slett videoen"
+    "delete": "🗑️ Slett videoen",
+    "share": "Del utenfor laget",
+    "shared": "Deles utenfor laget"
   },
   "clipPlayerModal": {
     "close": "Lukk",
@@ -121,5 +123,21 @@
     "heading": "Shorts-videoen din er oppe! 🎉",
     "sub": "Laget kan se den nå.",
     "done": "Til strømmen"
+  },
+  "clipShareSheet": {
+    "headingOff": "Del utenfor laget",
+    "bodyNone": "Akkurat nå er videoene dine bare synlige for laget ditt. For å dele dem med andre som spiller innebandy, må en forelder si ja først.",
+    "ask": "Spør forelderen min",
+    "headingPending": "Vi har spurt forelderen din",
+    "bodyPending": "Vi har sendt en e-post. Så snart de sier ja, kan du begynne å dele. Det kan ta en dag eller to.",
+    "headingOn": "Del denne videoen",
+    "bodyOn": "Andre som spiller innebandy kan se videoen, skjermnavnet ditt og avataren din. De ser aldri det ekte navnet ditt, laget ditt eller hvor du trener.",
+    "publish": "Del video",
+    "headingShared": "Videoen deles",
+    "bodyShared": "Denne videoen er synlig utenfor laget ditt akkurat nå. Du kan slutte å dele når du vil — da forsvinner den med én gang.",
+    "unpublish": "Slutt å dele videoen",
+    "close": "Lukk",
+    "errorGeneric": "Det gikk ikke akkurat nå. Prøv igjen om litt.",
+    "errorRevoked": "Deling er slått av for kontoen din akkurat nå. Spør forelderen din."
   }
 }

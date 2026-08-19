@@ -6,6 +6,7 @@ import { generateHumanCode } from '../common/crypto/human-code.util';
 import { decryptPii, encryptPii } from '../common/crypto/pii-encryption.util';
 import { MailService } from '../mail/mail.service';
 import { RedisService } from '../redis/redis.service';
+import { Player } from '../players/entities/player.entity';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
 import {
   PublicSharingConsent,
@@ -26,6 +27,23 @@ export const MAX_REMINDER_FAILURES = 2;
 export interface ConsentPreview {
   playerId: string;
   status: PublicSharingConsentStatus;
+  /**
+   * The child's **screen name**, never their real name.
+   *
+   * A parent with two children on the app cannot give informed consent to
+   * a page that says only "your child" — Article 7(1) needs consent to be
+   * specific, and a parent who cannot tell which child they are approving
+   * for has not given it. Carried through to the request email for the
+   * same reason.
+   *
+   * Screen name rather than real name because ADR-0002 isolates
+   * `real_name` behind PlayerPrivateInfo and CLAUDE.md's anonymisation
+   * rule means the screen name is the identifier the child themselves
+   * chose to be known by. The parent set that name up with them; it
+   * identifies the child to the one person who needs it without widening
+   * what this table can leak.
+   */
+  screenName: string;
 }
 
 /**
@@ -67,6 +85,12 @@ export class PublicSharingConsentService {
   constructor(
     @InjectRepository(PublicSharingConsent)
     private readonly consents: Repository<PublicSharingConsent>,
+    // Read-only, and only ever for `screen_name` — see ConsentPreview.
+    // Registered via forFeature in this module rather than by importing
+    // PlayersModule, the same narrow-entity precedent video-clips.module
+    // already sets for TeamChatBlock.
+    @InjectRepository(Player)
+    private readonly players: Repository<Player>,
     private readonly dataSource: DataSource,
     private readonly playerPrivateInfoService: PlayerPrivateInfoService,
     private readonly mailService: MailService,
@@ -90,6 +114,27 @@ export class PublicSharingConsentService {
    * That obligation belongs to the ADR-0019 caller and is recorded in the
    * ADR rather than left to be discovered during integration (finding 13).
    */
+  /**
+   * The three states the app renders, and nothing more.
+   *
+   * Deliberately collapses `declined`, `revoked`, `expired` and "no row at
+   * all" into a single `none`: from the child's screen these are the same
+   * situation — sharing is off and asking again is the way forward — and
+   * distinguishing them would tell a child that a parent actively said no,
+   * which is a conversation for the family rather than a status chip.
+   */
+  async statusFor(playerId: string): Promise<'none' | 'pending' | 'active'> {
+    const row = await this.consents.findOne({ where: { playerId } });
+    if (row?.status === PublicSharingConsentStatus.ACTIVE) return 'active';
+    if (
+      row?.status === PublicSharingConsentStatus.PENDING_REVIEW &&
+      this.isReviewCodeLive(row)
+    ) {
+      return 'pending';
+    }
+    return 'none';
+  }
+
   async isActiveFor(playerId: string): Promise<boolean> {
     const row = await this.consents.findOne({ where: { playerId } });
     return row?.status === PublicSharingConsentStatus.ACTIVE;
@@ -202,7 +247,8 @@ export class PublicSharingConsentService {
     await this.sendBestEffort(
       parentContact,
       'SkillStreak: godkänn delning utanför laget',
-      `Ditt barn vill kunna dela sina egna klipp utanför laget.\n\n` +
+      `${await this.screenNameOf(playerId)} vill kunna dela sina egna ` +
+        `klipp utanför laget.\n\n` +
         `Godkänn: ${this.approvalUrl(code)}\n\n` +
         `Om du inte gör något händer ingenting. Länken slutar gälla om ` +
         `14 dagar.`,
@@ -220,6 +266,20 @@ export class PublicSharingConsentService {
    * consent with no human forming an intent. Mirrors the GET/POST split
    * ADR-0013 already made a repo convention.
    */
+  /**
+   * Falls back to a placeholder rather than throwing. A missing player row
+   * here means the account was erased between the request and the click;
+   * the page should still render and tell the parent the link is spent,
+   * not 500 at them.
+   */
+  private async screenNameOf(playerId: string): Promise<string> {
+    const player = await this.players.findOne({
+      where: { id: playerId },
+      select: { screenName: true },
+    });
+    return player?.screenName ?? 'ditt barn';
+  }
+
   async previewByReviewCode(code: string): Promise<ConsentPreview | null> {
     if (!code) return null;
     const row = await this.consents.findOne({ where: { reviewCode: code } });
@@ -227,14 +287,22 @@ export class PublicSharingConsentService {
       return null;
     }
     if (!this.isReviewCodeLive(row)) return null;
-    return { playerId: row.playerId, status: row.status };
+    return {
+      playerId: row.playerId,
+      status: row.status,
+      screenName: await this.screenNameOf(row.playerId),
+    };
   }
 
   async previewByRevokeCode(code: string): Promise<ConsentPreview | null> {
     if (!code) return null;
     const row = await this.consents.findOne({ where: { revokeCode: code } });
     if (!row || row.status !== PublicSharingConsentStatus.ACTIVE) return null;
-    return { playerId: row.playerId, status: row.status };
+    return {
+      playerId: row.playerId,
+      status: row.status,
+      screenName: await this.screenNameOf(row.playerId),
+    };
   }
 
   /**
