@@ -102,6 +102,11 @@
   var INTEREST_LABEL = {
     curious: 'Just curious',
     invest: 'Investment',
+    // Distinct from `invest` on purpose — see the enum's own comment.
+    // "Wants to know about investing" and "is offering to co-own this"
+    // are different conversations, and this is the one not to lose in a
+    // long list.
+    co_owner: 'Wants to co-own',
     contribute: 'Wants to help build',
     trainer: 'Wants to be a trainer',
     other: 'Other'
