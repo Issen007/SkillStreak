@@ -159,6 +159,11 @@
     "collectionTeam": "Team",
     "collectionMine": "Mine",
     "mineEmptyHeading": "You have no clips yet",
-    "mineEmptyBody": "The clips you upload end up here."
+    "mineEmptyBody": "The clips you upload end up here.",
+    "saveA11y": "Save this clip",
+    "collectionSaved": "Saved",
+    "savedEmptyHeading": "Nothing saved yet",
+    "savedEmptyBody": "Tap the bookmark in Explore to save a clip.",
+    "savedMissing": "A saved clip isn't shared any more. Whoever made it took it off Explore."
   }
 }

@@ -19,6 +19,8 @@ import {
   getPublicFeed,
   reactToClip,
   reportPublicClip,
+  saveClip,
+  unsaveClip,
 } from '../api/endpoints';
 import type {
   ClipReactionType,
@@ -132,6 +134,27 @@ export function PublicFeedScreen({ onToast }: PublicFeedScreenProps) {
     }
   }
 
+  /** Optimistic, same reasoning as reactions. */
+  async function handleSave(item: PublicFeedItem) {
+    const next = !item.savedByMe;
+    setItems((prev) =>
+      (prev ?? []).map((c) =>
+        c.clipId === item.clipId ? { ...c, savedByMe: next } : c,
+      ),
+    );
+    try {
+      if (next) await saveClip(item.clipId);
+      else await unsaveClip(item.clipId);
+    } catch {
+      setItems((prev) =>
+        (prev ?? []).map((c) =>
+          c.clipId === item.clipId ? { ...c, savedByMe: !next } : c,
+        ),
+      );
+      onToast(t('publicFeed.reactionFailed'));
+    }
+  }
+
   async function handleReport(reason: ClipReportReason) {
     const target = reportTarget;
     if (!target) return;
@@ -208,6 +231,7 @@ export function PublicFeedScreen({ onToast }: PublicFeedScreenProps) {
             item={item}
             isActive={index === activeIndex}
             onReact={(type) => void handleReact(item, type)}
+            onSave={() => void handleSave(item)}
             onReport={() => setReportTarget(item)}
           />
         )}
@@ -229,6 +253,7 @@ interface PublicFeedCardProps {
   item: PublicFeedItem;
   isActive: boolean;
   onReact: (type: ClipReactionType) => void;
+  onSave: () => void;
   onReport: () => void;
 }
 
@@ -239,6 +264,7 @@ function PublicFeedCard({
   item,
   isActive,
   onReact,
+  onSave,
   onReport,
 }: PublicFeedCardProps) {
   const { t } = useTranslation('clips');
@@ -278,6 +304,15 @@ function PublicFeedCard({
             </Pressable>
           );
         })}
+        <Pressable
+          onPress={onSave}
+          style={[styles.railButton, item.savedByMe ? styles.railButtonOn : null]}
+          accessibilityRole="button"
+          accessibilityState={{ selected: item.savedByMe }}
+          accessibilityLabel={t('publicFeed.saveA11y')}
+        >
+          <Text style={styles.railGlyph}>🔖</Text>
+        </Pressable>
         <Pressable
           onPress={onReport}
           style={styles.railButton}

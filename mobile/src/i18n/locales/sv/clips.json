@@ -159,6 +159,11 @@
     "collectionTeam": "Laget",
     "collectionMine": "Mina",
     "mineEmptyHeading": "Du har inga klipp än",
-    "mineEmptyBody": "Klippen du laddar upp hamnar här."
+    "mineEmptyBody": "Klippen du laddar upp hamnar här.",
+    "saveA11y": "Spara klippet",
+    "collectionSaved": "Sparade",
+    "savedEmptyHeading": "Inget sparat än",
+    "savedEmptyBody": "Tryck på bokmärket i Utforska för att spara ett klipp.",
+    "savedMissing": "Ett sparat klipp är inte längre delat. Den som gjorde det har tagit bort det från Utforska."
   }
 }

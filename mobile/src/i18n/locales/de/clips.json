@@ -159,6 +159,11 @@
     "collectionTeam": "Mannschaft",
     "collectionMine": "Meine",
     "mineEmptyHeading": "Du hast noch keine Clips",
-    "mineEmptyBody": "Die Clips, die du hochlädst, landen hier."
+    "mineEmptyBody": "Die Clips, die du hochlädst, landen hier.",
+    "saveA11y": "Clip speichern",
+    "collectionSaved": "Gespeichert",
+    "savedEmptyHeading": "Noch nichts gespeichert",
+    "savedEmptyBody": "Tippe in Entdecken auf das Lesezeichen, um einen Clip zu speichern.",
+    "savedMissing": "Ein gespeicherter Clip wird nicht mehr geteilt. Wer ihn gemacht hat, hat ihn aus Entdecken genommen."
   }
 }

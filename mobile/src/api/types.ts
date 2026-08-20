@@ -1071,11 +1071,21 @@ export interface PublicFeedItem {
   publishedAt: string;
   /** The viewer's own reaction, or null. Never anyone else's. */
   myReaction: ClipReactionType | null;
+  /** Whether this is in the viewer's Sparade. */
+  savedByMe: boolean;
 }
 
 export interface PublicFeedPage {
   items: PublicFeedItem[];
   nextCursor: string | null;
+}
+
+export interface SavedClipsResponse {
+  items: PublicFeedItem[];
+  /** How many saved clips are no longer public. Deliberately a number and
+   * not a list — naming them would let a viewer track another child's
+   * un-publish decisions. */
+  missingCount: number;
 }
 
 export interface ViewerReactionResult {

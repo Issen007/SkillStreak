@@ -159,6 +159,11 @@
     "collectionTeam": "L'équipe",
     "collectionMine": "Les miens",
     "mineEmptyHeading": "Tu n'as pas encore de clips",
-    "mineEmptyBody": "Les clips que tu envoies arrivent ici."
+    "mineEmptyBody": "Les clips que tu envoies arrivent ici.",
+    "saveA11y": "Enregistrer le clip",
+    "collectionSaved": "Enregistrés",
+    "savedEmptyHeading": "Rien d'enregistré",
+    "savedEmptyBody": "Appuie sur le marque-page dans Explorer pour enregistrer un clip.",
+    "savedMissing": "Un clip enregistré n'est plus partagé. La personne qui l'a fait l'a retiré d'Explorer."
   }
 }

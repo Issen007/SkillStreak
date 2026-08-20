@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   ClipNotFoundException,
   NotYourClipException,
@@ -43,6 +43,9 @@ export interface PublicFeedItem {
    * ClipReactionsService's class doc for the argument.
    */
   myReaction?: ClipReactionType | null;
+  /** Whether the viewer has this in Sparade. Filled by the controller,
+   * same reason as `myReaction`. */
+  savedByMe?: boolean;
 }
 
 export interface PublicFeedPage {
@@ -264,6 +267,22 @@ export class PublicFeedService {
     // withdrew consent" is a disclosure about a specific child.
     if (!row) throw new ClipNotFoundException();
     return row;
+  }
+
+  /**
+   * Which of these clips the viewer has saved — one query for a page,
+   * not one per card.
+   */
+  async savedClipIdsFor(
+    viewerId: string,
+    clipIds: string[],
+  ): Promise<Set<string>> {
+    if (clipIds.length === 0) return new Set();
+    const rows = await this.bookmarks.find({
+      where: { playerId: viewerId, clipId: In(clipIds) },
+      select: { clipId: true },
+    });
+    return new Set(rows.map((r) => r.clipId));
   }
 
   /** Save a clip from Utforska. Requires it to be visible right now —

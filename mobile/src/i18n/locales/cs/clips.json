@@ -159,6 +159,11 @@
     "collectionTeam": "Tým",
     "collectionMine": "Moje",
     "mineEmptyHeading": "Zatím nemáš žádné klipy",
-    "mineEmptyBody": "Klipy, které nahraješ, skončí tady."
+    "mineEmptyBody": "Klipy, které nahraješ, skončí tady.",
+    "saveA11y": "Uložit klip",
+    "collectionSaved": "Uložené",
+    "savedEmptyHeading": "Zatím nic uloženého",
+    "savedEmptyBody": "Klip uložíš klepnutím na záložku v Objevuj.",
+    "savedMissing": "Jeden uložený klip už není sdílený. Ten, kdo ho udělal, ho stáhl z Objevuj."
   }
 }

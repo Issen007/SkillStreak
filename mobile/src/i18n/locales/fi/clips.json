@@ -159,6 +159,11 @@
     "collectionTeam": "Joukkue",
     "collectionMine": "Omat",
     "mineEmptyHeading": "Sinulla ei ole vielä klippejä",
-    "mineEmptyBody": "Lataamasi klipit päätyvät tänne."
+    "mineEmptyBody": "Lataamasi klipit päätyvät tänne.",
+    "saveA11y": "Tallenna klippi",
+    "collectionSaved": "Tallennetut",
+    "savedEmptyHeading": "Ei vielä tallennettuja",
+    "savedEmptyBody": "Tallenna klippi painamalla kirjanmerkkiä Tutki-osiossa.",
+    "savedMissing": "Yhtä tallennettua klippiä ei enää jaeta. Tekijä otti sen pois Tutki-osiosta."
   }
 }

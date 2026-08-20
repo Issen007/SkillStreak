@@ -159,6 +159,11 @@
     "collectionTeam": "El equipo",
     "collectionMine": "Míos",
     "mineEmptyHeading": "Todavía no tienes clips",
-    "mineEmptyBody": "Los clips que subas acabarán aquí."
+    "mineEmptyBody": "Los clips que subas acabarán aquí.",
+    "saveA11y": "Guardar el clip",
+    "collectionSaved": "Guardados",
+    "savedEmptyHeading": "Nada guardado todavía",
+    "savedEmptyBody": "Toca el marcador en Explorar para guardar un clip.",
+    "savedMissing": "Un clip guardado ya no se comparte. Quien lo hizo lo ha quitado de Explorar."
   }
 }

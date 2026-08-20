@@ -34,6 +34,7 @@ import {
   reportClip,
   requestPublicSharing,
   unpublishClipPublicly,
+  getSavedClips,
 } from '../api/endpoints';
 import type { PublicSharingStatus } from '../api/types';
 import { ApiError } from '../api/ApiError';
@@ -137,7 +138,17 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
    * only place a clip can be published from — offering that control on a
    * teammate's cell would teach the wrong model of who may publish what.
    */
-  const [collection, setCollection] = useState<'team' | 'mine'>('team');
+  const [collection, setCollection] = useState<'team' | 'mine' | 'saved'>('team');
+  const [savedItems, setSavedItems] = useState<ClipFeedItem[] | null>(null);
+  /** How many saved clips are no longer public. A number, never a list —
+   * naming them would let a viewer track another child's un-publish
+   * decisions. */
+  const [savedMissingCount, setSavedMissingCount] = useState(0);
+  const [savedError, setSavedError] = useState(false);
+  /** Opened from Sparade. Kept apart from `activeClip` so the player is
+   * mounted read-only: a stranger's clip must not offer delete, share, or
+   * the team report path, which would post to a team the viewer is not in. */
+  const [activeSavedClip, setActiveSavedClip] = useState<ClipFeedItem | null>(null);
   const [view, setView] = useState<'feed' | 'upload'>('feed');
 
   const hasOpenedRef = useRef(false);
@@ -492,6 +503,41 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
     (consentStatus !== null && consentStatus !== 'approved') ||
     (teamJoinStatus !== null && teamJoinStatus !== 'approved');
 
+  const loadSaved = useCallback(async () => {
+    setSavedError(false);
+    try {
+      const response = await getSavedClips();
+      // Adapted to the grid's existing shape rather than duplicating the
+      // cell. `uploaderPlayerId` is deliberately empty: it is only ever
+      // compared against the viewer's own id to decide ownership, and a
+      // saved clip is by definition someone else's.
+      setSavedItems(
+        response.items.map((item) => ({
+          clipId: item.clipId,
+          uploaderPlayerId: '',
+          uploaderScreenName: item.screenName,
+          uploaderAvatarId: item.avatarId ?? '',
+          taggedPlayerId: null,
+          taggedScreenName: null,
+          caption: item.caption,
+          playbackUrl: item.playbackUrl,
+          createdAt: item.publishedAt,
+          reportedByMe: false,
+          publishedPublicly: true,
+        })),
+      );
+      setSavedMissingCount(response.missingCount);
+    } catch {
+      setSavedError(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (collection === 'saved' && savedItems === null && !savedError) {
+      void loadSaved();
+    }
+  }, [collection, savedItems, savedError, loadSaved]);
+
   const visibleClips =
     clips === null
       ? null
@@ -560,7 +606,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
 
         {!locked && clips !== null && !loadError ? (
           <View style={styles.tabRow} accessibilityRole="tablist">
-            {(['team', 'mine'] as const).map((value) => {
+            {(['team', 'mine', 'saved'] as const).map((value) => {
               const selected = collection === value;
               return (
                 <Pressable
@@ -576,7 +622,9 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
                     {t(
                       value === 'team'
                         ? 'publicFeed.collectionTeam'
-                        : 'publicFeed.collectionMine',
+                        : value === 'mine'
+                          ? 'publicFeed.collectionMine'
+                          : 'publicFeed.collectionSaved',
                     )}
                   </Text>
                 </Pressable>
@@ -585,7 +633,38 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
           </View>
         ) : null}
 
-        {locked ? (
+        {!locked && collection === 'saved' ? (
+          savedError ? (
+            <LoadingOrRetry
+              loading={false}
+              fullScreen={false}
+              style={{ gap: 8, paddingTop: 60 }}
+              errorMessage={t('publicFeed.loadError')}
+              retryLabel={t('v2.retry')}
+              onRetry={() => void loadSaved()}
+            />
+          ) : savedItems === null ? (
+            <LoadingOrRetry loading fullScreen={false} style={{ gap: 8, paddingTop: 60 }} />
+          ) : savedItems.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyHeading}>{t('publicFeed.savedEmptyHeading')}</Text>
+              <Text style={styles.emptySub}>{t('publicFeed.savedEmptyBody')}</Text>
+            </View>
+          ) : (
+            <>
+              <ClipGrid
+                clips={savedItems}
+                hasMore={false}
+                loadingMore={false}
+                onPressClip={setActiveSavedClip}
+                onShowMore={() => undefined}
+              />
+              {savedMissingCount > 0 ? (
+                <Text style={styles.savedMissingRow}>{t('publicFeed.savedMissing')}</Text>
+              ) : null}
+            </>
+          )
+        ) : locked ? (
           <ClipsWaitingCard
             consentStatus={consentStatus ?? 'pending'}
             isSelfVerification={isSelfVerification}
@@ -640,6 +719,20 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       >
         <Text style={styles.fabIcon}>{locked ? '🔒' : '+'}</Text>
       </Pressable>
+
+      {/* Sparade's player, deliberately a second mount rather than a
+          branch on the one below. A saved clip belongs to a stranger, so
+          every action callback is omitted: no delete, no share, and
+          crucially no report — the team report path posts to a team this
+          viewer is not in. Reporting a public clip happens in Utforska,
+          where the endpoint that matches it lives. */}
+      <ClipPlayerModal
+        clip={activeSavedClip}
+        isOwn={false}
+        revealed={false}
+        onTapMeta={() => undefined}
+        onClose={() => setActiveSavedClip(null)}
+      />
 
       <ClipPlayerModal
         clip={activeClip}
@@ -768,6 +861,14 @@ const styles = StyleSheet.create({
   subTabOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   subTabLabel: { fontFamily: fonts.body, fontSize: 13, color: colors.textBody },
   subTabLabelOn: { fontFamily: fonts.bodyBold, color: colors.white },
+  savedMissingRow: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.textMuted,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    lineHeight: 17,
+  },
   heading: {
     fontFamily: fonts.headingBold,
     fontSize: 20,

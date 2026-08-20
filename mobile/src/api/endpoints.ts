@@ -65,6 +65,7 @@ import type {
   PublicFeedPage,
   ViewerReactionResult,
   ClipReportReason,
+  SavedClipsResponse,
 } from './types';
 
 // The only four endpoints Phase 1's Expo app talks to, per
@@ -751,4 +752,33 @@ export function reportPublicClip(
     `/public-feed/${clipId}/report`,
     { method: 'POST', body: { reason }, auth: true },
   );
+}
+
+/** Save a public clip to Sparade. */
+export function saveClip(clipId: string): Promise<{ clipId: string; saved: true }> {
+  return apiClient.request<{ clipId: string; saved: true }>(
+    `/public-feed/${clipId}/save`,
+    { method: 'POST', auth: true },
+  );
+}
+
+/** Remove it from Sparade. Idempotent. */
+export function unsaveClip(
+  clipId: string,
+): Promise<{ clipId: string; saved: false }> {
+  return apiClient.request<{ clipId: string; saved: false }>(
+    `/public-feed/${clipId}/save`,
+    { method: 'DELETE', auth: true },
+  );
+}
+
+/**
+ * Screen A1's Sparade. Re-validated server-side on every call, so the
+ * response is what is *still* public — `missingCount` is how many saved
+ * clips are no longer there, deliberately without saying which.
+ */
+export function getSavedClips(): Promise<SavedClipsResponse> {
+  return apiClient.request<SavedClipsResponse>('/me/saved-clips', {
+    auth: true,
+  });
 }

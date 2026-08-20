@@ -159,6 +159,11 @@
     "collectionTeam": "Laget",
     "collectionMine": "Mine",
     "mineEmptyHeading": "Du har ingen klipp ennå",
-    "mineEmptyBody": "Klippene du laster opp havner her."
+    "mineEmptyBody": "Klippene du laster opp havner her.",
+    "saveA11y": "Lagre klippet",
+    "collectionSaved": "Lagret",
+    "savedEmptyHeading": "Ingenting lagret ennå",
+    "savedEmptyBody": "Trykk på bokmerket i Utforsk for å lagre et klipp.",
+    "savedMissing": "Et lagret klipp deles ikke lenger. Den som lagde det, har tatt det bort fra Utforsk."
   }
 }

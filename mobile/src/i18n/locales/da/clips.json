@@ -159,6 +159,11 @@
     "collectionTeam": "Holdet",
     "collectionMine": "Mine",
     "mineEmptyHeading": "Du har ingen klip endnu",
-    "mineEmptyBody": "De klip, du uploader, havner her."
+    "mineEmptyBody": "De klip, du uploader, havner her.",
+    "saveA11y": "Gem klippet",
+    "collectionSaved": "Gemte",
+    "savedEmptyHeading": "Intet gemt endnu",
+    "savedEmptyBody": "Tryk på bogmærket i Udforsk for at gemme et klip.",
+    "savedMissing": "Et gemt klip deles ikke længere. Den, der lavede det, har taget det væk fra Udforsk."
   }
 }

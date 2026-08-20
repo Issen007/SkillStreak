@@ -160,14 +160,16 @@ export class PublicSharingController {
     // PublicFeedService — the reactions service depends on the feed's
     // visibility gate, so having the feed depend back on it would cycle.
     // One query for the page, not one per card.
-    const mine = await this.reactions.viewerReactionsFor(
-      playerId,
-      page.items.map((item) => item.clipId),
-    );
+    const clipIds = page.items.map((item) => item.clipId);
+    const [mine, saved] = await Promise.all([
+      this.reactions.viewerReactionsFor(playerId, clipIds),
+      this.feed.savedClipIdsFor(playerId, clipIds),
+    ]);
     return {
       ...page,
       items: page.items.map((item) => ({
         ...item,
+        savedByMe: saved.has(item.clipId),
         // `myReaction` and nothing else. There is no total on a feed card
         // by design — see ClipReactionsService's class doc for why that
         // asymmetry is the product decision rather than an omission.
