@@ -157,7 +157,8 @@
       "changeContact": "Skift",
       "back": "Tilbage",
       "logout": "Log ud",
-      "deleteAccount": "Slet min konto"
+      "deleteAccount": "Slet min konto",
+      "reportProblem": "Rapportér et problem"
     }
   },
   "erasureCheckEmail": {
@@ -238,5 +239,45 @@
     "body": "Din træning er der stadig. Vil du logge den uden video? Du får færre point, men passet tæller.",
     "logAnyway": "Log uden video",
     "tryAgain": "Prøv igen"
+  },
+  "bugReport": {
+    "heading": "Er der noget, der ikke virker?",
+    "sub": "Fortæl hvad der skete, så fikser vi det.",
+    "categoryLabel": "Hvad skete der?",
+    "categories": {
+      "crash": "Appen gik ned eller frøs",
+      "missing_or_wrong_data": "Noget mangler eller vises forkert",
+      "login_issue": "Jeg kunne ikke logge ind",
+      "upload_failed": "Et klip kunne ikke uploades",
+      "other": "Noget andet"
+    },
+    "screenLabel": "Hvor i appen skete det?",
+    "screens": {
+      "home": "Hjem",
+      "chat": "Chat",
+      "clips": "Klip",
+      "clip_upload": "Uploade klip",
+      "goal": "Mål",
+      "team": "Holdet",
+      "leaderboard": "VM-Guld-tabellen",
+      "profile": "Din profil",
+      "onboarding": "Da jeg oprettede kontoen",
+      "other": "Ved ikke / et andet sted"
+    },
+    "descriptionLabel": "Vil du fortælle mere? (frivilligt)",
+    "descriptionPlaceholder": "F.eks. »Jeg trykkede på Jeg har trænet, og så skete der ingenting.«",
+    "descriptionCounter": "{{count}}/500 tegn",
+    "descriptionTooLong": "Teksten er for lang — gør den lidt kortere.",
+    "disclosureTitle": "Det her sender vi med",
+    "disclosureSent": "Dit skærmnavn og dit hold, hvilken version af appen du har, hvilken slags telefon, og hvilket sprog appen er på — plus det du valgte og skrev ovenfor.",
+    "disclosureNotSent": "Vi sender aldrig hvor du er, hvilken telefon det er, din IP-adresse eller hvad du har lavet i appen før.",
+    "disclosureWho": "Det går kun til os, der bygger appen — aldrig til nogen andre på holdet.",
+    "submit": "Send",
+    "rateLimited": "Du har allerede sendt et par rapporter i dag. Prøv igen i morgen.",
+    "successHeading": "Tak!",
+    "successBody": "Vi har fået din rapport og kigger på den. Du behøver ikke gøre mere.",
+    "successCta": "Færdig",
+    "a11yCategoryGroup": "Vælg hvad der skete",
+    "a11yScreenGroup": "Vælg hvor i appen det skete"
   }
 }

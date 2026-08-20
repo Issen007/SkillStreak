@@ -157,7 +157,8 @@
       "changeContact": "Changer",
       "back": "Retour",
       "logout": "Se déconnecter",
-      "deleteAccount": "Supprimer mon compte"
+      "deleteAccount": "Supprimer mon compte",
+      "reportProblem": "Signaler un problème"
     }
   },
   "erasureCheckEmail": {
@@ -238,5 +239,45 @@
     "body": "Ta séance est toujours là. L'enregistrer sans vidéo ? Tu auras moins de points, mais elle compte.",
     "logAnyway": "Enregistrer sans vidéo",
     "tryAgain": "Réessayer"
+  },
+  "bugReport": {
+    "heading": "Quelque chose ne marche pas ?",
+    "sub": "Raconte-nous ce qui s'est passé et on le répare.",
+    "categoryLabel": "Qu'est-ce qui s'est passé ?",
+    "categories": {
+      "crash": "L'appli a planté ou s'est figée",
+      "missing_or_wrong_data": "Il manque quelque chose ou ça s'affiche mal",
+      "login_issue": "Je n'ai pas pu me connecter",
+      "upload_failed": "Un clip n'a pas voulu se charger",
+      "other": "Autre chose"
+    },
+    "screenLabel": "Où dans l'appli est-ce arrivé ?",
+    "screens": {
+      "home": "Accueil",
+      "chat": "Chat",
+      "clips": "Clips",
+      "clip_upload": "Envoi d'un clip",
+      "goal": "Objectif",
+      "team": "L'équipe",
+      "leaderboard": "Le classement Or-Mondial",
+      "profile": "Ton profil",
+      "onboarding": "Quand j'ai créé mon compte",
+      "other": "Je ne sais pas / ailleurs"
+    },
+    "descriptionLabel": "Tu veux en dire plus ? (facultatif)",
+    "descriptionPlaceholder": "Par ex. « J'ai appuyé sur J'ai entraîné et rien ne s'est passé. »",
+    "descriptionCounter": "{{count}}/500 caractères",
+    "descriptionTooLong": "Le texte est trop long — raccourcis-le un peu.",
+    "disclosureTitle": "Voilà ce qu'on envoie avec",
+    "disclosureSent": "Ton pseudo et ton équipe, la version de l'appli que tu as, quel genre de téléphone, et dans quelle langue est l'appli — plus ce que tu as choisi et écrit au-dessus.",
+    "disclosureNotSent": "On n'envoie jamais où tu es, quel téléphone c'est, ton adresse IP, ni ce que tu as fait avant dans l'appli.",
+    "disclosureWho": "Ça va seulement à nous qui construisons l'appli — jamais à quelqu'un d'autre de ton équipe.",
+    "submit": "Envoyer",
+    "rateLimited": "Tu as déjà envoyé quelques signalements aujourd'hui. Réessaie demain.",
+    "successHeading": "Merci !",
+    "successBody": "On a reçu ton signalement et on va le regarder. Tu n'as rien d'autre à faire.",
+    "successCta": "Terminé",
+    "a11yCategoryGroup": "Choisis ce qui s'est passé",
+    "a11yScreenGroup": "Choisis où dans l'appli c'est arrivé"
   }
 }

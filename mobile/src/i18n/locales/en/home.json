@@ -157,7 +157,8 @@
       "changeContact": "Change",
       "back": "Back",
       "logout": "Log out",
-      "deleteAccount": "Delete my account"
+      "deleteAccount": "Delete my account",
+      "reportProblem": "Report a problem"
     }
   },
   "erasureCheckEmail": {
@@ -238,5 +239,45 @@
     "body": "Your session is still here. Log it without the video? You get fewer points, but it counts.",
     "logAnyway": "Log without video",
     "tryAgain": "Try again"
+  },
+  "bugReport": {
+    "heading": "Something not working?",
+    "sub": "Tell us what happened and we'll fix it.",
+    "categoryLabel": "What happened?",
+    "categories": {
+      "crash": "The app crashed or froze",
+      "missing_or_wrong_data": "Something is missing or looks wrong",
+      "login_issue": "I couldn't sign in",
+      "upload_failed": "A clip wouldn't upload",
+      "other": "Something else"
+    },
+    "screenLabel": "Where in the app did it happen?",
+    "screens": {
+      "home": "Home",
+      "chat": "Chat",
+      "clips": "Shorts",
+      "clip_upload": "Uploading a clip",
+      "goal": "Goal",
+      "team": "Team",
+      "leaderboard": "The leaderboard",
+      "profile": "Your profile",
+      "onboarding": "When I set up my account",
+      "other": "Not sure / somewhere else"
+    },
+    "descriptionLabel": "Want to tell us more? (optional)",
+    "descriptionPlaceholder": "E.g. “I tapped I trained and nothing happened.”",
+    "descriptionCounter": "{{count}}/500 characters",
+    "descriptionTooLong": "That's a bit too long — shorten it a little.",
+    "disclosureTitle": "What we send along",
+    "disclosureSent": "Your screen name and your team, which version of the app you have, what kind of phone, and what language the app is in — plus what you picked and wrote above.",
+    "disclosureNotSent": "We never send where you are, which phone it is, your IP address, or what you've done in the app before.",
+    "disclosureWho": "It only goes to us who build the app — never to anyone else on your team.",
+    "submit": "Send",
+    "rateLimited": "You've already sent a few reports today. Try again tomorrow.",
+    "successHeading": "Thanks!",
+    "successBody": "We got your report and we'll look at it. You don't need to do anything else.",
+    "successCta": "Done",
+    "a11yCategoryGroup": "Choose what happened",
+    "a11yScreenGroup": "Choose where in the app it happened"
   }
 }

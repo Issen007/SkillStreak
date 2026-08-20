@@ -30,6 +30,8 @@ import { ErasureConfirmSheet } from './erasure/ErasureConfirmSheet';
 import { ErasureCheckEmailScreen } from './erasure/ErasureCheckEmailScreen';
 import { ErasureStatusCard } from './erasure/ErasureStatusCard';
 import { PtRelationshipsScreen } from './PtRelationshipsScreen';
+import { BugReportScreen } from './bugReport/BugReportScreen';
+import { BugReportSentScreen } from './bugReport/BugReportSentScreen';
 
 interface ProfileScreenProps {
   screenName: string;
@@ -59,7 +61,12 @@ type ProfileView =
   | 'confirmChange'
   | 'erasureRequest'
   | 'erasureSuccessor'
-  | 'erasureCheckEmail';
+  | 'erasureCheckEmail'
+  // Screens BR2/BR3 — docs/design/phase7-admin-console-flows.md §9. Two
+  // more values in this union rather than a new screen container, which
+  // is the same call Fas 4.2's three erasure steps made.
+  | 'bugReport'
+  | 'bugReportSent';
 
 /** Fas 4.1 — docs/adr/0012-profile-page-and-contact-email-change.md.
  * Reached by tapping the avatar circle in `AppHeader`. Own local
@@ -608,6 +615,37 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
     return <ErasureCheckEmailScreen onDone={() => setView('view')} />;
   }
 
+  // Screen BR2. The toast host is repeated here for the same reason the
+  // erasure branches repeat it: each branch returns its own tree, so the
+  // one in the main view below is not mounted while this is showing.
+  if (view === 'bugReport') {
+    return (
+      <View style={styles.container}>
+        <BugReportScreen
+          locale={profile.locale}
+          onCancel={() => setView('view')}
+          onSent={() => setView('bugReportSent')}
+          onToast={(message) => {
+            setToastDurationMs(4000);
+            setToastMessage(message);
+          }}
+        />
+        {toastMessage ? (
+          <Toast
+            message={toastMessage}
+            durationMs={toastDurationMs}
+            onDismiss={() => setToastMessage(null)}
+          />
+        ) : null}
+      </View>
+    );
+  }
+
+  // Screen BR3.
+  if (view === 'bugReportSent') {
+    return <BugReportSentScreen onDone={() => setView('view')} />;
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -671,6 +709,18 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
 
         <SecondaryLink label={t('profileScreen.view.back')} onPress={onBack} />
         <SecondaryLink label={t('profileScreen.view.logout')} onPress={() => void handleLogout()} />
+
+        {/* Screen BR1 (docs/design/phase7-admin-console-flows.md §9.1).
+            Default muted colour, not `variant="error"` — reporting a bug
+            is not destructive. Deliberately here rather than anywhere more
+            prominent: the core loop is one tap deep and must not compete
+            with a permanent invitation to file "the app is boring".
+            Ungated by consent on purpose — a child stuck waiting for a
+            parent is exactly who most needs this. */}
+        <SecondaryLink
+          label={t('profileScreen.view.reportProblem')}
+          onPress={() => setView('bugReport')}
+        />
 
         {/* The running build, stamped at image-build time (see
             site/Dockerfile's EXPO_PUBLIC_APP_VERSION). Deliberately the

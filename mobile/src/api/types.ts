@@ -991,3 +991,54 @@ export interface ClipPublicationResult {
   clipId: string;
   publishedPublicly: boolean;
 }
+
+/* -------------------------------------------------------------------------
+ * Bug reports — docs/adr/0022-admin-control-center.md Decision 7, screens
+ * BR1–BR3 in docs/design/phase7-admin-console-flows.md §9.
+ *
+ * These three unions mirror the backend's `BugReportCategory`,
+ * `BugReportScreen` and `BugReportPlatform` enums exactly, and that is
+ * load-bearing rather than tidy: `screen` is a Postgres enum column, and
+ * the security review that made it one specifically rejected a varchar. A
+ * value drifting apart here would be rejected by the DTO rather than
+ * silently stored, but the child would just see "something went wrong".
+ * ---------------------------------------------------------------------- */
+
+export type BugReportCategory =
+  | 'crash'
+  | 'login_issue'
+  | 'missing_or_wrong_data'
+  | 'upload_failed'
+  | 'other';
+
+export type BugReportScreen =
+  | 'home'
+  | 'chat'
+  | 'clips'
+  | 'clip_upload'
+  | 'goal'
+  | 'team'
+  | 'leaderboard'
+  | 'profile'
+  | 'onboarding'
+  | 'other';
+
+export type BugReportPlatform = 'ios' | 'android' | 'web';
+
+/** Note what is absent: no player id (the server takes it from the
+ * session), and nothing about the device beyond platform/OS version. §9.2
+ * enumerates the whole field set and this is it. */
+export interface SubmitBugReportRequest {
+  category: BugReportCategory;
+  screen: BugReportScreen;
+  description?: string;
+  appVersion: string;
+  platform: BugReportPlatform;
+  osVersion?: string;
+  locale: PlayerLocale;
+}
+
+export interface SubmitBugReportResponse {
+  id: string;
+  createdAt: string;
+}

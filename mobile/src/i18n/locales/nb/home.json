@@ -157,7 +157,8 @@
       "changeContact": "Bytt",
       "back": "Tilbake",
       "logout": "Logg ut",
-      "deleteAccount": "Slett kontoen min"
+      "deleteAccount": "Slett kontoen min",
+      "reportProblem": "Meld fra om et problem"
     }
   },
   "erasureCheckEmail": {
@@ -238,5 +239,45 @@
     "body": "Økten din er fortsatt her. Vil du logge den uten video? Du får færre poeng, men økten teller.",
     "logAnyway": "Logg uten video",
     "tryAgain": "Prøv igjen"
+  },
+  "bugReport": {
+    "heading": "Noe som ikke funker?",
+    "sub": "Fortell hva som skjedde, så fikser vi det.",
+    "categoryLabel": "Hva skjedde?",
+    "categories": {
+      "crash": "Appen krasjet eller frøs",
+      "missing_or_wrong_data": "Noe mangler eller vises feil",
+      "login_issue": "Jeg fikk ikke logget inn",
+      "upload_failed": "En klipp ville ikke lastes opp",
+      "other": "Noe annet"
+    },
+    "screenLabel": "Hvor i appen skjedde det?",
+    "screens": {
+      "home": "Hjem",
+      "chat": "Chat",
+      "clips": "Klipp",
+      "clip_upload": "Laste opp klipp",
+      "goal": "Mål",
+      "team": "Laget",
+      "leaderboard": "VM-Gull-tabellen",
+      "profile": "Profilen din",
+      "onboarding": "Da jeg lagde kontoen",
+      "other": "Vet ikke / et annet sted"
+    },
+    "descriptionLabel": "Vil du fortelle mer? (frivillig)",
+    "descriptionPlaceholder": "F.eks. «Jeg trykket på Jeg har trent, og da skjedde ingenting.»",
+    "descriptionCounter": "{{count}}/500 tegn",
+    "descriptionTooLong": "Teksten er for lang — kort den ned litt.",
+    "disclosureTitle": "Dette sender vi med",
+    "disclosureSent": "Skjermnavnet ditt og laget ditt, hvilken versjon av appen du har, hva slags telefon, og hvilket språk appen er på — pluss det du valgte og skrev over.",
+    "disclosureNotSent": "Vi sender aldri hvor du er, hvilken telefon det er, IP-adressen din eller hva du har gjort i appen før.",
+    "disclosureWho": "Det går bare til oss som lager appen — aldri til noen andre på laget.",
+    "submit": "Send",
+    "rateLimited": "Du har sendt noen rapporter i dag allerede. Prøv igjen i morgen.",
+    "successHeading": "Takk!",
+    "successBody": "Vi har fått rapporten din og ser på den. Du trenger ikke gjøre noe mer.",
+    "successCta": "Ferdig",
+    "a11yCategoryGroup": "Velg hva som skjedde",
+    "a11yScreenGroup": "Velg hvor i appen det skjedde"
   }
 }

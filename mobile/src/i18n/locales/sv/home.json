@@ -157,7 +157,8 @@
       "changeContact": "Byt",
       "back": "Tillbaka",
       "logout": "Logga ut",
-      "deleteAccount": "Radera mitt konto"
+      "deleteAccount": "Radera mitt konto",
+      "reportProblem": "Rapportera ett problem"
     }
   },
   "erasureCheckEmail": {
@@ -238,5 +239,45 @@
     "body": "Din träning finns kvar. Vill du logga den utan video? Du får färre poäng, men passet räknas.",
     "logAnyway": "Logga utan video",
     "tryAgain": "Försök igen"
+  },
+  "bugReport": {
+    "heading": "Något som inte funkar?",
+    "sub": "Berätta vad som hände så fixar vi det.",
+    "categoryLabel": "Vad hände?",
+    "categories": {
+      "crash": "Appen kraschade eller frös",
+      "missing_or_wrong_data": "Något saknas eller visas fel",
+      "login_issue": "Jag kunde inte logga in",
+      "upload_failed": "Ett klipp gick inte att ladda upp",
+      "other": "Något annat"
+    },
+    "screenLabel": "Var i appen hände det?",
+    "screens": {
+      "home": "Hem",
+      "chat": "Chatt",
+      "clips": "Klipp",
+      "clip_upload": "Ladda upp klipp",
+      "goal": "Mål",
+      "team": "Laget",
+      "leaderboard": "VM-Guld-tabellen",
+      "profile": "Din profil",
+      "onboarding": "När jag skapade kontot",
+      "other": "Vet inte / något annat"
+    },
+    "descriptionLabel": "Vill du berätta mer? (frivilligt)",
+    "descriptionPlaceholder": "T.ex. ”Jag tryckte på Jag har tränat och då hände inget.”",
+    "descriptionCounter": "{{count}}/500 tecken",
+    "descriptionTooLong": "Texten är för lång — korta ner den lite.",
+    "disclosureTitle": "Det här skickar vi med",
+    "disclosureSent": "Ditt skärmnamn och ditt lag, vilken version av appen du har, vilken sorts telefon och vilket språk appen är på — plus det du valt och skrivit här ovanför.",
+    "disclosureNotSent": "Vi skickar aldrig var du är, vilken telefon det är, din IP-adress eller vad du gjort i appen tidigare.",
+    "disclosureWho": "Det går bara till oss som bygger appen — aldrig till någon annan i laget.",
+    "submit": "Skicka",
+    "rateLimited": "Du har skickat några rapporter idag redan. Testa igen imorgon.",
+    "successHeading": "Tack!",
+    "successBody": "Vi har fått din rapport och tittar på den. Du behöver inte göra något mer.",
+    "successCta": "Klart",
+    "a11yCategoryGroup": "Välj vad som hände",
+    "a11yScreenGroup": "Välj var i appen det hände"
   }
 }

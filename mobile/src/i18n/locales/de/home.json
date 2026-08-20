@@ -157,7 +157,8 @@
       "changeContact": "Ändern",
       "back": "Zurück",
       "logout": "Abmelden",
-      "deleteAccount": "Mein Konto löschen"
+      "deleteAccount": "Mein Konto löschen",
+      "reportProblem": "Ein Problem melden"
     }
   },
   "erasureCheckEmail": {
@@ -238,5 +239,45 @@
     "body": "Dein Training ist noch da. Ohne Video eintragen? Du bekommst weniger Punkte, aber es zählt.",
     "logAnyway": "Ohne Video eintragen",
     "tryAgain": "Nochmal versuchen"
+  },
+  "bugReport": {
+    "heading": "Funktioniert etwas nicht?",
+    "sub": "Erzähl uns, was passiert ist, dann reparieren wir es.",
+    "categoryLabel": "Was ist passiert?",
+    "categories": {
+      "crash": "Die App ist abgestürzt oder eingefroren",
+      "missing_or_wrong_data": "Etwas fehlt oder wird falsch angezeigt",
+      "login_issue": "Ich konnte mich nicht anmelden",
+      "upload_failed": "Ein Clip ließ sich nicht hochladen",
+      "other": "Etwas anderes"
+    },
+    "screenLabel": "Wo in der App ist es passiert?",
+    "screens": {
+      "home": "Start",
+      "chat": "Chat",
+      "clips": "Clips",
+      "clip_upload": "Clip hochladen",
+      "goal": "Ziel",
+      "team": "Mannschaft",
+      "leaderboard": "Die WM-Gold-Tabelle",
+      "profile": "Dein Profil",
+      "onboarding": "Beim Einrichten meines Kontos",
+      "other": "Weiß nicht / woanders"
+    },
+    "descriptionLabel": "Möchtest du mehr erzählen? (freiwillig)",
+    "descriptionPlaceholder": "Z. B. „Ich habe auf Ich habe trainiert getippt und es ist nichts passiert.“",
+    "descriptionCounter": "{{count}}/500 Zeichen",
+    "descriptionTooLong": "Der Text ist zu lang — kürze ihn ein bisschen.",
+    "disclosureTitle": "Das schicken wir mit",
+    "disclosureSent": "Deinen Anzeigenamen und deine Mannschaft, welche Version der App du hast, was für ein Handy, und in welcher Sprache die App ist — dazu das, was du oben ausgewählt und geschrieben hast.",
+    "disclosureNotSent": "Wir schicken nie, wo du bist, welches Handy es ist, deine IP-Adresse oder was du vorher in der App gemacht hast.",
+    "disclosureWho": "Es geht nur an uns, die die App bauen — nie an jemand anderen in deiner Mannschaft.",
+    "submit": "Senden",
+    "rateLimited": "Du hast heute schon ein paar Meldungen geschickt. Versuch es morgen wieder.",
+    "successHeading": "Danke!",
+    "successBody": "Wir haben deine Meldung bekommen und schauen sie uns an. Du musst nichts weiter tun.",
+    "successCta": "Fertig",
+    "a11yCategoryGroup": "Wähle aus, was passiert ist",
+    "a11yScreenGroup": "Wähle aus, wo in der App es passiert ist"
   }
 }

@@ -157,7 +157,8 @@
       "changeContact": "Cambiar",
       "back": "Atrás",
       "logout": "Cerrar sesión",
-      "deleteAccount": "Borrar mi cuenta"
+      "deleteAccount": "Borrar mi cuenta",
+      "reportProblem": "Informar de un problema"
     }
   },
   "erasureCheckEmail": {
@@ -238,5 +239,45 @@
     "body": "Tu sesión sigue aquí. ¿La registramos sin el vídeo? Consigues menos puntos, pero cuenta.",
     "logAnyway": "Registrar sin vídeo",
     "tryAgain": "Volver a intentarlo"
+  },
+  "bugReport": {
+    "heading": "¿Algo no funciona?",
+    "sub": "Cuéntanos qué pasó y lo arreglamos.",
+    "categoryLabel": "¿Qué pasó?",
+    "categories": {
+      "crash": "La app se cerró o se quedó colgada",
+      "missing_or_wrong_data": "Falta algo o se ve mal",
+      "login_issue": "No pude iniciar sesión",
+      "upload_failed": "Un clip no se pudo subir",
+      "other": "Otra cosa"
+    },
+    "screenLabel": "¿Dónde en la app pasó?",
+    "screens": {
+      "home": "Inicio",
+      "chat": "Chat",
+      "clips": "Clips",
+      "clip_upload": "Subir un clip",
+      "goal": "Meta",
+      "team": "El equipo",
+      "leaderboard": "La tabla del Oro Mundial",
+      "profile": "Tu perfil",
+      "onboarding": "Cuando creé mi cuenta",
+      "other": "No sé / en otro sitio"
+    },
+    "descriptionLabel": "¿Quieres contarnos más? (opcional)",
+    "descriptionPlaceholder": "Por ej. «Pulsé He entrenado y no pasó nada.»",
+    "descriptionCounter": "{{count}}/500 caracteres",
+    "descriptionTooLong": "El texto es demasiado largo — acórtalo un poco.",
+    "disclosureTitle": "Esto es lo que enviamos",
+    "disclosureSent": "Tu nombre de pantalla y tu equipo, qué versión de la app tienes, qué tipo de teléfono, y en qué idioma está la app — más lo que has elegido y escrito arriba.",
+    "disclosureNotSent": "Nunca enviamos dónde estás, qué teléfono es, tu dirección IP ni lo que has hecho antes en la app.",
+    "disclosureWho": "Solo llega a quienes construimos la app — nunca a nadie más de tu equipo.",
+    "submit": "Enviar",
+    "rateLimited": "Ya has enviado unos cuantos informes hoy. Inténtalo mañana.",
+    "successHeading": "¡Gracias!",
+    "successBody": "Hemos recibido tu informe y lo vamos a mirar. No tienes que hacer nada más.",
+    "successCta": "Listo",
+    "a11yCategoryGroup": "Elige qué pasó",
+    "a11yScreenGroup": "Elige dónde en la app pasó"
   }
 }
