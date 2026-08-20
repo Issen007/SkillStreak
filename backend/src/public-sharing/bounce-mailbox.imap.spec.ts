@@ -56,10 +56,16 @@ function startImapServer(
   uids: number[],
   bodyFor: (uid: number) => string,
   refuse: { store?: boolean; expunge?: boolean } = {},
+  gmail: { enabled: boolean; copyuid?: boolean } = { enabled: false },
 ) {
   const commands: string[] = [];
+  // Gmail advertises X-GM-EXT-1, and that is what the service keys off to
+  // decide a plain EXPUNGE is not enough. `copyuid` models the UIDPLUS
+  // response to UID MOVE, which is the only way to address the message
+  // once it has landed in Trash.
+  const caps = gmail.enabled ? `${CAPS} X-GM-EXT-1` : CAPS;
   const server: Server = createServer((sock) => {
-    sock.write(`* OK [CAPABILITY ${CAPS}] mock ready\r\n`);
+    sock.write(`* OK [CAPABILITY ${caps}] mock ready\r\n`);
     sock.on('data', (buf) => {
       for (const line of buf.toString().split('\r\n').filter(Boolean)) {
         const [tag, ...rest] = line.split(' ');
@@ -68,7 +74,7 @@ function startImapServer(
         commands.push(line);
 
         if (cmd === 'CAPABILITY') {
-          sock.write(`* CAPABILITY ${CAPS}\r\n${tag} OK done\r\n`);
+          sock.write(`* CAPABILITY ${caps}\r\n${tag} OK done\r\n`);
         } else if (cmd === 'ID') {
           sock.write(`* ID ("name" "mock")\r\n${tag} OK done\r\n`);
         } else if (cmd === 'NAMESPACE') {
@@ -76,7 +82,18 @@ function startImapServer(
         } else if (cmd === 'ENABLE' || cmd === 'LOGIN' || cmd === 'LOGOUT') {
           sock.write(`${tag} OK done\r\n`);
         } else if (cmd === 'LIST' || cmd === 'LSUB') {
+          if (gmail.enabled) {
+            sock.write(
+              '* LIST (\\HasNoChildren) "/" "INBOX"\r\n' +
+                '* LIST (\\Trash \\HasNoChildren) "/" "[Gmail]/Trash"\r\n',
+            );
+          }
           sock.write(`${tag} OK done\r\n`);
+        } else if (cmd === 'UID' && sub === 'MOVE') {
+          const src = Number(/UID MOVE (\d+)/i.exec(line)?.[1] ?? 0);
+          const copyuid =
+            gmail.copyuid === false ? '' : ` [COPYUID 1 ${src} ${src + 900}]`;
+          sock.write(`${tag} OK${copyuid} moved\r\n`);
         } else if (cmd === 'SELECT') {
           sock.write(
             `* ${uids.length} EXISTS\r\n* 0 RECENT\r\n` +
@@ -330,5 +347,112 @@ describe('BounceMailboxService: limits and stuck messages', () => {
     await run([11], ok(), { errorLogService });
 
     expect(errorLogService.record).not.toHaveBeenCalled();
+  }, 30_000);
+});
+
+describe('BounceMailboxService on Gmail: deletion must reach Trash', () => {
+  /**
+   * **The regression this file's neighbours could not have caught.**
+   *
+   * Verified against the live noreply@skillstreak.xyz mailbox on
+   * 2026-08-20: a run reported six messages handled, INBOX held 0, and
+   * `[Gmail]/All Mail` held all six. Gmail reads `\Deleted` + EXPUNGE
+   * outside Trash as "remove this label", so the message is archived
+   * rather than destroyed — and every command the old code sent was
+   * accepted, so the summary, the counters and the error log all reported
+   * a clean drain.
+   *
+   * That matters because a DSN quotes the reminder it bounced, which
+   * carries a live parental revoke code. "Deleted from INBOX, kept in All
+   * Mail forever" is precisely the silent failure this whole service
+   * exists to avoid.
+   */
+  let server: Server | undefined;
+
+  afterEach(async () => {
+    if (server) await new Promise((r) => server!.close(() => r(undefined)));
+    server = undefined;
+  });
+
+  async function run(
+    uids: number[],
+    opts: { gmail: boolean; copyuid?: boolean; errorLogService?: unknown } = {
+      gmail: true,
+    },
+  ) {
+    const started = startImapServer(
+      uids,
+      () => dsnFor(TOKEN),
+      {},
+      { enabled: opts.gmail, copyuid: opts.copyuid },
+    );
+    server = started.server;
+    await new Promise((r) =>
+      started.server.listen(0, '127.0.0.1', () => r(undefined)),
+    );
+    const port = (started.server.address() as { port: number }).port;
+    const service = buildService(
+      port,
+      {
+        recordReminderUndeliverable: jest
+          .fn()
+          .mockResolvedValue({ matched: true, counted: true, disabled: false }),
+      },
+      opts.errorLogService ?? {
+        record: jest.fn().mockResolvedValue(undefined),
+      },
+    );
+    await service.pollBounceMailbox();
+    return started.commands;
+  }
+
+  it('moves the message to Trash instead of expunging it in place', async () => {
+    const commands = await run([7]);
+
+    expect(
+      commands.some((c) => /UID MOVE 7 "?\[Gmail\]\/Trash"?/i.test(c)),
+    ).toBe(true);
+    // The INBOX copy must never be the thing we "delete" — that is the
+    // archive-and-forget behaviour.
+    expect(commands.some((c) => /UID STORE 7 .*\\Deleted/i.test(c))).toBe(
+      false,
+    );
+  }, 30_000);
+
+  it('expunges the moved copy from Trash, by its COPYUID', async () => {
+    const commands = await run([7]);
+
+    const selectedTrash = commands.some((c) =>
+      /SELECT "?\[Gmail\]\/Trash"?/i.test(c),
+    );
+    expect(selectedTrash).toBe(true);
+    // 907 = the mock's COPYUID mapping for source uid 7. Expunging the
+    // source uid here would delete an unrelated message in Trash.
+    expect(commands.some((c) => /UID STORE 907 .*\\Deleted/i.test(c))).toBe(
+      true,
+    );
+    expect(commands.some((c) => /UID EXPUNGE 907/i.test(c))).toBe(true);
+  }, 30_000);
+
+  it('leaves a non-Gmail server on the plain delete path', async () => {
+    const commands = await run([7], { gmail: false });
+
+    expect(commands.some((c) => /UID MOVE/i.test(c))).toBe(false);
+    expect(commands.some((c) => /UID STORE 7 .*\\Deleted/i.test(c))).toBe(true);
+    expect(commands.some((c) => /UID EXPUNGE/i.test(c))).toBe(true);
+  }, 30_000);
+
+  it('treats a move with no COPYUID as stuck rather than as success', async () => {
+    // Without the mapping the message is in Trash but unaddressable, so
+    // it is NOT destroyed. Reporting that as a clean drain would recreate
+    // the exact silence this test file exists to break.
+    const record = jest.fn().mockResolvedValue(undefined);
+    await run([7], {
+      gmail: true,
+      copyuid: false,
+      errorLogService: { record },
+    });
+
+    expect(record).toHaveBeenCalled();
   }, 30_000);
 });
