@@ -284,3 +284,61 @@ them once) — just nothing application-facing uses them anymore.
 - **No HPA, NetworkPolicy, or multi-region setup** — intentionally out of
   scope for a small youth-sports app's first beta (that's Fas 4 territory,
   not this pass).
+
+## TLS and certificate renewal — read before touching the Gateway
+
+*Added 2026-08-20, after a visitor's report turned into two findings.*
+
+**Current state.** One Let's Encrypt production certificate covers
+`skillstreak.xyz`, `www`, `try` and `api`, renewed by cert-manager via
+**HTTP-01** solved through an HTTPRoute on the Gateway's plaintext
+listener. HSTS is sent by the site's nginx and by the API.
+
+**Plain HTTP does not redirect to HTTPS**, and that is deliberate rather
+than an oversight — see the long comment in `httproute.yaml`. Short
+version: a catch-all `RequestRedirect` on the port-80 listener works, but
+on Cilium v1.19.1 it suppresses the other routes on that listener instead
+of yielding to more specific ones, so cert-manager's ACME challenge route
+is never programmed and renewal fails. Measured, not assumed.
+
+**Two things that hid this and will hide it again:**
+
+1. **Let's Encrypt caches valid authorizations (~30 days).** A staging
+   test issued a certificate in six seconds with
+   `initialState=valid` — no challenge was solved, so the test proved
+   nothing. Check `initialState` on the Order before believing a green
+   result; only `pending` means the challenge path was exercised.
+2. **The Gateway controller can be dead while everything looks fine.** On
+   2026-08-11 Cilium's operator failed to initialise it (`context deadline
+   exceeded` reaching the CRDs, 30s timeout) and never retried. The
+   already-programmed envoy config kept serving traffic for nine days, so
+   HTTPS worked perfectly while *every* Gateway and HTTPRoute change
+   silently did nothing. Fixed by
+   `kubectl -n kube-system rollout restart deploy/cilium-operator`.
+
+**How to tell the controller is alive:**
+
+```
+kubectl -n skillstreak get gateway skillstreak-gateway \
+  -o jsonpath='{range .status.listeners[*]}{.name} {.conditions[?(@.type=="Programmed")].status}{"\n"}{end}'
+```
+
+`Programmed=False (AddressNotAssigned)` is the normal steady state here —
+the gateway Service is a ClusterIP, not a LoadBalancer. What matters is
+whether a *new* route gets a `status` block and reaches the
+CiliumEnvoyConfig; if a freshly applied HTTPRoute has no status after a
+minute, the controller is not reconciling.
+
+**The renewal deadline.** `kubectl -n skillstreak get certificate
+skillstreak-xyz-tls -o jsonpath='{.status.renewalTime}'`. With HSTS
+deployed, a failed renewal is a hard outage rather than a click-through
+warning, so this date is worth a calendar entry rather than trust.
+
+**Planned fix: DNS-01.** It removes the port-80 dependency entirely, which
+makes the redirect safe to restore. Blocked on DNS hosting: the zone is on
+Squarespace (`nsa1-4.squarespacedns.com`), which has no DNS API and no
+cert-manager solver. Two ways out, both the project owner's call —
+move the zone to a provider cert-manager supports natively (Cloudflare is
+the usual choice: free, native solver), or delegate just
+`_acme-challenge.skillstreak.xyz` via CNAME to an `acme-dns` instance and
+keep Squarespace for everything else.
