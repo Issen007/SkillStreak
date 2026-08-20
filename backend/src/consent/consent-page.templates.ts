@@ -66,6 +66,20 @@ const CONSENT_CONFIRM_COPY: Partial<Record<PlayerLocale, ConsentConfirmCopy>> =
       later.`,
       button: 'I approve',
     },
+    es: {
+      title: (safeName) => `Autorizar a ${safeName} — SkillStreak`,
+      heading: (safeName) => `Autorizar a ${safeName} en SkillStreak`,
+      body1: (safeName) =>
+        `<strong>${safeName}</strong> quiere registrar entrenamientos en SkillStreak, una app de rachas de
+      entrenamiento diarias y de un objetivo de puntos compartido por el equipo. Nunca se recogen datos de ubicación, y
+      todo lo que comparte ${safeName} — incluidos los vídeos — solo lo ve su propio equipo. Hay una excepción: ${safeName} puede compartir sus propios vídeos con otros usuarios de SkillStreak, pero solo si tú lo autorizas por separado, y puedes desactivarlo cuando quieras.`,
+      body2: (safeName) =>
+        `Si lo autorizas, ${safeName} podrá empezar a registrar entrenamientos ahora mismo. Los vídeos que
+      comparta ${safeName} también pueden analizarse automáticamente para crear etiquetas
+      que describen qué tipo de entrenamiento muestran. Siempre puedes hablar con el
+      entrenador si cambias de idea más adelante.`,
+      button: 'Doy mi autorización',
+    },
     fi: {
       title: (safeName) => `Hyväksy ${safeName} — SkillStreak`,
       heading: (safeName) => `Hyväksy ${safeName} SkillStreakiin`,
@@ -215,6 +229,19 @@ const SELF_VERIFICATION_CONFIRM_COPY: Partial<
       may also be automatically analyzed to generate tags describing what kind of training they
       show.`,
     button: 'Verify my account',
+  },
+  es: {
+    title: () => `Verifica tu cuenta — SkillStreak`,
+    heading: () => `Verifica tu cuenta en SkillStreak`,
+    body1: (safeName) =>
+      `¡Ya casi está, <strong>${safeName}</strong>! Confirma que este es tu correo para activar tu
+      cuenta. Nunca se recogen datos de ubicación, y todo lo que compartes — incluidos los
+      vídeos — solo lo ve tu propio equipo. Si alguna vez quieres compartir uno de tus vídeos fuera del equipo, hay que añadir a tu cuenta el correo de un padre, una madre o un tutor, y ese adulto tiene que dar su permiso.`,
+    body2: () =>
+      `En cuanto lo confirmes, podrás empezar a registrar entrenamientos ahora mismo. Los vídeos que compartas
+      también pueden analizarse automáticamente para crear etiquetas que describen qué tipo de entrenamiento
+      muestran.`,
+    button: 'Verificar mi cuenta',
   },
   fi: {
     title: () => `Vahvista tilisi — SkillStreak`,
@@ -368,6 +395,12 @@ const CONSENT_APPROVED_COPY: Partial<
     heading: 'Thank you!',
     body: (safeName) => `${safeName} can now start logging training sessions.`,
   },
+  es: {
+    title: '¡Gracias! — SkillStreak',
+    heading: '¡Gracias!',
+    body: (safeName) =>
+      `${safeName} ya puede empezar a registrar entrenamientos.`,
+  },
   fi: {
     title: 'Kiitos! — SkillStreak',
     heading: 'Kiitos!',
@@ -439,6 +472,12 @@ const SELF_VERIFICATION_APPROVED_COPY: Partial<
     heading: 'Done!',
     body: (safeName) =>
       `Your account is verified, ${safeName}. You can now start logging training sessions.`,
+  },
+  es: {
+    title: '¡Listo! — SkillStreak',
+    heading: '¡Listo!',
+    body: (safeName) =>
+      `Tu cuenta está verificada, ${safeName}. Ya puedes empezar a registrar entrenamientos.`,
   },
   fi: {
     title: 'Valmista! — SkillStreak',

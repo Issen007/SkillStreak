@@ -288,6 +288,15 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      # Guards all 9 locales against a silently-missing key. i18next falls
+      # back rather than failing, so a gap shows up as Swedish text inside
+      # an otherwise translated screen — invisible to tsc and to review.
+      # Added 2026-08-20 alongside the Spanish locale; its first run found
+      # the entire Tips namespace missing from six locales, which had been
+      # shipping as Swedish to those users.
+      - name: i18n key parity
+        run: node scripts/check-i18n-parity.mjs
+
   # expo-doctor is SPLIT OUT and deliberately cannot fail the run.
   #
   # It reports Expo SDK dependency drift, which is worth seeing and is not

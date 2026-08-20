@@ -20,7 +20,16 @@ export type ActivityType = 'fitness' | 'drill' | 'running' | 'other';
 // freeform BCP-47 tag. Deliberately no region subtag (`nb`/`de`, never
 // `nb-NO`/`de-DE`) — the point is "which of 8 languages," never "where is
 // this device" (CLAUDE.md's no-location-tracking constraint).
-export type PlayerLocale = 'sv' | 'en' | 'fi' | 'da' | 'nb' | 'de' | 'cs' | 'fr';
+export type PlayerLocale =
+  | 'sv'
+  | 'en'
+  | 'fi'
+  | 'da'
+  | 'nb'
+  | 'de'
+  | 'cs'
+  | 'fr'
+  | 'es';
 
 // --- 1. GET /teams/invite/:inviteCode --------------------------------------
 

@@ -538,6 +538,68 @@ const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
 </body>
 </html>`,
   },
+  es: {
+    subject: 'Confirma la nueva dirección de contacto en SkillStreak',
+    text: (screenName, code, expiresInMinutes) =>
+      [
+        '¡Hola!',
+        '',
+        `Esta dirección va a convertirse en la nueva dirección de contacto de la cuenta de ${screenName} en SkillStreak.`,
+        '',
+        `Código: ${code}`,
+        '',
+        `Escribe el código en la app (o en la web) para confirmar el cambio. El código es válido durante ${expiresInMinutes} minutos y solo se puede usar una vez.`,
+        '',
+        '¿No has sido tú? Ignora este correo: el código caducará solo y no cambiará nada.',
+      ].join('\n'),
+    html: (
+      safeScreenName,
+      safeCode,
+      expiresInMinutes,
+      subject,
+    ) => `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1B1B3A;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAFAF7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#FFFFFF;border-radius:16px;padding:32px;max-width:480px;">
+          <tr>
+            <td>
+              <h1 style="margin:0 0 16px;font-size:20px;color:#1B1B3A;">Confirma la nueva dirección de contacto</h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.5;">
+                Esta dirección va a convertirse en la nueva dirección de contacto de la cuenta de
+                <strong>${safeScreenName}</strong> en SkillStreak.
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center" style="background-color:#FAFAF7;border-radius:12px;padding:20px;">
+                    <span style="font-family:monospace;font-size:28px;font-weight:700;letter-spacing:4px;color:#1B1B3A;">${safeCode}</span>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:20px 0 0;font-size:14px;line-height:1.5;">
+                Escribe el código en la app (o en la web) para confirmar el cambio. Válido durante
+                ${expiresInMinutes} minutos, solo se puede usar una vez.
+              </p>
+              <p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#6B6B80;">
+                ¿No has sido tú? Ignora este correo: el código caducará solo y
+                no cambiará nada.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  },
 };
 
 function resolveCopy(locale: PlayerLocale): LocaleCopy {

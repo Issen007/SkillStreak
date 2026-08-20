@@ -574,6 +574,71 @@ const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
 </body>
 </html>`,
   },
+  es: {
+    subject: (screenName) =>
+      `Confirma el borrado de la cuenta de ${screenName} en SkillStreak`,
+    text: (screenName, confirmUrl, expiresInHours) =>
+      [
+        '¡Hola!',
+        '',
+        `Alguien ha pedido borrar la cuenta de ${screenName} en SkillStreak, incluido todo lo que le pertenece.`,
+        '',
+        `Confírmalo aquí: ${confirmUrl}`,
+        '',
+        `El enlace es válido durante ${expiresInHours} horas y solo se puede usar una vez. Al confirmarlo empieza un plazo de 30 días: la cuenta no se borra hasta que ese plazo termine.`,
+        '',
+        '¿No has sido tú (ni tu hijo o hija)? Ignora este correo: el enlace caducará solo y no se borrará nada.',
+      ].join('\n'),
+    html: (safeScreenName, safeUrl, expiresInHours, subject) => `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1B1B3A;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAFAF7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#FFFFFF;border-radius:16px;padding:32px;max-width:480px;">
+          <tr>
+            <td>
+              <h1 style="margin:0 0 16px;font-size:20px;color:#1B1B3A;">Confirma el borrado de la cuenta</h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.5;">
+                Alguien ha pedido borrar la cuenta de <strong>${safeScreenName}</strong> en SkillStreak,
+                incluido todo lo que le pertenece.
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="border-radius:12px;background-color:#FF6B35;">
+                    <a href="${safeUrl}" style="display:inline-block;padding:14px 24px;font-size:16px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:12px;">
+                      Confirmar el borrado
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:20px 0 0;font-size:14px;line-height:1.5;">
+                El enlace es válido durante ${expiresInHours} horas y solo se puede usar una vez. Al confirmarlo
+                empieza un plazo de 30 días: la cuenta no se borra hasta que ese plazo
+                termine, y se puede cancelar en cualquier momento antes de esa fecha.
+              </p>
+              <p style="margin:20px 0 0;font-size:13px;line-height:1.5;">
+                Si el botón no funciona, copia esta dirección en tu navegador:<br />
+                <span style="word-break:break-all;">${safeUrl}</span>
+              </p>
+              <p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#6B6B80;">
+                ¿No has sido tú (ni tu hijo o hija)? Ignora este correo: el enlace caducará
+                solo y no se borrará nada.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  },
 };
 
 function resolveCopy(locale: PlayerLocale): LocaleCopy {

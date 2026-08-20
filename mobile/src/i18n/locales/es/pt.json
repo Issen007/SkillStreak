@@ -1,0 +1,42 @@
+{
+  "mine": {
+    "title": "Mis entrenadores",
+    "statusActive": "Activo",
+    "statusPending": "Esperando respuesta",
+    "statusEnded": "Finalizado",
+    "seeingSince": "Ve tus entrenamientos desde el {{date}}",
+    "pendingSince": "Solicitado el {{date}}",
+    "endedOn": "Finalizado el {{date}}",
+    "end": "Finalizar",
+    "yourChoice": "Siempre es decisión tuya. Puedes finalizarlo ahora mismo, sin preguntarle a nadie.",
+    "confirmTitle": "¿Finalizar con {{name}}?",
+    "confirmBody": "{{name}} dejará de ver tus entrenamientos.",
+    "confirmAgain": "Puedes volver a decir que sí más adelante si quieres.",
+    "cancel": "Cancelar",
+    "confirm": "Finalizar",
+    "ended": "Listo: {{name}} ya no puede ver tus entrenamientos."
+  },
+  "captain": {
+    "title": "Entrenadores",
+    "invite": "Invitar a un entrenador",
+    "memberSince": "En el equipo desde el {{date}}",
+    "remove": "Quitar",
+    "empty": "No hay ningún entrenador vinculado al equipo.",
+    "codeTitle": "Dale este código al entrenador",
+    "codeValidity": "El código es válido durante 24 horas.",
+    "share": "Compartir",
+    "done": "Listo",
+    "removeTitle": "¿Quitar a {{name}}?",
+    "removeBody": "{{name}} dejará de ver inmediatamente los entrenamientos de todos los jugadores del equipo, incluidos los de quienes dijeron que sí.",
+    "removeNoEmail": "No se envía ningún correo a las familias sobre esto.",
+    "cancel": "Cancelar",
+    "confirm": "Quitar",
+    "removed": "{{name}} fue quitado.",
+    "removedWithConsents": "{{name}} fue quitado. Se finalizaron {{count}} autorizaciones."
+  },
+  "errors": {
+    "linkGone": "Tu vínculo con el equipo ha finalizado.",
+    "notCaptain": "Solo el capitán del equipo puede hacer esto.",
+    "generic": "Algo salió mal. Inténtalo de nuevo."
+  }
+}

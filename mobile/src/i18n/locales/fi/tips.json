@@ -1,1 +1,8 @@
-{}
+{
+  "heading": "Vinkit",
+  "intro": "Vinkkejä valmentajilta. Ylläpitäjä lukee jokaisen ennen kuin se päätyy tänne.",
+  "loading": "Ladataan vinkkejä…",
+  "failed": "Vinkkejä ei voitu ladata juuri nyt. Vedä alas yrittääksesi uudelleen.",
+  "empty": "Ei vielä vinkkejä. Katso uudelleen jonain toisena päivänä.",
+  "end": "Siinä olivat kaikki vinkit toistaiseksi."
+}

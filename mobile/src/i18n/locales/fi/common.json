@@ -12,7 +12,8 @@
     "chat": "Chat",
     "clips": "Shorts",
     "goal": "Tavoite",
-    "team": "Joukkue"
+    "team": "Joukkue",
+    "tips": "Vinkit"
   },
   "testModeBanner": "🧪 Tämä on vain TESTI — älä luo oikeaa tiliä oikeilla tiedoilla."
 }

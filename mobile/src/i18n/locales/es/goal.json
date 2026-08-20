@@ -1,0 +1,123 @@
+{
+  "metricLabel": {
+    "fitness": "Físico",
+    "drill": "Técnica/ejercicios",
+    "running": "Correr",
+    "other": "Otro",
+    "total": "Total (todos los tipos)"
+  },
+  "metricLabelInline": {
+    "fitness": "físico",
+    "drill": "técnica/ejercicios",
+    "running": "correr",
+    "other": "otro",
+    "total": "total (todos los tipos)"
+  },
+  "unitLabel": {
+    "minutes": "minutos",
+    "sessions": "sesiones"
+  },
+  "g1": {
+    "loadError": "No se pudo cargar el objetivo del equipo. Revisa tu conexión.",
+    "genericError": "Algo salió mal.",
+    "retry": "Volver a intentarlo",
+    "pageHeading": "El objetivo de esta semana 🎯",
+    "emptyHeading": "🎯 Ahora mismo no hay objetivo",
+    "emptySub": "¡Tu capitán pondrá pronto un nuevo objetivo de equipo!",
+    "seeHistory": "Ver objetivos anteriores",
+    "cancelGoal": "Cancelar el objetivo",
+    "editDraft": "Editar",
+    "activateNow": "Activar ahora",
+    "activateBlockedExplain": "Ya tienes un objetivo activo. Este se guardará como borrador hasta que termine, o hasta que canceles el otro.",
+    "setNewGoal": "+ Poner el objetivo de esta semana",
+    "activatedToast": "El objetivo ya está activo: el equipo puede verlo.",
+    "genericErrorToast": "Algo salió mal. Inténtalo de nuevo.",
+    "cancelConfirmTitle": "¿Cancelar «{{title}}»?",
+    "cancelConfirmBody": "Los entrenamientos registrados no se ven afectados, pero ya no contarán para ningún objetivo.",
+    "cancelConfirmCancel": "Cancelar",
+    "cancelConfirmConfirm": "Sí, cancelarlo",
+    "historyHeading": "Objetivos anteriores",
+    "historyCompleted": "Completado",
+    "historyCancelled": "Cancelado",
+    "historyTally": "{{completed}} de {{eligible}} compañeros lo lograron · +{{bonus}}p de bonificación",
+    "historyEmpty": "Todavía no hay objetivos anteriores.",
+    "back": "Atrás"
+  },
+  "builder": {
+    "draftSavedToast": "¡El objetivo se ha guardado!",
+    "activatedToast": "El objetivo ya está activo: el equipo puede verlo.",
+    "genericError": "Algo salió mal. Inténtalo de nuevo."
+  },
+  "g1d": {
+    "heading": "Cómo van tus compañeros",
+    "subHeading": "en «{{goalTitle}}»",
+    "doneSectionLabel": "✅ Logrado ({{count}})",
+    "inProgressSectionLabel": "⏳ Todavía no ({{count}})",
+    "excludedSectionLabel": "➖ No participan esta semana ({{count}})",
+    "back": "Atrás",
+    "exclusion": {
+      "joinedAfterStart": "Se unió cuando el objetivo ya había empezado",
+      "consentPending": "Esperando la autorización de un adulto ⏳",
+      "consentRevoked": "En pausa ⏸️",
+      "teamJoinPending": "Esperando la aprobación para entrar en el equipo ⏳"
+    }
+  },
+  "kb1": {
+    "heading": "Pon el objetivo del equipo para la semana",
+    "sub": "Ponle un nombre divertido: esto es lo que verá todo el equipo.",
+    "titleLabel": "Título",
+    "titlePlaceholder": "Ej.: El reto de la finta del Zorro",
+    "descriptionLabel": "Descripción",
+    "descriptionPlaceholder": "Ej.: ¡Haced juntos todas las fintas del Zorro que podáis antes del viernes!",
+    "next": "Siguiente",
+    "cancel": "Cancelar"
+  },
+  "kb2": {
+    "heading": "¿Qué tiene que conseguir cada jugador esta semana?",
+    "sub": "Cada jugador del equipo tiene que lograr el objetivo por su cuenta: elige si se cuenta en minutos o en sesiones, y qué tipo de entrenamiento cuenta.",
+    "unitMinutes": "⏱️ Minutos",
+    "unitSessions": "🔁 Número de sesiones",
+    "unitHelper": "Una sesión = un entrenamiento registrado, da igual cuánto haya durado.",
+    "targetLabel": "Objetivo por jugador ({{unit}})",
+    "placeholderMinutes": "Ej.: 20",
+    "placeholderSessions": "Ej.: 3",
+    "helper": "Este es el objetivo que cada jugador tiene que lograr por su cuenta, no el total del equipo.",
+    "previewText": "Cada jugador del equipo tiene que acumular {{value}} {{unit}} de {{metric}} antes de que termine el objetivo.",
+    "next": "Siguiente",
+    "back": "Atrás"
+  },
+  "kb3": {
+    "heading": "¿Cuándo empieza y termina el objetivo de esta semana?",
+    "startDateLabel": "Fecha de inicio",
+    "endDateLabel": "Fecha de fin",
+    "dateOrderError": "La fecha de fin tiene que ser posterior a la de inicio.",
+    "next": "Siguiente",
+    "back": "Atrás",
+    "doneButton": "Listo"
+  },
+  "kb4": {
+    "heading": "Así lo verá el equipo",
+    "saveDraft": "Guardar como borrador",
+    "activateBlockedExplain": "Ya tienes un objetivo activo. Este se guardará como borrador hasta que termine, o hasta que canceles el otro.",
+    "activateNow": "Activar ahora",
+    "back": "Atrás"
+  },
+  "goalCard": {
+    "eyebrow": "El objetivo de esta semana 🎯",
+    "metChip": "¡Logrado! 🎉",
+    "sub": "Puesto por el capitán del equipo",
+    "previewCallout": "Así se verá la tarjeta cuando el objetivo esté activo: entonces aparecerán los compañeros reales y quién lo ha logrado.",
+    "headlineMuted": "Ahora mismo nadie del equipo puede trabajar en este objetivo.",
+    "headline": "{{completed}} de {{eligible}} compañeros lo han logrado",
+    "metricChip": "{{icon}} {{label}} · {{value}} {{unit}} cada uno",
+    "endDate": "Termina el {{date}}",
+    "detailLink": "Ver quién lo ha logrado →"
+  },
+  "teammateStatusRow": {
+    "inProgress": "En marcha",
+    "notStarted": "Todavía sin empezar",
+    "progressCaption": "{{progress}} de {{target}} {{unit}}",
+    "done": "Logrado ✓",
+    "excludedChip": "No participa esta semana"
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "o0": {
+    "heading": "¿Qué idioma quieres usar?",
+    "sub": "Puedes cambiar el idioma más adelante si quieres.",
+    "next": "Siguiente"
+  },
+  "o1": {
+    "heading": "¿En qué equipo juegas?",
+    "sub": "Pídele a tu entrenador el código del equipo. ¿Todavía no tienes equipo? Inventa tu propio código y te ayudamos a crear uno.",
+    "codePlaceholder": "Ej.: FALKEN24",
+    "findTeamButton": "Buscar mi equipo",
+    "returningUserLink": "¿Ya tienes una cuenta?"
+  },
+  "o1a": {
+    "heading": "No encontramos ningún equipo con el código {{inviteCode}}",
+    "sub": "¿Es un equipo nuevo? Ponle un nombre y lo creamos por ti.",
+    "nameLabel": "Nombre del equipo",
+    "namePlaceholder": "ej.: IBK Falcons U13",
+    "codeLabel": "Código del equipo: compártelo con tus compañeros para que puedan unirse",
+    "permanentTip": "El nombre y el código no se pueden cambiar después, ¡así que compruébalos bien!",
+    "createButton": "Crear el equipo",
+    "wrongCode": "Creo que escribí mal el código"
+  },
+  "o2": {
+    "heading": "¿Te unes a {{teamName}}?",
+    "sub": "Si es correcto, ¡vamos allá!",
+    "confirm": "¡Sí, es mi equipo!",
+    "reject": "No, probar otro código"
+  },
+  "o3": {
+    "heading": "Elige tu nombre de jugador",
+    "sub": "Este es el nombre que ve tu equipo, no tu nombre real a menos que tú quieras.",
+    "nameLabel": "Nombre de jugador",
+    "namePlaceholder": "Ej.: FloorballStar15",
+    "avatarLabel": "Elige un avatar",
+    "helper": "No hace falta ninguna foto: elige un personaje que te guste.",
+    "next": "Siguiente"
+  },
+  "o4": {
+    "heading": "¿En qué año naciste?",
+    "sub": "Lo usamos para adaptar los retos a tu edad.",
+    "yearRangeError": "Escribe un año entre {{minYear}} y {{maxYear}}.",
+    "yearLabel": "Año de nacimiento",
+    "yearPlaceholder": "Ej.: {{maxYear}}",
+    "next": "Siguiente"
+  },
+  "o5": {
+    "verifyHeading": "Verifica tu cuenta",
+    "consentHeading": "Vamos a pedirle permiso a un adulto",
+    "verifyBody1": "Antes de poder registrar entrenamientos, tienes que verificar tu correo o tu número de teléfono.",
+    "consentBody1": "Antes de poder registrar entrenamientos, un padre, una madre o un tutor tiene que decir que sí.",
+    "verifyBody2": "Te enviaremos un enlace de verificación: lo confirmas con un toque.",
+    "consentBody2": "Le enviaremos una pregunta rápida: lo autoriza con un toque.",
+    "verifyContactLabel": "Tu correo o número de teléfono",
+    "consentContactLabel": "Correo o número de teléfono del padre, madre o tutor",
+    "contactPlaceholder": "ej.: nombre@ejemplo.com",
+    "verifyHelper": "Solo lo usamos para verificar tu cuenta, nada más.",
+    "consentHelper": "Solo lo usamos para pedir permiso, nada más.",
+    "submit": "Enviar solicitud",
+    "coachNote": "Entrenadores: ayudad al jugador a rellenar esto si no sabe qué poner."
+  },
+  "o6": {
+    "foundingIcon": "👑🎉",
+    "foundingHeading": "¡Enhorabuena, {{screenName}}! ¡Has creado {{teamName}}!",
+    "foundingBody": "Eres el primer jugador del equipo, ¡y su capitán! En cuanto un padre, madre o tutor diga que sí, podrás registrar entrenamientos e invitar a tus compañeros.",
+    "codeChip": "Código del equipo: {{inviteCode}}",
+    "codeHelper": "¡Compártelo con tus compañeros!",
+    "joinedIcon": "✅👋",
+    "joinedHeading": "¡Todo listo, {{screenName}}!",
+    "joinedBody": "¡Ya estás en {{teamName}}! Hemos enviado una solicitud a un padre, madre o tutor. En cuanto diga que sí, podrás registrar entrenamientos y conseguir puntos para el equipo.",
+    "doneButton": "¡Vamos!"
+  },
+  "ra1": {
+    "heading": "¿Ya tienes una cuenta?",
+    "sub": "Escribe el código del equipo y tu nombre de usuario, y enviaremos un código de acceso al correo tuyo (o de tu madre o padre).",
+    "codePlaceholder": "Código del equipo, ej.: FALKEN24",
+    "namePlaceholder": "Tu nombre de usuario",
+    "submit": "Enviar código",
+    "back": "Atrás"
+  },
+  "ra2": {
+    "heading": "Revisa tu bandeja de entrada",
+    "sub": "Si tus datos coinciden, hemos enviado un código al correo tuyo (o de tu madre o padre). Escríbelo aquí abajo para volver a entrar.",
+    "codePlaceholder": "Ej.: H4K7QWXP",
+    "invalidCodeError": "Ese código ya no funciona. Comprueba que lo has escrito bien o pide uno nuevo.",
+    "submit": "Entrar",
+    "retryLink": "¿No te ha llegado el código? Vuelve a intentarlo"
+  },
+  "flow": {
+    "screenNameTaken": "Ese nombre ya está cogido en el equipo, ¡prueba con otro!",
+    "teamNameRejected": "El nombre o el código del equipo contenía palabras que no funcionan aquí. Cambia el nombre, o toca «Cambiar código» arriba si el problema es ese.",
+    "codeTakenConcurrently": "¡Vaya! Alguien creó un equipo con ese código justo antes que tú. Prueba con otro código y arreglamos el resto enseguida.",
+    "inviteCodeNotFound": "Ese código de equipo ya no funciona. Pídele uno nuevo a tu entrenador.",
+    "invalidParentContact": "Esos datos de contacto no parecen correctos: comprueba que sea un correo o un número de teléfono real.",
+    "invalidScreenName": "Ese nombre no acaba de funcionar, ¡prueba con otro!",
+    "invalidBirthYear": "Mmm, ese año no parece correcto. Inténtalo de nuevo.",
+    "genericValidationError": "Algo salió mal. Revisa tus datos e inténtalo de nuevo."
+  },
+  "shared": {
+    "genericError": "Algo salió mal. Revisa tu conexión e inténtalo de nuevo."
+  }
+}

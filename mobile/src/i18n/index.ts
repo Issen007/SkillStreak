@@ -55,6 +55,15 @@ import frOnboarding from './locales/fr/onboarding.json';
 import frPt from './locales/fr/pt.json';
 import frTips from './locales/fr/tips.json';
 import frTeam from './locales/fr/team.json';
+import esChat from './locales/es/chat.json';
+import esClips from './locales/es/clips.json';
+import esCommon from './locales/es/common.json';
+import esGoal from './locales/es/goal.json';
+import esHome from './locales/es/home.json';
+import esOnboarding from './locales/es/onboarding.json';
+import esPt from './locales/es/pt.json';
+import esTips from './locales/es/tips.json';
+import esTeam from './locales/es/team.json';
 import nbChat from './locales/nb/chat.json';
 import nbClips from './locales/nb/clips.json';
 import nbCommon from './locales/nb/common.json';
@@ -201,6 +210,17 @@ void i18n.use(initReactI18next).init({
       clips: frClips,
       pt: frPt,
       tips: frTips,
+    },
+    es: {
+      common: esCommon,
+      onboarding: esOnboarding,
+      home: esHome,
+      team: esTeam,
+      goal: esGoal,
+      chat: esChat,
+      clips: esClips,
+      pt: esPt,
+      tips: esTips,
     },
   },
   // Pre-selects the nearest supported language from the device's own

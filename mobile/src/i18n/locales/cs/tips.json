@@ -1,1 +1,8 @@
-{}
+{
+  "heading": "Tipy",
+  "intro": "Tipy od trenérů. Každý z nich si před zveřejněním přečte administrátor.",
+  "loading": "Načítání tipů…",
+  "failed": "Tipy se teď nepodařilo načíst. Zatáhni dolů a zkus to znovu.",
+  "empty": "Zatím žádné tipy. Zkus to jindy.",
+  "end": "To jsou zatím všechny tipy."
+}

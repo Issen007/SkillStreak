@@ -1,1 +1,8 @@
-{}
+{
+  "heading": "Tipps",
+  "intro": "Tipps von Trainerinnen und Trainern. Ein Admin liest jeden Tipp, bevor er hier erscheint.",
+  "loading": "Tipps werden geladen…",
+  "failed": "Die Tipps konnten gerade nicht geladen werden. Zieh nach unten, um es erneut zu versuchen.",
+  "empty": "Noch keine Tipps. Schau an einem anderen Tag wieder vorbei.",
+  "end": "Das sind vorerst alle Tipps."
+}

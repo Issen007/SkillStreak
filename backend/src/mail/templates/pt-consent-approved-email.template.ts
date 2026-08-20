@@ -29,7 +29,7 @@ interface LocaleCopy {
   html: (input: PtConsentApprovedEmailInput, subject: string) => string;
 }
 
-const COPY: Record<'sv' | 'en', LocaleCopy> = {
+const COPY: Record<'sv' | 'en' | 'es', LocaleCopy> = {
   sv: {
     subject: (screenName) =>
       `Bekräftat: ${screenName}s tränarrelation på SkillStreak`,
@@ -125,6 +125,60 @@ const COPY: Record<'sv' | 'en', LocaleCopy> = {
                   <td style="border-radius:12px;background-color:#1B1B3A;">
                     <a href="${escapeHtml(input.revokeUrl)}" style="display:inline-block;padding:14px 24px;font-size:16px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:12px;">
                       Revoke access
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  },
+  es: {
+    subject: (screenName) =>
+      `Confirmado: la relación de ${screenName} con su entrenador personal en SkillStreak`,
+    text: (input) =>
+      [
+        '¡Hola!',
+        '',
+        `${input.ptDisplayName} ha sido autorizado como entrenador personal y puede ver los datos de entrenamiento de ${input.screenName} en SkillStreak (nombre en la app, racha de entrenamiento, registro de entrenamientos e insignias; nunca el nombre real, los datos de contacto, el chat del equipo ni los vídeos).`,
+        '',
+        'Esto se puede retirar en cualquier momento y sin dar ninguna explicación: desde la propia app (en Perfil) o con el enlace de abajo, que siempre funciona:',
+        '',
+        input.revokeUrl,
+      ].join('\n'),
+    html: (input, subject) => `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1B1B3A;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAFAF7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#FFFFFF;border-radius:16px;padding:32px;max-width:480px;">
+          <tr>
+            <td>
+              <h1 style="margin:0 0 16px;font-size:20px;color:#3DAA6B;">Confirmado</h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.5;">
+                <strong>${escapeHtml(input.ptDisplayName)}</strong> ha sido autorizado como entrenador personal y
+                can see <strong>${escapeHtml(input.screenName)}</strong> en SkillStreak.
+              </p>
+              <p style="margin:0 0 20px;font-size:14px;line-height:1.5;">
+                Esto se puede retirar en cualquier momento y sin dar ninguna explicación: desde la propia app (en Perfil)
+                o con el enlace de abajo, que siempre funciona:
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="border-radius:12px;background-color:#1B1B3A;">
+                    <a href="${escapeHtml(input.revokeUrl)}" style="display:inline-block;padding:14px 24px;font-size:16px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:12px;">
+                      Retirar el acceso
                     </a>
                   </td>
                 </tr>
