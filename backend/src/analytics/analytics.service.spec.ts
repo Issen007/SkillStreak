@@ -1,4 +1,6 @@
-import { fillMissingDays } from './analytics.service';
+import { fillMissingDays, groupSiteVisits } from './analytics.service';
+import type { SiteVisitRow } from './analytics.service';
+import { SiteLocale } from './entities/site-visit.entity';
 
 describe('fillMissingDays', () => {
   const today = new Date('2026-08-10T12:00:00.000Z');
@@ -84,5 +86,116 @@ describe('fillMissingDays: the day boundary matches the queries', () => {
     expect(filled).toHaveLength(5);
     expect(filled[4].day).toBe('2026-08-12');
     expect(filled[0].day).toBe('2026-08-08');
+  });
+});
+
+describe('groupSiteVisits', () => {
+  const today = new Date('2026-08-20T12:00:00.000Z');
+  const row = (
+    locale: SiteLocale,
+    day: string,
+    views: number,
+    samples = 0,
+    seconds = 0,
+  ): SiteVisitRow => ({
+    locale,
+    day,
+    views,
+    dwell_samples: samples,
+    dwell_seconds_total: String(seconds),
+  });
+
+  it('averages by total seconds over total samples, not by day', () => {
+    // THE ARITHMETIC WORTH PINNING. A quiet day with one 10s read and a
+    // busy day with a hundred 100s reads is ~99s per read. Averaging the
+    // two days' averages gives 55s — half the truth, and wrong in the
+    // direction that makes a launch look worse than it was.
+    const summary = groupSiteVisits(
+      [
+        row(SiteLocale.SV, '2026-08-19', 1, 1, 10),
+        row(SiteLocale.SV, '2026-08-20', 100, 100, 10_000),
+      ],
+      7,
+      today,
+    );
+
+    expect(summary.averageDwellSeconds).toBe(99);
+    expect(summary.dwellSamples).toBe(101);
+  });
+
+  it('reports no average rather than zero when nothing was measured', () => {
+    // "0 s" reads as "everyone leaves instantly"; null renders as an em
+    // dash, which reads as "not measured". Those are opposite conclusions
+    // from the same absence of data.
+    const summary = groupSiteVisits(
+      [row(SiteLocale.SV, '2026-08-20', 5)],
+      7,
+      today,
+    );
+
+    expect(summary.totalViews).toBe(5);
+    expect(summary.averageDwellSeconds).toBeNull();
+    expect(summary.perLocale[0].averageDwellSeconds).toBeNull();
+  });
+
+  it('keeps a language with no reads in the split', () => {
+    const summary = groupSiteVisits(
+      [row(SiteLocale.SV, '2026-08-20', 3)],
+      7,
+      today,
+    );
+
+    expect(summary.perLocale.map((l) => l.locale)).toEqual([
+      SiteLocale.SV,
+      SiteLocale.EN,
+    ]);
+    expect(summary.perLocale[1].views).toBe(0);
+  });
+
+  it('combines both languages into one daily trend', () => {
+    const summary = groupSiteVisits(
+      [
+        row(SiteLocale.SV, '2026-08-20', 4),
+        row(SiteLocale.EN, '2026-08-20', 6),
+      ],
+      2,
+      today,
+    );
+
+    const last = summary.viewsPerDay[summary.viewsPerDay.length - 1];
+    expect(last).toEqual({ day: '2026-08-20', value: 10 });
+    expect(summary.totalViews).toBe(10);
+  });
+
+  it('coerces the bigint seconds column, which arrives as a string', () => {
+    // Postgres returns bigint as a string; a missing Number() turns the
+    // sum into string concatenation and the average into nonsense.
+    const summary = groupSiteVisits(
+      [
+        row(SiteLocale.EN, '2026-08-19', 1, 1, 30),
+        row(SiteLocale.EN, '2026-08-20', 1, 1, 90),
+      ],
+      7,
+      today,
+    );
+
+    expect(summary.averageDwellSeconds).toBe(60);
+  });
+
+  it('splits the per-language average independently of the total', () => {
+    const summary = groupSiteVisits(
+      [
+        row(SiteLocale.SV, '2026-08-20', 10, 10, 100),
+        row(SiteLocale.EN, '2026-08-20', 1, 1, 1000),
+      ],
+      7,
+      today,
+    );
+
+    const [sv, en] = summary.perLocale;
+    expect(sv.averageDwellSeconds).toBe(10);
+    expect(en.averageDwellSeconds).toBe(1000);
+    // Total is weighted by samples, so it sits near the busier language.
+    expect(summary.averageDwellSeconds).toBe(100);
   });
 });

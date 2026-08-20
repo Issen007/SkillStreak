@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AnalyticsService } from './analytics.service';
 import { RecordClickDto } from './dto/record-click.dto';
+import { RecordSiteVisitDto } from './dto/record-site-visit.dto';
 
 /**
  * The public click counter, called from the marketing site.
@@ -27,5 +28,32 @@ export class AnalyticsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async recordClick(@Body() dto: RecordClickDto): Promise<void> {
     await this.analyticsService.recordClick(dto.link);
+  }
+
+  /**
+   * A read of the public site — one beacon when the page opens, and one
+   * when it is hidden carrying how long it was open.
+   *
+   * Which of the two this is, is decided by whether `dwellSeconds` is
+   * present, so a single route serves both and the browser needs no
+   * notion of "phase".
+   *
+   * Throttled harder than clicks: a page fires exactly two of these per
+   * read, against up to a handful of clicks, so the honest ceiling is
+   * lower. The same caveat as clicks applies and is worth restating —
+   * these counts can be inflated by anyone who wants to, and that is
+   * accepted, because defending them properly would need exactly the
+   * per-visitor identity this design refuses to collect. It measures
+   * interest and language split, not truth.
+   */
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Post('site-visits')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async recordSiteVisit(@Body() dto: RecordSiteVisitDto): Promise<void> {
+    if (dto.dwellSeconds === undefined) {
+      await this.analyticsService.recordSiteView(dto.locale);
+      return;
+    }
+    await this.analyticsService.recordSiteDwell(dto.locale, dto.dwellSeconds);
   }
 }

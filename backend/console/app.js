@@ -1422,6 +1422,23 @@
       }).join('') + '</div>';
   }
 
+  var SITE_LOCALE_LABEL = { sv: 'Swedish', en: 'English' };
+
+  /* Seconds -> "2 min 05 s". Rendered rather than raw because an operator
+   * reading "137" has to do the arithmetic every time, and the number is
+   * meant to be glanceable. Null means nothing reported a duration yet —
+   * shown as an em dash rather than "0 s", which would read as "people
+   * leave instantly" when it actually means "we have not measured". */
+  function dwellLabel(seconds) {
+    if (seconds === null || seconds === undefined) return '—';
+    var s = Number(seconds);
+    if (!isFinite(s) || s < 0) return '—';
+    if (s < 60) return s + ' s';
+    var m = Math.floor(s / 60);
+    var rest = s % 60;
+    return m + ' min ' + (rest < 10 ? '0' : '') + rest + ' s';
+  }
+
   var LINK_LABEL = {
     demo_signup: 'Demo signup',
     try_it: 'Try it in browser',
@@ -1625,6 +1642,10 @@
     graphs: function (view, daysArg) {
       var days = Number(daysArg) > 0 ? Number(daysArg) : 30;
       api.get('/api/v1/admin/analytics?days=' + days).then(function (data) {
+        var site = data.siteVisits || {
+          totalViews: 0, averageDwellSeconds: null, dwellSamples: 0,
+          perLocale: [], viewsPerDay: []
+        };
         var activeToday = data.activePerDay.length
           ? data.activePerDay[data.activePerDay.length - 1].value : 0;
         var activePeak = data.activePerDay.reduce(function (max, p) {
@@ -1678,10 +1699,53 @@
               : '') +
           '</div>' +
 
+          '<div class="card">' +
+            '<h3 style="margin:0 0 2px;font-size:15px">Website reads</h3>' +
+            '<p class="muted" style="margin:0 0 14px"><strong>' +
+              esc(site.totalViews) + '</strong> page views over ' + esc(days) +
+              ' days · typical read <strong>' + esc(dwellLabel(site.averageDwellSeconds)) +
+              '</strong>' +
+              (site.dwellSamples
+                ? ' <span class="muted">(from ' + esc(site.dwellSamples) +
+                  ' reads that reported a time)</span>'
+                : '') +
+            '</p>' +
+            '<p style="margin:0 0 4px;font-size:13px"><strong>Page views per day</strong> ' +
+              '<span class="muted">— both languages</span></p>' +
+            lineChart(site.viewsPerDay, 'Website page views per day') +
+          '</div>' +
+
+          '<div class="card">' +
+            '<p style="margin:0 0 4px;font-size:13px"><strong>Language</strong> ' +
+              '<span class="muted">— which version of the site was read</span></p>' +
+            barChart(site.perLocale.map(function (l) {
+              return { label: SITE_LOCALE_LABEL[l.locale] || l.locale, value: l.views };
+            }), 'Page views per language') +
+            '<table style="margin-top:14px"><thead><tr>' +
+              '<th>Language</th><th>Views</th><th>Share</th><th>Typical read</th>' +
+            '</tr></thead><tbody>' +
+            site.perLocale.map(function (l) {
+              var share = site.totalViews
+                ? Math.round((l.views / site.totalViews) * 100) : 0;
+              return '<tr><td>' + esc(SITE_LOCALE_LABEL[l.locale] || l.locale) +
+                '</td><td>' + esc(l.views) +
+                '</td><td>' + esc(share) + '%' +
+                '</td><td>' + esc(dwellLabel(l.averageDwellSeconds)) + '</td></tr>';
+            }).join('') +
+            '</tbody></table>' +
+          '</div>' +
+
           '<p class="muted">Counts only. No cookies, no third-party ' +
           'analytics, and nothing identifying a visitor — a click is a ' +
           'number against a link and a date, so these charts cannot be ' +
-          'narrowed to a person or a team.</p>';
+          'narrowed to a person or a team.</p>' +
+          '<p class="muted"><strong>Website reads are views, not people.</strong> ' +
+          'One reader opening the page three times is three views. Telling ' +
+          'them apart needs a per-visitor id, which this site deliberately ' +
+          'does not set — and on a site children reach that id would also ' +
+          'require a cookie banner. The typical read is averaged over the ' +
+          'visits whose browser managed to report a duration, which is ' +
+          'fewer than the views: a tab closed abruptly reports nothing.</p>';
       }).catch(function (e) { fail(view, e); });
     },
 

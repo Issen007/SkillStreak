@@ -18,6 +18,39 @@
 (function () {
   'use strict';
 
+  /* Flags are inline SVG, not emoji.
+   *
+   * 🇸🇪/🇬🇧 render as the bare letters "SE"/"GB" on Windows, which has no
+   * flag-emoji font and is a large share of this site's Swedish audience —
+   * the switcher would silently degrade to text for exactly the people it
+   * is aimed at. Inline SVG renders identically everywhere, needs no font
+   * and no network request, and survives the site's CSP.
+   *
+   * The flag is decoration: each button keeps an `aria-label` and a
+   * `title` carrying the language's own name, so a screen reader announces
+   * "Svenska" rather than "image", and a hover explains the picture. A
+   * flag is a country, not a language, which is why the accessible name
+   * is the one that has to be right. */
+  var FLAGS = {
+    sv:
+      '<svg viewBox="0 0 16 10" width="20" height="13" aria-hidden="true" focusable="false">' +
+        '<rect width="16" height="10" fill="#005293"/>' +
+        '<rect x="5" width="2" height="10" fill="#FECB00"/>' +
+        '<rect y="4" width="16" height="2" fill="#FECB00"/>' +
+      '</svg>',
+    en:
+      '<svg viewBox="0 0 60 30" width="20" height="13" aria-hidden="true" focusable="false">' +
+        '<clipPath id="ls-uk"><path d="M0 0h60v30H0z"/></clipPath>' +
+        '<g clip-path="url(#ls-uk)">' +
+          '<path d="M0 0h60v30H0z" fill="#012169"/>' +
+          '<path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/>' +
+          '<path d="M0 0l60 30m0-30L0 30" stroke="#C8102E" stroke-width="4"/>' +
+          '<path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/>' +
+          '<path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/>' +
+        '</g>' +
+      '</svg>'
+  };
+
   var LANGUAGES = [
     { code: 'sv', label: 'Svenska' },
     { code: 'en', label: 'English' }
@@ -370,8 +403,11 @@
     LANGUAGES.forEach(function (lang) {
       var b = document.createElement('button');
       b.type = 'button';
-      b.textContent = lang.code.toUpperCase();
+      // innerHTML with a constant from FLAGS above — no user or network
+      // input reaches this, so there is nothing here to escape.
+      b.innerHTML = FLAGS[lang.code] || lang.code.toUpperCase();
       b.setAttribute('aria-label', lang.label);
+      b.setAttribute('title', lang.label);
       b.addEventListener('click', function () {
         apply(lang.code);
         setActive(lang.code);
