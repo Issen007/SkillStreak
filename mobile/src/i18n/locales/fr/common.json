@@ -12,7 +12,8 @@
     "chat": "Chat",
     "clips": "Shorts",
     "goal": "Objectif",
-    "team": "Équipe"
+    "team": "Équipe",
+    "tips": "Conseils"
   },
   "testModeBanner": "🧪 Ceci est juste un TEST — ne crée pas de vrai compte avec de vraies informations."
 }

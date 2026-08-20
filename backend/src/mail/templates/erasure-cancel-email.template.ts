@@ -585,6 +585,73 @@ const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
 </body>
 </html>`,
   },
+  es: {
+    subject: (screenName, scheduledForDateLabel) =>
+      `Confirmado: la cuenta de ${screenName} se borrará el ${scheduledForDateLabel}`,
+    text: (screenName, cancelUrl, scheduledForDateLabel) =>
+      [
+        '¡Hola!',
+        '',
+        `Se ha confirmado el borrado de la cuenta de ${screenName} en SkillStreak. La cuenta y todo lo que le pertenece se borrarán el ${scheduledForDateLabel}, a menos que se cancele la solicitud antes.`,
+        '',
+        '¿Has cambiado de idea?',
+        '',
+        `Cancélalo aquí: ${cancelUrl}`,
+        '',
+        'También puedes cancelarlo directamente en la app, en Perfil, en cualquier momento antes de la fecha de borrado.',
+        '',
+        '¿Lo has pedido tú? Entonces no tienes que hacer nada: el borrado se hará automáticamente en la fecha indicada.',
+      ].join('\n'),
+    html: (safeScreenName, safeUrl, safeDateLabel, subject) => `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1B1B3A;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAFAF7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#FFFFFF;border-radius:16px;padding:32px;max-width:480px;">
+          <tr>
+            <td>
+              <h1 style="margin:0 0 16px;font-size:20px;color:#1B1B3A;">The account will be deleted on ${safeDateLabel}</h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.5;">
+                Se ha confirmado el borrado de la cuenta de <strong>${safeScreenName}</strong> en SkillStreak.
+                La cuenta y todo lo que le pertenece se borrarán el <strong>${safeDateLabel}</strong>, a menos que
+                se cancele la solicitud antes.
+              </p>
+              <p style="margin:0 0 20px;font-size:14px;line-height:1.5;font-weight:700;">
+                ¿Has cambiado de idea?
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="border-radius:12px;background-color:#FF6B35;">
+                    <a href="${safeUrl}" style="display:inline-block;padding:14px 24px;font-size:16px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:12px;">
+                      Cancelar el borrado
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:20px 0 0;font-size:13px;line-height:1.5;">
+                También puedes cancelarlo directamente en la app, en Perfil, en cualquier momento antes de la fecha de borrado.
+                Si el botón no funciona, copia esta dirección en tu navegador:<br />
+                <span style="word-break:break-all;">${safeUrl}</span>
+              </p>
+              <p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#6B6B80;">
+                ¿Lo has pedido tú? Entonces no tienes que hacer nada: el borrado
+                se hará automáticamente en la fecha indicada.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  },
 };
 
 function resolveCopy(locale: PlayerLocale): LocaleCopy {

@@ -22,4 +22,5 @@ export const LOCALE_CATALOG: LocaleOption[] = [
   { code: 'de', label: 'Deutsch' },
   { code: 'cs', label: 'Čeština' },
   { code: 'fr', label: 'Français' },
+  { code: 'es', label: 'Español' },
 ];

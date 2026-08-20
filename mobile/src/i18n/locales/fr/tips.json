@@ -1,1 +1,8 @@
-{}
+{
+  "heading": "Conseils",
+  "intro": "Des conseils d'entraîneurs. Un administrateur lit chacun d'eux avant qu'il n'apparaisse ici.",
+  "loading": "Chargement des conseils…",
+  "failed": "Impossible de charger les conseils pour le moment. Tire vers le bas pour réessayer.",
+  "empty": "Pas encore de conseils. Reviens un autre jour.",
+  "end": "C'est tout pour le moment."
+}

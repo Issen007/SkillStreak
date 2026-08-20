@@ -124,7 +124,12 @@ screen is pure information, no data is read or written).
 
 Copy:
 - Heading: **"Så funkar Klipp"**
-- Bullet 1: **"Bara ditt eget lag ser klippen som laddas upp här."**
+- Bullet 1: **"Bara ditt eget lag ser dina Shorts. Vill du dela ett klipp
+  utanför laget måste en vuxen säga ja först."**
+  *(Corrected 2026-08-19 — the original read "Bara ditt eget lag ser
+  klippen som laddas upp här", which ADR-0019 lists as one of the six
+  surfaces promising something ADR-0030 made conditional. The live
+  string is `clips.json` → `v0.bullet1`.)*
 - Bullet 2: **"En förälder eller vårdnadshavare måste säga ja innan du kan
   ladda upp ett klipp själv."**
 - Bullet 3: **"Känns ett klipp fel? Rapportera det så försvinner det

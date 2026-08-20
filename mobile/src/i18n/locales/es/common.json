@@ -1,0 +1,19 @@
+{
+  "captainBanner": {
+    "promotedTitle": "👑 ¡Enhorabuena! Ahora eres el capitán del equipo.",
+    "promotedSub": "Encontrarás tus nuevas herramientas en la pestaña Equipo.",
+    "demoted": "La capitanía pasó a un compañero de equipo."
+  },
+  "catchUpBanner": {
+    "message": "🎉 ¡Todo el equipo cumplió el objetivo de esta semana! El equipo consiguió +{{points}} puntos de bonificación."
+  },
+  "tabs": {
+    "home": "Inicio",
+    "chat": "Chat",
+    "clips": "Shorts",
+    "goal": "Objetivo",
+    "team": "Equipo",
+    "tips": "Consejos"
+  },
+  "testModeBanner": "🧪 Esto es solo una PRUEBA: no crees una cuenta real con información real."
+}

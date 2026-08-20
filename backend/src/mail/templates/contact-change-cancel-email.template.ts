@@ -576,6 +576,72 @@ const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
 </body>
 </html>`,
   },
+  es: {
+    subject: (screenName) =>
+      `Confirmado: la dirección de contacto de la cuenta de ${screenName} va a cambiar pronto`,
+    text: (screenName, cancelUrl, graceHours) =>
+      [
+        '¡Hola!',
+        '',
+        `Se ha confirmado el cambio de dirección de contacto de la cuenta de ${screenName} en SkillStreak, y se aplicará dentro de ${graceHours} horas.`,
+        '',
+        '¿No has sido tú (ni tu madre o padre)?',
+        '',
+        `Cancélalo aquí: ${cancelUrl}`,
+        '',
+        'Esto además cierra todas las sesiones activas de la cuenta, así que quien haya hecho el cambio tendrá que volver a entrar.',
+        '',
+        '¿Has sido tú? Entonces no tienes que hacer nada: el cambio se completa automáticamente.',
+      ].join('\n'),
+    html: (safeScreenName, safeUrl, graceHours, subject) => `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1B1B3A;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAFAF7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#FFFFFF;border-radius:16px;padding:32px;max-width:480px;">
+          <tr>
+            <td>
+              <h1 style="margin:0 0 16px;font-size:20px;color:#1B1B3A;">La dirección de contacto va a cambiar pronto</h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.5;">
+                Se ha confirmado el cambio de dirección de contacto de la cuenta de <strong>${safeScreenName}</strong> en SkillStreak
+                y se aplicará dentro de ${graceHours} horas.
+              </p>
+              <p style="margin:0 0 20px;font-size:14px;line-height:1.5;font-weight:700;">
+                ¿No has sido tú (ni tu madre o padre)?
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="border-radius:12px;background-color:#FF6B35;">
+                    <a href="${safeUrl}" style="display:inline-block;padding:14px 24px;font-size:16px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:12px;">
+                      Cancelar el cambio
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:20px 0 0;font-size:13px;line-height:1.5;">
+                Esto además cierra todas las sesiones activas de la cuenta. Si el botón no
+                funciona, copia esta dirección en tu navegador:<br />
+                <span style="word-break:break-all;">${safeUrl}</span>
+              </p>
+              <p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#6B6B80;">
+                ¿Has sido tú? Entonces no tienes que hacer nada: el cambio se completa
+                automáticamente.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  },
 };
 
 function resolveCopy(locale: PlayerLocale): LocaleCopy {

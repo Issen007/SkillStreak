@@ -4,6 +4,43 @@
 
 Accepted — 2026-07-30.
 
+**Amended 2026-08-20 — the locale set is 9, not 8: `es` (Spanish) added
+at the project owner's request.**
+
+Recorded as an amendment rather than an edit because Decision 1's own
+reasoning was that a *fixed* set, chosen up front, is what makes a plain
+enum preferable to a freeform BCP-47 tag — and
+`player-locale.enum.ts`'s comment went further, calling the 8-value set
+"the real target set from day one rather than a second migration later".
+This is that second migration. The original wording is left in place with
+the correction beside it, per this repo's ADR habit; the argument for an
+enum is unaffected (a ninth fixed value is still a fixed set), but the
+claim that the set was final was simply wrong and should not be quietly
+rewritten to look prescient.
+
+Three things decided with it:
+
+- **`es` is one locale, not `es-ES` plus `es-419`.** This follows the
+  same no-region-subtag rule `de` already does for
+  Germany/Austria/Switzerland, and it is workable here specifically
+  because this app addresses a single child as `tú`, which is identical
+  in Spain and Latin America. The translations deliberately avoid
+  `vosotros` — the one common form that would otherwise have forced a
+  side to be picked. If a future surface needs plural address, that is
+  the point at which this decision should be revisited, not before.
+- **The enum migration is additive and its `down()` is a documented
+  no-op.** PostgreSQL has no `ALTER TYPE … DROP VALUE`; reversing it
+  would mean recreating the type and rewriting every column using it,
+  which for a value that may already sit on live player rows is a
+  data-losing operation dressed as a rollback.
+- **Key parity across locales is now enforced in CI**
+  (`mobile/scripts/check-i18n-parity.mjs`). i18next falls back rather
+  than failing, so a missing key surfaces as Swedish text inside an
+  otherwise translated screen — invisible to `tsc` and to review. Its
+  first run found the entire `tips` namespace absent from six locales,
+  which had been shipping as Swedish to those users since the namespace
+  was added.
+
 ## Context
 
 `docs/PROJECT.md`'s Fas 4 item 5 (moved up the roadmap 2026-07-27, direct

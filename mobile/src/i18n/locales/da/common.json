@@ -12,7 +12,8 @@
     "chat": "Chat",
     "clips": "Shorts",
     "goal": "Mål",
-    "team": "Hold"
+    "team": "Hold",
+    "tips": "Tips"
   },
   "testModeBanner": "🧪 Det her er kun en TEST — opret ikke en rigtig konto med rigtige oplysninger."
 }

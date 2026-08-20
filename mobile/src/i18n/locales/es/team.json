@@ -1,0 +1,100 @@
+{
+  "k1": {
+    "heading": "Equipo 👥",
+    "loadError": "No se pudo cargar el equipo. Revisa tu conexión.",
+    "genericError": "Algo salió mal.",
+    "retry": "Volver a intentarlo",
+    "pendingChallengesHeading": "🎯 Retos para ti ({{count}})",
+    "pendingSectionLabel": "Esperando aprobación",
+    "teammatesSectionLabel": "Jugadores del equipo",
+    "inviteCodeLabel": "Código del equipo",
+    "inviteButton": "📨 Invitar a un amigo",
+    "captainBadge": "👑 Eres el capitán",
+    "captainSeeDetail": "Ver el equipo completo",
+    "captainManageGoal": "Gestionar el objetivo de esta semana",
+    "captainSwapCaptain": "Cambiar de capitán",
+    "notCaptainToast": "Esta página es solo para el capitán del equipo.",
+    "approveSuccessToast": "¡{{screenName}} ya está aprobado en el equipo! 🎉",
+    "approveErrorToast": "No se pudo aprobar ahora mismo. Inténtalo de nuevo.",
+    "rejectSuccessToast": "Se rechazó a {{screenName}}.",
+    "rejectErrorToast": "No se pudo rechazar ahora mismo. Inténtalo de nuevo.",
+    "challengeAckedToast": "El reto de {{screenName}} está marcado como visto.",
+    "challengeAckErrorToast": "No se pudo marcar el reto como visto. Inténtalo de nuevo.",
+    "captainTransferredToast": "La capitanía ha pasado a {{newCaptainScreenName}}. 👑",
+    "linkCopiedToast": "¡Enlace copiado!"
+  },
+  "k2": {
+    "heading": "Lista completa del equipo",
+    "loadError": "No se pudo cargar la lista del equipo. Revisa tu conexión.",
+    "genericError": "Algo salió mal.",
+    "retry": "Volver a intentarlo",
+    "back": "Atrás",
+    "reminderSentToast": "Recordatorio enviado.",
+    "consentNoLongerPendingToast": "Este jugador ya no está esperando aprobación.",
+    "reminderErrorToast": "Algo salió mal. Inténtalo de nuevo.",
+    "reissueSentToast": "Se envió un código de acceso al padre, madre o tutor.",
+    "reissueRateLimitedToast": "Acabamos de enviar un código: espera un minuto antes de enviar otro."
+  },
+  "k4": {
+    "heading": "Elige un nuevo capitán",
+    "sub": "A quien elijas se convertirá en el nuevo capitán del equipo al instante.",
+    "loadError": "No se pudo cargar la lista del equipo. Revisa tu conexión.",
+    "genericError": "Algo salió mal.",
+    "retry": "Volver a intentarlo",
+    "back": "Atrás",
+    "targetNotFoundToast": "Ya no se encuentra a ese jugador. La lista se está actualizando.",
+    "genericErrorToast": "Algo salió mal. Inténtalo de nuevo."
+  },
+  "consentChips": {
+    "approved": "{{count}} aprobados ✓",
+    "pending": "{{count}} esperando ⏳",
+    "revoked": "{{count}} en pausa ⏸️"
+  },
+  "inviteFriendSheet": {
+    "heading": "Invitar a un amigo",
+    "subExpoGo": "Que escanee el código para abrir la app en Expo Go y luego escriba el código del equipo de abajo.",
+    "subDefault": "Que escanee el código o comparte el enlace: solo tiene que poner su apodo, el equipo ya está puesto.",
+    "codeLabel": "Código del equipo",
+    "shareButton": "Compartir invitación",
+    "close": "Cerrar",
+    "shareMessageExpoGo": "¡Únete a {{teamName}} en SkillStreak! Abre el enlace en Expo Go y luego escribe el código del equipo {{inviteCode}} cuando arranque la app: {{joinUrl}}",
+    "shareMessageDefault": "¡Únete a {{teamName}} en SkillStreak! Usa el código del equipo {{inviteCode}} o pulsa el enlace: {{joinUrl}}"
+  },
+  "pendingJoinRow": {
+    "reject": "Rechazar",
+    "approve": "Aprobar"
+  },
+  "challengeRow": {
+    "title": "¡{{screenName}} te ha retado!",
+    "watchCta": "Ver →",
+    "dismissCta": "Ya lo he visto",
+    "a11yLabel": "Reto de {{screenName}}. Toca para verlo."
+  },
+  "challengeClipModal": {
+    "heading": "¡{{screenName}} te ha retado! 🎯",
+    "close": "Cerrar",
+    "playError": "No se pudo reproducir el vídeo."
+  },
+  "reminderActionSheet": {
+    "sendReminder": "Enviar recordatorio al adulto",
+    "sendReissue": "Enviar un nuevo enlace de acceso",
+    "cancel": "Cancelar"
+  },
+  "rosterRow": {
+    "statusApproved": "Aprobado ✓",
+    "statusPending": "Esperando ⏳",
+    "statusRevoked": "En pausa ⏸️",
+    "statusNotRequested": "Todavía sin enviar",
+    "lastTrained": "Último registro: {{date}}",
+    "notTrainedYet": "Todavía no ha registrado nada"
+  },
+  "teammateRow": {
+    "selfTag": "(Tú)"
+  },
+  "captainTransferConfirmSheet": {
+    "heading": "¿Hacer capitán a {{screenName}}?",
+    "body": "{{screenName}} tendrá los botones de capitán al instante. Tú sigues en el equipo como siempre, y si {{screenName}} quiere, siempre puede devolvértela más adelante, igual que estás haciendo tú ahora.",
+    "confirmButton": "Sí, hacer capitán a {{screenName}}",
+    "cancel": "Cancelar"
+  }
+}

@@ -52,6 +52,15 @@ auto-awarded badges, and (for coaches) a training-plan tool. Every one of
 these is scoped to a single closed team — never public, never
 cross-team — described in more detail below.
 
+**One deliberate, opt-in exception** (added 2026-08-19): a player may
+publish their *own* video clips so that other SkillStreak users outside
+their team can see them. That is possible only while that player's own
+parent or guardian has given a separate, standing consent for it, and
+only for clips the player uploaded themselves. The parent can withdraw
+that consent at any time, which removes the clips from view again.
+Everything else — chat, training logs, real names, and other children's
+clips — remains team-only with no exception.
+
 ---
 
 ## 1. Who can use this app, and how an account is created
@@ -123,7 +132,7 @@ cannot accidentally return it.
 | Parent/guardian contact | Running the approval flow, and safety-report notifications (Section 6) | Never shown to other players, never used for marketing |
 | Training log entries (activity type, duration, timestamp) | Powers the streak, the team point pool, and challenge progress | **Never location** — the app records *that* a player trained and *when*, never *where* |
 | Team chat messages | Lets teammates and captains talk to each other inside their own team | Never shown outside that one team |
-| Video clips | The team's short-clip feed (players sharing training moments) | Never shown outside that one team; see Section 5 for how these are handled specifically |
+| Video clips | The team's short-clip feed (players sharing training moments) | Team-only by default. A player's *own* clips may be published more widely, but only while that player's own parent has an active, revocable consent for it — see Sections 1.1 and 5 |
 | Language preference | Shows the app in the player's chosen language | Not a location signal — it is a language choice, not a country/device-location value |
 
 **There is no location tracking anywhere in this app**, ever, for any
@@ -176,11 +185,20 @@ If you are a parent or guardian of a player using this app, you can:
 The app has an internal, team-only short video clip feed. If your child's
 account is approved to upload:
 
-- Clips are only ever visible to that player's own verified team —
-  structurally, the same closed-bubble rule as everything else in this
-  app (Section 1.1). They are never public, never shared outside the app,
-  and never sent to an outside video hosting company — clips are stored
-  on this project's own infrastructure.
+- Clips are visible to that player's own verified team — structurally,
+  the same closed-bubble rule as everything else in this app (Section
+  1.1). They are never shared outside the app at all, and never sent to
+  an outside video hosting company — clips are stored on this project's
+  own infrastructure.
+- **The one exception to team-only, added 2026-08-19**: a player may
+  publish a clip they uploaded themselves so that other SkillStreak users
+  can see it. This requires a separate, standing consent from that
+  player's own parent or guardian — it is not covered by the consent
+  given when the account was created. It applies only to that player's
+  own clips, never to another child's, and the parent can withdraw it at
+  any time, which takes the clips out of view immediately. Even then the
+  clips stay inside the app: there is no public web page, no link that
+  works outside SkillStreak, and no anonymous access.
 - **Before a clip is ever visible to anyone**, the app strips out
   location and device metadata that phones often embed in video files
   automatically (e.g. GPS coordinates), so a clip recorded at home cannot

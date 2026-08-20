@@ -1,0 +1,143 @@
+{
+  "v0": {
+    "heading": "Cómo funciona Shorts",
+    "bullet1": "Solo tu propio equipo ve tus Shorts. Si quieres compartir un vídeo fuera del equipo, un adulto tiene que decir que sí primero.",
+    "bullet2": "Un padre, una madre o un tutor tiene que decir que sí antes de que puedas subir un Shorts tú mismo.",
+    "bullet3": "¿Hay algún Shorts que te parece raro? Denúncialo y desaparecerá al instante para todo el equipo, mientras un adulto lo revisa.",
+    "bullet4": "Siempre puedes borrar tus propios Shorts, cuando quieras.",
+    "dismiss": "¡Vale, entendido!"
+  },
+  "v1": {
+    "joinPendingTitle": "Esperando al capitán de tu equipo",
+    "consentPendingTitleSelfVerify": "Esperando a que lo verifiques",
+    "consentPendingTitle": "Esperando la autorización",
+    "consentPartSelfVerify": "Tienes que verificar tu correo o tu número de teléfono.",
+    "consentPart": "Un padre, una madre o un tutor tiene que decir que sí.",
+    "joinPart": "El capitán de tu equipo tiene que aprobar que te has unido al equipo.",
+    "bothPendingSuffix": "En cuanto estén las dos cosas, desbloquearemos la pestaña Shorts.",
+    "joinPendingSuffix": "En cuanto el capitán lo apruebe, desbloquearemos la pestaña Shorts.",
+    "consentPendingSuffix": "En cuanto esté hecho, desbloquearemos la pestaña Shorts.",
+    "pausedTitle": "Shorts está en pausa ahora mismo",
+    "pausedBody": "Un padre, una madre o un tutor ha retirado la autorización. Habla con tu entrenador si tienes dudas.",
+    "refresh": "Volver a comprobar",
+    "refreshing": "Comprobando..."
+  },
+  "v2": {
+    "heading": "Shorts 🎬",
+    "loadError": "No se pudieron cargar los Shorts. Revisa tu conexión.",
+    "retry": "Volver a intentarlo",
+    "emptyHeading": "Todavía no hay Shorts",
+    "emptySub": "¡Sé el primero en compartir un Shorts con tu equipo!",
+    "uploadButton": "Subir un Shorts",
+    "showMore": "Mostrar más Shorts",
+    "showMoreError": "No se pudieron cargar más Shorts. Inténtalo de nuevo.",
+    "uploadLockedToast": "Todavía estamos esperando la autorización para que puedas subir vídeos.",
+    "consentRevokedToast": "Seguimos necesitando la autorización para que puedas subir vídeos. Vamos a actualizar la página.",
+    "reportNotFoundToast": "Ese vídeo ya no existe.",
+    "reportAlreadyToast": "Ya has denunciado este vídeo.",
+    "reportRateLimitedToast": "Has denunciado bastantes cosas últimamente. Espera un poco antes de volver a denunciar.",
+    "genericError": "Algo salió mal. Inténtalo de nuevo.",
+    "deletedToast": "El vídeo se ha borrado.",
+    "deleteNotFoundToast": "El vídeo ya no existe.",
+    "blockedToast": "Ya no verás Shorts ni mensajes de {{screenName}}."
+  },
+  "clipCard": {
+    "challengeChip": "🎯 Retando a {{screenName}}",
+    "report": "🚩 Denunciar",
+    "delete": "🗑️ Borrar vídeo",
+    "share": "Compartir fuera del equipo",
+    "shared": "Compartido fuera del equipo"
+  },
+  "clipPlayerModal": {
+    "close": "Cerrar",
+    "playError": "No se pudo reproducir el vídeo."
+  },
+  "clipGridCell": {
+    "a11yLabel": "Shorts de {{screenName}}, {{timeAgo}}"
+  },
+  "v9": {
+    "heading": "¿Por qué denuncias este vídeo?",
+    "reasonAppearsWithoutConsent": "Salgo en este vídeo y no quería salir",
+    "reasonBullying": "Acoso",
+    "reasonInappropriateContent": "Contenido inapropiado",
+    "reasonNotTrainingRelated": "No tiene que ver con el entrenamiento",
+    "reasonOther": "Otra cosa",
+    "noteLabel": "¿Quieres contar algo más? (opcional)",
+    "notePlaceholder": "Opcional…",
+    "submit": "Enviar denuncia",
+    "cancel": "Cancelar"
+  },
+  "v10": {
+    "heading": "Gracias por contárnoslo.",
+    "body": "El vídeo ya está oculto para todo el equipo, incluido tú. Nadie sabrá que fuiste tú quien lo denunció.",
+    "bodySecondary": "Un adulto se enterará de esto, pero no podemos prometerte exactamente cuándo se revisará el vídeo.",
+    "followUp": "¿Quieres dejar de ver también los Shorts y los mensajes de esta persona?",
+    "block": "Bloquear a {{screenName}}",
+    "noThanks": "No, gracias",
+    "done": "Listo"
+  },
+  "v11": {
+    "heading": "¿Borrar este vídeo de Shorts?",
+    "body": "El vídeo desaparecerá para siempre para todo el equipo. Esto no se puede deshacer.",
+    "confirm": "Sí, borrar el vídeo",
+    "cancel": "Cancelar"
+  },
+  "v4": {
+    "heading": "Elige o graba un Shorts",
+    "sub": "El vídeo puede durar como máximo {{maxSeconds}} segundos.",
+    "record": "🎥 Grabar",
+    "pickFromLibrary": "🖼️ Elegir de la galería",
+    "cancel": "Cancelar",
+    "tooLong": "El vídeo es demasiado largo: máximo {{maxSeconds}} segundos. ¡Prueba con otro!",
+    "wrongFormat": "Ese tipo de archivo no funciona aquí. Prueba con un vídeo de la cámara o de la galería.",
+    "unreadable": "No se pudo leer el vídeo. Prueba con otro.",
+    "permission": "Necesitamos tu permiso para esto. Inténtalo de nuevo o elige la otra opción."
+  },
+  "v5": {
+    "heading": "Texto y reto",
+    "captionPlaceholder": "Añade un texto (opcional)…",
+    "challengeLabel": "¿Retar a un compañero? (opcional)",
+    "noTeammates": "Todavía no hay compañeros a los que retar.",
+    "taggedHelper": "{{screenName}} verá el reto al instante, en el chat del equipo y en la pestaña Equipo.",
+    "upload": "Subir",
+    "cancel": "Cancelar",
+    "captionRejected": "No se pudo guardar el texto: contenía palabras que no funcionan aquí. ¡Prueba a escribirlo de otra forma! ✍️",
+    "rateLimited": "Estás subiendo Shorts un poco rápido. Espera un momento y volverá a funcionar.",
+    "taggedPlayerGone": "Ese jugador ya no está en el equipo. Elige a otro, o a nadie.",
+    "genericError": "Algo salió mal. Inténtalo de nuevo.",
+    "uploadStalled": "La subida se ha atascado. Termina de escribir y lo volveremos a intentar al enviar."
+  },
+  "v6": {
+    "heading": "Subiendo tu Shorts…",
+    "sub": "No salgas de la app: solo tardará un momento.",
+    "retry": "Volver a intentarlo",
+    "cancel": "Cancelar",
+    "backToFeed": "Volver al feed",
+    "retryFailure": "Algo salió mal con la subida. Lo intentaremos otra vez desde el principio.",
+    "giveUp": "La subida no funcionó esta vez. Revisa tu conexión e inténtalo de nuevo.",
+    "finishingHeading": "Guardando tu Shorts…",
+    "captionRejected": "Ese texto no estaba permitido. Cámbialo e inténtalo de nuevo.",
+    "uploadExpired": "El vídeo caducó antes de guardarse. Vuelve a elegirlo y lo subimos de nuevo."
+  },
+  "v7": {
+    "heading": "¡Tu Shorts ya está subido! 🎉",
+    "sub": "Tu equipo ya puede verlo.",
+    "done": "Ir al feed"
+  },
+  "clipShareSheet": {
+    "headingOff": "Compartir fuera del equipo",
+    "bodyNone": "Ahora mismo tus vídeos solo los ve tu equipo. Para compartirlos con otros jugadores de floorball, un adulto tiene que decir que sí primero.",
+    "ask": "Preguntar a mi madre o padre",
+    "headingPending": "Ya se lo hemos preguntado a tu madre o padre",
+    "bodyPending": "Hemos enviado un correo. En cuanto diga que sí, podrás empezar a compartir. Puede tardar un día o dos.",
+    "headingOn": "Compartir este vídeo",
+    "bodyOn": "Otros jugadores de floorball podrán ver el vídeo, tu nombre en la app y tu avatar. Nunca ven tu nombre real, tu equipo ni dónde entrenas.",
+    "publish": "Compartir vídeo",
+    "headingShared": "Este vídeo está compartido",
+    "bodyShared": "Ahora mismo este vídeo se ve fuera de tu equipo. Puedes dejar de compartirlo cuando quieras y desaparecerá al instante.",
+    "unpublish": "Dejar de compartir este vídeo",
+    "close": "Cerrar",
+    "errorGeneric": "Eso no funcionó ahora mismo. Inténtalo de nuevo en un momento.",
+    "errorRevoked": "Ahora mismo compartir está desactivado en tu cuenta. Pregúntale a tu madre o padre."
+  }
+}

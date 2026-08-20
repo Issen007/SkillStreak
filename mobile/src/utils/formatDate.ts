@@ -34,6 +34,10 @@ const MONTHS: Record<PlayerLocale, string[]> = {
     'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
     'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
   ],
+  es: [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  ],
 };
 
 /** Not every `i18n.language` value is guaranteed to be one of the 8
@@ -207,6 +211,15 @@ const RELATIVE_TIME: Record<
     hoursAgo: (n) => `il y a ${n} heure${n === 1 ? '' : 's'}`,
     yesterday: 'hier',
     daysAgo: (n) => `il y a ${n} jours`,
+  },
+  // Spanish pluralises minuto/hora regularly, and "hace X" leads rather
+  // than trails, so the shape differs from the Germanic locales above.
+  es: {
+    justNow: 'ahora mismo',
+    minutesAgo: (n) => `hace ${n} minuto${n === 1 ? '' : 's'}`,
+    hoursAgo: (n) => `hace ${n} hora${n === 1 ? '' : 's'}`,
+    yesterday: 'ayer',
+    daysAgo: (n) => `hace ${n} días`,
   },
 };
 

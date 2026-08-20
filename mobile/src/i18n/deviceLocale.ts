@@ -11,6 +11,7 @@ const SUPPORTED_LOCALES: readonly PlayerLocale[] = [
   'de',
   'cs',
   'fr',
+  'es',
 ];
 
 /** Maps the device's own language setting to the nearest of the 8

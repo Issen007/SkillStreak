@@ -75,12 +75,18 @@ for any reason.
 
 ### 5. What happens outside the app stays outside the app — and vice versa
 
-- **Only your own verified team can ever see what you post here** — your
+- **Only your own verified team can see what you post here** — your
   training, your messages, your clips. Nobody outside your team, and
   nobody outside the app at all, unless someone actively takes it out of
   the app themselves (a screenshot, for example — the app can't prevent
   that, but sharing your teammates' stuff outside the team breaks this
   rule).
+- **The one exception is your own clips, and only if an adult says yes.**
+  You can choose to share a clip *you* made so other SkillStreak users
+  can see it — but only if your own parent or guardian has agreed to it
+  first, and they can switch it off whenever they want. This never
+  applies to somebody else's clip. Sharing a teammate's clip outside the
+  team is still against this code, and always will be.
 - **Don't share what happens in this app somewhere else** — a teammate's
   message, a clip, anything — without asking them first. Your team chat
   and feed are a closed space on purpose; help keep it that way.
@@ -128,10 +134,18 @@ player-to-player content involved in those.
 
 ### What's structurally true, not just promised
 
-- **Team-only, closed by design.** A team is only reachable by its own
-  private invite code — there's no public directory, no cross-team
-  visibility, and no way for your child's content to be seen by anyone
-  outside their own verified team through this app.
+- **Team-only, closed by default.** A team is only reachable by its own
+  private invite code — there's no public directory and no way for anyone
+  to browse into your child's team.
+  **Amended 2026-08-19, because this section is the one that must not
+  overstate**: there is now exactly one way content crosses a team
+  boundary, and it is opt-in. A player can publish a clip *they
+  themselves* uploaded so other SkillStreak users can see it, and only
+  while that player's own parent has an active, separately-given consent
+  that they can withdraw at any moment. It never covers another child's
+  clip, and a captain, coach or the operator cannot enable it on a
+  family's behalf. Everything else in this list is unchanged and still
+  structural.
 - **Screen-name-first identity.** Your child's real name is never shown
   to teammates unless you explicitly choose to include it and even then
   it's visible only to their coach, in an admin-only view.

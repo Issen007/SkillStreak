@@ -39,7 +39,7 @@ interface LocaleCopy {
   html: (input: PtConsentRequestEmailInput, subject: string) => string;
 }
 
-const COPY: Record<'sv' | 'en', LocaleCopy> = {
+const COPY: Record<'sv' | 'en' | 'es', LocaleCopy> = {
   sv: {
     subject: (screenName) =>
       `En personlig tränare vill se ${screenName}s träningsdata på SkillStreak`,
@@ -188,6 +188,85 @@ const COPY: Record<'sv' | 'en', LocaleCopy> = {
               <p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#6B6B80;">
                 Didn't recognize this request? Ignore this email — the link will expire automatically and nothing
                 will be shared.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  },
+  es: {
+    subject: (screenName) =>
+      `Un entrenador personal quiere ver los datos de entrenamiento de ${screenName} en SkillStreak`,
+    intro: (screenName, isSelfVerification) =>
+      isSelfVerification
+        ? `Te han pedido (a ti, ${screenName}) que des a un entrenador personal acceso a tus datos de entrenamiento en SkillStreak.`
+        : `Alguien ha pedido dar a un entrenador personal acceso a los datos de entrenamiento de ${screenName} en SkillStreak.`,
+    text: (input) =>
+      [
+        '¡Hola!',
+        '',
+        input.isSelfVerification
+          ? `Te han pedido (a ti, ${input.screenName}) que des a un entrenador personal acceso a tus datos de entrenamiento en SkillStreak.`
+          : `Alguien ha pedido dar a un entrenador personal acceso a los datos de entrenamiento de ${input.screenName} en SkillStreak.`,
+        '',
+        `El entrenador: ${input.ptDisplayName} (${input.ptEmail})`,
+        '',
+        'Si lo autorizas, esta persona podrá ver: el nombre en la app, la racha de entrenamiento actual y la más larga, el registro de entrenamientos (fecha, tipo de actividad, duración) y las insignias conseguidas.',
+        'Esta persona NUNCA verá: el nombre real, los datos de contacto, el chat del equipo, los vídeos ni los datos de ningún otro jugador.',
+        '',
+        `Revísalo y autorízalo aquí: ${input.reviewUrl}`,
+        '',
+        `El enlace es válido durante ${input.expiresInDays} días y solo se puede usar una vez. La autorización se puede retirar en cualquier momento: por el propio jugador desde la app, o con un enlace aparte que va en el correo de confirmación.`,
+        '',
+        '¿No reconoces esta solicitud? Ignora este correo: el enlace caducará solo y no se compartirá nada.',
+      ].join('\n'),
+    html: (input, subject) => `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1B1B3A;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAFAF7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#FFFFFF;border-radius:16px;padding:32px;max-width:480px;">
+          <tr>
+            <td>
+              <h1 style="margin:0 0 16px;font-size:20px;color:#1B1B3A;">Un entrenador personal quiere ver datos de entrenamiento</h1>
+              <p style="margin:0 0 12px;font-size:15px;line-height:1.5;">
+                ${escapeHtml(COPY.es.intro(input.screenName, input.isSelfVerification))}
+              </p>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.5;">
+                El entrenador: <strong>${escapeHtml(input.ptDisplayName)}</strong> (${escapeHtml(input.ptEmail)})
+              </p>
+              <p style="margin:0 0 8px;font-size:14px;line-height:1.5;">
+                <strong>Si lo autorizas, esta persona verá:</strong> el nombre en la app, la racha de entrenamiento, el registro de entrenamientos (fecha, tipo de actividad, duración) y las insignias conseguidas.
+              </p>
+              <p style="margin:0 0 20px;font-size:14px;line-height:1.5;">
+                <strong>Esta persona NUNCA verá:</strong> el nombre real, los datos de contacto, el chat del equipo, los vídeos ni los datos de ningún otro jugador.
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="border-radius:12px;background-color:#FF6B35;">
+                    <a href="${escapeHtml(input.reviewUrl)}" style="display:inline-block;padding:14px 24px;font-size:16px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:12px;">
+                      Revisar y autorizar
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:20px 0 0;font-size:13px;line-height:1.5;">
+                El enlace es válido durante ${input.expiresInDays} días y solo se puede usar una vez. La autorización se puede retirar en
+                cualquier momento: por el propio jugador desde la app, o con un enlace aparte que va en el correo de confirmación.
+              </p>
+              <p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#6B6B80;">
+                ¿No reconoces esta solicitud? Ignora este correo: el enlace caducará solo y no se
+                compartirá nada.
               </p>
             </td>
           </tr>

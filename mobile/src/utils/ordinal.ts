@@ -6,7 +6,17 @@ import type { PlayerLocale } from '../api/types';
  * a plain `string`) — falls back to `sv`, matching `fallbackLng` elsewhere. */
 function currentLocale(): PlayerLocale {
   const lang = i18n.language;
-  const known: PlayerLocale[] = ['sv', 'en', 'fi', 'da', 'nb', 'de', 'cs', 'fr'];
+  const known: PlayerLocale[] = [
+    'sv',
+    'en',
+    'fi',
+    'da',
+    'nb',
+    'de',
+    'cs',
+    'fr',
+    'es',
+  ];
   return (known as string[]).includes(lang) ? (lang as PlayerLocale) : 'sv';
 }
 
@@ -52,6 +62,12 @@ export function swedishOrdinal(rank: number): string {
       return englishOrdinalSuffix(rank);
     case 'fr':
       return frenchOrdinalSuffix(rank);
+    // Spanish writes the ordinal indicator, not a bare period: "3.º".
+    // Masculine because every call site here reads as a placing
+    // ("puesto"), not a feminine noun like "posición" — if a feminine
+    // context is ever added this needs a variant, not a global flip.
+    case 'es':
+      return `${rank}.º`;
     case 'fi':
     case 'da':
     case 'nb':

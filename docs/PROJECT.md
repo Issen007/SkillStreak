@@ -44,6 +44,7 @@ För att hjälpa ledare som saknar inspiration eller tid ska plattformen innehå
 
 Eftersom appen riktar sig till barn i alla åldrar från grön- till svart- nivå är säkerheten vår högsta prioritet från dag ett:
 * **Slutna Lagbubblor:** Ingen data, video eller kommentar är publik för omvärlden i standardläget. Man ser bara sitt egna verifierade lag.
+  *Uppdaterat 2026-08-19:* det finns numera ett enda undantag, och det är frivilligt — en spelare kan dela sina **egna** klipp så att andra SkillStreak-användare ser dem, men bara så länge spelarens egen förälder har gett ett separat samtycke till det, och föräldern kan stänga av det när som helst. Det gäller aldrig ett annat barns klipp, och varken kapten, tränare eller driftansvarig kan slå på det åt en familj. Chatt, träningsloggar och riktiga namn lämnar aldrig laget.
 * **Anonymisering:** Möjlighet att använda skärmnamn (t.ex. *FloorballStar15*) istället för fullständiga personuppgifter.
 * **Föräldragodkännande:** Inbyggt flöde där föräldrar/myndig person måste godkänna kontot innan video/media kan laddas upp.
 * **Ingen Platsspårning:** Vi loggar aldrig *var* barnen tränar, bara *att* de har tränat.

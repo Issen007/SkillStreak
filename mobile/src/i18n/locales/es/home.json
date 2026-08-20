@@ -1,0 +1,242 @@
+{
+  "greeting": "¡Hola, <bold>{{screenName}}</bold>!",
+  "shared": {
+    "retry": "Volver a intentarlo",
+    "cancel": "Cancelar",
+    "genericError": "Algo salió mal.",
+    "genericErrorTryAgain": "Algo salió mal. Inténtalo de nuevo.",
+    "save": "Guardar",
+    "edit": "Editar"
+  },
+  "appHeader": {
+    "profileAccessibilityLabel": "Tu perfil",
+    "workingTitle": "nombre provisional"
+  },
+  "homeScreen": {
+    "loadError": "No se pudieron cargar tus datos. Revisa tu conexión.",
+    "extraLogToast": "¡Genial! +{{minutes}} min para el bote del equipo 🥇",
+    "consentRequiredToast": "Seguimos necesitando la autorización para que puedas registrar entrenamientos. Vamos a actualizar esto.",
+    "successBanner": "🔥 ¡Muy bien! {{count}} días seguidos.",
+    "successFloatingText": "+{{minutes}} min para el equipo"
+  },
+  "activitySheet": {
+    "heading": "¿Qué has entrenado?",
+    "durationHeading": "¿Cuánto tiempo?",
+    "submit": "¡Listo!",
+    "activities": {
+      "fitness": "Físico",
+      "drill": "Técnica/ejercicios",
+      "running": "Correr",
+      "other": "Otro"
+    },
+    "durations": {
+      "d10": "10 min",
+      "d15": "15 min",
+      "d20": "20 min",
+      "d30plus": "30+ min"
+    },
+    "evidenceHeading": "¿Cómo quieres demostrarlo?",
+    "evidenceHelp": "Cuanto más enseñes, más puntos para el equipo.",
+    "evidencePoints": "{{count}} p",
+    "evidence": {
+      "none": "Solo registrarlo",
+      "video": "Con un vídeo",
+      "videoShared": "Con un vídeo: compartir con el equipo"
+    }
+  },
+  "goalBonusTakeover": {
+    "headline": "¡El equipo ha logrado el objetivo de esta semana!",
+    "sub": "Tu entrenamiento fue la última pieza: ¡ahora todo el equipo ha logrado su objetivo!",
+    "points": "¡+{{points}} puntos de bonificación para el bote del equipo! 🥇"
+  },
+  "streakCard": {
+    "loggedTodayChip": "Registrado hoy ✓",
+    "count": "{{count}} días",
+    "label": "Tu racha personal: ¡sigue así!",
+    "saverBadgeA11y": "Tienes {{count}} días guardados. Protegen tu racha si te saltas un día de entrenamiento.",
+    "saverBadgeA11yZero": "Todavía no tienes días guardados. ¡Entrena 7 días seguidos para conseguir uno!"
+  },
+  "saverInfoSheet": {
+    "heading": "¿Qué son los días guardados?",
+    "bodyHasSavers": "Tienes {{count}} días guardados. Si te saltas un día de entrenamiento, usamos uno automáticamente para que tu racha siga. Consigues un día guardado nuevo cada 7 días que entrenes seguidos, hasta un máximo de 4.",
+    "bodyNoSavers": "Todavía no tienes días guardados. ¡Entrena 7 días seguidos para conseguir el primero! Protege tu racha si algún día fallas.",
+    "close": "¡Entendido!"
+  },
+  "streakGapBanner": {
+    "coverable": {
+      "headline": "¡Tu racha está protegida! 🛡️",
+      "body": "Te has saltado {{missedDayCount}} días, pero no pasa nada: estamos usando {{missedDayCount}} días guardados automáticamente para que tu racha siga. ¡Registra tu entrenamiento de hoy!"
+    },
+    "tooLarge": {
+      "headline": "¡Toca empezar de nuevo! 🌱",
+      "body": "Ha pasado un tiempo, ¡y no pasa nada! Registra tu entrenamiento de hoy para empezar una racha nueva. Tu récord de {{longestStreakCount}} días es tuyo para siempre. 💪"
+    }
+  },
+  "streakSaverCelebration": {
+    "headline": "¡Tu racha está a salvo!",
+    "sub": "Estuviste un tiempo fuera, pero tus días guardados lo cubrieron automáticamente.",
+    "detail": "🔥 {{currentStreakCount}} días seguidos: te quedan {{bankedStreakSaverCount}} días guardados"
+  },
+  "teamPoolCard": {
+    "title": "🥇 Tabla del Oro Mundial",
+    "points": "{{points}} puntos",
+    "rankLine": "{{rank}} puesto de {{teamCount}} equipos",
+    "noActiveSeason": "Ahora mismo no hay temporada activa",
+    "noActiveSeasonSub": "Volverás a estar dentro en cuanto empiece una temporada nueva.",
+    "effortLine": "🌟 {{effortRank}} mejor esfuerzo de equipo",
+    "tapHint": "Ver la tabla →"
+  },
+  "trainedButton": {
+    "disabled": "He entrenado 🔒",
+    "secondary": "Registrar otra sesión",
+    "primary": "He entrenado"
+  },
+  "waitingCard": {
+    "titleBothPending": "Esperando la autorización",
+    "titleJoinPending": "Esperando al capitán del equipo",
+    "titleConsentPending": "Esperando la autorización",
+    "titleSelfVerificationPending": "Esperando a que lo verifiques",
+    "titlePaused": "El entrenamiento está en pausa ahora mismo",
+    "consentPartSelfVerification": "Hemos enviado un enlace de verificación a tu correo o a tu número de teléfono.",
+    "consentPartParent": "Le hemos pedido permiso a un padre, una madre o un tutor.",
+    "joinPart": "El capitán del equipo tiene que aprobar que te unas al equipo.",
+    "suffixBoth": "¡En cuanto estén las dos cosas, desbloquearemos el botón de abajo!",
+    "suffixJoinOnly": "¡En cuanto el capitán lo apruebe, desbloquearemos el botón de abajo!",
+    "suffixConsentOnly": "¡En cuanto esté hecho, desbloquearemos el botón de abajo!",
+    "pausedBody": "Un padre, una madre o un tutor ha retirado su autorización. Habla con tu entrenador si tienes dudas.",
+    "refresh": "Volver a comprobar",
+    "refreshing": "Comprobando..."
+  },
+  "profileScreen": {
+    "loadError": "No se pudo cargar tu perfil. Revisa tu conexión.",
+    "savedToast": "¡Guardado!",
+    "contactChangeRateLimited": "Ya has pedido un cambio hace poco: espera un momento antes de volver a intentarlo.",
+    "contactChangeGenericError": "Algo salió mal. Revisa los datos e inténtalo de nuevo.",
+    "contactChangeConfirmedToast": "¡Confirmado! Se aplicará en unas {{hours}} h. La dirección antigua puede cancelarlo con el correo que le hemos enviado.",
+    "codeInvalid": "Ese código ya no funciona. Comprueba que lo has escrito bien o pide uno nuevo.",
+    "codeGenericError": "Algo salió mal. Revisa tu conexión e inténtalo de nuevo.",
+    "erasureTeamInfoError": "No se pudo cargar la información del equipo. Inténtalo de nuevo.",
+    "erasureTeammatesError": "No se pudo cargar la lista del equipo. Revisa tu conexión.",
+    "erasureBlockedPendingContactChange": "Tienes un cambio de datos de contacto en curso. Tiene que terminar (o cancelarse) antes de que puedas borrar tu cuenta; vuelve a intentarlo dentro de un rato.",
+    "erasureRateLimited": "Acabas de pedir esto. Espera un poco e inténtalo de nuevo.",
+    "erasureSuccessorInvalid": "Ese jugador ya no está en el equipo. Elige a otro.",
+    "erasureStaleState": "Algo ha cambiado en el equipo desde que abriste esta pantalla. Revisa tu perfil e inténtalo de nuevo.",
+    "erasureCancelledToast": "¡Listo! Tu cuenta no se borrará. 🎉",
+    "erasureCancelError": "Algo salió mal. Recarga la página e inténtalo de nuevo.",
+    "editName": {
+      "heading": "Tu nombre",
+      "sub": "Opcional: nunca se muestra a nadie más del equipo, solo lo ves tú aquí.",
+      "placeholder": "Nombre y apellidos"
+    },
+    "editAvatar": {
+      "heading": "Elige un avatar",
+      "sub": "No hace falta ninguna foto: elige un personaje que te guste."
+    },
+    "requestChange": {
+      "heading": "Cambiar la dirección de contacto",
+      "sub": "Escribe la nueva dirección. Enviaremos un código allí para confirmarlo, y un aviso a la dirección antigua de que se está haciendo un cambio.",
+      "placeholder": "Nuevo correo o número de teléfono",
+      "submit": "Enviar código"
+    },
+    "confirmChange": {
+      "heading": "Revisa tu bandeja de entrada",
+      "sub": "Hemos enviado un código a la nueva dirección. Escríbelo aquí abajo para confirmar el cambio.",
+      "placeholder": "ej.: H4K7QWXP",
+      "submit": "Confirmar",
+      "resend": "¿No te ha llegado el código? Vuelve a intentarlo"
+    },
+    "view": {
+      "heading": "Tu perfil",
+      "avatarLabel": "Avatar",
+      "nameLabel": "Nombre",
+      "nameNotSet": "Sin definir",
+      "addName": "Añadir",
+      "birthYearLabel": "Año de nacimiento",
+      "birthYearHelper": "No lo puedes cambiar tú: habla con el entrenador de tu equipo si hay que corregirlo.",
+      "contactLabel": "Dirección de contacto",
+      "changeContact": "Cambiar",
+      "back": "Atrás",
+      "logout": "Cerrar sesión",
+      "deleteAccount": "Borrar mi cuenta"
+    }
+  },
+  "erasureCheckEmail": {
+    "heading": "Revisa tu bandeja de entrada",
+    "body": "Hemos enviado un correo con un enlace. Abre el correo y toca el enlace para que empiecen los 30 días; también puedes esperar y hacerlo mañana.",
+    "mutedBody": "Si no tocas el enlace, no pasa nada: tu cuenta se queda exactamente como está.",
+    "cta": "Volver al perfil"
+  },
+  "erasureConfirmSheet": {
+    "heading": "¿Estás seguro?",
+    "body": "Enviaremos un correo que hay que confirmar para que empiecen los 30 días. Si cambias de idea, puedes cancelarlo en cualquier momento antes de que terminen.",
+    "successorBody": "{{successorScreenName}} pasará a ser capitán el día en que se borre la cuenta.",
+    "confirm": "Sí, borrar mi cuenta"
+  },
+  "erasureRequest": {
+    "heading": "¿Borrar tu cuenta?",
+    "bulletHistory": "Todo tu historial de entrenamientos, tus insignias y tus vídeos se borran para siempre.",
+    "bulletTeam": "Desaparecerás del equipo. Tus mensajes en el chat del equipo pasarán a ser anónimos; por lo demás, el equipo y tus compañeros no se ven afectados.",
+    "bulletFinal": "No hay vuelta atrás una vez que pasen los 30 días.",
+    "tip": "Enviaremos un correo que tú (o un padre, madre o tutor) tenéis que confirmar; con solo tocar el botón de abajo todavía no pasa nada. En cuanto se confirme el correo, tienes 30 días para cambiar de idea, y mientras tanto la cuenta funciona con total normalidad.",
+    "captainTitle": "Eres el capitán del equipo",
+    "captainBody": "Tienes que elegir quién será el nuevo capitán antes de poder continuar.",
+    "successorNotChosen": "Todavía no has elegido a nadie",
+    "chooseSuccessor": "Elegir",
+    "changeSuccessor": "Cambiar",
+    "lastPlayerWarning": "Ahora mismo eres el único que queda en el equipo. Si dentro de 30 días sigue siendo así, todo el equipo desaparecerá cuando se borre tu cuenta: puntos, vídeos, todo.",
+    "submit": "Borrar mi cuenta"
+  },
+  "erasureStatusCard": {
+    "titleGracePeriod": "Tu cuenta se borrará el {{date}}.",
+    "unknownDate": "(fecha desconocida)",
+    "titleRequested": "Esperando a que confirmes el borrado",
+    "gracePeriodBody": "Hasta entonces tu cuenta funciona con total normalidad. Si cambias de idea, puedes cancelarlo en cualquier momento antes de esa fecha.",
+    "gracePeriodSuccessor": "{{successorScreenName}} pasará a ser capitán ese día.",
+    "requestedBody": "Te hemos enviado un enlace por correo. Abre el correo y confirma para que empiecen los 30 días. Si no haces nada, la cuenta se queda exactamente como está.",
+    "cancelGracePeriod": "Deshacer el borrado",
+    "cancelRequested": "Deshacer la solicitud",
+    "cancelling": "Cancelando..."
+  },
+  "erasureSuccessor": {
+    "heading": "¿Quién será el nuevo capitán?",
+    "sub": "A quien elijas se convertirá en capitán del equipo el día en que se borre tu cuenta, no antes. Hasta entonces sigues siendo capitán con normalidad.",
+    "done": "Listo"
+  },
+  "leaderboard": {
+    "pageHeading": "La Tabla del Oro Mundial 🥇",
+    "tabPoints": "🥇 Más puntos",
+    "tabEffort": "💪 Mejor esfuerzo de equipo",
+    "loadError": "No se pudo cargar la tabla. Revisa tu conexión.",
+    "genericError": "Algo salió mal.",
+    "retry": "Volver a intentarlo",
+    "back": "Atrás",
+    "effortNudge": "🌟 ¡Tus jugadores lo están dando todo! Mira el Mejor esfuerzo de equipo →",
+    "noActiveSeasonBanner": "Tu equipo no tiene una temporada activa ahora mismo, ¡pero puedes ver los puntos de los demás equipos!",
+    "emptyPointsHeading": "Todavía no hay tabla que mostrar.",
+    "emptyPointsSub": "Vuelve cuando más equipos tengan una temporada activa.",
+    "tieCaption": "Los empates a puntos comparten el mismo puesto.",
+    "meTag": "Tu equipo",
+    "pointsSuffix": "pts",
+    "effortCaption": "Una media justa, para que también puedan ganar los equipos más pequeños.",
+    "infoLink": "ⓘ Cómo lo calculamos",
+    "noEffortBanner": "Tu equipo todavía no está en esta lista: necesita al menos un jugador aprobado.",
+    "emptyEffortHeading": "Todavía no hay esfuerzo de equipo que mostrar.",
+    "emptyEffortSub": "Vuelve cuando más equipos tengan jugadores aprobados.",
+    "playerCountSuffix": "jugadores",
+    "pointsPerPlayerSuffix": "pts/jugador",
+    "infoSheet": {
+      "heading": "Cómo calculamos el Mejor esfuerzo de equipo",
+      "body1": "Comparamos cuántos puntos consigue cada equipo por jugador, no solo el total del equipo. Así, incluso un equipo pequeño puede ganar si todos lo dan todo.",
+      "body2": "Si un equipo es pequeño, contamos con un poco de cuidado, para que unos pocos días muy buenos no le den el primer puesto por casualidad. Cuantos más jugadores tiene un equipo, más nos fiamos de su propia media.",
+      "ownTeamLine": "Tu equipo: {{pointsPerPlayer}} pts/jugador con {{playerCount}} jugadores → {{adjustedScore}} pts al contarlo de forma justa.",
+      "gotIt": "¡Vale, entendido!"
+    },
+    "yourPosition": "Tu puesto: {{rank}} de {{teamCount}} equipos"
+  },
+  "evidenceFallbackSheet": {
+    "heading": "El vídeo no se terminó de subir",
+    "body": "Tu sesión sigue aquí. ¿La registramos sin el vídeo? Consigues menos puntos, pero cuenta.",
+    "logAnyway": "Registrar sin vídeo",
+    "tryAgain": "Volver a intentarlo"
+  }
+}

@@ -574,6 +574,71 @@ const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
 </body>
 </html>`,
   },
+  es: {
+    subject: `Código para volver a entrar en SkillStreak`,
+    text: (screenName, teamName, code, expiresInMinutes) =>
+      [
+        '¡Hola!',
+        '',
+        `Alguien ha pedido un nuevo acceso para ${screenName} en ${teamName} en SkillStreak, porque la sesión antigua ya no funciona (por ejemplo, un móvil nuevo o la app reinstalada).`,
+        '',
+        `Código: ${code}`,
+        '',
+        `Abre la app (o la web), elige «¿Ya tienes una cuenta?» y escribe el código de arriba. El código es válido durante ${expiresInMinutes} minutos y solo se puede usar una vez.`,
+        '',
+        '¿No has sido tú ni tu hijo o hija? Ignora este correo: el código caducará solo y no le pasará nada a la cuenta.',
+      ].join('\n'),
+    html: (
+      safeScreenName,
+      safeTeamName,
+      safeCode,
+      expiresInMinutes,
+      subject,
+    ) => `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1B1B3A;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAFAF7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#FFFFFF;border-radius:16px;padding:32px;max-width:480px;">
+          <tr>
+            <td>
+              <h1 style="margin:0 0 16px;font-size:20px;color:#1B1B3A;">Vuelve a entrar</h1>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.5;">
+                Alguien ha pedido un nuevo acceso para <strong>${safeScreenName}</strong> in
+                <strong>${safeTeamName}</strong> en SkillStreak, porque la sesión antigua
+                ya no funciona (por ejemplo, un móvil nuevo o la app reinstalada).
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center" style="background-color:#FAFAF7;border-radius:12px;padding:20px;">
+                    <span style="font-family:monospace;font-size:28px;font-weight:700;letter-spacing:4px;color:#1B1B3A;">${safeCode}</span>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:20px 0 0;font-size:14px;line-height:1.5;">
+                Abre la app (o la web), elige <strong>«¿Ya tienes una cuenta?»</strong> and
+                escribe el código de arriba. Válido durante ${expiresInMinutes} minutos, solo se puede usar
+                una vez.
+              </p>
+              <p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#6B6B80;">
+                ¿No has sido tú ni tu hijo o hija? Ignora este correo: el código caducará
+                solo y no le pasará nada a la cuenta.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  },
 };
 
 function resolveCopy(locale: PlayerLocale): LocaleCopy {

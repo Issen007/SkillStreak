@@ -1,1 +1,8 @@
-{}
+{
+  "heading": "Tips",
+  "intro": "Tips fra trænere. En administrator læser alle, før de havner her.",
+  "loading": "Henter tips…",
+  "failed": "Kunne ikke hente tips lige nu. Træk ned for at prøve igen.",
+  "empty": "Ingen tips endnu. Kig forbi en anden dag.",
+  "end": "Det var alle tips for nu."
+}

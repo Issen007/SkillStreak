@@ -1,0 +1,89 @@
+{
+  "ch0": {
+    "heading": "Cómo funciona el chat del equipo",
+    "bullet1": "Solo tu propio equipo puede ver lo que escribes aquí.",
+    "bullet2": "¿Algo te parece raro? Puedes denunciar un mensaje o bloquear a alguien para no volver a ver sus mensajes.",
+    "bullet3": "Algunas palabras no funcionan aquí. Si un mensaje no se envía, prueba a escribirlo de otra forma.",
+    "dismiss": "¡Vale, entendido!"
+  },
+  "ch1": {
+    "heading": "Chat del equipo 💬",
+    "blockedLink": "🚫 Bloqueados",
+    "loadError": "No se pudo cargar el chat del equipo. Revisa tu conexión.",
+    "retry": "Volver a intentarlo",
+    "emptyHeading": "Todavía no hay mensajes",
+    "emptySub": "¡Escribe el primer mensaje a tu equipo!",
+    "filterRejected": "Tu mensaje no se envió: contenía palabras que no funcionan aquí. ¡Prueba a escribirlo de otra forma! ✍️",
+    "sendRateLimited": "Estás enviando mensajes un poco rápido. Espera un momento y volverá a funcionar.",
+    "genericError": "Algo salió mal. Inténtalo de nuevo.",
+    "clipGoneOnSend": "No se pudo enviar el vídeo: ya no existe. Ahora puedes enviar el resto.",
+    "messageNotFoundToast": "Ese mensaje ya no existe.",
+    "alreadyReportedToast": "Ya has denunciado este mensaje.",
+    "reportRateLimitedToast": "Has denunciado bastantes cosas últimamente. Espera un poco antes de volver a denunciar.",
+    "clipNotFoundToast": "Ese vídeo ya no existe.",
+    "clipAlreadyReportedToast": "Ya has denunciado este vídeo.",
+    "clipReportRateLimitedToast": "Has denunciado bastantes cosas últimamente. Espera un poco antes de volver a denunciar.",
+    "blockedToast": "Ya no verás mensajes ni vídeos de {{screenName}}."
+  },
+  "ch2": {
+    "excerpt": "Estás denunciando: «{{excerpt}}…»",
+    "heading": "¿Por qué denuncias este mensaje?",
+    "reasonBullying": "Acoso",
+    "reasonInappropriateLanguage": "Lenguaje inapropiado",
+    "reasonSpam": "Spam",
+    "reasonOther": "Otra cosa",
+    "noteLabel": "¿Quieres contar algo más? (opcional)",
+    "notePlaceholder": "Opcional…",
+    "submit": "Enviar denuncia",
+    "cancel": "Cancelar"
+  },
+  "ch3": {
+    "heading": "Gracias por contárnoslo.",
+    "body": "Hemos recibido tu denuncia. No tienes que hacer nada más, y nadie sabrá que fuiste tú quien la envió.",
+    "followUp": "¿Quieres dejar de ver también los mensajes de esta persona?",
+    "block": "Bloquear a {{screenName}}",
+    "noThanks": "No, gracias",
+    "done": "Listo"
+  },
+  "ch4": {
+    "body": "Si bloqueas a {{screenName}}, dejarás de ver sus mensajes en el chat del equipo y sus Shorts en el feed de Shorts. {{screenName}} no sabrá que le has bloqueado.",
+    "confirm": "Bloquear a {{screenName}}",
+    "cancel": "Cancelar"
+  },
+  "ch5": {
+    "heading": "Compañeros bloqueados",
+    "headingSub": "Un bloqueo se aplica tanto al chat del equipo como a Shorts.",
+    "empty": "No has bloqueado a nadie.",
+    "unblock": "Dejar de bloquear",
+    "back": "Atrás",
+    "unblockedToast": "Vuelves a ver los mensajes de {{screenName}}.",
+    "genericError": "Algo salió mal. Inténtalo de nuevo."
+  },
+  "ch6": {
+    "heading": "Adjuntar un vídeo",
+    "loadError": "No se pudieron cargar los vídeos. Revisa tu conexión.",
+    "retry": "Volver a intentarlo",
+    "emptyHeading": "Todavía no hay vídeos para adjuntar",
+    "emptySub": "Nadie del equipo ha subido un vídeo todavía. ¡Ve a la pestaña Shorts para subir el primero!",
+    "goToClips": "Ir a Shorts",
+    "showMore": "Mostrar más vídeos"
+  },
+  "composeBar": {
+    "lockedNote": "Esperando la autorización para poder enviar mensajes. Mientras tanto puedes leer lo que escribe el equipo.",
+    "placeholder": "Escribe algo al equipo…",
+    "clipChipLabel": "De {{screenName}}"
+  },
+  "messageBubble": {
+    "reportMessage": "🚩 Denunciar el mensaje",
+    "reportClip": "🚩 Denunciar el vídeo"
+  },
+  "systemMessage": {
+    "a11yPrefix": "Mensaje automático del equipo: {{content}}"
+  },
+  "clipEmbed": {
+    "attribution": "Vídeo de {{screenName}}"
+  },
+  "clipUnavailable": {
+    "text": "🎬 Este vídeo ya no está disponible."
+  }
+}

@@ -423,6 +423,54 @@ const COPY: Partial<Record<PlayerLocale, LocaleCopy>> = {
 </body>
 </html>`,
   },
+  es: {
+    subject: (screenName) =>
+      `La dirección de contacto de la cuenta de ${screenName} va a cambiar`,
+    text: (screenName) =>
+      [
+        '¡Hola!',
+        '',
+        `Alguien ha pedido cambiar a una dirección nueva la dirección de contacto de la cuenta de ${screenName} en SkillStreak.`,
+        '',
+        '¿Has sido tú (o tu madre o padre)? Entonces no tienes que hacer nada: el cambio solo se completa cuando se confirme la nueva dirección.',
+        '',
+        '¿No has sido tú? Habla con el entrenador del equipo lo antes posible.',
+      ].join('\n'),
+    html: (safeScreenName, subject) => `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#1B1B3A;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAFAF7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#FFFFFF;border-radius:16px;padding:32px;max-width:480px;">
+          <tr>
+            <td>
+              <h1 style="margin:0 0 16px;font-size:20px;color:#1B1B3A;">La dirección de contacto va a cambiar</h1>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.5;">
+                Alguien ha pedido cambiar la dirección de contacto de la cuenta de <strong>${safeScreenName}</strong>'s
+                en SkillStreak a una dirección nueva.
+              </p>
+              <p style="margin:0 0 16px;font-size:14px;line-height:1.5;">
+                ¿Has sido tú (o tu madre o padre)? Entonces no tienes que hacer nada: el cambio
+                solo se completa cuando se confirme la nueva dirección.
+              </p>
+              <p style="margin:0;font-size:14px;line-height:1.5;font-weight:700;">
+                ¿No has sido tú? Habla con el entrenador del equipo lo antes posible.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  },
 };
 
 function resolveCopy(locale: PlayerLocale): LocaleCopy {
