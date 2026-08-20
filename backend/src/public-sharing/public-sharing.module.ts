@@ -7,6 +7,7 @@ import { PlayerPrivateInfoModule } from '../player-private-info/player-private-i
 import { Player } from '../players/entities/player.entity';
 import { RedisModule } from '../redis/redis.module';
 import { ClipReaction } from '../video-clips/entities/clip-reaction.entity';
+import { ClipReport } from '../video-clips/entities/clip-report.entity';
 import { VideoClip } from '../video-clips/entities/video-clip.entity';
 import { ClipReactionsService } from '../video-clips/clip-reactions.service';
 import { PublicFeedService } from '../video-clips/public-feed.service';
@@ -42,6 +43,7 @@ import { PublicSharingReminderService } from './public-sharing-reminder.service'
       Player,
       VideoClip,
       ClipReaction,
+      ClipReport,
     ]),
     AuthModule,
     PlayerPrivateInfoModule,

@@ -27,6 +27,7 @@ import {
   ViewerReactionResult,
 } from '../video-clips/clip-reactions.service';
 import { ReactToClipDto } from './dto/react-to-clip.dto';
+import { ReportPublicClipDto } from './dto/report-public-clip.dto';
 import { PublicSharingAccessService } from './public-sharing-access.service';
 import { PublicSharingConsentService } from './public-sharing-consent.service';
 
@@ -209,6 +210,27 @@ export class PublicSharingController {
     @Param('clipId') clipId: string,
   ): Promise<ViewerReactionResult> {
     return this.reactions.clear(playerId, clipId);
+  }
+
+  /**
+   * Screen F3 — report a public clip.
+   *
+   * Throttled hard. A report auto-revokes public visibility, so the
+   * cheapest possible denial-of-service against another child's clip is
+   * a script that reports everything it can see; the per-viewer-per-clip
+   * uniqueness bounds the damage per clip and this bounds the rate
+   * across them.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
+  @Post('api/v1/public-feed/:clipId/report')
+  @HttpCode(HttpStatus.OK)
+  async reportPublic(
+    @CurrentPlayerId() playerId: string,
+    @Param('clipId') clipId: string,
+    @Body() dto: ReportPublicClipDto,
+  ): Promise<{ clipId: string; reported: true }> {
+    return this.feed.reportPublicClip(playerId, clipId, dto.reason);
   }
 
   /**

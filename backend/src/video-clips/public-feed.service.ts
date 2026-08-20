@@ -10,6 +10,7 @@ import { Player } from '../players/entities/player.entity';
 import { PublicSharingAccessService } from '../public-sharing/public-sharing-access.service';
 import { PublicSharingConsentService } from '../public-sharing/public-sharing-consent.service';
 import { ClipReactionType } from './entities/clip-reaction.entity';
+import { ClipReport, ClipReportReason } from './entities/clip-report.entity';
 import { ObjectStorageService } from './object-storage.service';
 import { CLIP_PLAYBACK_URL_EXPIRES_SECONDS } from './video-clip.constants';
 import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
@@ -108,6 +109,8 @@ export class PublicFeedService {
     private readonly consentService: PublicSharingConsentService,
     private readonly access: PublicSharingAccessService,
     private readonly objectStorage: ObjectStorageService,
+    @InjectRepository(ClipReport)
+    private readonly reports: Repository<ClipReport>,
   ) {}
 
   /**
@@ -256,6 +259,56 @@ export class PublicFeedService {
     // withdrew consent" is a disclosure about a specific child.
     if (!row) throw new ClipNotFoundException();
     return row;
+  }
+
+  /**
+   * Screen F3 — a viewer reports a stranger's public clip.
+   *
+   * **Auto-revokes public visibility only** (ADR-0019 Decision 4). The
+   * clip goes back to being a team clip; it is not hidden from its own
+   * team and it is not deleted. That asymmetry is deliberate: a stranger
+   * on the public feed has standing to say "this should not be out here",
+   * and none at all to reach inside another team's bubble and remove
+   * something from the people who already had it.
+   *
+   * The reporter is told nothing afterwards. What happens to the clip is
+   * another family's business, and reporting back on it would make the
+   * report a channel for learning about them.
+   */
+  async reportPublicClip(
+    viewerId: string,
+    clipId: string,
+    reason: ClipReportReason,
+  ): Promise<{ clipId: string; reported: true }> {
+    const { uploaderPlayerId } = await this.assertPubliclyVisibleTo(
+      viewerId,
+      clipId,
+    );
+
+    // Same one-report-per-viewer-per-clip rule the team feed enforces —
+    // a report is an accusation and must not be inflatable. A repeat is
+    // silently accepted rather than rejected: telling a child "you
+    // already reported this" is a fact about their own past action, but
+    // erroring on it makes the safest button in the app feel broken.
+    await this.reports
+      .createQueryBuilder()
+      .insert()
+      .into(ClipReport)
+      .values({
+        clipId,
+        reporterPlayerId: viewerId,
+        reportedUploaderPlayerId: uploaderPlayerId,
+        reason,
+      })
+      .orIgnore()
+      .execute();
+
+    // Conditional on the clip still being public, so two reporters
+    // racing cannot both "un-publish" and have the second silently
+    // resurrect anything. Nothing else about the clip is touched.
+    await this.clips.update({ id: clipId }, { publishedPubliclyAt: null });
+
+    return { clipId, reported: true };
   }
 
   /**
