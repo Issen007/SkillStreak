@@ -139,5 +139,22 @@
     "close": "Fermer",
     "errorGeneric": "Ça n'a pas marché. Réessaie dans un instant.",
     "errorRevoked": "Le partage est désactivé pour ton compte. Demande à ton parent."
+  },
+  "publicFeed": {
+    "tabArchive": "Archives",
+    "tabExplore": "Explorer",
+    "emptyHeading": "Rien à explorer pour l'instant",
+    "emptyBody": "Quand d'autres commenceront à partager des clips, ils apparaîtront ici.",
+    "loadError": "Impossible de charger les clips. Vérifie ta connexion.",
+    "reactionFailed": "Ça n'a pas marché là. Réessaie.",
+    "reportThanks": "Merci. Le clip n'est plus dans Explorer.",
+    "reportA11y": "Signaler ce clip",
+    "seconds": "{{count}} s",
+    "reactions": {
+      "nice": "Joli !",
+      "strong": "Costaud !",
+      "creative": "Créatif !",
+      "well_done": "Bien joué !"
+    }
   }
 }

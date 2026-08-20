@@ -139,5 +139,22 @@
     "close": "Luk",
     "errorGeneric": "Det virkede ikke lige nu. Prøv igen om lidt.",
     "errorRevoked": "Deling er slået fra for din konto lige nu. Spørg din forælder."
+  },
+  "publicFeed": {
+    "tabArchive": "Arkiv",
+    "tabExplore": "Udforsk",
+    "emptyHeading": "Intet at udforske endnu",
+    "emptyBody": "Når andre begynder at dele klip, dukker de op her.",
+    "loadError": "Kunne ikke hente klippene. Tjek din forbindelse.",
+    "reactionFailed": "Det gik ikke lige nu. Prøv igen.",
+    "reportThanks": "Tak. Klippet er væk fra Udforsk.",
+    "reportA11y": "Rapportér klippet",
+    "seconds": "{{count}} s",
+    "reactions": {
+      "nice": "Flot!",
+      "strong": "Stærkt!",
+      "creative": "Kreativt!",
+      "well_done": "Godt gået!"
+    }
   }
 }

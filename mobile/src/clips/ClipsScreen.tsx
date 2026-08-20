@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ClipIntroCard } from './components/ClipIntroCard';
 import { ClipsWaitingCard } from './components/ClipsWaitingCard';
+import { PublicFeedScreen } from './PublicFeedScreen';
 import { ClipGrid } from './components/ClipGrid';
 import { ClipPlayerModal } from './components/ClipPlayerModal';
 import { ClipReportSheet } from './components/ClipReportSheet';
@@ -121,6 +122,15 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
   const [blockSubmitting, setBlockSubmitting] = useState(false);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  /**
+   * Which of the two Shorts surfaces is showing.
+   *
+   * **Defaults to the archive, never to Utforska.** Opening straight into
+   * an endless scroll of strangers is the pattern the reference apps use
+   * and the one this app should not copy — a child arrives in their own
+   * and their team's material and chooses to go outward.
+   */
+  const [surface, setSurface] = useState<'archive' | 'explore'>('archive');
   const [view, setView] = useState<'feed' | 'upload'>('feed');
 
   const hasOpenedRef = useRef(false);
@@ -475,6 +485,50 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
     (consentStatus !== null && consentStatus !== 'approved') ||
     (teamJoinStatus !== null && teamJoinStatus !== 'approved');
 
+  // The tab pair only exists once the feature is live for this team. A
+  // team outside the rollout allow-list sees no Utforska tab at all —
+  // the same reasoning as the absent share row: nothing is advertised to
+  // a child who cannot use it.
+  const exploreAvailable = !locked && sharingStatus?.available === true;
+
+  const tabs = exploreAvailable ? (
+    <View style={styles.tabRow} accessibilityRole="tablist">
+      {(['archive', 'explore'] as const).map((value) => {
+        const selected = surface === value;
+        return (
+          <Pressable
+            key={value}
+            style={[styles.tab, selected ? styles.tabOn : null]}
+            onPress={() => setSurface(value)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+          >
+            <Text style={[styles.tabLabel, selected ? styles.tabLabelOn : null]}>
+              {t(value === 'archive' ? 'publicFeed.tabArchive' : 'publicFeed.tabExplore')}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  ) : null;
+
+  // Utforska is a full-bleed pager, so it replaces the scrolling body
+  // rather than sitting inside it. No upload FAB here either: you publish
+  // from your own archive, and offering it over a stranger's clip would
+  // teach the wrong model.
+  if (exploreAvailable && surface === 'explore') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.heading}>{t('v2.heading')}</Text>
+        {tabs}
+        <PublicFeedScreen onToast={setToastMessage} />
+        {toastMessage ? (
+          <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -488,6 +542,7 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
         }
       >
         <Text style={styles.heading}>{t('v2.heading')}</Text>
+        {tabs}
 
         {locked ? (
           <ClipsWaitingCard
@@ -621,6 +676,33 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 90,
     gap: 14,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  tab: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  tabOn: {
+    borderColor: colors.flame,
+    backgroundColor: colors.flameTint,
+  },
+  tabLabel: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.textBody,
+  },
+  tabLabelOn: {
+    fontFamily: fonts.headingBold,
+    color: colors.flame,
   },
   heading: {
     fontFamily: fonts.headingBold,

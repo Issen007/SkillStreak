@@ -139,5 +139,22 @@
     "close": "Cerrar",
     "errorGeneric": "Eso no funcionó ahora mismo. Inténtalo de nuevo en un momento.",
     "errorRevoked": "Ahora mismo compartir está desactivado en tu cuenta. Pregúntale a tu madre o padre."
+  },
+  "publicFeed": {
+    "tabArchive": "Archivo",
+    "tabExplore": "Explorar",
+    "emptyHeading": "Todavía no hay nada que explorar",
+    "emptyBody": "Cuando otros empiecen a compartir clips, aparecerán aquí.",
+    "loadError": "No se pudieron cargar los clips. Comprueba tu conexión.",
+    "reactionFailed": "Eso no ha funcionado ahora. Inténtalo otra vez.",
+    "reportThanks": "Gracias. El clip ya no está en Explorar.",
+    "reportA11y": "Denunciar el clip",
+    "seconds": "{{count}} s",
+    "reactions": {
+      "nice": "¡Bonito!",
+      "strong": "¡Fuerte!",
+      "creative": "¡Creativo!",
+      "well_done": "¡Bien hecho!"
+    }
   }
 }

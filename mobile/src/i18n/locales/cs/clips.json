@@ -139,5 +139,22 @@
     "close": "Zavřít",
     "errorGeneric": "Teď se to nepovedlo. Zkus to za chvíli znovu.",
     "errorRevoked": "Sdílení je pro tvůj účet vypnuté. Zeptej se rodiče."
+  },
+  "publicFeed": {
+    "tabArchive": "Archiv",
+    "tabExplore": "Objevuj",
+    "emptyHeading": "Zatím není co objevovat",
+    "emptyBody": "Až ostatní začnou sdílet klipy, objeví se tady.",
+    "loadError": "Klipy se nepodařilo načíst. Zkontroluj připojení.",
+    "reactionFailed": "Teď to nevyšlo. Zkus to znovu.",
+    "reportThanks": "Díky. Klip je pryč z Objevuj.",
+    "reportA11y": "Nahlásit klip",
+    "seconds": "{{count}} s",
+    "reactions": {
+      "nice": "Pěkné!",
+      "strong": "Silné!",
+      "creative": "Kreativní!",
+      "well_done": "Dobrá práce!"
+    }
   }
 }

@@ -61,6 +61,10 @@ import type {
   TrainerPost,
   SubmitBugReportRequest,
   SubmitBugReportResponse,
+  ClipReactionType,
+  PublicFeedPage,
+  ViewerReactionResult,
+  ClipReportReason,
 } from './types';
 
 // The only four endpoints Phase 1's Expo app talks to, per
@@ -704,4 +708,47 @@ export function submitBugReport(
     body,
     auth: true,
   });
+}
+
+/** Screen F1 — one page of the public feed. Keyset-paginated; pass the
+ * previous page's `nextCursor` to continue. */
+export function getPublicFeed(cursor?: string): Promise<PublicFeedPage> {
+  const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+  return apiClient.request<PublicFeedPage>(`/public-feed${query}`, {
+    auth: true,
+  });
+}
+
+/** Screen F2 — set, change or toggle off a reaction. One call for all
+ * three: the server decides which, from what the child tapped. */
+export function reactToClip(
+  clipId: string,
+  reaction: ClipReactionType,
+): Promise<ViewerReactionResult> {
+  return apiClient.request<ViewerReactionResult>(
+    `/public-feed/${clipId}/reaction`,
+    { method: 'POST', body: { reaction }, auth: true },
+  );
+}
+
+/** Withdraw a reaction explicitly. Idempotent. */
+export function clearClipReaction(
+  clipId: string,
+): Promise<ViewerReactionResult> {
+  return apiClient.request<ViewerReactionResult>(
+    `/public-feed/${clipId}/reaction`,
+    { method: 'DELETE', auth: true },
+  );
+}
+
+/** Screen F3 — report a stranger's public clip. Takes it off the public
+ * feed; it stays a team clip for the team that already had it. */
+export function reportPublicClip(
+  clipId: string,
+  reason: ClipReportReason,
+): Promise<{ clipId: string; reported: true }> {
+  return apiClient.request<{ clipId: string; reported: true }>(
+    `/public-feed/${clipId}/report`,
+    { method: 'POST', body: { reason }, auth: true },
+  );
 }

@@ -139,5 +139,22 @@
     "close": "Schließen",
     "errorGeneric": "Das hat gerade nicht geklappt. Versuch es gleich noch einmal.",
     "errorRevoked": "Teilen ist für dein Konto gerade ausgeschaltet. Frag deine Eltern."
+  },
+  "publicFeed": {
+    "tabArchive": "Archiv",
+    "tabExplore": "Entdecken",
+    "emptyHeading": "Noch nichts zu entdecken",
+    "emptyBody": "Wenn andere anfangen, Clips zu teilen, tauchen sie hier auf.",
+    "loadError": "Clips konnten nicht geladen werden. Prüf deine Verbindung.",
+    "reactionFailed": "Das hat gerade nicht geklappt. Versuch es nochmal.",
+    "reportThanks": "Danke. Der Clip ist aus Entdecken verschwunden.",
+    "reportA11y": "Clip melden",
+    "seconds": "{{count}} s",
+    "reactions": {
+      "nice": "Schön!",
+      "strong": "Stark!",
+      "creative": "Kreativ!",
+      "well_done": "Gut gemacht!"
+    }
   }
 }

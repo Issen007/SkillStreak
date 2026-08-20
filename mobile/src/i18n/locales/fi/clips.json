@@ -139,5 +139,22 @@
     "close": "Sulje",
     "errorGeneric": "Se ei onnistunut juuri nyt. Yritä hetken kuluttua uudelleen.",
     "errorRevoked": "Jakaminen on kytketty pois päältä tililtäsi. Kysy huoltajaltasi."
+  },
+  "publicFeed": {
+    "tabArchive": "Arkisto",
+    "tabExplore": "Tutki",
+    "emptyHeading": "Ei vielä mitään tutkittavaa",
+    "emptyBody": "Kun muut alkavat jakaa klippejä, ne näkyvät täällä.",
+    "loadError": "Klippejä ei voitu hakea. Tarkista yhteytesi.",
+    "reactionFailed": "Se ei onnistunut juuri nyt. Yritä uudelleen.",
+    "reportThanks": "Kiitos. Klippi on poissa Tutki-osiosta.",
+    "reportA11y": "Ilmoita klipistä",
+    "seconds": "{{count}} s",
+    "reactions": {
+      "nice": "Hienoa!",
+      "strong": "Vahvaa!",
+      "creative": "Luovaa!",
+      "well_done": "Hyvin tehty!"
+    }
   }
 }
