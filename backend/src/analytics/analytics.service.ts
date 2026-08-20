@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { stockholmDateString } from '../common/time/stockholm-date.util';
 import { LinkClick, TrackedLink } from './entities/link-click.entity';
+import { SiteLocale, SiteVisit } from './entities/site-visit.entity';
 
 export interface DailyPoint {
   day: string;
@@ -15,6 +16,27 @@ export interface LinkClickSeries {
   daily: DailyPoint[];
 }
 
+export interface SiteLocaleSeries {
+  locale: SiteLocale;
+  views: number;
+  /** Visits that reported a duration. Always <= views — see the entity. */
+  dwellSamples: number;
+  /** Mean observed seconds, over `dwellSamples`. Null when none reported. */
+  averageDwellSeconds: number | null;
+  daily: DailyPoint[];
+}
+
+export interface SiteVisitSummary {
+  /** Page views, not unique people — see SiteVisit's docstring. */
+  totalViews: number;
+  /** Across both languages. Null when nothing reported a duration. */
+  averageDwellSeconds: number | null;
+  dwellSamples: number;
+  perLocale: SiteLocaleSeries[];
+  /** Both languages combined, for the trend line. */
+  viewsPerDay: DailyPoint[];
+}
+
 export interface AdminAnalyticsResponse {
   windowDays: number;
   /** Every player account that exists. App-wide, so no team is implied. */
@@ -25,6 +47,17 @@ export interface AdminAnalyticsResponse {
   signupsPerDay: DailyPoint[];
   linkClicks: LinkClickSeries[];
   totalClicks: number;
+  /** Reads of the public marketing site. */
+  siteVisits: SiteVisitSummary;
+}
+
+export interface SiteVisitRow {
+  locale: SiteLocale;
+  day: string;
+  views: number;
+  dwell_samples: number;
+  /** bigint arrives as a string; coerced where it is summed. */
+  dwell_seconds_total: string;
 }
 
 const DEFAULT_WINDOW_DAYS = 30;
@@ -46,11 +79,79 @@ const DEFAULT_WINDOW_DAYS = 30;
  * such risk — it is one number about the whole app and implies nothing
  * about any team — which is why one is here and the other is not.
  */
+/**
+ * Folds raw daily rows into one series per language plus a combined trend.
+ *
+ * **The average is summed seconds over summed samples, not the mean of
+ * each day's mean.** Those diverge as soon as days have different
+ * traffic, and the second silently weights a quiet Sunday equally with a
+ * busy launch day — precisely when an operator would be reading this.
+ *
+ * Both languages always appear, even with no rows, so an empty split
+ * reads as "nobody read the English version" rather than the language
+ * quietly vanishing from the table.
+ *
+ * Exported for its own tests, like `fillMissingDays`: it is pure, and the
+ * arithmetic is the part worth pinning.
+ */
+export function groupSiteVisits(
+  rows: SiteVisitRow[],
+  days: number,
+  today?: Date,
+): SiteVisitSummary {
+  const locales = [SiteLocale.SV, SiteLocale.EN];
+  const perLocale = locales.map((locale) => {
+    const mine = rows.filter((r) => r.locale === locale);
+    const views = mine.reduce((n, r) => n + Number(r.views), 0);
+    const samples = mine.reduce((n, r) => n + Number(r.dwell_samples), 0);
+    const seconds = mine.reduce((n, r) => n + Number(r.dwell_seconds_total), 0);
+    return {
+      locale,
+      views,
+      dwellSamples: samples,
+      averageDwellSeconds: samples > 0 ? Math.round(seconds / samples) : null,
+      daily: fillMissingDays(
+        mine.map((r) => ({ day: r.day, value: Number(r.views) })),
+        days,
+        today,
+      ),
+    };
+  });
+
+  const totalSamples = perLocale.reduce((n, l) => n + l.dwellSamples, 0);
+  const totalSeconds = rows.reduce(
+    (n, r) => n + Number(r.dwell_seconds_total),
+    0,
+  );
+
+  const combined = new Map<string, number>();
+  for (const row of rows) {
+    combined.set(row.day, (combined.get(row.day) ?? 0) + Number(row.views));
+  }
+
+  return {
+    totalViews: perLocale.reduce((n, l) => n + l.views, 0),
+    averageDwellSeconds:
+      totalSamples > 0 ? Math.round(totalSeconds / totalSamples) : null,
+    dwellSamples: totalSamples,
+    perLocale,
+    viewsPerDay: fillMissingDays(
+      [...combined.entries()]
+        .map(([day, value]) => ({ day, value }))
+        .sort((a, b) => a.day.localeCompare(b.day)),
+      days,
+      today,
+    ),
+  };
+}
+
 @Injectable()
 export class AnalyticsService {
   constructor(
     @InjectRepository(LinkClick)
     private readonly linkClicks: Repository<LinkClick>,
+    @InjectRepository(SiteVisit)
+    private readonly siteVisits: Repository<SiteVisit>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -72,19 +173,63 @@ export class AnalyticsService {
     );
   }
 
+  /**
+   * A read of the public site started.
+   *
+   * Same UPSERT reasoning as `recordClick`: visits arrive concurrently,
+   * and a read-then-write would silently lose one whenever two land
+   * together. Postgres computes the increment under the row lock the
+   * conflict already takes.
+   */
+  async recordSiteView(locale: SiteLocale): Promise<void> {
+    await this.siteVisits.query(
+      `INSERT INTO site_visit (locale, day, views)
+       VALUES ($1, CURRENT_DATE, 1)
+       ON CONFLICT (locale, day)
+       DO UPDATE SET views = site_visit.views + 1`,
+      [locale],
+    );
+  }
+
+  /**
+   * A read ended, and the browser managed to tell us how long it lasted.
+   *
+   * Deliberately does NOT also increment `views`. The open beacon already
+   * counted the visit; counting it again here would double every visit
+   * that reported a duration and leave the ones that could not reporting
+   * as half a visit, which is a worse number than either alone.
+   *
+   * `dwell_seconds_total` is a bigint, so Postgres does the addition —
+   * pulling it into JavaScript would round past 2^53 and, more
+   * immediately, reintroduce the lost-update race the UPSERT exists to
+   * avoid.
+   */
+  async recordSiteDwell(locale: SiteLocale, seconds: number): Promise<void> {
+    const safe = Math.min(Math.max(Math.trunc(seconds), 0), 4 * 60 * 60);
+    await this.siteVisits.query(
+      `INSERT INTO site_visit (locale, day, dwell_samples, dwell_seconds_total)
+       VALUES ($1, CURRENT_DATE, 1, $2)
+       ON CONFLICT (locale, day)
+       DO UPDATE SET
+         dwell_samples = site_visit.dwell_samples + 1,
+         dwell_seconds_total = site_visit.dwell_seconds_total + $2`,
+      [locale, safe],
+    );
+  }
+
   async collect(
     windowDays = DEFAULT_WINDOW_DAYS,
   ): Promise<AdminAnalyticsResponse> {
     const days = Math.min(Math.max(Math.trunc(windowDays), 1), 365);
 
-    const [totalPlayers, activeRows, signupRows, clickRows] = await Promise.all(
-      [
+    const [totalPlayers, activeRows, signupRows, clickRows, siteRows] =
+      await Promise.all([
         this.countPlayers(),
         this.activePerDay(days),
         this.signupsPerDay(days),
         this.clicksPerDay(days),
-      ],
-    );
+        this.siteVisitsPerDay(days),
+      ]);
 
     const linkClicks = this.groupClicks(clickRows, days);
 
@@ -95,7 +240,22 @@ export class AnalyticsService {
       signupsPerDay: fillMissingDays(signupRows, days),
       linkClicks,
       totalClicks: linkClicks.reduce((sum, series) => sum + series.total, 0),
+      siteVisits: groupSiteVisits(siteRows, days),
     };
+  }
+
+  private async siteVisitsPerDay(days: number): Promise<SiteVisitRow[]> {
+    return this.dataSource.query<SiteVisitRow[]>(
+      `SELECT locale,
+              to_char(day, 'YYYY-MM-DD') AS day,
+              views,
+              dwell_samples,
+              dwell_seconds_total::text AS dwell_seconds_total
+         FROM site_visit
+        WHERE day > CURRENT_DATE - $1::int
+        ORDER BY day ASC`,
+      [days],
+    );
   }
 
   private async countPlayers(): Promise<number> {

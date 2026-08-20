@@ -5,6 +5,7 @@ import { AdminAnalyticsController } from './admin-analytics.controller';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
 import { LinkClick } from './entities/link-click.entity';
+import { SiteVisit } from './entities/site-visit.entity';
 
 /**
  * Link-click counts and app-wide activity figures for the admin console.
@@ -14,7 +15,7 @@ import { LinkClick } from './entities/link-click.entity';
  * true, which the child-directed store review depends on.
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([LinkClick]), StaffAuthModule],
+  imports: [TypeOrmModule.forFeature([LinkClick, SiteVisit]), StaffAuthModule],
   controllers: [AnalyticsController, AdminAnalyticsController],
   providers: [AnalyticsService],
 })

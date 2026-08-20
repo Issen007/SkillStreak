@@ -158,11 +158,17 @@ a:focus-visible, button:focus-visible {
 .lang-switch { display:flex; gap:2px; margin-left:auto; margin-right:12px; }
 .lang-switch button {
   font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .04em;
-  padding: 6px 9px; border-radius: 8px; cursor: pointer;
+  padding: 5px 7px; border-radius: 8px; cursor: pointer;
   border: 1px solid var(--line, rgba(0,0,0,.14));
   background: transparent; color: inherit; opacity: .62;
+  display: flex; align-items: center;
 }
+/* The flag itself carries no state — opacity and a border do, so the
+   active language is still distinguishable without relying on colour
+   (WCAG 1.4.1) or on being able to tell two small flags apart. */
+.lang-switch button svg { display: block; border-radius: 2px; }
 .lang-switch button.is-active { opacity: 1; border-color: currentColor; }
+.lang-switch button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 @media (max-width: 720px) { .lang-switch { margin-right: 8px; } }
 
 /* ---------------------------------------------------------------- nav */
@@ -1471,6 +1477,73 @@ footer .foot-row {
     </div>
   </footer>
 </main>
+
+<script>
+/* Read counting — page views and reading time, per language.
+ *
+ * Same posture as the click counter below: first-party, one request to
+ * our own API, no cookie, no id, no referrer, no third-party script. The
+ * body carries a language and (on the way out) a number of seconds, and
+ * there is no field for anything else — so "we do not track individuals"
+ * is a property of the request shape, not a promise about restraint.
+ *
+ * **This counts views, not people.** Telling one returning reader from
+ * three new ones needs a per-visitor identifier, which on a site children
+ * reach would also drag in an ePrivacy consent banner, since an analytics
+ * cookie is not "strictly necessary". The admin console labels the number
+ * as views for exactly this reason.
+ *
+ * Two beacons, because they fail differently. The open beacon counts the
+ * visit and is reliable. The close beacon carries the duration and only
+ * arrives if the browser gives us the chance — so the average is over the
+ * reads we could observe, and the console publishes the sample count next
+ * to it rather than implying it covers everything.
+ *
+ * `visibilitychange` rather than `unload`: `unload` is unreliable on
+ * mobile Safari and is being removed from browsers, and it never fires
+ * when a phone user switches apps — which on this site is most of them.
+ * `sendBeacon` because a fetch is cancelled the moment the page goes away.
+ */
+(function () {
+  var started = Date.now();
+  var sent = false;
+
+  function locale() {
+    var l = (document.documentElement.lang || 'sv').slice(0, 2).toLowerCase();
+    return l === 'en' ? 'en' : 'sv';
+  }
+
+  function post(body, beacon) {
+    try {
+      var url = window.__API_BASE__ + '/api/v1/analytics/site-visits';
+      var json = JSON.stringify(body);
+      if (beacon && navigator.sendBeacon) {
+        navigator.sendBeacon(url, new Blob([json], { type: 'application/json' }));
+        return;
+      }
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: json,
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) { /* never let counting break the page */ }
+  }
+
+  post({ locale: locale() }, false);
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'hidden' || sent) return;
+    // Once per page load. A reader who tabs away and back would otherwise
+    // report several partial durations, each shorter than the real read,
+    // dragging the average down for the most engaged visitors.
+    sent = true;
+    var seconds = Math.round((Date.now() - started) / 1000);
+    if (seconds < 1) return;
+    post({ locale: locale(), dwellSeconds: seconds }, true);
+  });
+})();
+</script>
 
 <script>
 /* Click counting — first-party, and deliberately as little as possible.
