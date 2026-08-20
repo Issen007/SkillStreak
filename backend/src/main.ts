@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import type { NextFunction, Request, Response } from 'express';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
@@ -100,6 +101,35 @@ async function bootstrap() {
   new Logger('Bootstrap').log(
     `Trusting ${hops} proxy hop(s) for client IP (rate limits key on it).`,
   );
+
+  // HSTS on the API's own responses.
+  //
+  // The site's nginx sets this for the marketing and try-it hosts; this
+  // covers api.skillstreak.xyz, which serves the staff console and every
+  // authenticated request the app makes. Reported 2026-08-20: a visitor's
+  // Safari privacy report showed skillstreak.xyz as "not encrypted",
+  // because port 80 answered without redirecting. The redirect fixes the
+  // second request; this is what stops the first one being plaintext at
+  // all on a later visit.
+  //
+  // **Only when the request actually arrived over TLS.** `req.secure`
+  // reads X-Forwarded-Proto now that `trust proxy` is set above, so this
+  // is silent for local HTTP development and for the docker-compose smoke
+  // test — sending HSTS over plaintext is both meaningless (a browser
+  // ignores it) and a way to make a developer's own machine unreachable
+  // on localhost after one visit.
+  //
+  // One year, no `preload`: preloading is effectively irreversible, and
+  // that should be a deliberate decision rather than a side effect.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.secure) {
+      res.setHeader(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains',
+      );
+    }
+    next();
+  });
 
   const corsOrigin = configService.get<string>('CORS_ORIGIN');
   if (corsOrigin) {
