@@ -8,6 +8,7 @@ import {
   Post,
   Req,
   Res,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
@@ -21,6 +22,7 @@ import {
   STAFF_SESSION_COOKIE_PATH,
 } from './staff-cookies';
 import { StaffAuthService } from './staff-auth.service';
+import { StaffOidcClientsService } from './staff-oidc-clients.service';
 import {
   StaffSessionView,
   StaffSessionViewService,
@@ -39,7 +41,39 @@ export class StaffAuthController {
     private readonly staffAuthService: StaffAuthService,
     private readonly configService: ConfigService,
     private readonly staffSessionViewService: StaffSessionViewService,
+    private readonly oidcClients: StaffOidcClientsService,
   ) {}
+
+  /**
+   * An unregistered provider is a deployment state, not a fault.
+   *
+   * 503 rather than the 500 `requireEnv` used to surface: nothing is
+   * broken, the OAuth application simply has not been created yet (see
+   * ADR-0023 Decision B6), and the message says so instead of reading as
+   * a fault.
+   *
+   * **It still writes an `error_log_entry` row**, because
+   * `isWorthRecording` records every 5xx and this is one — that is stated
+   * rather than worked around. It stopped mattering when the sign-in page
+   * began drawing only configured providers: the path is now reachable
+   * only by typing the URL, so the volume is a handful rather than one
+   * row per operator who clicks the wrong button, and at that volume a
+   * row saying "someone tried Microsoft, it is not set up" is useful
+   * rather than noise. If the console ever offers these again, the
+   * exclusion belongs in the filter, not here.
+   *
+   * Kept as a server-side check rather than relying on the console only
+   * drawing configured buttons: the URL is guessable and reachable
+   * directly, and a clear answer beats a stack trace either way.
+   */
+  private assertConfigured(provider: StaffAuthProvider): void {
+    if (!this.oidcClients.isConfigured(provider)) {
+      throw new ServiceUnavailableException(
+        `The ${provider} sign-in is not available — its OAuth application ` +
+          'has not been registered for this deployment yet.',
+      );
+    }
+  }
 
   /**
    * "Am I signed in, and as what?" — always 200, never throws.
@@ -66,12 +100,32 @@ export class StaffAuthController {
   // defense against volumetric abuse — not a bot-signup concern (there is
   // no local form to protect).
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  /**
+   * Which sign-in buttons the console should draw.
+   *
+   * Unauthenticated by necessity — it is read by the sign-in page, before
+   * anyone has signed in. It exposes provider names only: no client id,
+   * no redirect URI, nothing secret. Whether a given IdP is wired up is
+   * already observable by clicking the button, so publishing the list
+   * reveals nothing and removes a dead end.
+   *
+   * Added 2026-08-20 because the console hardcoded all three buttons
+   * while only Google was registered, so two of them returned a 500 —
+   * and, worse, wrote an `error_log_entry` row on every click for a
+   * condition that is a deployment state rather than a defect.
+   */
+  @Get('providers')
+  providers(): { providers: StaffAuthProvider[] } {
+    return { providers: this.oidcClients.configuredProviders() };
+  }
+
   @Get(':provider/login')
   async login(
     @Param('provider') providerParam: string,
     @Res() res: Response,
   ): Promise<void> {
     const provider = this.parseProvider(providerParam);
+    this.assertConfigured(provider);
     const { authorizationUrl, pendingAuthCookieValue } =
       await this.staffAuthService.buildLoginRedirect(provider);
 

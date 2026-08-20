@@ -212,6 +212,49 @@
   function show(which) {
     el('login').style.display = which === 'login' ? '' : 'none';
     el('shell').classList.toggle('is-on', which === 'shell');
+    if (which === 'login') renderSsoButtons();
+  }
+
+  var PROVIDER_LABEL = {
+    google: 'Continue with Google',
+    microsoft: 'Continue with Microsoft',
+    apple: 'Continue with Apple'
+  };
+
+  /**
+   * Draws a sign-in button per provider that actually has a registered
+   * OAuth application, asked of the server rather than hardcoded.
+   *
+   * If the list cannot be fetched the buttons are not guessed — the note
+   * below says so instead. A sign-in page that offers a route which
+   * cannot work is worse than one that admits it does not know: the first
+   * sends an operator into a 500, the second tells them to look at the
+   * deployment.
+   */
+  function renderSsoButtons() {
+    var host = el('ssoButtons');
+    if (!host || host.dataset.done === '1') return;
+    fetch('/api/v1/staff-auth/providers', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var list = data && data.providers ? data.providers : [];
+        host.dataset.done = '1';
+        if (!list.length) {
+          el('loginNote').textContent =
+            'No sign-in provider is configured for this deployment yet.';
+          return;
+        }
+        host.innerHTML = list.map(function (p) {
+          return '<a class="sso" href="/api/v1/staff-auth/' +
+            encodeURIComponent(p) + '/login">' +
+            esc(PROVIDER_LABEL[p] || p) + '</a>';
+        }).join('');
+      })
+      .catch(function () {
+        host.dataset.done = '1';
+        el('loginNote').textContent =
+          'Could not reach the server to list sign-in options. Reload to retry.';
+      });
   }
 
   /**
