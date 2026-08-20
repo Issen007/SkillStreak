@@ -6,7 +6,9 @@ import { MailModule } from '../mail/mail.module';
 import { PlayerPrivateInfoModule } from '../player-private-info/player-private-info.module';
 import { Player } from '../players/entities/player.entity';
 import { RedisModule } from '../redis/redis.module';
+import { ClipReaction } from '../video-clips/entities/clip-reaction.entity';
 import { VideoClip } from '../video-clips/entities/video-clip.entity';
+import { ClipReactionsService } from '../video-clips/clip-reactions.service';
 import { PublicFeedService } from '../video-clips/public-feed.service';
 import { PublicSharingConsent } from './entities/public-sharing-consent.entity';
 import { BounceMailboxService } from './bounce-mailbox.service';
@@ -34,7 +36,12 @@ import { PublicSharingReminderService } from './public-sharing-reminder.service'
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PublicSharingConsent, Player, VideoClip]),
+    TypeOrmModule.forFeature([
+      PublicSharingConsent,
+      Player,
+      VideoClip,
+      ClipReaction,
+    ]),
     AuthModule,
     PlayerPrivateInfoModule,
     MailModule,
@@ -49,6 +56,10 @@ import { PublicSharingReminderService } from './public-sharing-reminder.service'
     PublicSharingConsentService,
     PublicSharingAccessService,
     PublicFeedService,
+    // Lives here for the same reason PublicFeedService does: it depends on
+    // the feed's visibility gate, and VideoClipsModule importing this one
+    // while this one reached back would cycle.
+    ClipReactionsService,
     // ADR-0030 finding 4, closed 2026-08-19. The order matters for
     // reading, not for DI: the bounce mailbox is what supplies the
     // delivery signal, and the reminder sweep is what was waiting on it.

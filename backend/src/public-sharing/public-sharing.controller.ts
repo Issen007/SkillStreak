@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
@@ -20,6 +21,12 @@ import {
   PublicFeedPage,
   PublicFeedService,
 } from '../video-clips/public-feed.service';
+import {
+  ClipReactionsService,
+  ReactionTotals,
+  ViewerReactionResult,
+} from '../video-clips/clip-reactions.service';
+import { ReactToClipDto } from './dto/react-to-clip.dto';
 import { PublicSharingAccessService } from './public-sharing-access.service';
 import { PublicSharingConsentService } from './public-sharing-consent.service';
 
@@ -54,6 +61,7 @@ export class PublicSharingController {
     private readonly consent: PublicSharingConsentService,
     private readonly access: PublicSharingAccessService,
     private readonly feed: PublicFeedService,
+    private readonly reactions: ClipReactionsService,
     @InjectRepository(Player)
     private readonly players: Repository<Player>,
   ) {}
@@ -144,7 +152,79 @@ export class PublicSharingController {
     @CurrentPlayerId() playerId: string,
     @Query('cursor') cursor?: string,
   ): Promise<PublicFeedPage> {
-    return this.feed.list(playerId, cursor);
+    const page = await this.feed.list(playerId, cursor);
+
+    // The viewer's own reaction state, merged here rather than inside
+    // PublicFeedService — the reactions service depends on the feed's
+    // visibility gate, so having the feed depend back on it would cycle.
+    // One query for the page, not one per card.
+    const mine = await this.reactions.viewerReactionsFor(
+      playerId,
+      page.items.map((item) => item.clipId),
+    );
+    return {
+      ...page,
+      items: page.items.map((item) => ({
+        ...item,
+        // `myReaction` and nothing else. There is no total on a feed card
+        // by design — see ClipReactionsService's class doc for why that
+        // asymmetry is the product decision rather than an omission.
+        myReaction: mine.get(item.clipId) ?? null,
+      })),
+    };
+  }
+
+  /**
+   * Set, change or toggle off the viewer's reaction to a public clip.
+   *
+   * One endpoint for all three, because from the child's side they are
+   * one gesture: tapping a different reaction replaces, tapping the same
+   * one clears. The client sends what was tapped and the service decides
+   * what that means.
+   *
+   * Throttled per the same posture as the rest of this controller. A
+   * reaction is cheap and idempotent — the UNIQUE index means a double
+   * tap cannot inflate anything — so this bounds abuse of the write path
+   * rather than protecting a count.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  @Post('api/v1/public-feed/:clipId/reaction')
+  @HttpCode(HttpStatus.OK)
+  async react(
+    @CurrentPlayerId() playerId: string,
+    @Param('clipId') clipId: string,
+    @Body() dto: ReactToClipDto,
+  ): Promise<ViewerReactionResult> {
+    return this.reactions.react(playerId, clipId, dto.reaction);
+  }
+
+  /** Withdraw a reaction explicitly. Idempotent; clearing nothing is fine. */
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  @Delete('api/v1/public-feed/:clipId/reaction')
+  @HttpCode(HttpStatus.OK)
+  async clearReaction(
+    @CurrentPlayerId() playerId: string,
+    @Param('clipId') clipId: string,
+  ): Promise<ViewerReactionResult> {
+    return this.reactions.clear(playerId, clipId);
+  }
+
+  /**
+   * Reaction totals for one clip — **the uploader's own only**.
+   *
+   * This is the Archive's number, and the ownership check inside the
+   * service is what keeps it from being the public-count endpoint the
+   * design argues against.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('api/v1/me/clips/:clipId/reactions')
+  async myClipReactions(
+    @CurrentPlayerId() playerId: string,
+    @Param('clipId') clipId: string,
+  ): Promise<ReactionTotals> {
+    return this.reactions.totalsForOwnClip(playerId, clipId);
   }
 
   private async isAvailableFor(playerId: string): Promise<boolean> {
