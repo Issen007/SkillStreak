@@ -58,6 +58,9 @@
 
   var TRANSLATIONS = {
     en: {
+      /* --- sponsors ----------------------------------------------------- */
+      'Projektet stöds av': 'Supported by',
+
       /* --- trainer CTA --------------------------------------------------- */
       'Vill du vara tränare i SkillStreak?': 'Do you want to be a trainer in SkillStreak?',
       'Du sätter veckans mål och ser vad som faktiskt händer mellan träningarna — vem som kört, vem som har en streak igång, och vem som tyst slutat dyka upp. Det sista är det man annars märker alldeles för sent.':

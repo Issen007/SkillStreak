@@ -888,6 +888,42 @@ footer .foot-row {
   border-top: 1px solid var(--hairline-on-ink);
   padding-top: 24px;
 }
+
+/* ------------------------------------------------------------ sponsors */
+.sponsors { padding-bottom: 28px; text-align: center; }
+.sponsors h3 {
+  margin: 0 0 16px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted-on-ink);
+}
+.sponsor-row {
+  display: flex; justify-content: center; align-items: center;
+  flex-wrap: wrap; gap: 14px 32px;
+}
+.sponsor {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 8px 14px; border-radius: 10px;
+  color: #fff; text-decoration: none;
+  border: 1px solid var(--hairline-on-ink);
+  /* Full opacity on hover/focus rather than a colour change: the logos
+     are other companies' marks and must not be recoloured. */
+  opacity: .8; transition: opacity .15s ease;
+}
+.sponsor:hover, .sponsor:focus-visible { opacity: 1; }
+.sponsor:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+/* The real logo, once the file exists. Capped by height so two marks of
+   different aspect ratios sit on the same optical line. */
+.sponsor img { display: block; height: 26px; width: auto; max-width: 180px; }
+/* The wordmark is the fallback, not a caption: it appears only when the
+   logo file is absent, which is the state until the real assets arrive.
+   Toggled by a class rather than by hiding the <img>, so a broken image
+   icon never flashes. */
+.sponsor .wordmark { display: none; font-weight: 800; font-size: 15px; letter-spacing: .01em; }
+.sponsor.no-logo .wordmark { display: inline; }
+@media (max-width: 520px) { .sponsor-row { gap: 10px 18px; } }
 .test-mode-banner {
   background: #FFB800;
   color: #1B1B3A;
@@ -1470,6 +1506,42 @@ footer .foot-row {
 
   <footer>
     <div class="wrap">
+      <!-- Sponsors.
+           The two <img> elements point at SELF-HOSTED files that do not
+           exist yet, and each falls back to a text wordmark until one is
+           dropped in at the path shown. Two deliberate choices:
+
+           * The logos are not drawn here. They are IssTech's and
+             Safespring's trademarks, and an approximation would
+             misrepresent them — the real SVG/PNG should come from each
+             company, along with whatever their brand guidelines require.
+
+           * They are self-hosted, never hotlinked from the sponsors'
+             own servers. A remote <img> would send every visitor's IP
+             address to a third party on every page load, which would
+             quietly falsify the "no third-party trackers, no IP address"
+             claim this site and its privacy policy both make — on a site
+             children read. Copy the file into site/assets/ instead.
+
+           To activate a logo: save it as site/assets/sponsor-isstech.svg
+           (or -safespring.svg) and nothing else needs to change. -->
+      <section class="sponsors" aria-labelledby="sponsors-heading">
+        <h3 id="sponsors-heading">Projektet stöds av</h3>
+        <div class="sponsor-row">
+          <a class="sponsor" href="https://isstech.io" target="_blank"
+             rel="noopener noreferrer" aria-label="IssTech">
+            <img src="assets/sponsor-isstech.svg" alt="IssTech"
+                 onerror="this.parentElement.classList.add('no-logo'); this.remove();" />
+            <span class="wordmark">IssTech</span>
+          </a>
+          <a class="sponsor" href="https://www.safespring.com" target="_blank"
+             rel="noopener noreferrer" aria-label="Safespring">
+            <img src="assets/sponsor-safespring.svg" alt="Safespring"
+                 onerror="this.parentElement.classList.add('no-logo'); this.remove();" />
+            <span class="wordmark">Safespring</span>
+          </a>
+        </div>
+      </section>
       <div class="foot-row">
         <span>SkillStreak — byggt av en innebandytränare, med barnens trygghet först.</span>
         <span>Tidig betaversion. Funktioner och innehåll kan ändras.</span>
