@@ -34,7 +34,18 @@ data:
   # below while SMTP_USER was already a real noreply@isstech.io account —
   # every session-reissue email sent while that mismatch existed "sent"
   # successfully per the app's own logs but never reached a real inbox.
-  SMTP_FROM: "SkillStreak <noreply@isstech.io>"
+  # Updated 2026-08-20: a real noreply@skillstreak.xyz mailbox now exists,
+  # so mail stops arriving from a domain families have no reason to
+  # recognise. It must match SMTP_USER (Gmail rejects a From it has not
+  # verified for the authenticated account) — SMTP_USER lives in the
+  # Secret, so the two are set in different places and can drift; if mail
+  # starts failing with a 5.7.x "not allowed to send as" error, that is
+  # this pair disagreeing.
+  #
+  # It is also what the bounce mailbox depends on: a DSN comes back to the
+  # envelope sender, so bounces for these messages land in this same
+  # mailbox — which is why BOUNCE_IMAP_USER below is the same address.
+  SMTP_FROM: "SkillStreak <noreply@skillstreak.xyz>"
   # Real public domain (skillstreak.xyz, acquired 2026-07-28) via
   # skillstreak-gateway's TLS listeners — see gateway.yaml/certificate.yaml.
   # Parental-consent email links point here — this is still a TEST
@@ -168,9 +179,9 @@ data:
   # address in this file. The internal test cluster should use its own
   # mailbox, not production's — a shared one would let a test bounce
   # disable a real family's consent.
-  BOUNCE_IMAP_HOST: ""
+  BOUNCE_IMAP_HOST: "imap.gmail.com"
   BOUNCE_IMAP_PORT: "993"
-  BOUNCE_IMAP_USER: ""
+  BOUNCE_IMAP_USER: "noreply@skillstreak.xyz"
   # Implicit TLS on 993. Only the literal `false` turns it off.
   BOUNCE_IMAP_SECURE: "true"
   BOUNCE_IMAP_MAILBOX: "INBOX"

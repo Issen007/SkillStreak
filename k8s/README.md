@@ -149,10 +149,11 @@ numbers aren't worth emailing anywhere.
 | `minio-service.yaml` | ClusterIP only, same reasoning as Postgres's/Redis's Service — never an Ingress/NodePort/LoadBalancer for it (ADR-0010 Decision 2: the bucket has zero public/anonymous read access, and a public MinIO endpoint would defeat that boundary entirely). |
 | `api-deployment.yaml` | The NestJS API. Ships with a blank placeholder `image:` — `.github/workflows/ci-cd.yml`'s deploy job builds/pushes the real image and `sed`-fills this field at deploy time; the committed file is never updated with a real tag. Reads config from the ConfigMap + Secret; `/health` for readiness/liveness. |
 | `api-service.yaml` | ClusterIP for the api Pods — the real external entry point is the Gateway (`gateway.yaml`/`httproute.yaml`), not this Service directly. |
-| `cluster-issuer.yaml` | Two cert-manager `ClusterIssuer`s (`letsencrypt-staging`, `letsencrypt-prod`), HTTP01-solved through `skillstreak-gateway` (Gateway API, not ingress-nginx). Cluster-scoped, apply once. |
+| `cluster-issuer.yaml` | Two cert-manager `ClusterIssuer`s (`letsencrypt-staging`, `letsencrypt-prod`). **DNS01 via Cloudflare since 2026-08-20** — previously HTTP01 through `skillstreak-gateway`, which could not coexist with an HTTP->HTTPS redirect on the same listener (see the TLS section below). Cluster-scoped, apply once. |
+| `cloudflare-api-token.yaml.example` | Template for the scoped Cloudflare API token the DNS01 solver authenticates with. Copy to `cloudflare-api-token.yaml` (git-ignored) and apply **into the `cert-manager` namespace, not `skillstreak`** — the file's own header explains why that trips people. |
 | `gateway.yaml` | The Cilium `Gateway` (`skillstreak-gateway`) — one HTTP listener + one HTTPS listener per public hostname, all sharing `certificate.yaml`'s multi-SAN cert. Cluster-scoped `GatewayClass` dependency (Safespring's own pre-installed `cilium` class on the current cluster — see this file's own comment on why no custom one is needed here), apply once by hand like `cluster-issuer.yaml`. |
 | `httproute.yaml` | Routes `skillstreak.xyz`/`www.`/`try.` to the `site` Service and `api.skillstreak.xyz` to the `api` Service, both attached to `skillstreak-gateway`. Namespace-scoped, applied by CI on every deploy. |
-| `certificate.yaml` | The multi-SAN `Certificate` (`skillstreak-xyz-tls`) covering all four public hostnames, resolved via `cluster-issuer.yaml`'s HTTP01 solver. Currently annotated for `letsencrypt-staging` — see the warning above before switching to prod. Namespace-scoped, applied by CI. |
+| `certificate.yaml` | The multi-SAN `Certificate` (`skillstreak-xyz-tls`) covering all four public hostnames, resolved via `cluster-issuer.yaml`'s DNS01 solver. Issued by `letsencrypt-prod` since 2026-07-30. Namespace-scoped, applied by CI. |
 | `site-deployment.yaml` | The marketing page + hosted "try it" demo, built from `../site/Dockerfile`. Ships with a blank placeholder `image:`, same convention as `api-deployment.yaml` — `.github/workflows/ci-cd.yml`'s deploy job now builds/pushes this image and fills the field at deploy time too. |
 | `site-service.yaml` | ClusterIP for the site Pods — external entry point is the Gateway, not this Service directly. |
 | `github-actions-deployer.yaml` | ServiceAccount + Role + RoleBinding CI deploys as (see its header comment for the incident this fixed). Cluster-scoped RBAC objects but namespace-scoped rights, apply once by hand like `cluster-issuer.yaml`. |
@@ -284,3 +285,182 @@ them once) — just nothing application-facing uses them anymore.
 - **No HPA, NetworkPolicy, or multi-region setup** — intentionally out of
   scope for a small youth-sports app's first beta (that's Fas 4 territory,
   not this pass).
+
+## TLS and certificate renewal — read before touching the Gateway
+
+*Added 2026-08-20, after a visitor's report turned into two findings.*
+
+**Current state.** One Let's Encrypt production certificate covers
+`skillstreak.xyz`, `www`, `try` and `api`. HSTS is sent by the site's
+nginx and by the API.
+
+`cluster-issuer.yaml` is configured for **DNS-01 via Cloudflare**, but
+that is not yet in effect: it takes effect only once the zone actually
+moves off Squarespace (runbook below) and the API token Secret exists.
+Until then the *live* renewal path is still the previous **HTTP-01**
+solver — which is why the redirect stays removed for now, and why the
+issuers should not be applied to the cluster ahead of the zone move.
+
+**Plain HTTP does not redirect to HTTPS**, and that is deliberate rather
+than an oversight — see the long comment in `httproute.yaml`. Short
+version: a catch-all `RequestRedirect` on the port-80 listener works, but
+on Cilium v1.19.1 it suppresses the other routes on that listener instead
+of yielding to more specific ones, so cert-manager's ACME challenge route
+is never programmed and renewal fails. Measured, not assumed.
+
+**Two things that hid this and will hide it again:**
+
+1. **Let's Encrypt caches valid authorizations (~30 days).** A staging
+   test issued a certificate in six seconds with
+   `initialState=valid` — no challenge was solved, so the test proved
+   nothing. Check `initialState` on the Order before believing a green
+   result; only `pending` means the challenge path was exercised.
+2. **The Gateway controller can be dead while everything looks fine.** On
+   2026-08-11 Cilium's operator failed to initialise it (`context deadline
+   exceeded` reaching the CRDs, 30s timeout) and never retried. The
+   already-programmed envoy config kept serving traffic for nine days, so
+   HTTPS worked perfectly while *every* Gateway and HTTPRoute change
+   silently did nothing. Fixed by
+   `kubectl -n kube-system rollout restart deploy/cilium-operator`.
+
+**How to tell the controller is alive:**
+
+```
+kubectl -n skillstreak get gateway skillstreak-gateway \
+  -o jsonpath='{range .status.listeners[*]}{.name} {.conditions[?(@.type=="Programmed")].status}{"\n"}{end}'
+```
+
+`Programmed=False (AddressNotAssigned)` is the normal steady state here —
+the gateway Service is a ClusterIP, not a LoadBalancer. What matters is
+whether a *new* route gets a `status` block and reaches the
+CiliumEnvoyConfig; if a freshly applied HTTPRoute has no status after a
+minute, the controller is not reconciling.
+
+**The renewal deadline.** `kubectl -n skillstreak get certificate
+skillstreak-xyz-tls -o jsonpath='{.status.renewalTime}'`. With HSTS
+deployed, a failed renewal is a hard outage rather than a click-through
+warning, so this date is worth a calendar entry rather than trust.
+
+**Fix in progress: DNS-01 via Cloudflare** (owner's decision,
+2026-08-20). It removes the port-80 dependency entirely, which is what
+makes the redirect safe to restore. `cluster-issuer.yaml` is already
+switched to a Cloudflare `dns01` solver; what remains is moving the zone,
+which is a manual, owner-only sequence. Squarespace — the current host —
+has no DNS API and no cert-manager solver, so there is no version of this
+that stays where it is.
+
+### Zone migration runbook (Squarespace -> Cloudflare)
+
+**The whole risk here is a record that does not get recreated.** Nothing
+warns you: the nameserver switch makes every record that was not copied
+vanish at once, and the email ones fail silently for days. So the
+inventory comes first and is checked twice.
+
+**Complete record inventory, captured 2026-08-20** (live DNS, not
+guesswork; a subdomain sweep of ~60 common names found nothing else):
+
+| Type | Name | Value | Notes |
+|---|---|---|---|
+| A | `skillstreak.xyz` | `192.121.132.86` | the cluster |
+| CNAME | `www` | `skillstreak.xyz` | |
+| CNAME | `api` | `skillstreak.xyz` | |
+| CNAME | `try` | `skillstreak.xyz` | |
+| A | `gpu` | `192.121.132.68` | **different host, unrelated to the app** — easy to miss |
+| MX | `skillstreak.xyz` | `1 smtp.google.com.` | Google Workspace |
+| TXT | `skillstreak.xyz` | `google-site-verification=bMvcF6...` | drop and Workspace may re-challenge the domain |
+| TXT | `google._domainkey` | `v=DKIM1;k=rsa;p=MIIBIjANBg...` | ~400 chars — copy the whole value, do not retype |
+
+`admin.skillstreak.xyz` and `gpi.skillstreak.xyz` appear in this repo but
+do **not** resolve. They are aspirational, not records; do not create them
+during the move.
+
+**Order of operations:**
+
+1. **Add the zone in Cloudflare.** Its scan will import most of the
+   above automatically. Treat that import as a draft, not an answer —
+   compare it against the table line by line, and expect to add `gpu`
+   and re-check the DKIM value, which is long enough that truncation is
+   the normal failure.
+2. **Set every record to DNS-only (grey cloud), not proxied.** Proxying
+   changes what the site *is*: Cloudflare terminates TLS, visitors see
+   Cloudflare's certificate instead of ours, the Gateway's cert becomes an
+   origin-only cert, and real client IPs arrive in a different header than
+   the one `TRUSTED_PROXY_HOPS` was tuned for — which would quietly
+   re-break the per-IP rate limiting that was just fixed. Grey cloud keeps
+   behaviour byte-for-byte identical to Squarespace today. Proxying may be
+   worth revisiting later, deliberately, as its own change.
+3. **Verify before switching.** Query Cloudflare's assigned nameservers
+   directly while the zone is still live on Squarespace — this compares
+   the new zone against the old one with no outage risk:
+
+   ```
+   for n in @ www api try gpu; do
+     h=$([ "$n" = "@" ] && echo skillstreak.xyz || echo $n.skillstreak.xyz)
+     echo "$h  OLD=$(dig +short $h @nsa1.squarespacedns.com | tr '\n' ' ')" \
+          " NEW=$(dig +short $h @<your>.ns.cloudflare.com | tr '\n' ' ')"
+   done
+   dig +short MX skillstreak.xyz @<your>.ns.cloudflare.com
+   dig +short TXT google._domainkey.skillstreak.xyz @<your>.ns.cloudflare.com
+   ```
+
+   Every line must match before continuing.
+4. **Change the nameservers at the registrar** to the two Cloudflare
+   assigns. Propagation is usually under an hour; Cloudflare emails when
+   the zone goes Active. Old resolvers keep answering from cache for up to
+   the old TTL, which is harmless *because* step 3 made both zones
+   identical.
+5. **Create the API token and apply it** — see
+   `cloudflare-api-token.yaml.example` for the exact scopes and the
+   namespace trap (`cert-manager`, not `skillstreak`).
+6. **Apply the issuers:** `kubectl apply -f k8s/cluster-issuer.yaml`.
+7. **Prove a challenge actually runs** — the point of the whole exercise,
+   and the step the earlier staging test only appeared to do. Issue a
+   staging cert for a hostname that has **never** been issued before, so
+   no cached authorization can mask a failure:
+
+   ```
+   kubectl -n skillstreak create -f - <<'EOF'
+   apiVersion: cert-manager.io/v1
+   kind: Certificate
+   metadata: { name: dns01-probe, namespace: skillstreak }
+   spec:
+     secretName: dns01-probe-tls
+     issuerRef: { name: letsencrypt-staging, kind: ClusterIssuer }
+     dnsNames: [ dns01-probe.skillstreak.xyz ]
+   EOF
+   kubectl -n skillstreak get order -o json \
+     | jq '.items[].status.authorizations[] | {identifier, initialState}'
+   ```
+
+   `initialState` must read **`pending`**. `valid` means a cache answered
+   and the test is void — pick another unused hostname and retry. Then
+   confirm `Ready=True` and delete the probe Certificate and its Secret.
+8. **Renew the real certificate through the new path**, rather than
+   waiting for September to find out:
+   `kubectl -n skillstreak delete secret skillstreak-xyz-tls` and watch
+   cert-manager reissue. Keep a copy of the Secret first
+   (`kubectl -n skillstreak get secret skillstreak-xyz-tls -o yaml >
+   /tmp/tls-backup.yaml`) so it can be put straight back if issuance
+   stalls. Reissue takes a couple of minutes — DNS-01 waits for the TXT
+   record to propagate, so it is slower than HTTP-01 was.
+9. **Restore the HTTPS redirect** — `git revert fd8e35c`. This is the
+   payoff: with DNS-01 there is nothing on port 80 that renewal depends
+   on, so the redirect and the certificate stop being mutually exclusive.
+   Verify afterwards that `curl -sI http://skillstreak.xyz` returns 301
+   **and** that step 7 still passes.
+
+### Two email records worth adding while in there
+
+Neither is required for the migration and neither should be bundled into
+it — do the move first, confirm mail still flows, then add these:
+
+- **No SPF record exists.** `noreply@skillstreak.xyz` started sending
+  parental-consent mail on 2026-08-19, and without SPF a meaningful share
+  of it lands in spam. For Workspace: `TXT @ "v=spf1 include:_spf.google.com ~all"`.
+- **No DMARC record exists.** Start at
+  `TXT _dmarc "v=DMARC1; p=none; rua=mailto:..."` — `p=none` reports
+  without affecting delivery, so it is safe to add and watch first.
+
+These matter more than usual here: the consent flow now treats a bounced
+reminder as evidence a parent's address is bad, and spam-filtered mail is
+exactly the kind of delivery failure that feature reasons about.

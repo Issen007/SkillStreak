@@ -670,6 +670,21 @@ jobs:
           # Same 'absent means off' contract: TrainingPlanWorkerGuard
           # refuses every request without it.
           TRAINING_PLAN_WORKER_TOKEN: ${{ secrets.TRAINING_PLAN_WORKER_TOKEN }}
+          # ADR-0030 finding 4 — the bounce mailbox's IMAP password.
+          #
+          # **This entry is the whole point.** The key was added to
+          # k8s/secret.yaml.example and wired into api-deployment.yaml on
+          # 2026-08-19, but never here — so setting the GitHub secret would
+          # have produced a mailbox that stayed silently unconfigured, with
+          # the reminder sweep reporting itself unsupervised and nobody
+          # able to see why. Exactly the missing-live-Secret-key shape this
+          # project keeps hitting, one layer further up than last time.
+          #
+          # Safe to leave unset: api-deployment.yaml marks the key
+          # `optional: true`, BounceMailboxService skips its poll without
+          # it, and the reminder sweep says so out loud once any consent
+          # exists.
+          BOUNCE_IMAP_PASSWORD: ${{ secrets.BOUNCE_IMAP_PASSWORD }}
         run: |
           kubectl create secret generic skillstreak-secret \
             --namespace skillstreak \
@@ -685,6 +700,7 @@ jobs:
             --from-literal=STAFF_JWT_SECRET="$STAFF_JWT_SECRET" \
             --from-literal=CLIP_TAGGING_WORKER_TOKEN="$CLIP_TAGGING_WORKER_TOKEN" \
             --from-literal=TRAINING_PLAN_WORKER_TOKEN="$TRAINING_PLAN_WORKER_TOKEN" \
+            --from-literal=BOUNCE_IMAP_PASSWORD="$BOUNCE_IMAP_PASSWORD" \
             --from-literal=ADMIN_EMAILS="$ADMIN_EMAILS" \
             --from-literal=GOOGLE_OAUTH_CLIENT_ID="$GOOGLE_OAUTH_CLIENT_ID" \
             --from-literal=GOOGLE_OAUTH_CLIENT_SECRET="$GOOGLE_OAUTH_CLIENT_SECRET" \
