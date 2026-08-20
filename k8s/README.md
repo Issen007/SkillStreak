@@ -326,7 +326,7 @@ is never programmed and renewal fails. Measured, not assumed.
 **How to tell the controller is alive:**
 
 ```
-kubectl -n skillstreak get gateway skillstreak-gateway \
+kubectl --context=skillstreak -n skillstreak get gateway skillstreak-gateway \
   -o jsonpath='{range .status.listeners[*]}{.name} {.conditions[?(@.type=="Programmed")].status}{"\n"}{end}'
 ```
 
@@ -336,7 +336,7 @@ whether a *new* route gets a `status` block and reaches the
 CiliumEnvoyConfig; if a freshly applied HTTPRoute has no status after a
 minute, the controller is not reconciling.
 
-**The renewal deadline.** `kubectl -n skillstreak get certificate
+**The renewal deadline.** `kubectl --context=skillstreak -n skillstreak get certificate
 skillstreak-xyz-tls -o jsonpath='{.status.renewalTime}'`. With HSTS
 deployed, a failed renewal is a hard outage rather than a click-through
 warning, so this date is worth a calendar entry rather than trust.
@@ -412,14 +412,33 @@ during the move.
 5. **Create the API token and apply it** — see
    `cloudflare-api-token.yaml.example` for the exact scopes and the
    namespace trap (`cert-manager`, not `skillstreak`).
-6. **Apply the issuers:** `kubectl apply -f k8s/cluster-issuer.yaml`.
+6. **Apply the issuers:** `kubectl --context=skillstreak apply -f k8s/cluster-issuer.yaml`.
+
+   > **Pass `--context=skillstreak` on every command in this runbook.**
+   > This kubeconfig holds four clusters and the default context is
+   > `issassist`, not this project. The failure is silent in the worst
+   > way: `issassist` also runs cert-manager v1.19.4 in a `cert-manager`
+   > namespace and also has `letsencrypt-prod`/`letsencrypt-staging`
+   > ClusterIssuers, so an apply meant for SkillStreak lands on an
+   > unrelated production cluster and reports success. Confirmed on
+   > 2026-08-20, when a check run without `--context` returned a
+   > confident, entirely wrong answer about this project.
+   >
+   > `kubectl config current-context` before anything that writes, and
+   > treat `kubectl -n skillstreak get certificate` returning
+   > "No resources found" as a wrong-context signal rather than a missing
+   > certificate — the namespace does not exist on `issassist` at all.
+   >
+   > This is the same shared-kubeconfig hazard CLAUDE.md blames for the
+   > 2026-07-30 wrong-image incident, so it has bitten this project twice
+   > now in two different ways.
 7. **Prove a challenge actually runs** — the point of the whole exercise,
    and the step the earlier staging test only appeared to do. Issue a
    staging cert for a hostname that has **never** been issued before, so
    no cached authorization can mask a failure:
 
    ```
-   kubectl -n skillstreak create -f - <<'EOF'
+   kubectl --context=skillstreak -n skillstreak create -f - <<'EOF'
    apiVersion: cert-manager.io/v1
    kind: Certificate
    metadata: { name: dns01-probe, namespace: skillstreak }
@@ -428,7 +447,7 @@ during the move.
      issuerRef: { name: letsencrypt-staging, kind: ClusterIssuer }
      dnsNames: [ dns01-probe.skillstreak.xyz ]
    EOF
-   kubectl -n skillstreak get order -o json \
+   kubectl --context=skillstreak -n skillstreak get order -o json \
      | jq '.items[].status.authorizations[] | {identifier, initialState}'
    ```
 
@@ -437,9 +456,9 @@ during the move.
    confirm `Ready=True` and delete the probe Certificate and its Secret.
 8. **Renew the real certificate through the new path**, rather than
    waiting for September to find out:
-   `kubectl -n skillstreak delete secret skillstreak-xyz-tls` and watch
+   `kubectl --context=skillstreak -n skillstreak delete secret skillstreak-xyz-tls` and watch
    cert-manager reissue. Keep a copy of the Secret first
-   (`kubectl -n skillstreak get secret skillstreak-xyz-tls -o yaml >
+   (`kubectl --context=skillstreak -n skillstreak get secret skillstreak-xyz-tls -o yaml >
    /tmp/tls-backup.yaml`) so it can be put straight back if issuance
    stalls. Reissue takes a couple of minutes — DNS-01 waits for the TXT
    record to propagate, so it is slower than HTTP-01 was.
