@@ -1,4 +1,8 @@
-import { fillMissingDays, groupSiteVisits } from './analytics.service';
+import {
+  AnalyticsService,
+  fillMissingDays,
+  groupSiteVisits,
+} from './analytics.service';
 import type { SiteVisitRow } from './analytics.service';
 import { SiteLocale } from './entities/site-visit.entity';
 
@@ -197,5 +201,56 @@ describe('groupSiteVisits', () => {
     expect(en.averageDwellSeconds).toBe(1000);
     // Total is weighted by samples, so it sits near the busier language.
     expect(summary.averageDwellSeconds).toBe(100);
+  });
+});
+
+describe('AnalyticsService.recordSiteDwell: what never becomes a sample', () => {
+  function build() {
+    const siteVisits = {
+      query: jest.fn<Promise<void>, [string, unknown[]]>(() =>
+        Promise.resolve(),
+      ),
+    };
+    const service = new AnalyticsService(
+      { query: jest.fn() } as never,
+      siteVisits as never,
+      { query: jest.fn() } as never,
+    );
+    return { service, siteVisits };
+  }
+
+  it('records an ordinary read', async () => {
+    const { service, siteVisits } = build();
+    await service.recordSiteDwell(SiteLocale.SV, 137);
+
+    expect(siteVisits.query).toHaveBeenCalledTimes(1);
+    expect(siteVisits.query.mock.calls[0][1]).toEqual([SiteLocale.SV, 137]);
+  });
+
+  it('drops a sample sitting exactly on the ceiling', async () => {
+    // Clamping bounds one request but not an attacker sending many, and a
+    // corrupted average is a false claim about how people read the page.
+    // Nothing real reaches four hours, so dropping costs no data.
+    const { service, siteVisits } = build();
+    await service.recordSiteDwell(SiteLocale.SV, 4 * 60 * 60);
+
+    expect(siteVisits.query).not.toHaveBeenCalled();
+  });
+
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+    'drops %p rather than recording it as a read',
+    async (value) => {
+      const { service, siteVisits } = build();
+      await service.recordSiteDwell(SiteLocale.SV, value);
+
+      expect(siteVisits.query).not.toHaveBeenCalled();
+    },
+  );
+
+  it('truncates a fractional duration rather than storing it', async () => {
+    const { service, siteVisits } = build();
+    await service.recordSiteDwell(SiteLocale.EN, 12.9);
+
+    expect(siteVisits.query.mock.calls[0][1]).toEqual([SiteLocale.EN, 12]);
   });
 });

@@ -205,7 +205,19 @@ export class AnalyticsService {
    * avoid.
    */
   async recordSiteDwell(locale: SiteLocale, seconds: number): Promise<void> {
-    const safe = Math.min(Math.max(Math.trunc(seconds), 0), 4 * 60 * 60);
+    const truncated = Math.trunc(Number(seconds));
+    if (!Number.isFinite(truncated) || truncated <= 0) return;
+    // **Samples at the ceiling are discarded, not clamped.** Clamping
+    // bounds one request; it does not bound an attacker sending many, and
+    // a corrupted average is worse than a corrupted count. An inflated
+    // count still reads directionally as "more interest"; an average
+    // pinned at four hours is a false claim about how people read the
+    // page, in whichever direction was chosen. Nothing real reaches the
+    // ceiling — a four-hour read of a marketing page is not a datum being
+    // lost — so dropping it costs nothing and removes the lever.
+    const MAX = 4 * 60 * 60;
+    if (truncated >= MAX) return;
+    const safe = truncated;
     await this.siteVisits.query(
       `INSERT INTO site_visit (locale, day, dwell_samples, dwell_seconds_total)
        VALUES ($1, CURRENT_DATE, 1, $2)

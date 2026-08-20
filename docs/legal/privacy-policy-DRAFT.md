@@ -160,14 +160,30 @@ though it collects nothing.
 
 ## 8. The public website
 
-`skillstreak.xyz` counts how often a few links are clicked — "get the
-app", "try it", and similar (`link_click`).
+`skillstreak.xyz` counts two things, both as aggregate counters.
 
-This is **an aggregate counter, not analytics**. One row per link per
-day, incremented in place. There is deliberately no cookie, no IP
-address, no session, no user agent, no referrer and no time of day, so
-the table cannot answer "who clicked" — not because the data is
-protected, but because it was never collected.
+**Link clicks** — how often a few links are used ("get the app", "try
+it", and similar), one row per link per day (`link_click`).
+
+**Reads** — how many times the page was opened, roughly how long it was
+open, and which language it was read in, one row per language per day
+(`site_visit`). Reading time is stored as a running total plus a count of
+how many reads reported one, so the site can say "a typical read is about
+two minutes" without keeping any individual visit.
+
+Both are **aggregate counters, not analytics**. There is deliberately no
+cookie, no IP address, no session, no user agent, no referrer and no time
+of day, so the tables cannot answer "who visited" or "what did this one
+person read" — not because the data is protected, but because it was
+never collected. Nothing is stored on your device for either, which is
+also why the site shows no cookie banner: there is nothing to ask
+permission for.
+
+The direct consequence, stated because it is a limitation and not a
+boast: **the read count is page views, not people.** One person opening
+the page three times counts as three. Telling them apart would need a
+per-visitor identifier, which is exactly the thing above that is not
+collected.
 
 ## 9. How long we keep things
 

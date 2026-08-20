@@ -1493,54 +1493,89 @@ footer .foot-row {
  * cookie is not "strictly necessary". The admin console labels the number
  * as views for exactly this reason.
  *
+ * **The language comes from i18n.js's `i18n:applied` event, never from
+ * `document.documentElement.lang` directly.** That attribute is still the
+ * static `sv` from the markup until i18n.js runs, and i18n.js is the last
+ * script on the page — the first version of this read it inline during
+ * parse and recorded 100% of views as Swedish, which is worse than no
+ * language split at all because it looks like an answer. The fallback
+ * timer below covers i18n.js failing to load; it is not the normal path.
+ *
  * Two beacons, because they fail differently. The open beacon counts the
- * visit and is reliable. The close beacon carries the duration and only
- * arrives if the browser gives us the chance — so the average is over the
- * reads we could observe, and the console publishes the sample count next
- * to it rather than implying it covers everything.
+ * visit. The close beacon carries the duration and only arrives if the
+ * browser gives us the chance — so the average is over the reads we could
+ * observe, and the console publishes the sample count next to it rather
+ * than implying it covers everything.
  *
  * `visibilitychange` rather than `unload`: `unload` is unreliable on
- * mobile Safari and is being removed from browsers, and it never fires
- * when a phone user switches apps — which on this site is most of them.
- * `sendBeacon` because a fetch is cancelled the moment the page goes away.
+ * mobile Safari, is being removed from browsers, and never fires when a
+ * phone user switches apps — which on this site is most of them.
+ * `sendBeacon` because a fetch is cancelled the moment the page goes away,
+ * and form-encoded because that is CORS-safelisted: a JSON beacon needs a
+ * preflight, and a preflight plus POST completing as the page is frozen is
+ * exactly the case that silently loses the mobile readers we most want to
+ * measure.
  */
 (function () {
   var started = Date.now();
-  var sent = false;
+  var viewLocale = null;
+  var sentOpen = false;
+  var sentClose = false;
+  var API = window.__API_BASE__ + '/api/v1/analytics/site-visits';
 
-  function locale() {
-    var l = (document.documentElement.lang || 'sv').slice(0, 2).toLowerCase();
+  function normalize(lang) {
+    var l = String(lang || 'sv').slice(0, 2).toLowerCase();
     return l === 'en' ? 'en' : 'sv';
   }
 
-  function post(body, beacon) {
+  function openBeacon(lang) {
+    if (sentOpen) return;
+    sentOpen = true;
+    viewLocale = normalize(lang);
     try {
-      var url = window.__API_BASE__ + '/api/v1/analytics/site-visits';
-      var json = JSON.stringify(body);
-      if (beacon && navigator.sendBeacon) {
-        navigator.sendBeacon(url, new Blob([json], { type: 'application/json' }));
-        return;
-      }
-      fetch(url, {
+      fetch(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: json,
+        body: JSON.stringify({ locale: viewLocale }),
         keepalive: true
       }).catch(function () {});
     } catch (e) { /* never let counting break the page */ }
   }
 
-  post({ locale: locale() }, false);
+  document.addEventListener('i18n:applied', function (event) {
+    openBeacon(event && event.detail ? event.detail.lang : null);
+  });
+
+  // Only fires if i18n.js never loads or throws before announcing.
+  setTimeout(function () { openBeacon(document.documentElement.lang); }, 4000);
 
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState !== 'hidden' || sent) return;
+    if (document.visibilityState !== 'hidden' || sentClose || !sentOpen) return;
     // Once per page load. A reader who tabs away and back would otherwise
     // report several partial durations, each shorter than the real read,
     // dragging the average down for the most engaged visitors.
-    sent = true;
+    sentClose = true;
     var seconds = Math.round((Date.now() - started) / 1000);
     if (seconds < 1) return;
-    post({ locale: locale(), dwellSeconds: seconds }, true);
+    // Deliberately the language the VIEW was counted against, not whatever
+    // is selected now. A reader who switches mid-article would otherwise
+    // add a duration to a language that never got a view, breaking the
+    // "samples <= views" invariant the counter table states as fact.
+    try {
+      var body = 'locale=' + encodeURIComponent(viewLocale) +
+        '&dwellSeconds=' + encodeURIComponent(String(seconds));
+      var type = 'application/x-www-form-urlencoded;charset=UTF-8';
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(API, new Blob([body], { type: type }));
+        return;
+      }
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': type },
+        body: body,
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) { /* never let counting break the page */ }
   });
 })();
 </script>
