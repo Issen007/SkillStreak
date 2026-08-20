@@ -10,6 +10,8 @@ import { Player } from '../players/entities/player.entity';
 import { PublicSharingAccessService } from '../public-sharing/public-sharing-access.service';
 import { PublicSharingConsentService } from '../public-sharing/public-sharing-consent.service';
 import { ClipReactionType } from './entities/clip-reaction.entity';
+import { ObjectStorageService } from './object-storage.service';
+import { CLIP_PLAYBACK_URL_EXPIRES_SECONDS } from './video-clip.constants';
 import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
 
 /** One card in the public feed. Deliberately small — see the class doc. */
@@ -18,6 +20,17 @@ export interface PublicFeedItem {
   durationSeconds: number;
   screenName: string;
   avatarId: string | null;
+  /** The uploader's own words. Still the only free text on this surface —
+   * it was written for a team audience and is moderated on upload by the
+   * same filter the team feed uses; publishing does not re-open it. */
+  caption: string | null;
+  /**
+   * Short-lived presigned GET, minted per request exactly as the team
+   * feed does. Never a durable URL: ADR-0019 Decision 2 bounds "public"
+   * to authenticated players, so a link that outlived the response would
+   * quietly widen that to anyone it was pasted to.
+   */
+  playbackUrl: string;
   publishedAt: Date;
   /**
    * The viewer's *own* reaction, or null. Filled in by the controller,
@@ -94,6 +107,7 @@ export class PublicFeedService {
     private readonly players: Repository<Player>,
     private readonly consentService: PublicSharingConsentService,
     private readonly access: PublicSharingAccessService,
+    private readonly objectStorage: ObjectStorageService,
   ) {}
 
   /**
@@ -304,6 +318,8 @@ export class PublicFeedService {
         'clip.id AS "clipId"',
         'clip.duration_seconds AS "durationSeconds"',
         'clip.published_publicly_at AS "publishedAt"',
+        'clip.caption AS "caption"',
+        'clip.storage_key AS "storageKey"',
         'player.screen_name AS "screenName"',
         'player.avatar_id AS "avatarId"',
       ])
@@ -337,12 +353,23 @@ export class PublicFeedService {
       // One extra row, purely to answer "is there a next page" without a
       // second COUNT query over the same predicates.
       .limit(take + 1)
-      .getRawMany<PublicFeedItem>();
+      .getRawMany<PublicFeedItem & { storageKey: string }>();
 
-    const items = rows.slice(0, take).map((r) => ({
-      ...r,
-      publishedAt: new Date(r.publishedAt),
-    }));
+    // Presign after slicing, so the extra look-ahead row never costs a
+    // signature. `storageKey` is destructured out here and deliberately
+    // never reaches the response: it is the bucket path of a child's
+    // video, and the presigned URL is the only form of it a client has
+    // any business holding.
+    const items: PublicFeedItem[] = await Promise.all(
+      rows.slice(0, take).map(async ({ storageKey, ...r }) => ({
+        ...r,
+        playbackUrl: await this.objectStorage.createPresignedGetUrl(
+          storageKey,
+          CLIP_PLAYBACK_URL_EXPIRES_SECONDS,
+        ),
+        publishedAt: new Date(r.publishedAt),
+      })),
+    );
     const last = items[items.length - 1];
 
     return {
