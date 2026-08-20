@@ -97,6 +97,37 @@ export class StaffOidcClientsService {
     }
   }
 
+  /**
+   * Which providers have a registered OAuth application.
+   *
+   * Read by the sign-in page so it offers only buttons that can actually
+   * work. Deliberately returns nothing but the provider names — no client
+   * ids, no redirect URIs, nothing that is a secret or that narrows one.
+   * Whether a given IdP is wired up is not confidential; it is visible to
+   * anyone who clicks the button.
+   */
+  configuredProviders(): StaffAuthProvider[] {
+    return Object.values(StaffAuthProvider).filter((provider) =>
+      this.isConfigured(provider),
+    );
+  }
+
+  isConfigured(provider: StaffAuthProvider): boolean {
+    const keys =
+      provider === StaffAuthProvider.APPLE
+        ? [
+            'APPLE_OAUTH_CLIENT_ID',
+            'APPLE_TEAM_ID',
+            'APPLE_KEY_ID',
+            'APPLE_PRIVATE_KEY',
+          ]
+        : [
+            `${provider === StaffAuthProvider.GOOGLE ? 'GOOGLE' : 'MICROSOFT'}_OAUTH_CLIENT_ID`,
+            `${provider === StaffAuthProvider.GOOGLE ? 'GOOGLE' : 'MICROSOFT'}_OAUTH_CLIENT_SECRET`,
+          ];
+    return keys.every((key) => Boolean(this.configService.get<string>(key)));
+  }
+
   private requireEnv(key: string): string {
     const value = this.configService.get<string>(key);
     if (!value) {

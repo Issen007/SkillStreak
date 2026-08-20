@@ -19,6 +19,18 @@ import {
 export enum EventRegistrationInterest {
   CURIOUS = 'curious',
   INVEST = 'invest',
+  /**
+   * Added 2026-08-20 at the project owner's request: someone offering to
+   * join as a co-owner, not merely to fund or to help.
+   *
+   * Deliberately its own value rather than folded into `INVEST`, even
+   * though the two sit next to each other on the form. "Tell me about
+   * investing" is a request for information; "I want to be a co-owner" is
+   * an offer about ownership of the company, and the follow-up those two
+   * deserve is not the same conversation. Collapsing them would make the
+   * list shorter and the one row that matters most impossible to find.
+   */
+  CO_OWNER = 'co_owner',
   CONTRIBUTE = 'contribute',
   TRAINER = 'trainer',
   OTHER = 'other',

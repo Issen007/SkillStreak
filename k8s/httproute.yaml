@@ -1,3 +1,48 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-to-https-redirect
+  namespace: skillstreak
+  # Everything arriving on port 80 is bounced to HTTPS.
+  #
+  # **Why this exists**: reported 2026-08-20 by a visitor whose Safari
+  # privacy report showed "Anslutningen är inte krypterad" on
+  # skillstreak.xyz. Port 80 was open and answering (envoy returned a
+  # bare 404) with no redirect, so anyone typing the domain, following an
+  # old http:// link, or scanning a QR code that omitted the scheme
+  # landed on cleartext. The certificates were fine — all four hostnames
+  # have had a valid Let's Encrypt cert throughout. What was missing was
+  # anything telling a browser to go to the encrypted one.
+  #
+  # **Why it does not break certificate renewal**, which is the thing to
+  # get wrong here: cert-manager's HTTP-01 solver needs
+  # /.well-known/acme-challenge/<token> reachable over plain HTTP on this
+  # same listener, and it creates its own HTTPRoute for it with an
+  # **Exact** path match. Gateway API resolves conflicts by specificity —
+  # an exact path match beats the PathPrefix "/" below — so the challenge
+  # route continues to win while everything else redirects. A catch-all
+  # that swallowed the challenge would not fail now; it would fail
+  # silently at the next renewal, roughly 30 days before the 29 Oct
+  # expiry, which is exactly the kind of delayed failure this project
+  # keeps being bitten by. Verify after applying with:
+  #   curl -sI http://skillstreak.xyz/.well-known/acme-challenge/probe
+  # expecting a 404 from the solver rather than a 301.
+spec:
+  parentRefs:
+    - name: skillstreak-gateway
+      # Pinned to the plaintext listener. Without sectionName this would
+      # also attach to the HTTPS listeners and redirect them to
+      # themselves — an infinite loop that looks like the site being down.
+      sectionName: http
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            # 301, not 302: this is permanent, and a permanent redirect is
+            # what lets a browser stop trying port 80 for this host at all.
+            statusCode: 301
+---
 # Routes for skillstreak-gateway (see gateway.yaml). Each hostname here
 # needs a matching listener on that Gateway for HTTPS (see gateway.yaml's
 # listeners) — the `http` listener has no hostname restriction, so plain

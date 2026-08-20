@@ -97,3 +97,48 @@ describe('StaffAuthController (callback landing)', () => {
     expect(STAFF_CONSOLE_PATH).not.toMatch(/^\/\//); // not protocol-relative
   });
 });
+
+describe('StaffAuthController: provider availability', () => {
+  function build(configured: string[]) {
+    const oidcClients = {
+      configuredProviders: jest.fn().mockReturnValue(configured),
+      isConfigured: jest.fn((p: string) => configured.includes(p)),
+    };
+    const controller = new StaffAuthController(
+      {} as never,
+      { get: jest.fn() } as never,
+      {} as never,
+      oidcClients as never,
+    );
+    return { controller, oidcClients };
+  }
+
+  it('advertises only providers with a registered OAuth application', () => {
+    // The console draws its buttons from this. Listing an unregistered
+    // provider is what sent operators into a 500 on a dead button.
+    expect(build(['google']).controller.providers()).toEqual({
+      providers: ['google'],
+    });
+  });
+
+  it('reports an empty list rather than guessing when nothing is set up', () => {
+    expect(build([]).controller.providers()).toEqual({ providers: [] });
+  });
+
+  it('exposes provider names only — never a client id or redirect URI', () => {
+    // The route is unauthenticated by necessity (it is read before anyone
+    // signs in), so the shape of the response is the control.
+    const body = build(['google', 'apple']).controller.providers();
+    expect(Object.keys(body)).toEqual(['providers']);
+    expect(JSON.stringify(body)).toBe('{"providers":["google","apple"]}');
+  });
+
+  it('refuses an unconfigured provider with 503, not 500', async () => {
+    // 500 reads as "this is broken"; the OAuth application simply has not
+    // been registered for this deployment.
+    const { controller } = build(['google']);
+    await expect(
+      controller.login('microsoft', {} as never),
+    ).rejects.toMatchObject({ status: 503 });
+  });
+});

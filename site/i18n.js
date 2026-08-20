@@ -74,6 +74,8 @@
       'Läs vad tränarrollen ser': 'Read what the trainer role sees',
 
       /* --- demo-event signup ------------------------------------------- */
+      'Jag vill vara med på resan som delägare':
+        'I want to join the journey as a co-owner',
       'Visning': 'Live demo',
       'Kom på visningen': 'Come to the live demo',
       'I början av september visar vi SkillStreak live — hur en träning\n        loggas, hur laget jagar VM-guldet ihop, och hur trygghetsreglerna\n        faktiskt fungerar. Vi ses över Google Meet, och du får länken via\n        mejl när tiden är spikad.':

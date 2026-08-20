@@ -336,9 +336,13 @@
   <div class="mark">🔥</div>
   <h1>SkillStreak — Staff</h1>
   <p>Admin and trainer console</p>
-  <a class="sso" href="/api/v1/staff-auth/google/login">Continue with Google</a>
-  <a class="sso" href="/api/v1/staff-auth/microsoft/login">Continue with Microsoft</a>
-  <a class="sso" href="/api/v1/staff-auth/apple/login">Continue with Apple</a>
+  <!-- Filled from GET /staff-auth/providers, so only providers with a
+       registered OAuth application are offered. These used to be three
+       hardcoded links while only Google was registered, so two of them
+       led to a 500 and wrote an error-log row on every click. The
+       server still refuses an unconfigured provider on its own — this is
+       the dead end removed, not the check. -->
+  <div id="ssoButtons"></div>
   <p class="note" id="loginNote">You need an account that already has access.</p>
 </section>
 
