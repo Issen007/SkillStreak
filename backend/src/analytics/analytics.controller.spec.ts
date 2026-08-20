@@ -34,8 +34,12 @@ function validate(body: unknown): Promise<RecordSiteVisitDto> {
 }
 
 describe('RecordSiteVisitDto through the real global pipe', () => {
+  const TOK = '5551234.abcdef';
+
   it('accepts a bare view', async () => {
-    await expect(validate({ locale: 'sv' })).resolves.toMatchObject({
+    await expect(
+      validate({ locale: 'sv', beaconToken: TOK }),
+    ).resolves.toMatchObject({
       locale: SiteLocale.SV,
       dwellSeconds: undefined,
     });
@@ -43,8 +47,12 @@ describe('RecordSiteVisitDto through the real global pipe', () => {
 
   it('accepts a dwell report', async () => {
     await expect(
-      validate({ locale: 'en', dwellSeconds: 42 }),
+      validate({ locale: 'en', dwellSeconds: 42, beaconToken: TOK }),
     ).resolves.toMatchObject({ locale: SiteLocale.EN, dwellSeconds: 42 });
+  });
+
+  it('rejects a body with no token at all', async () => {
+    await expect(validate({ locale: 'sv' })).rejects.toBeDefined();
   });
 
   it('lets null through validation — which is why the controller uses ==', async () => {
@@ -52,21 +60,29 @@ describe('RecordSiteVisitDto through the real global pipe', () => {
     // `@IsOptional()` skips null as well as undefined, so this is a valid
     // body. The controller must therefore treat it as "no duration
     // reported" rather than as a zero-second read.
-    const dto = await validate({ locale: 'sv', dwellSeconds: null });
+    const dto = await validate({
+      locale: 'sv',
+      dwellSeconds: null,
+      beaconToken: TOK,
+    });
     expect(dto.dwellSeconds).toBeNull();
     expect(dto.dwellSeconds === undefined).toBe(false);
   });
 
+  // Each carries a valid token, so the rejection is for the stated reason
+  // rather than incidentally for the missing token.
   it.each([
-    ['a negative duration', { locale: 'sv', dwellSeconds: -5 }],
-    ['a fractional duration', { locale: 'sv', dwellSeconds: 1.5 }],
-    ['a non-numeric duration', { locale: 'sv', dwellSeconds: 'abc' }],
-    ['a duration past the ceiling', { locale: 'sv', dwellSeconds: 999999 }],
+    ['a negative duration', { dwellSeconds: -5 }],
+    ['a fractional duration', { dwellSeconds: 1.5 }],
+    ['a non-numeric duration', { dwellSeconds: 'abc' }],
+    ['a duration past the ceiling', { dwellSeconds: 999999 }],
     ['an unknown language', { locale: 'xx' }],
     ['a mis-cased language', { locale: 'SV' }],
-    ['an extra field', { locale: 'sv', referrer: 'https://example.com' }],
-  ])('rejects %s', async (_label, body) => {
-    await expect(validate(body)).rejects.toBeDefined();
+    ['an extra field', { referrer: 'https://example.com' }],
+  ])('rejects %s', async (_label, extra) => {
+    await expect(
+      validate({ locale: 'sv', beaconToken: TOK, ...extra }),
+    ).rejects.toBeDefined();
   });
 
   it('rejects any field that could identify a visitor', async () => {
@@ -82,18 +98,30 @@ describe('RecordSiteVisitDto through the real global pipe', () => {
 });
 
 describe('AnalyticsController: which branch a body takes', () => {
-  function build() {
+  function build({ tokenValid = true } = {}) {
     const service = {
       recordClick: jest.fn().mockResolvedValue(undefined),
       recordSiteView: jest.fn().mockResolvedValue(undefined),
       recordSiteDwell: jest.fn().mockResolvedValue(undefined),
     };
-    return { service, controller: new AnalyticsController(service as never) };
+    const tokens = {
+      issue: jest.fn().mockReturnValue('bucket.sig'),
+      verify: jest.fn().mockReturnValue(tokenValid),
+    };
+    return {
+      service,
+      tokens,
+      controller: new AnalyticsController(service as never, tokens as never),
+    };
   }
+  const TOKEN = 'bucket.sig';
 
   it('counts a view when no duration is present', async () => {
     const { service, controller } = build();
-    await controller.recordSiteVisit({ locale: SiteLocale.SV });
+    await controller.recordSiteVisit({
+      locale: SiteLocale.SV,
+      beaconToken: TOKEN,
+    });
 
     expect(service.recordSiteView).toHaveBeenCalledWith(SiteLocale.SV);
     expect(service.recordSiteDwell).not.toHaveBeenCalled();
@@ -106,6 +134,7 @@ describe('AnalyticsController: which branch a body takes', () => {
     const { service, controller } = build();
     await controller.recordSiteVisit({
       locale: SiteLocale.SV,
+      beaconToken: TOKEN,
       dwellSeconds: null as unknown as undefined,
     });
 
@@ -134,5 +163,48 @@ describe('AnalyticsController: which branch a body takes', () => {
     // 0 is not null, so it reaches the dwell path — the service is what
     // drops it, and that is asserted in the service's own tests.
     expect(service.recordSiteDwell).toHaveBeenCalledWith(SiteLocale.SV, 0);
+  });
+});
+
+describe('AnalyticsController: the beacon token gate', () => {
+  function build({ tokenValid = true } = {}) {
+    const service = {
+      recordClick: jest.fn().mockResolvedValue(undefined),
+      recordSiteView: jest.fn().mockResolvedValue(undefined),
+      recordSiteDwell: jest.fn().mockResolvedValue(undefined),
+    };
+    const tokens = {
+      issue: jest.fn().mockReturnValue('bucket.sig'),
+      verify: jest.fn().mockReturnValue(tokenValid),
+    };
+    return {
+      service,
+      tokens,
+      controller: new AnalyticsController(service as never, tokens as never),
+    };
+  }
+
+  it('refuses a site visit whose token does not verify', async () => {
+    const { service, controller } = build({ tokenValid: false });
+
+    await expect(
+      controller.recordSiteVisit({ locale: SiteLocale.SV, beaconToken: 'x' }),
+    ).rejects.toThrow(/beacon_token/);
+    expect(service.recordSiteView).not.toHaveBeenCalled();
+  });
+
+  it('refuses a click whose token does not verify', async () => {
+    const { service, controller } = build({ tokenValid: false });
+
+    await expect(
+      controller.recordClick({ link: 'try_it' as never, beaconToken: 'x' }),
+    ).rejects.toThrow(/beacon_token/);
+    expect(service.recordClick).not.toHaveBeenCalled();
+  });
+
+  it('issues a token', () => {
+    const { controller, tokens } = build();
+    expect(controller.issueBeaconToken()).toEqual({ token: 'bucket.sig' });
+    expect(tokens.issue).toHaveBeenCalled();
   });
 });

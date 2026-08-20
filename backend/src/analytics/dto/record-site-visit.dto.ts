@@ -1,4 +1,12 @@
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { SiteLocale } from '../entities/site-visit.entity';
 
@@ -15,6 +23,19 @@ import { SiteLocale } from '../entities/site-visit.entity';
 export class RecordSiteVisitDto {
   @IsEnum(SiteLocale)
   locale!: SiteLocale;
+
+  /**
+   * The short-lived token from `GET /analytics/beacon-token`.
+   *
+   * Required. See `beacon-token.service.ts` for what it does and does not
+   * buy — briefly: it rejects a blind POST from something that never
+   * loaded the page, and it is derived from a time bucket only, so it
+   * identifies nobody and is byte-identical for every reader in the same
+   * five minutes.
+   */
+  @IsString()
+  @MaxLength(200)
+  beaconToken!: string;
 
   /**
    * Seconds the page was actually open, sent once when it is hidden.

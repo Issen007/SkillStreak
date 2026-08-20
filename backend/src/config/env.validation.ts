@@ -359,6 +359,22 @@ class EnvironmentVariables {
   /** Defaults to INBOX. */
   @IsOptional()
   BOUNCE_IMAP_MAILBOX?: string;
+
+  /**
+   * How many reverse proxies sit in front of this pod.
+   *
+   * Sets Express's `trust proxy`, which is what makes every `@Throttle()`
+   * key on the real client address instead of the gateway's. Defaults to
+   * 1 (the Cilium gateway) — see main.ts for why this is a hop count and
+   * never `true`, and why under-counting is safe while over-counting lets
+   * anyone forge a source address via `X-Forwarded-For`.
+   *
+   * `@IsOptional()` alone, no `@IsNotEmpty()`: a present-but-blank
+   * ConfigMap key must not crash the pod at boot, and blank simply means
+   * "use the default".
+   */
+  @IsOptional()
+  TRUSTED_PROXY_HOPS?: string;
 }
 
 // Fails fast on boot rather than surfacing a confusing runtime error the

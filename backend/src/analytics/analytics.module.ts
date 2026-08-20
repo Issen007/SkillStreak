@@ -4,6 +4,8 @@ import { StaffAuthModule } from '../staff-auth/staff-auth.module';
 import { AdminAnalyticsController } from './admin-analytics.controller';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
+import { BeaconTokenService } from './beacon-token.service';
+import { SiteOriginGuard } from './site-origin.guard';
 import { LinkClick } from './entities/link-click.entity';
 import { SiteVisit } from './entities/site-visit.entity';
 
@@ -17,6 +19,6 @@ import { SiteVisit } from './entities/site-visit.entity';
 @Module({
   imports: [TypeOrmModule.forFeature([LinkClick, SiteVisit]), StaffAuthModule],
   controllers: [AnalyticsController, AdminAnalyticsController],
-  providers: [AnalyticsService],
+  providers: [AnalyticsService, BeaconTokenService, SiteOriginGuard],
 })
 export class AnalyticsModule {}

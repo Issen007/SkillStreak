@@ -1479,6 +1479,43 @@ footer .foot-row {
 </main>
 
 <script>
+/* Beacon token — fetched once, shared by both counters below.
+ *
+ * The counters are unauthenticated by necessity (the caller is an
+ * anonymous visitor), so this is not authentication and does not pretend
+ * to be. What it buys is that a blind POST from something that never
+ * loaded the page is refused, and that abuse costs two requests instead
+ * of one against a rate limit. A determined script still fetches a token.
+ *
+ * It carries a five-minute time bucket and nothing else — no visitor, no
+ * session, nothing stored on the device — so every reader in the same
+ * window gets an identical string. That is deliberate: a per-visitor
+ * token would be the tracking identifier this site refuses to set, and
+ * would require a cookie banner.
+ *
+ * A failure here means the page simply is not counted. That is the right
+ * failure: counting must never delay, block or surface anything to a
+ * reader.
+ */
+window.__beaconToken__ = null;
+window.__beaconReady__ = (function () {
+  try {
+    return fetch(window.__API_BASE__ + '/api/v1/analytics/beacon-token', {
+      method: 'GET'
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        window.__beaconToken__ = data && data.token ? data.token : null;
+        return window.__beaconToken__;
+      })
+      .catch(function () { return null; });
+  } catch (e) {
+    return Promise.resolve(null);
+  }
+})();
+</script>
+
+<script>
 /* Read counting — page views and reading time, per language.
  *
  * Same posture as the click counter below: first-party, one request to
@@ -1532,14 +1569,19 @@ footer .foot-row {
     if (sentOpen) return;
     sentOpen = true;
     viewLocale = normalize(lang);
-    try {
-      fetch(API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ locale: viewLocale }),
-        keepalive: true
-      }).catch(function () {});
-    } catch (e) { /* never let counting break the page */ }
+    // Waits for the token rather than racing it. If it never arrives the
+    // view is simply not counted — see the token block above.
+    window.__beaconReady__.then(function (token) {
+      if (!token) return;
+      try {
+        fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ locale: viewLocale, beaconToken: token }),
+          keepalive: true
+        }).catch(function () {});
+      } catch (e) { /* never let counting break the page */ }
+    });
   }
 
   document.addEventListener('i18n:applied', function (event) {
@@ -1562,8 +1604,13 @@ footer .foot-row {
     // add a duration to a language that never got a view, breaking the
     // "samples <= views" invariant the counter table states as fact.
     try {
+      // Read synchronously: the page is being hidden, so there is no
+      // opportunity to await anything here.
+      var token = window.__beaconToken__;
+      if (!token) return;
       var body = 'locale=' + encodeURIComponent(viewLocale) +
-        '&dwellSeconds=' + encodeURIComponent(String(seconds));
+        '&dwellSeconds=' + encodeURIComponent(String(seconds)) +
+        '&beaconToken=' + encodeURIComponent(token);
       var type = 'application/x-www-form-urlencoded;charset=UTF-8';
       if (navigator.sendBeacon) {
         navigator.sendBeacon(API, new Blob([body], { type: type }));
@@ -1601,10 +1648,12 @@ footer .foot-row {
 
   function report(link) {
     try {
+      var token = window.__beaconToken__;
+      if (!token) return;
       fetch(window.__API_BASE__ + '/api/v1/analytics/clicks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ link: link }),
+        body: JSON.stringify({ link: link, beaconToken: token }),
         keepalive: true
       }).catch(function () {});
     } catch (e) { /* never let counting break a link */ }

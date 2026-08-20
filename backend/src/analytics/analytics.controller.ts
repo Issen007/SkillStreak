@@ -1,6 +1,17 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AnalyticsService } from './analytics.service';
+import { BeaconTokenService } from './beacon-token.service';
+import { SiteOriginGuard } from './site-origin.guard';
 import { RecordClickDto } from './dto/record-click.dto';
 import { RecordSiteVisitDto } from './dto/record-site-visit.dto';
 
@@ -33,12 +44,43 @@ import { RecordSiteVisitDto } from './dto/record-site-visit.dto';
  */
 @Controller('api/v1/analytics')
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(
+    private readonly analyticsService: AnalyticsService,
+    private readonly beaconTokens: BeaconTokenService,
+  ) {}
 
+  /**
+   * Mints the short-lived token the two counters below require.
+   *
+   * Rate limited tighter than the writes it authorises: a page needs one
+   * per load, so anything above that rate is not a reader. Combined with
+   * per-IP throttling (main.ts's `trust proxy`, without which this is one
+   * global bucket) this is what bounds the whole flow rather than just
+   * the write.
+   */
+  @UseGuards(SiteOriginGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Get('beacon-token')
+  issueBeaconToken(): { token: string } {
+    return { token: this.beaconTokens.issue() };
+  }
+
+  private assertBeacon(token: unknown): void {
+    if (!this.beaconTokens.verify(token)) {
+      // 403 rather than 401: there is no identity to authenticate and no
+      // credential to re-present, so a WWW-Authenticate challenge would be
+      // meaningless. The page never reads this — counting must never
+      // surface an error to a visitor — so the status is for operators.
+      throw new ForbiddenException('invalid_or_expired_beacon_token');
+    }
+  }
+
+  @UseGuards(SiteOriginGuard)
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   @Post('clicks')
   @HttpCode(HttpStatus.NO_CONTENT)
   async recordClick(@Body() dto: RecordClickDto): Promise<void> {
+    this.assertBeacon(dto.beaconToken);
     await this.analyticsService.recordClick(dto.link);
   }
 
@@ -58,10 +100,12 @@ export class AnalyticsController {
    * per-visitor identity this design refuses to collect. It measures
    * interest and language split, not truth.
    */
+  @UseGuards(SiteOriginGuard)
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('site-visits')
   @HttpCode(HttpStatus.NO_CONTENT)
   async recordSiteVisit(@Body() dto: RecordSiteVisitDto): Promise<void> {
+    this.assertBeacon(dto.beaconToken);
     // `== null`, not `=== undefined`, and the difference is a real bug
     // rather than style. `@IsOptional()` skips validation for null AS WELL
     // AS undefined, so `{"locale":"sv","dwellSeconds":null}` passes the
