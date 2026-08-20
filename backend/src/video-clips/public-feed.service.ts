@@ -9,6 +9,7 @@ import {
 import { Player } from '../players/entities/player.entity';
 import { PublicSharingAccessService } from '../public-sharing/public-sharing-access.service';
 import { PublicSharingConsentService } from '../public-sharing/public-sharing-consent.service';
+import { ClipReactionType } from './entities/clip-reaction.entity';
 import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
 
 /** One card in the public feed. Deliberately small — see the class doc. */
@@ -18,6 +19,15 @@ export interface PublicFeedItem {
   screenName: string;
   avatarId: string | null;
   publishedAt: Date;
+  /**
+   * The viewer's *own* reaction, or null. Filled in by the controller,
+   * which is why it is optional on the service's own return.
+   *
+   * **There is no total here and that is deliberate** — a viewer on the
+   * feed learns their own state and nothing about anyone else's. See
+   * ClipReactionsService's class doc for the argument.
+   */
+  myReaction?: ClipReactionType | null;
 }
 
 export interface PublicFeedPage {
@@ -169,13 +179,85 @@ export class PublicFeedService {
   }
 
   /**
+   * Throws unless `clipId` is, right now, publicly visible **to this
+   * viewer** — the same four gates `list()` applies, for a single clip.
+   *
+   * **This exists so reactions cannot drift away from the feed.** A
+   * reaction endpoint that re-derived "is this public?" would be a second
+   * definition of public visibility, and the two would diverge on exactly
+   * the case that matters: a parent revoking consent must stop a
+   * stranger reacting to their child's clip in the same instant it stops
+   * them seeing it. Both now fail through the same clauses.
+   *
+   * Returns the uploader's id, because every caller needs it and
+   * re-fetching the clip to get it would be a second read of the row this
+   * query already touched.
+   */
+  async assertPubliclyVisibleTo(
+    viewerId: string,
+    clipId: string,
+  ): Promise<{ uploaderPlayerId: string }> {
+    if (!/^[0-9a-f-]{36}$/i.test(clipId)) throw new ClipNotFoundException();
+
+    // Gate 1, the rollout allow-list — resolved from the viewer's own
+    // row, never from anything the caller supplied.
+    const viewer = await this.players.findOne({
+      where: { id: viewerId },
+      select: { teamId: true },
+    });
+    if (!this.access.isEnabledForTeam(viewer?.teamId)) {
+      throw new ClipNotFoundException();
+    }
+
+    const row = await this.clips
+      .createQueryBuilder('clip')
+      // Gate 2 — INNER JOIN, so a revoked consent removes the row rather
+      // than flagging it, exactly as in `list()`.
+      .innerJoin(
+        'public_sharing_consent',
+        'psc',
+        "psc.player_id = clip.uploader_player_id AND psc.status = 'active'",
+      )
+      .select('clip.uploader_player_id', 'uploaderPlayerId')
+      .where('clip.id = :clipId', { clipId })
+      // Gate 3.
+      .andWhere('clip.published_publicly_at IS NOT NULL')
+      .andWhere('clip.status = :published', {
+        published: VideoClipStatus.PUBLISHED,
+      })
+      // Gate 4 — a blocked uploader's clip is not visible, so it is not
+      // reactable either.
+      .andWhere(
+        `NOT EXISTS (
+           SELECT 1 FROM team_chat_block b
+           WHERE b.blocker_player_id = :viewerId
+             AND b.blocked_player_id = clip.uploader_player_id)`,
+        { viewerId },
+      )
+      .getRawOne<{ uploaderPlayerId: string }>();
+
+    // Deliberately ClipNotFoundException for every failure above, not a
+    // distinct "not public" error. Telling a stranger the difference
+    // between "no such clip" and "that clip exists but its family
+    // withdrew consent" is a disclosure about a specific child.
+    if (!row) throw new ClipNotFoundException();
+    return row;
+  }
+
+  /**
    * Ownership, scoped by uploader rather than by team.
    *
    * "The player's own clips, never another child's" is the first thing
    * CLAUDE.md's amended rule promises, so it is enforced in one place
-   * both endpoints go through rather than repeated at each.
+   * every caller goes through rather than repeated at each.
+   *
+   * **Public rather than private since 2026-08-20**, so
+   * `ClipReactionsService.totalsForOwnClip` gates on the same check
+   * instead of writing a second one. Reaction totals are uploader-only by
+   * design, and a second ownership rule is exactly how that stops being
+   * true.
    */
-  private async ownClipOrThrow(
+  async ownClipOrThrow(
     requesterId: string,
     clipId: string,
   ): Promise<VideoClip> {
