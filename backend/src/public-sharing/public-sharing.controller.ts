@@ -18,6 +18,7 @@ import { CurrentPlayerId } from '../auth/current-player-id.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Player } from '../players/entities/player.entity';
 import {
+  PublicFeedItem,
   PublicFeedPage,
   PublicFeedService,
 } from '../video-clips/public-feed.service';
@@ -210,6 +211,45 @@ export class PublicSharingController {
     @Param('clipId') clipId: string,
   ): Promise<ViewerReactionResult> {
     return this.reactions.clear(playerId, clipId);
+  }
+
+  /** Save a public clip to Sparade. */
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Post('api/v1/public-feed/:clipId/save')
+  @HttpCode(HttpStatus.OK)
+  async saveClip(
+    @CurrentPlayerId() playerId: string,
+    @Param('clipId') clipId: string,
+  ): Promise<{ clipId: string; saved: true }> {
+    return this.feed.saveBookmark(playerId, clipId);
+  }
+
+  /** Remove it again. Idempotent, and never gated on visibility. */
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Delete('api/v1/public-feed/:clipId/save')
+  @HttpCode(HttpStatus.OK)
+  async unsaveClip(
+    @CurrentPlayerId() playerId: string,
+    @Param('clipId') clipId: string,
+  ): Promise<{ clipId: string; saved: false }> {
+    return this.feed.removeBookmark(playerId, clipId);
+  }
+
+  /**
+   * Screen A1's Sparade collection.
+   *
+   * Re-validated server-side on every call — see `listSaved` for why a
+   * stored bookmark must never be rendered from. `missingCount` lets the
+   * UI say something is gone without saying which.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('api/v1/me/saved-clips')
+  async savedClips(
+    @CurrentPlayerId() playerId: string,
+  ): Promise<{ items: PublicFeedItem[]; missingCount: number }> {
+    return this.feed.listSaved(playerId);
   }
 
   /**

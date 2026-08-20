@@ -9,6 +9,7 @@ import {
 import { Player } from '../players/entities/player.entity';
 import { PublicSharingAccessService } from '../public-sharing/public-sharing-access.service';
 import { PublicSharingConsentService } from '../public-sharing/public-sharing-consent.service';
+import { ClipBookmark } from './entities/clip-bookmark.entity';
 import { ClipReactionType } from './entities/clip-reaction.entity';
 import { ClipReport, ClipReportReason } from './entities/clip-report.entity';
 import { ObjectStorageService } from './object-storage.service';
@@ -52,6 +53,8 @@ export interface PublicFeedPage {
 
 export const PUBLIC_FEED_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
+/** A shelf, not a feed — bounded so one query answers it. */
+const MAX_SAVED = 200;
 
 /**
  * ADR-0019's public clip feed, as amended by ADR-0030.
@@ -111,6 +114,8 @@ export class PublicFeedService {
     private readonly objectStorage: ObjectStorageService,
     @InjectRepository(ClipReport)
     private readonly reports: Repository<ClipReport>,
+    @InjectRepository(ClipBookmark)
+    private readonly bookmarks: Repository<ClipBookmark>,
   ) {}
 
   /**
@@ -259,6 +264,128 @@ export class PublicFeedService {
     // withdrew consent" is a disclosure about a specific child.
     if (!row) throw new ClipNotFoundException();
     return row;
+  }
+
+  /** Save a clip from Utforska. Requires it to be visible right now —
+   * you cannot bookmark something you are not allowed to see. */
+  async saveBookmark(
+    viewerId: string,
+    clipId: string,
+  ): Promise<{ clipId: string; saved: true }> {
+    await this.assertPubliclyVisibleTo(viewerId, clipId);
+    await this.bookmarks
+      .createQueryBuilder()
+      .insert()
+      .into(ClipBookmark)
+      .values({ clipId, playerId: viewerId })
+      .orIgnore()
+      .execute();
+    return { clipId, saved: true };
+  }
+
+  /**
+   * Un-save. Deliberately does NOT check visibility, for the same reason
+   * withdrawing a reaction does not: a viewer must always be able to
+   * remove their own row, including one pointing at a clip that has since
+   * gone.
+   */
+  async removeBookmark(
+    viewerId: string,
+    clipId: string,
+  ): Promise<{ clipId: string; saved: false }> {
+    await this.bookmarks.delete({ clipId, playerId: viewerId });
+    return { clipId, saved: false };
+  }
+
+  /**
+   * Screen A1's Sparade — **re-validated on every open, never rendered
+   * from the stored row** (ADR-0019 Decision 6).
+   *
+   * The bookmark is a pointer. Between saving and opening, the clip may
+   * have been un-published by its uploader, lost its family's consent,
+   * been reported off the feed, or been swept by retention. Rendering
+   * from stored data would give a child a private copy of another child's
+   * video that outlived their decision to withdraw it — precisely what
+   * the consent model exists to prevent. So this runs the same four gates
+   * the feed does and drops whatever no longer passes.
+   *
+   * `missingCount` exists so the UI can say something happened without
+   * saying *what*. The design's row is non-attributable on purpose:
+   * naming which clip vanished would let a viewer track another child's
+   * un-publish decisions, turning a bookmark into a surveillance tool.
+   */
+  async listSaved(
+    viewerId: string,
+  ): Promise<{ items: PublicFeedItem[]; missingCount: number }> {
+    const saved = await this.bookmarks.find({
+      where: { playerId: viewerId },
+      select: { clipId: true },
+      order: { createdAt: 'DESC' },
+      take: MAX_SAVED,
+    });
+    if (saved.length === 0) return { items: [], missingCount: 0 };
+
+    const viewer = await this.players.findOne({
+      where: { id: viewerId },
+      select: { teamId: true },
+    });
+    if (!this.access.isEnabledForTeam(viewer?.teamId)) {
+      // Outside the allow-list the whole surface is gone, so every saved
+      // row is "missing" in the only sense the UI cares about.
+      return { items: [], missingCount: saved.length };
+    }
+
+    const ids = saved.map((b) => b.clipId);
+    const rows = await this.clips
+      .createQueryBuilder('clip')
+      .innerJoin('player', 'player', 'player.id = clip.uploader_player_id')
+      .innerJoin(
+        'public_sharing_consent',
+        'psc',
+        "psc.player_id = clip.uploader_player_id AND psc.status = 'active'",
+      )
+      .select([
+        'clip.id AS "clipId"',
+        'clip.duration_seconds AS "durationSeconds"',
+        'clip.published_publicly_at AS "publishedAt"',
+        'clip.caption AS "caption"',
+        'clip.storage_key AS "storageKey"',
+        'player.screen_name AS "screenName"',
+        'player.avatar_id AS "avatarId"',
+      ])
+      .where('clip.id IN (:...ids)', { ids })
+      .andWhere('clip.published_publicly_at IS NOT NULL')
+      .andWhere('clip.status = :published', {
+        published: VideoClipStatus.PUBLISHED,
+      })
+      .andWhere(
+        `NOT EXISTS (
+           SELECT 1 FROM team_chat_block b
+           WHERE b.blocker_player_id = :viewerId
+             AND b.blocked_player_id = clip.uploader_player_id)`,
+        { viewerId },
+      )
+      .getRawMany<PublicFeedItem & { storageKey: string }>();
+
+    const byId = new Map(rows.map((r) => [r.clipId, r]));
+    // Ordered by when the viewer saved them, not by when they were
+    // published — this is their shelf, not a feed.
+    const ordered = ids
+      .map((id) => byId.get(id))
+      .filter((r): r is PublicFeedItem & { storageKey: string } => Boolean(r));
+
+    const items: PublicFeedItem[] = await Promise.all(
+      ordered.map(async ({ storageKey, ...r }) => ({
+        ...r,
+        playbackUrl: await this.objectStorage.createPresignedGetUrl(
+          storageKey,
+          CLIP_PLAYBACK_URL_EXPIRES_SECONDS,
+        ),
+        publishedAt: new Date(r.publishedAt),
+      })),
+    );
+
+    return { items, missingCount: saved.length - items.length };
   }
 
   /**
