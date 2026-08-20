@@ -163,6 +163,11 @@ activemq-data/
 # .example template.
 k8s/secret.yaml
 
+# Cloudflare DNS-01 API token for cert-manager (see
+# k8s/cloudflare-api-token.yaml.example). Tracked template, ignored
+# real file — same split as the Secret above.
+k8s/cloudflare-api-token.yaml
+
 # ADR-0022 Decision 10's admin-planning-docs ConfigMap, same posture as the
 # Secret above: the .example template is tracked, the real file — which
 # carries curated roadmap/backlog/security-issues content — never is. The

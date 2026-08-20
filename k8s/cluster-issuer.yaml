@@ -1,27 +1,65 @@
-# cert-manager ClusterIssuers for Let's Encrypt, solved via HTTP01 through
-# the cluster's Cilium Gateway (see gateway.yaml) — no extra DNS-provider
-# API credentials needed, since cert-manager just needs to answer an HTTP
-# challenge on the same Gateway this app already uses.
+# cert-manager ClusterIssuers for Let's Encrypt, solved via DNS01 against
+# Cloudflare.
 #
-# Solver type is `gatewayHTTPRoute`, not `ingress` — this cluster has no
-# working ingress-nginx external path (see k8s/README.md's "External
-# access" section for why Gateway API replaced it) and cert-manager needs
-# to attach its own temporary HTTPRoute to skillstreak-gateway's `http`
-# listener (no hostname restriction there, so any hostname's challenge
-# can attach) to answer the challenge.
+# WHY NOT HTTP01 — this changed 2026-08-20, and the reason matters more
+# than the config.
 #
-# Two issuers, on purpose: `letsencrypt-staging` first (untrusted-by-
-# browsers certs, but no rate limits worth worrying about) to confirm the
-# whole HTTP01 flow actually works — DNS resolves, the Gateway is
-# reachable from the internet on :80, cert-manager can complete the
-# challenge — before pointing real parents at this domain. Once a staging
-# cert issues successfully (`kubectl describe certificate
-# skillstreak-xyz-tls -n skillstreak` shows Ready), switch
-# certificate.yaml's `issuerRef` to `letsencrypt-prod` and delete the
-# now-stale Secret it created (cert-manager will re-issue a real one).
-# Going straight to prod risks burning into Let's Encrypt's production
-# rate limits (5 duplicate certs/week per exact set of hostnames) if
-# anything's misconfigured on the first attempt.
+# These issuers used to solve HTTP01 through the Cilium Gateway, which
+# needs cert-manager's temporary HTTPRoute to be reachable on port 80.
+# That works right up until anything else claims the plaintext listener.
+# When an HTTP->HTTPS redirect route was added, Cilium v1.19.1 stopped
+# programming the solver's route into the Envoy config entirely — a
+# catch-all RequestRedirect suppresses other routes on a listener rather
+# than yielding to the more specific match, so the ACME challenge path
+# answered 301 and the challenge could never complete. Measured directly:
+# a probe route with an Exact path match under
+# /.well-known/acme-challenge/ AND a more specific hostname still lost,
+# and never appeared in the generated CiliumEnvoyConfig at all.
+#
+# So HTTP01 made two things mutually exclusive that should not be: having
+# a working HTTPS redirect, and being able to renew the certificate that
+# redirect points at. DNS01 has no port-80 dependency, which decouples
+# them — see k8s/README.md for restoring the redirect once this is live.
+#
+# DNS01 also fixes a second, quieter problem: HTTP01 could only ever
+# certify hostnames whose traffic reaches this cluster. DNS01 proves
+# control of the *zone*, so a hostname can be certified before it is
+# pointed anywhere — which is what makes a cert ready in advance of a
+# cutover rather than after it.
+#
+# THE TRAP THAT HID ALL OF THIS, because it will happen again:
+# a staging certificate issued in six seconds and reported Ready while
+# the redirect was live and challenges were definitively broken. The
+# Order showed `initialState=valid` — Let's Encrypt had a cached
+# authorization from an earlier successful run and no challenge was
+# solved at all. A green ACME result proves nothing unless the Order
+# actually ran a challenge. Check it:
+#
+#   kubectl -n skillstreak get order -o json \
+#     | jq '.items[].status.authorizations[] | {identifier, initialState}'
+#
+# Authorizations cache for ~30 days. Test with a hostname that has never
+# been issued (see README) if you need a genuinely cold path.
+#
+# CREDENTIALS. `apiTokenSecretRef` points at a Secret that must live in
+# cert-manager's own namespace (`--cluster-resource-namespace`, which on
+# this cluster resolves to `cert-manager`) — NOT `skillstreak`. A
+# ClusterIssuer is cluster-scoped and has no namespace of its own to read
+# from, so a token dropped next to the app is simply never found and the
+# failure reads as an unhelpful auth error. See
+# cloudflare-api-token.yaml.example.
+#
+# The token must be a scoped API *token* (Zone:DNS:Edit + Zone:Zone:Read,
+# restricted to the skillstreak.xyz zone), never a Global API Key. The
+# global key authenticates every action on every zone in the account and
+# cannot be scoped or revoked independently; this token can do exactly
+# one thing — write TXT records in one zone — which is the whole
+# blast radius if the cluster is compromised.
+#
+# Two issuers, unchanged in purpose: `letsencrypt-staging` first (no
+# meaningful rate limits) to prove the flow, then `letsencrypt-prod`.
+# Going straight to prod risks burning Let's Encrypt's production limits
+# (5 duplicate certs/week per exact hostname set) if anything is wrong.
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -35,13 +73,18 @@ spec:
     privateKeySecretRef:
       name: letsencrypt-staging-account-key
     solvers:
-      - http01:
-          gatewayHTTPRoute:
-            parentRefs:
-              - name: skillstreak-gateway
-                namespace: skillstreak
-                kind: Gateway
-                sectionName: http
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+        # Scope the solver to the one zone it has credentials for, so a
+        # future Certificate naming some other domain fails loudly at
+        # solver selection instead of trying this token and getting a
+        # confusing Cloudflare permission error.
+        selector:
+          dnsZones:
+            - skillstreak.xyz
 ---
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
@@ -54,10 +97,11 @@ spec:
     privateKeySecretRef:
       name: letsencrypt-prod-account-key
     solvers:
-      - http01:
-          gatewayHTTPRoute:
-            parentRefs:
-              - name: skillstreak-gateway
-                namespace: skillstreak
-                kind: Gateway
-                sectionName: http
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+        selector:
+          dnsZones:
+            - skillstreak.xyz

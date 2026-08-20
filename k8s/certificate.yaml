@@ -3,13 +3,27 @@
 # Cut over to letsencrypt-prod 2026-07-30, after confirming Ready on
 # letsencrypt-staging first (see cluster-issuer.yaml's comment) and
 # deleting the stale staging-issued Secret so cert-manager reissued a
-# trusted one. Getting either issuer to actually complete its HTTP-01
-# challenges required a manual workaround for a Cilium Gateway API bug
-# (github.com/cilium/cilium#44123 — a wildcard HTTP listener alongside
-# per-hostname HTTPS listeners silently drops ALL plain-HTTP routing) —
-# see docs/BACKLOG.md's "Cilium Gateway API wildcard HTTP listener bug"
-# entry for the workaround and why it will recur at every renewal until
-# that upstream issue is fixed.
+# trusted one.
+#
+# Solver changed to DNS01 (Cloudflare) on 2026-08-20 — nothing in THIS
+# file changed for that, since a Certificate names an issuer and not a
+# challenge type, but it is worth knowing when reading the history below.
+#
+# The HTTP01 era left two scars, both now obsolete and both recorded
+# because they cost real time:
+#
+#   * Cilium's wildcard-HTTP-listener bug (cilium/cilium#44123) silently
+#     dropped ALL plain-HTTP routing when a wildcard HTTP listener sat
+#     alongside per-hostname HTTPS listeners, and needed a manual
+#     workaround at every single renewal. See docs/BACKLOG.md.
+#   * A catch-all HTTP->HTTPS redirect suppressed the solver's own route,
+#     making a working redirect and a renewable certificate mutually
+#     exclusive.
+#
+# DNS01 ends both: renewal no longer touches port 80, so neither the
+# Gateway's plaintext listener nor anything routed on it can affect
+# whether this certificate renews. If a future change moves back to
+# HTTP01, both problems come back with it.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:

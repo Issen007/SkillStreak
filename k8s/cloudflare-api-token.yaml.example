@@ -1,0 +1,45 @@
+# TEMPLATE — copy to cloudflare-api-token.yaml and fill in the real token,
+# same convention as secret.yaml.example. The un-suffixed filename is
+# git-ignored so it can never be committed with a live credential.
+#
+#   cp k8s/cloudflare-api-token.yaml.example k8s/cloudflare-api-token.yaml
+#   # edit in the real token, then:
+#   kubectl apply -f k8s/cloudflare-api-token.yaml
+#
+# NAMESPACE IS `cert-manager`, NOT `skillstreak`, and this is the single
+# most common way a DNS01 setup fails. ClusterIssuers are cluster-scoped,
+# so they resolve secret references in cert-manager's
+# `--cluster-resource-namespace` (which on this cluster resolves to
+# `cert-manager`). A token applied into `skillstreak` alongside everything
+# else in this directory is simply never read, and the resulting Challenge
+# error does not say "wrong namespace" — it looks like a bad token.
+#
+# CREATING THE TOKEN (Cloudflare dashboard -> My Profile -> API Tokens ->
+# Create Token -> "Edit zone DNS" template):
+#
+#   Permissions:  Zone / DNS   / Edit
+#                 Zone / Zone  / Read
+#   Zone resources: Include / Specific zone / skillstreak.xyz
+#
+# Use an API *token*, never the Global API Key. The global key can do
+# anything to any zone on the account, cannot be scoped, and cannot be
+# revoked without breaking every other thing using it. This token can
+# write DNS records in one zone and nothing else — that is the entire
+# blast radius if the cluster is ever compromised.
+#
+# Zone:Read is required in addition to DNS:Edit: cert-manager looks up the
+# zone ID for the name it is solving before it can write the TXT record.
+# With DNS:Edit alone, issuance fails at zone lookup.
+#
+# ROTATION: create the replacement token in Cloudflare first, re-apply
+# this Secret, then delete the old token. cert-manager picks the new value
+# up on its next solve — there is nothing to restart, and no certificate
+# is at risk mid-rotation because existing certs are already issued.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloudflare-api-token
+  namespace: cert-manager
+type: Opaque
+stringData:
+  api-token: CHANGE_ME
