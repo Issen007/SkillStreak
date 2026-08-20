@@ -58,6 +58,9 @@
 
   var TRANSLATIONS = {
     en: {
+      /* --- sponsors ----------------------------------------------------- */
+      'Projektet stöds av': 'Supported by',
+
       /* --- trainer CTA --------------------------------------------------- */
       'Vill du vara tränare i SkillStreak?': 'Do you want to be a trainer in SkillStreak?',
       'Du sätter veckans mål och ser vad som faktiskt händer mellan träningarna — vem som kört, vem som har en streak igång, och vem som tyst slutat dyka upp. Det sista är det man annars märker alldeles för sent.':
@@ -435,5 +438,18 @@
     var lang = preferredLanguage();
     apply(lang);
     setActive(lang);
+    /* Announce the resolved language.
+     *
+     * The read counter in index.html waits for this instead of reading
+     * `document.documentElement.lang` itself. That attribute is the
+     * static `sv` from the markup until `apply()` above runs, and this
+     * file is the last script on the page — so a counter that read it
+     * directly recorded every visitor as Swedish, including one whose
+     * stored preference was English. Announcing the answer keeps one
+     * source of truth rather than two implementations of
+     * `preferredLanguage()` that can drift apart. */
+    document.dispatchEvent(
+      new CustomEvent('i18n:applied', { detail: { lang: lang } })
+    );
   });
 })();

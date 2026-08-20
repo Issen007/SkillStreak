@@ -174,3 +174,29 @@ data:
   # Implicit TLS on 993. Only the literal `false` turns it off.
   BOUNCE_IMAP_SECURE: "true"
   BOUNCE_IMAP_MAILBOX: "INBOX"
+
+  # --- Reverse proxy hops -----------------------------------------------
+  #
+  # How many proxies sit between a visitor and this pod. Sets Express's
+  # `trust proxy`, which is what makes every rate limit in the app key on
+  # the real client address instead of the gateway's.
+  #
+  # **Until 2026-08-20 this was unset, and the consequence was not
+  # cosmetic**: `@nestjs/throttler` keys on `req.ip`, so behind the Cilium
+  # gateway every visitor shared one address and therefore one bucket. The
+  # "tighter-than-default per-IP rate limit" that onboarding.controller.ts
+  # documents on child signup, and the one on staff login, were global —
+  # one scripted client could lock either out for everyone.
+  #
+  # **A hop COUNT, never `true`.** X-Forwarded-For is client-supplied and
+  # each proxy appends to it; trusting N means taking the Nth entry from
+  # the right. Too LOW degrades to the old behaviour (you land on a
+  # proxy's address — coarse, but not exploitable). Too HIGH reads an
+  # entry the client wrote, letting anyone forge a source address, evade
+  # their own limit, and poison the bucket of any address they choose.
+  #
+  # 1 = the gateway alone. Raise it only after counting the proxies
+  # actually in front of the pod; verify by logging `req.ip` alongside
+  # `x-forwarded-for` on any request and checking `req.ip` is the real
+  # client rather than a 10.x/gateway address.
+  TRUSTED_PROXY_HOPS: "1"

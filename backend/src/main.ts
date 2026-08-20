@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -61,6 +61,46 @@ async function bootstrap() {
   // and it's meant for a same-origin admin/PT console page, not a
   // cross-origin fetch client.
   const configService = app.get(ConfigService);
+
+  // **Trust proxy — this is what makes every `@Throttle()` in this app
+  // per-IP rather than one global bucket.**
+  //
+  // `@nestjs/throttler` keys its limits on `req.ip`, and Express reports
+  // `req.ip` as the socket peer unless told how many proxies sit in
+  // front. Nothing set this until 2026-08-20, so behind the Cilium
+  // gateway every visitor shared one address and therefore one bucket:
+  // roughly ten page views a minute exhausted the analytics limit
+  // site-wide, and — more seriously — the "tighter-than-default per-IP
+  // rate limit" that `onboarding.controller.ts` documents on child signup,
+  // and the one on staff login, were never per-IP at all. A single
+  // scripted client could lock out either for everyone.
+  //
+  // **The direction of error matters, so this is a hop COUNT, never
+  // `true`.** `X-Forwarded-For` is a client-supplied header that each
+  // proxy appends to. Trusting N hops means taking the Nth entry from the
+  // right — the address the last trusted proxy actually observed.
+  //   * Too LOW degrades to today's behaviour: you land on a proxy's
+  //     address, limits are coarser than intended, nothing is exploitable.
+  //   * Too HIGH (and `true` is "infinitely high") reads an entry the
+  //     client wrote, so anyone can forge an arbitrary source address —
+  //     evading their own limit and, worse, poisoning the bucket of any
+  //     address they choose.
+  // Under-counting is safe and over-counting is a vulnerability, so the
+  // default is the smallest value that is right for the current topology
+  // (one gateway hop), and raising it must follow a real count of the
+  // proxies in front of the pod rather than a guess.
+  const trustedProxyHops = Number(
+    configService.get<string>('TRUSTED_PROXY_HOPS') ?? '1',
+  );
+  const hops =
+    Number.isFinite(trustedProxyHops) && trustedProxyHops >= 0
+      ? Math.trunc(trustedProxyHops)
+      : 1;
+  app.set('trust proxy', hops);
+  new Logger('Bootstrap').log(
+    `Trusting ${hops} proxy hop(s) for client IP (rate limits key on it).`,
+  );
+
   const corsOrigin = configService.get<string>('CORS_ORIGIN');
   if (corsOrigin) {
     app.enableCors({
