@@ -131,6 +131,13 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
    * and their team's material and chooses to go outward.
    */
   const [surface, setSurface] = useState<'archive' | 'explore'>('archive');
+  /**
+   * Which collection inside Arkiv. `team` is the whole team feed; `mine`
+   * is the same feed filtered to this player's own uploads, which is the
+   * only place a clip can be published from — offering that control on a
+   * teammate's cell would teach the wrong model of who may publish what.
+   */
+  const [collection, setCollection] = useState<'team' | 'mine'>('team');
   const [view, setView] = useState<'feed' | 'upload'>('feed');
 
   const hasOpenedRef = useRef(false);
@@ -485,6 +492,13 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
     (consentStatus !== null && consentStatus !== 'approved') ||
     (teamJoinStatus !== null && teamJoinStatus !== 'approved');
 
+  const visibleClips =
+    clips === null
+      ? null
+      : collection === 'mine'
+        ? clips.filter((c) => c.uploaderPlayerId === viewerPlayerId)
+        : clips;
+
   // The tab pair only exists once the feature is live for this team. A
   // team outside the rollout allow-list sees no Utforska tab at all —
   // the same reasoning as the absent share row: nothing is advertised to
@@ -544,6 +558,33 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
         <Text style={styles.heading}>{t('v2.heading')}</Text>
         {tabs}
 
+        {!locked && clips !== null && !loadError ? (
+          <View style={styles.tabRow} accessibilityRole="tablist">
+            {(['team', 'mine'] as const).map((value) => {
+              const selected = collection === value;
+              return (
+                <Pressable
+                  key={value}
+                  style={[styles.subTab, selected ? styles.subTabOn : null]}
+                  onPress={() => setCollection(value)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected }}
+                >
+                  <Text
+                    style={[styles.subTabLabel, selected ? styles.subTabLabelOn : null]}
+                  >
+                    {t(
+                      value === 'team'
+                        ? 'publicFeed.collectionTeam'
+                        : 'publicFeed.collectionMine',
+                    )}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
         {locked ? (
           <ClipsWaitingCard
             consentStatus={consentStatus ?? 'pending'}
@@ -563,16 +604,28 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
             retryLabel={t('v2.retry')}
             onRetry={() => void fetchInitial()}
           />
-        ) : clips.length === 0 ? (
+        ) : visibleClips !== null && visibleClips.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyHeading}>{t('v2.emptyHeading')}</Text>
-            <Text style={styles.emptySub}>{t('v2.emptySub')}</Text>
+            <Text style={styles.emptyHeading}>
+              {t(
+                collection === 'mine'
+                  ? 'publicFeed.mineEmptyHeading'
+                  : 'v2.emptyHeading',
+              )}
+            </Text>
+            <Text style={styles.emptySub}>
+              {t(
+                collection === 'mine'
+                  ? 'publicFeed.mineEmptyBody'
+                  : 'v2.emptySub',
+              )}
+            </Text>
             <PrimaryButton label={t('v2.uploadButton')} onPress={handleTapFab} />
           </View>
         ) : (
           <ClipGrid
-            clips={clips}
-            hasMore={hasMore}
+            clips={visibleClips ?? []}
+            hasMore={collection === 'team' && hasMore}
             loadingMore={loadingMore}
             onPressClip={setActiveClip}
             onShowMore={() => void handleShowMore()}
@@ -704,6 +757,17 @@ const styles = StyleSheet.create({
     fontFamily: fonts.headingBold,
     color: colors.flame,
   },
+  subTab: {
+    paddingVertical: 6,
+    paddingHorizontal: 13,
+    borderRadius: 999,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  subTabOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  subTabLabel: { fontFamily: fonts.body, fontSize: 13, color: colors.textBody },
+  subTabLabelOn: { fontFamily: fonts.bodyBold, color: colors.white },
   heading: {
     fontFamily: fonts.headingBold,
     fontSize: 20,

@@ -155,6 +155,10 @@
       "strong": "Costaud !",
       "creative": "Créatif !",
       "well_done": "Bien joué !"
-    }
+    },
+    "collectionTeam": "L'équipe",
+    "collectionMine": "Les miens",
+    "mineEmptyHeading": "Tu n'as pas encore de clips",
+    "mineEmptyBody": "Les clips que tu envoies arrivent ici."
   }
 }

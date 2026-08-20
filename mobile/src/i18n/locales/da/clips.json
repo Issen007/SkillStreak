@@ -155,6 +155,10 @@
       "strong": "Stærkt!",
       "creative": "Kreativt!",
       "well_done": "Godt gået!"
-    }
+    },
+    "collectionTeam": "Holdet",
+    "collectionMine": "Mine",
+    "mineEmptyHeading": "Du har ingen klip endnu",
+    "mineEmptyBody": "De klip, du uploader, havner her."
   }
 }

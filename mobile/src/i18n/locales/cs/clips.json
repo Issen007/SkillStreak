@@ -155,6 +155,10 @@
       "strong": "Silné!",
       "creative": "Kreativní!",
       "well_done": "Dobrá práce!"
-    }
+    },
+    "collectionTeam": "Tým",
+    "collectionMine": "Moje",
+    "mineEmptyHeading": "Zatím nemáš žádné klipy",
+    "mineEmptyBody": "Klipy, které nahraješ, skončí tady."
   }
 }

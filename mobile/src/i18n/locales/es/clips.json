@@ -155,6 +155,10 @@
       "strong": "¡Fuerte!",
       "creative": "¡Creativo!",
       "well_done": "¡Bien hecho!"
-    }
+    },
+    "collectionTeam": "El equipo",
+    "collectionMine": "Míos",
+    "mineEmptyHeading": "Todavía no tienes clips",
+    "mineEmptyBody": "Los clips que subas acabarán aquí."
   }
 }

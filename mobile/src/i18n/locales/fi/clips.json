@@ -155,6 +155,10 @@
       "strong": "Vahvaa!",
       "creative": "Luovaa!",
       "well_done": "Hyvin tehty!"
-    }
+    },
+    "collectionTeam": "Joukkue",
+    "collectionMine": "Omat",
+    "mineEmptyHeading": "Sinulla ei ole vielä klippejä",
+    "mineEmptyBody": "Lataamasi klipit päätyvät tänne."
   }
 }

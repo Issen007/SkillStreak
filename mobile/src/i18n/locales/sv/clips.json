@@ -155,6 +155,10 @@
       "strong": "Starkt!",
       "creative": "Kreativt!",
       "well_done": "Bra jobbat!"
-    }
+    },
+    "collectionTeam": "Laget",
+    "collectionMine": "Mina",
+    "mineEmptyHeading": "Du har inga klipp än",
+    "mineEmptyBody": "Klippen du laddar upp hamnar här."
   }
 }
