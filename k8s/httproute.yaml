@@ -1,49 +1,60 @@
-# ---------------------------------------------------------------------------
-# THE HTTP -> HTTPS REDIRECT LIVED HERE AND WAS REMOVED 2026-08-20.
-#
-# It worked. All four hostnames returned 301 to HTTPS. It was removed
-# because it also, silently, breaks certificate renewal — which on this
-# deployment is a worse outcome than the cleartext it fixed.
-#
-# WHAT WAS MEASURED, not assumed:
-#
-# cert-manager solves HTTP-01 by creating its own HTTPRoute with an Exact
-# path match under /.well-known/acme-challenge/ on this same plaintext
-# listener. Gateway API says a more specific match wins, so the challenge
-# should survive a catch-all redirect. On Cilium v1.19.1 it does not.
-#
-# Tested by creating a route that mimics the solver exactly — same
-# listener, Exact path match, and a MORE specific hostname than the
-# redirect had. Result: the exact ACME path still answered 301, and the
-# probe route was accepted (attachedRoutes went to 4) but was never
-# programmed into the generated CiliumEnvoyConfig at all, even after two
-# minutes. The generated config contained only `prefix: /` entries and the
-# redirect. A catch-all RequestRedirect on a listener suppresses the other
-# routes on it rather than yielding to them.
-#
-# WHY THAT MATTERS MORE THAN THE CLEARTEXT:
-#
-#   * renewal fires 2026-09-29, expiry 2026-10-29;
-#   * the HSTS header now shipped (site/nginx.conf, backend/src/main.ts)
-#     means users CANNOT click through an expired certificate;
-#   * so a failed renewal is a hard outage, not a warning page.
-#
-# A staging-issuer test appeared to pass first and did not: Let's Encrypt
-# returned `initialState=valid` from a cached authorization, so no
-# challenge was ever solved. Those caches expire around mid-September,
-# which is precisely why the real September renewal WOULD have hit this.
-#
-# HOW TO BRING IT BACK: once DNS-01 is in place, ACME stops needing port
-# 80 at all and this becomes safe. Restoring it is `git revert` of the
-# commit that removed it — the manifest was correct, its environment was
-# not. See k8s/README.md's "TLS and certificate renewal" section.
-#
-# UNTIL THEN, plain HTTP answers 404 rather than redirecting. That is the
-# state a visitor reported on 2026-08-20, and it is mitigated but not
-# fixed by HSTS: a browser that has seen the site over HTTPS once will not
-# try port 80 again, but a first-ever visit still starts in cleartext.
-# ---------------------------------------------------------------------------
-
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-to-https-redirect
+  namespace: skillstreak
+  # Everything arriving on port 80 is bounced to HTTPS.
+  #
+  # **Why this exists**: reported 2026-08-20 by a visitor whose Safari
+  # privacy report showed "Anslutningen ar inte krypterad" on
+  # skillstreak.xyz. Port 80 was open and answering (envoy returned a
+  # bare 404) with no redirect, so anyone typing the domain, following an
+  # old http:// link, or scanning a QR code that omitted the scheme
+  # landed on cleartext. The certificates were fine throughout. What was
+  # missing was anything telling a browser to use the encrypted one.
+  #
+  # **This route DOES break HTTP-01 renewal. Read before switching back.**
+  #
+  # An earlier version of this comment claimed the opposite — that
+  # Gateway API resolves by specificity, so cert-manager's Exact-path
+  # /.well-known/acme-challenge/ route would still win. That is what the
+  # spec says and it is not what Cilium v1.19.1 does. Measured 2026-08-20
+  # with a probe route mimicking the solver exactly, using an Exact path
+  # match AND a more specific hostname than this route: the ACME path
+  # still answered 301, and the probe never appeared in the generated
+  # CiliumEnvoyConfig at all. A catch-all RequestRedirect suppresses the
+  # other routes on its listener instead of yielding to them.
+  #
+  # **Why it is safe to keep anyway**: cert-manager no longer uses
+  # HTTP-01. cluster-issuer.yaml switched to DNS-01 via Cloudflare on
+  # 2026-08-20, so renewal proves control of the zone by writing a TXT
+  # record and never touches port 80. Verified end-to-end the same day: a
+  # staging certificate for a hostname never issued before completed with
+  # initialState=pending — a real challenge, not a cached authorization —
+  # while this redirect was live on all four hostnames.
+  #
+  # So the constraint is one-directional and worth stating plainly: this
+  # route is fine with DNS-01 and fatal with HTTP-01. Anything that moves
+  # the issuers back to an http01 solver must delete this route in the
+  # same change, or renewal will fail silently ~30 days before expiry —
+  # and with HSTS now shipped, an expired cert is a hard outage users
+  # cannot click past, not a warning page.
+spec:
+  parentRefs:
+    - name: skillstreak-gateway
+      # Pinned to the plaintext listener. Without sectionName this would
+      # also attach to the HTTPS listeners and redirect them to
+      # themselves — an infinite loop that looks like the site being down.
+      sectionName: http
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            # 301, not 302: this is permanent, and a permanent redirect is
+            # what lets a browser stop trying port 80 for this host at all.
+            statusCode: 301
+---
 # Routes for skillstreak-gateway (see gateway.yaml). Each hostname here
 # needs a matching listener on that Gateway for HTTPS (see gateway.yaml's
 # listeners) — the `http` listener has no hostname restriction, so plain

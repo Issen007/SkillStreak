@@ -219,6 +219,35 @@ export class BounceMailboxService {
     try {
       const mailbox =
         this.configService.get<string>('BOUNCE_IMAP_MAILBOX') ?? 'INBOX';
+
+      // **On Gmail, expunging from INBOX does not delete anything.**
+      // Verified against the live noreply@ mailbox 2026-08-20: after a run
+      // reported six messages handled, INBOX held 0 and `[Gmail]/All Mail`
+      // held 6. Gmail treats `\\Deleted` + EXPUNGE outside Trash as
+      // "remove this label", so the message is archived, not destroyed —
+      // and archived forever, since nothing ever revisits All Mail.
+      //
+      // That is the entire mitigation for this mailbox failing silently:
+      // a DSN quotes the reminder it bounced, so it carries a live
+      // parental revoke code. Deleting the INBOX copy while All Mail keeps
+      // one is indistinguishable, from every log line and counter this
+      // service emits, from actually deleting it.
+      //
+      // The fix is Gmail's own rule: a message is destroyed when it is
+      // expunged *from Trash*. So on Gmail we MOVE each handled message to
+      // Trash during the INBOX pass and expunge them there once the INBOX
+      // lock is released — a mailbox cannot be reselected while its lock
+      // is held. Non-Gmail servers keep the plain delete, which on a
+      // normal IMAP server already means what it says.
+      //
+      // This deliberately does not depend on Gmail's "when I mark a
+      // message as deleted, immediately delete it forever" account
+      // setting. That setting fixes the same problem, but it is invisible
+      // to this code, unverifiable from it, and silently reverts to the
+      // archiving default on any new or migrated mailbox.
+      const trashPath = await this.resolveGmailTrashPath(client);
+      const movedToTrash: number[] = [];
+
       const lock = await client.getMailboxLock(mailbox);
       try {
         // **Every IMAP command is issued outside the fetch generator, and
@@ -287,9 +316,14 @@ export class BounceMailboxService {
             summary.unattributed += outcome.unattributed;
             summary.disabled += outcome.disabled;
 
-            // Deleted immediately, not batched: these quote reminder
-            // bodies, which carry live revoke links.
-            const deleted = await client.messageDelete([uid], { uid: true });
+            // Removed immediately, not batched: these quote reminder
+            // bodies, which carry live revoke links. On Gmail "removed"
+            // means moved to Trash, and the purge that actually destroys
+            // it runs after this lock releases — see the comment on
+            // `trashPath` above for why a plain delete is not enough.
+            const deleted = trashPath
+              ? await this.moveToTrash(client, uid, trashPath, movedToTrash)
+              : await client.messageDelete([uid], { uid: true });
             if (!deleted) {
               // imapflow returns false rather than throwing.
               //
@@ -344,6 +378,11 @@ export class BounceMailboxService {
       } finally {
         lock.release();
       }
+
+      // Only now — with INBOX released — can Trash be selected.
+      if (trashPath && movedToTrash.length > 0) {
+        await this.purgeTrash(client, trashPath, movedToTrash, summary);
+      }
     } finally {
       // `logout()` can itself throw on an already-broken socket; the
       // close is best-effort because the work is already done and
@@ -352,6 +391,106 @@ export class BounceMailboxService {
     }
 
     return summary;
+  }
+
+  /**
+   * The Trash mailbox path, but only when the server is Gmail.
+   *
+   * Returns null for everything else, which is what keeps the plain
+   * `messageDelete` path in place for a normal IMAP server where it
+   * already destroys the message.
+   *
+   * Located by `specialUse` rather than by the literal '[Gmail]/Trash':
+   * Gmail localises those folder names, so a Swedish account — which this
+   * project is rather likely to end up on — calls it
+   * '[Gmail]/Papperskorgen'. The `\\Trash` attribute is the same either
+   * way.
+   */
+  private async resolveGmailTrashPath(
+    client: ImapFlow,
+  ): Promise<string | null> {
+    if (!client.capabilities?.has('X-GM-EXT-1')) return null;
+    type MailboxList = Awaited<ReturnType<ImapFlow['list']>>;
+    const boxes: MailboxList = await client.list().catch((): MailboxList => []);
+    const trash = boxes.find((b) => b.specialUse === '\\Trash');
+    if (!trash) {
+      // Gmail without a Trash folder should not happen. Say so loudly
+      // rather than falling through to a delete that would archive: the
+      // whole point of this path is that the silent version of this
+      // failure is the dangerous one.
+      this.logger.error(
+        'Bounce intake: server advertises Gmail extensions but exposes no ' +
+          '\\Trash mailbox, so handled messages cannot be destroyed. They ' +
+          'will be archived instead, and they hold live revoke codes.',
+      );
+      return null;
+    }
+    return trash.path;
+  }
+
+  /**
+   * Moves one handled message to Trash, recording where it landed.
+   *
+   * The destination UID comes from UIDPLUS's COPYUID response. Without it
+   * the message is in Trash but unaddressable, and the alternative —
+   * expunging whatever else Trash happens to hold — is not something this
+   * service gets to decide, since the mailbox may be a human's too. So a
+   * missing map counts as a failure and is reported like one.
+   */
+  private async moveToTrash(
+    client: ImapFlow,
+    uid: number,
+    trashPath: string,
+    collected: number[],
+  ): Promise<boolean> {
+    const result = await client
+      .messageMove([uid], trashPath, { uid: true })
+      .catch(() => null);
+    if (!result) return false;
+    const uidMap = (result as { uidMap?: Map<number, number> }).uidMap;
+    const destination = uidMap?.get(uid);
+    if (typeof destination !== 'number') {
+      this.logger.error(
+        `Bounce intake: moved message uid ${uid} to Trash but the server ` +
+          'returned no COPYUID, so it cannot be purged from there by uid. ' +
+          'It holds a live revoke code and needs removing by hand.',
+      );
+      return false;
+    }
+    collected.push(destination);
+    return true;
+  }
+
+  /**
+   * Expunges the moved messages from Trash, which on Gmail is the only
+   * operation that actually destroys them.
+   *
+   * A failure here is counted as `stuck` for the same reason a failed
+   * delete is: the messages still exist, still hold live revoke codes, and
+   * nothing else in this service will revisit Trash to try again.
+   */
+  private async purgeTrash(
+    client: ImapFlow,
+    trashPath: string,
+    uids: number[],
+    summary: { stuck: number },
+  ): Promise<void> {
+    const lock = await client.getMailboxLock(trashPath);
+    try {
+      const purged = await client
+        .messageDelete(uids, { uid: true })
+        .catch(() => false);
+      if (!purged) {
+        summary.stuck += uids.length;
+        this.logger.error(
+          `Bounce intake: ${uids.length} message(s) were moved to Trash but ` +
+            'could not be expunged from it. They still exist and still hold ' +
+            'live revoke codes.',
+        );
+      }
+    } finally {
+      lock.release();
+    }
   }
 
   /**
