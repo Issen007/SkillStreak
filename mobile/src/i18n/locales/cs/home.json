@@ -157,7 +157,8 @@
       "changeContact": "Změnit",
       "back": "Zpět",
       "logout": "Odhlásit se",
-      "deleteAccount": "Smazat můj účet"
+      "deleteAccount": "Smazat můj účet",
+      "reportProblem": "Nahlásit problém"
     }
   },
   "erasureCheckEmail": {
@@ -238,5 +239,45 @@
     "body": "Tvůj trénink tu pořád je. Zapsat ho bez videa? Dostaneš méně bodů, ale počítá se.",
     "logAnyway": "Zapsat bez videa",
     "tryAgain": "Zkusit znovu"
+  },
+  "bugReport": {
+    "heading": "Něco nefunguje?",
+    "sub": "Řekni nám, co se stalo, a my to spravíme.",
+    "categoryLabel": "Co se stalo?",
+    "categories": {
+      "crash": "Aplikace spadla nebo zamrzla",
+      "missing_or_wrong_data": "Něco chybí nebo se zobrazuje špatně",
+      "login_issue": "Nemohl/a jsem se přihlásit",
+      "upload_failed": "Klip se nepodařilo nahrát",
+      "other": "Něco jiného"
+    },
+    "screenLabel": "Kde v aplikaci se to stalo?",
+    "screens": {
+      "home": "Domů",
+      "chat": "Chat",
+      "clips": "Klipy",
+      "clip_upload": "Nahrávání klipu",
+      "goal": "Cíl",
+      "team": "Tým",
+      "leaderboard": "Tabulka MS-zlato",
+      "profile": "Tvůj profil",
+      "onboarding": "Když jsem si zakládal/a účet",
+      "other": "Nevím / někde jinde"
+    },
+    "descriptionLabel": "Chceš říct víc? (nepovinné)",
+    "descriptionPlaceholder": "Např. „Klepl/a jsem na Trénoval jsem a nic se nestalo.“",
+    "descriptionCounter": "{{count}}/500 znaků",
+    "descriptionTooLong": "Text je moc dlouhý — trochu ho zkrať.",
+    "disclosureTitle": "Tohle posíláme s sebou",
+    "disclosureSent": "Tvoje zobrazované jméno a tvůj tým, jakou verzi aplikace máš, jaký druh telefonu, a v jakém jazyce aplikace je — plus to, co jsi vybral/a a napsal/a nahoře.",
+    "disclosureNotSent": "Nikdy neposíláme, kde jsi, jaký je to telefon, tvoji IP adresu ani co jsi v aplikaci dělal/a dřív.",
+    "disclosureWho": "Jde to jen k nám, kdo aplikaci staví — nikdy nikomu jinému v týmu.",
+    "submit": "Odeslat",
+    "rateLimited": "Dnes už jsi pár hlášení poslal/a. Zkus to zítra znovu.",
+    "successHeading": "Díky!",
+    "successBody": "Dostali jsme tvoje hlášení a podíváme se na něj. Nic dalšího dělat nemusíš.",
+    "successCta": "Hotovo",
+    "a11yCategoryGroup": "Vyber, co se stalo",
+    "a11yScreenGroup": "Vyber, kde v aplikaci se to stalo"
   }
 }

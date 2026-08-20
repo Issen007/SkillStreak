@@ -157,7 +157,8 @@
       "changeContact": "Vaihda",
       "back": "Takaisin",
       "logout": "Kirjaudu ulos",
-      "deleteAccount": "Poista tilini"
+      "deleteAccount": "Poista tilini",
+      "reportProblem": "Ilmoita ongelmasta"
     }
   },
   "erasureCheckEmail": {
@@ -238,5 +239,45 @@
     "body": "Harjoituksesi on yhä tallessa. Kirjataanko se ilman videota? Saat vähemmän pisteitä, mutta se lasketaan.",
     "logAnyway": "Kirjaa ilman videota",
     "tryAgain": "Yritä uudelleen"
+  },
+  "bugReport": {
+    "heading": "Eikö jokin toimi?",
+    "sub": "Kerro mitä tapahtui, niin korjaamme sen.",
+    "categoryLabel": "Mitä tapahtui?",
+    "categories": {
+      "crash": "Sovellus kaatui tai jumittui",
+      "missing_or_wrong_data": "Jotain puuttuu tai näkyy väärin",
+      "login_issue": "En päässyt kirjautumaan sisään",
+      "upload_failed": "Klippi ei latautunut",
+      "other": "Jotain muuta"
+    },
+    "screenLabel": "Missä kohtaa sovellusta se tapahtui?",
+    "screens": {
+      "home": "Koti",
+      "chat": "Chat",
+      "clips": "Klipit",
+      "clip_upload": "Klipin lataus",
+      "goal": "Tavoite",
+      "team": "Joukkue",
+      "leaderboard": "MM-kultataulukko",
+      "profile": "Oma profiili",
+      "onboarding": "Kun loin tilin",
+      "other": "En tiedä / jossain muualla"
+    },
+    "descriptionLabel": "Haluatko kertoa lisää? (vapaaehtoinen)",
+    "descriptionPlaceholder": "Esim. ”Painoin Olen treenannut, eikä mitään tapahtunut.”",
+    "descriptionCounter": "{{count}}/500 merkkiä",
+    "descriptionTooLong": "Teksti on liian pitkä — lyhennä sitä vähän.",
+    "disclosureTitle": "Tämän lähetämme mukana",
+    "disclosureSent": "Näyttönimesi ja joukkueesi, mikä versio sovelluksesta sinulla on, millainen puhelin, ja millä kielellä sovellus on — sekä se, minkä valitsit ja kirjoitit yllä.",
+    "disclosureNotSent": "Emme koskaan lähetä sitä, missä olet, mikä puhelin se on, IP-osoitettasi tai mitä olet aiemmin tehnyt sovelluksessa.",
+    "disclosureWho": "Se menee vain meille, jotka rakennamme sovellusta — ei koskaan kenellekään muulle joukkueessa.",
+    "submit": "Lähetä",
+    "rateLimited": "Olet jo lähettänyt muutaman ilmoituksen tänään. Yritä huomenna uudelleen.",
+    "successHeading": "Kiitos!",
+    "successBody": "Saimme ilmoituksesi ja katsomme sen. Sinun ei tarvitse tehdä muuta.",
+    "successCta": "Valmis",
+    "a11yCategoryGroup": "Valitse mitä tapahtui",
+    "a11yScreenGroup": "Valitse missä sovelluksessa se tapahtui"
   }
 }

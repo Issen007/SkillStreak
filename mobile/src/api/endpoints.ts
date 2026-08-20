@@ -59,6 +59,8 @@ import type {
   PtTeamLinkRevokeResult,
   PtTeamLinkRow,
   TrainerPost,
+  SubmitBugReportRequest,
+  SubmitBugReportResponse,
 } from './types';
 
 // The only four endpoints Phase 1's Expo app talks to, per
@@ -685,4 +687,21 @@ export function unpublishClipPublicly(
     `/clips/${encodeURIComponent(clipId)}/public`,
     { method: 'DELETE', auth: true },
   );
+}
+
+/** Screen BR2's Skicka — docs/design/phase7-admin-console-flows.md §9.
+ *
+ * Auth required but deliberately NOT consent-gated: a child whose parental
+ * consent is still pending is the person most likely to have something
+ * worth reporting, and the endpoint is specified as plain `JwtAuthGuard`
+ * for exactly that reason. 201 on success; `bug_report_rate_limited` / 429
+ * is the one error the UI branches on by code. */
+export function submitBugReport(
+  body: SubmitBugReportRequest,
+): Promise<SubmitBugReportResponse> {
+  return apiClient.request<SubmitBugReportResponse>('/bug-reports', {
+    method: 'POST',
+    body,
+    auth: true,
+  });
 }
