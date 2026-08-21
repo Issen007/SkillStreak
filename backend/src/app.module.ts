@@ -33,6 +33,7 @@ import { TeamPoolModule } from './team-pool/team-pool.module';
 import { TeamsModule } from './teams/teams.module';
 import { TrainingLogsModule } from './training-logs/training-logs.module';
 import { UsageMetricsModule } from './usage-metrics/usage-metrics.module';
+import { AccountLinkModule } from './account-link/account-link.module';
 import { PublicSharingModule } from './public-sharing/public-sharing.module';
 import { VideoClipsModule } from './video-clips/video-clips.module';
 import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
@@ -108,6 +109,7 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     TeamChatModule,
     VideoClipsModule,
     PublicSharingModule,
+    AccountLinkModule,
     AccountErasureModule,
     // docs/adr/0023-pt-role-and-staff-sso-rbac.md Part B — staff (admin/pt)
     // SSO login + the two RBAC guards. ADR-0022's own admin-console
