@@ -281,7 +281,21 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
   };
 
   const handleTapMeta = (clipId: string) => {
-    setRevealedClipId((prev) => (prev === clipId ? null : clipId));
+    const opening = revealedClipId !== clipId;
+    // Refresh the sharing permission every time the menu opens.
+    //
+    // This is a chicken-and-egg the greying introduced. The share row is
+    // disabled from `sharingStatus`, and the one thing that changes that
+    // status — a parent clicking approve in their own inbox — happens
+    // entirely outside the app. Until this, the only refetch on the path
+    // was inside `handleTapShare`, which a disabled row never reaches: a
+    // stale "pending" left the row inert, and the row being inert was
+    // exactly what stopped it being refreshed. Reported by the project
+    // owner on build 10 as "I approved it, I can see the share option but
+    // the button doesn't work" — the row was greyed on a status recorded
+    // before the approval he had just given.
+    if (opening) void fetchSharingStatus();
+    setRevealedClipId(opening ? clipId : null);
   };
 
   const handleTapReport = (clip: ClipFeedItem) => {

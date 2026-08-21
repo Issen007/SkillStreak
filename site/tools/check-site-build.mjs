@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 /*
- * Asserts that `site/Dockerfile`'s build-time substitutions leave
- * index.html as valid JavaScript.
+ * Guards the two ways `site/` can look correct in the repo and be broken
+ * in the image: a substitution that mangles the page, and a file the page
+ * loads that never gets copied in.
+ *
+ * ## 1. Substitutions must leave index.html as valid JavaScript.
  *
  * This exists because on 2026-08-21 they did not, and nothing noticed for
  * as long as the page has been deployed. `window.__TRY_IT_URL__ =
@@ -23,7 +26,18 @@
  * this: it verifies the substitution *happened*, which it did. What was
  * missing was a check that the result still parses. That is this file.
  *
- * Run from `site/`: `node tools/check-substitutions.mjs`
+ * ## 2. Every file the page references must be copied into the image
+ *
+ * `index.html` has loaded `<script src="/i18n.js">` since the day it was
+ * written, and the Dockerfile never copied that file. It 404'd in
+ * production for its entire existence: no language switcher, no flags, and
+ * several hundred English translations that had never once been served,
+ * while `site/i18n.js` sat correct in the repo and worked perfectly on
+ * any local `python3 -m http.server`. Nothing could catch it — the file
+ * exists, its contents are right, and the page that needs it is right.
+ * Only the COPY list was wrong, and nothing read the COPY list.
+ *
+ * Run from `site/`: `node tools/check-site-build.mjs`
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -111,10 +125,41 @@ for (const line of substituted.split('\n')) {
   }
 }
 
+/*
+ * Every local file index.html pulls in must appear in the Dockerfile's
+ * COPY list. Checking the repo for the file is not enough — that was
+ * always true of i18n.js — so this reads the Dockerfile itself.
+ */
+const dockerfile = readFileSync(join(siteRoot, 'Dockerfile'), 'utf8');
+const copiedPaths = [...dockerfile.matchAll(/^COPY\s+\S*site\/(\S+)/gm)].map(
+  ([, path]) => path.replace(/\/$/, ''),
+);
+
+const referenced = [
+  ...source.matchAll(/<script[^>]*\ssrc="\/([^"]+)"/g),
+  ...source.matchAll(/<link[^>]*\shref="\/([^"]+)"/g),
+].map(([, path]) => path);
+
+for (const path of [...new Set(referenced)]) {
+  // The Expo web export lives under a different nginx root and is copied
+  // from another build stage, so it is not in site/ and not checked here.
+  if (path.startsWith('app/')) continue;
+  const isCopied = copiedPaths.some(
+    (copied) => copied === path || path.startsWith(`${copied}/`),
+  );
+  if (!isCopied) {
+    fail(
+      `index.html loads /${path}, but site/Dockerfile never copies it into ` +
+        `the image — it will 404 in production while working locally.`,
+    );
+  }
+}
+
 if (failures > 0) {
-  console.error(`\n${failures} problem(s) in site/index.html's build-time substitutions.`);
+  console.error(`\n${failures} problem(s) in the site build.`);
   process.exit(1);
 }
 console.log(
-  `site substitutions OK: ${SUBSTITUTIONS.length} placeholders, ${scripts.length} inline scripts parse.`,
+  `site build OK: ${SUBSTITUTIONS.length} placeholders, ${scripts.length} inline ` +
+    `scripts parse, ${referenced.length} referenced file(s) are copied into the image.`,
 );

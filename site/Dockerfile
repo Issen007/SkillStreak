@@ -84,6 +84,14 @@ RUN QR_TARGET="${EXPO_GO_URL:-$TRY_IT_URL}" \
 FROM nginx:1.27-alpine
 COPY site/nginx.conf /etc/nginx/conf.d/default.conf
 COPY site/index.html /usr/share/nginx/marketing/index.html
+# index.html loads this with <script src="/i18n.js">, and until 2026-08-21
+# it was never copied here — so it 404'd in production for as long as it
+# has existed. The language switcher is built by that file, which is why
+# the site had no flags and no way to reach English: every visitor got the
+# Swedish source text, and the several hundred translations in it had
+# never once been served. check-site-build.mjs now fails CI if a file
+# referenced by the page is missing from this list.
+COPY site/i18n.js /usr/share/nginx/marketing/i18n.js
 COPY site/download.html /usr/share/nginx/marketing/download.html
 COPY site/assets/ /usr/share/nginx/marketing/assets/
 # Served at /privacy — nginx's `try_files $uri/` resolves the directory to

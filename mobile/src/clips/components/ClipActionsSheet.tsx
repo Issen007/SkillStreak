@@ -61,7 +61,9 @@ interface ClipActionsSheetProps {
  *   server's limits are for.
  * - **Unshare is never greyed.** A clip that is already public stays
  *   removable whatever the consent says; a permission that lapsed must not
- *   trap a child's own video outside the team.
+ *   trap a child's own video outside the team. That must not suppress the
+ *   ask row, though — the two were briefly the same condition, which hid
+ *   the way back in precisely the case that needed it.
  * - **The ask row opens the share sheet rather than mailing straight from
  *   here.** That sheet is where the child is told, in their own words,
  *   what a stranger would be able to see — the disclosure ADR-0030 puts
@@ -82,6 +84,14 @@ export function ClipActionsSheet({
 
   // An already-public clip is always un-shareable, consent or no consent.
   const shareEnabled = publishedPublicly || consent === 'active';
+  // Asking is a separate question from sharing *this* clip, and tying the
+  // two together was a bug: `publishedPublicly` is the raw
+  // `published_publicly_at` flag, which survives a parent revoking. So on
+  // exactly the clips a child had shared, `shareEnabled` stayed true, the
+  // ask row vanished, and there was no way to ask again — reported by the
+  // project owner minutes after testing the revoke link. Whether this clip
+  // is flagged says nothing about whether the family's permission is live.
+  const canAsk = consent !== 'active';
   const lockedHint =
     consent === 'pending'
       ? t('clipActions.sharePendingHint')
@@ -121,7 +131,7 @@ export function ClipActionsSheet({
               </Pressable>
             ) : null}
 
-            {!shareEnabled && onAskParent ? (
+            {canAsk && onAskParent ? (
               <Pressable
                 accessibilityRole="button"
                 onPress={onAskParent}
