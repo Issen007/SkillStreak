@@ -8,6 +8,7 @@ import type { NextFunction, Request, Response } from 'express';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+import { securityHeaders } from './common/security-headers.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -130,6 +131,9 @@ async function bootstrap() {
     }
     next();
   });
+
+  // See the middleware for why each of these three is here.
+  app.use(securityHeaders);
 
   const corsOrigin = configService.get<string>('CORS_ORIGIN');
   if (corsOrigin) {
