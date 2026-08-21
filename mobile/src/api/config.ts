@@ -44,3 +44,17 @@ export const JOIN_URL_BASE: string =
 // never set it. `null` (not the empty string) lets callers tell "not
 // configured" apart from "configured as empty" unambiguously.
 export const EXPO_GO_URL: string | null = process.env.EXPO_PUBLIC_EXPO_GO_URL || null;
+
+// The staff console (admin + trainer), served by the API itself rather
+// than by the site — the `staff_session` cookie is SameSite=Strict and
+// outside the CORS block, so the console only authenticates at all when
+// it is same-origin with the API.
+//
+// **Derived from API_BASE_URL rather than configured separately**, which
+// is what makes it correct in both environments for free: production
+// resolves to api.skillstreak.xyz and the internal cluster to its LAN
+// address, from the one build arg that already distinguishes them. A
+// second EXPO_PUBLIC_* var here would be a second thing to get wrong, and
+// CLAUDE.md's environment-parity rule exists because that has already
+// happened once.
+export const CONSOLE_URL = `${API_BASE_URL}/console/`;

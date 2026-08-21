@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -21,6 +29,7 @@ import {
   updateProfile,
 } from '../api/endpoints';
 import { ApiError } from '../api/ApiError';
+import { CONSOLE_URL } from '../api/config';
 import type { ErasureStatusResponse, PlayerProfileResponse, TeammateEntry } from '../api/types';
 import { AVATAR_CATALOG } from '../onboarding/avatarCatalog';
 import { Avatar } from '../components/Avatar';
@@ -731,6 +740,32 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
             incident where production served an internal-test build. */}
         <Text style={styles.versionLine}>{APP_VERSION}</Text>
 
+        {/* Trainer mode.
+            **Self-selecting rather than role-gated, because there is no
+            role to gate on.** A trainer is a `StaffAccount` authenticated
+            by SSO; a player is a `Player` with a JWT. The two identities
+            are unlinked — `staff_account` has no `player_id` column — so
+            this app genuinely cannot know whether the person holding the
+            phone is also a trainer.
+            The copy therefore asks rather than announces: a nine-year-old
+            reads "Är du tränare?" and it plainly does not apply to them,
+            which is the honest version of a control we cannot hide. The
+            console itself is the real gate — it requires staff SSO, so a
+            child who taps through lands on a sign-in they cannot pass and
+            nothing is exposed.
+            Opening a browser rather than rendering natively is deliberate
+            for the same reason: the console's session cookie is
+            SameSite=Strict and same-origin with the API, which is exactly
+            what makes it safe, and a native re-implementation would need
+            its own staff auth path before it could show anything. */}
+        <View style={styles.trainerBlock}>
+          <Text style={styles.trainerPrompt}>{t('profileScreen.view.trainerPrompt')}</Text>
+          <SecondaryLink
+            label={t('profileScreen.view.trainerLink')}
+            onPress={() => void Linking.openURL(CONSOLE_URL)}
+          />
+        </View>
+
         {/* Screen E1 — only shown when no erasure request is active
             (Judgment call 8: never alongside E6's status card above). */}
         {erasureStatus.status === 'none' ? (
@@ -759,6 +794,17 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
 const APP_VERSION = process.env.EXPO_PUBLIC_APP_VERSION ?? 'dev';
 
 const styles = StyleSheet.create({
+  trainerBlock: {
+    marginTop: 18,
+    gap: 2,
+    alignItems: 'center',
+  },
+  trainerPrompt: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
   versionLine: {
     fontFamily: fonts.body,
     fontSize: 11.5,

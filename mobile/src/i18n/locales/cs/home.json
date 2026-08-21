@@ -158,7 +158,9 @@
       "back": "Zpět",
       "logout": "Odhlásit se",
       "deleteAccount": "Smazat můj účet",
-      "reportProblem": "Nahlásit problém"
+      "reportProblem": "Nahlásit problém",
+      "trainerPrompt": "Jsi trenér?",
+      "trainerLink": "Otevřít trenérský režim"
     }
   },
   "erasureCheckEmail": {

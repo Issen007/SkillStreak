@@ -140,7 +140,20 @@ data:
   # id — query it (`SELECT id, name FROM team WHERE name = '...'`) and put
   # it here, then restart the api Deployment. Widening to everyone should
   # wait for finding 4 and Decision 9's review (due 2026-09-16).
-  PUBLIC_SHARING_ENABLED_TEAM_IDS: ""
+  # Enabled 2026-08-21 for "Ackers Test" (2 players) at the project
+  # owner's direction — the first team the public feed is live for.
+  # Deliberately the small test-named team rather than a real roster:
+  # the rollout gate exists so the whole flow (child asks -> parent
+  # approves by email -> clip publishes -> a stranger can react) can be
+  # proven once before any more children's video is involved.
+  #
+  # Widening still waits on Decision 9's review (due 2026-09-16) AND the
+  # three open questions in docs/design/phase6-public-feed-flows.md §11 —
+  # re-consent for existing families, whether public-feed *viewers* need
+  # an age/role boundary, and whether 13+ self-approval is sound. Two of
+  # those are legal reads rather than product calls, and none of them is
+  # answered by this line working.
+  PUBLIC_SHARING_ENABLED_TEAM_IDS: "cd0ce417-300b-417a-aea4-8bfe1b4a58f4"
 
   # --- Bounce mailbox (ADR-0030 finding 4) ---------------------------------
   #

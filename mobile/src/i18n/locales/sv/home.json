@@ -158,7 +158,9 @@
       "back": "Tillbaka",
       "logout": "Logga ut",
       "deleteAccount": "Radera mitt konto",
-      "reportProblem": "Rapportera ett problem"
+      "reportProblem": "Rapportera ett problem",
+      "trainerPrompt": "Är du tränare?",
+      "trainerLink": "Öppna tränarläget"
     }
   },
   "erasureCheckEmail": {
