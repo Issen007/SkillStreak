@@ -235,9 +235,26 @@ four checks, with "require branches to be up to date" on:
 
 Two consequences worth knowing before you plan a change:
 
-- **`Mobile typecheck` and `Mobile expo-doctor` are NOT required** — the
-  mobile side of a PR is advisory and cannot block a merge. Don't rely on
-  CI to catch a broken `tsc`; run it yourself.
+- **`Mobile typecheck`, `Mobile expo-doctor` and `Mobile build drift` are
+  NOT required** — the mobile side of a PR is advisory and cannot block a
+  merge. Don't rely on CI to catch a broken `tsc`; run it yourself.
+
+  **`Mobile build drift` is new (2026-08-21) and worth understanding**,
+  because it reports something no other check can: whether the code in
+  `mobile/` has run ahead of any app a person can actually install. CI
+  builds and deploys the API and the site on every merge to `main`, and
+  has never built the app — so the two drift apart silently. On
+  2026-08-21 the installed build turned out to be three days and eleven
+  commits stale, and the share button the owner was hunting for had never
+  been in a build at all.
+
+  It compares against `mobile/.last-eas-build.json`. To clear it: run an
+  EAS build, then `cd mobile && node scripts/record-eas-build.mjs` and
+  commit the result — the script asks EAS rather than taking your word
+  for what was built. It is deliberately advisory (a blocking version
+  would refuse the very commit it is asking for) and deliberately
+  self-clearing, since permanent red is what taught everyone to ignore
+  expo-doctor.
 - **Strict mode means a stale branch is unmergeable**, so `review` may
   need `main` merged back into it before a PR will go green — which is
   the normal reason a PR that passed yesterday won't merge today.

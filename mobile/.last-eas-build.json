@@ -1,0 +1,27 @@
+{
+  "_comment": [
+    "The last EAS build that actually shipped this app, recorded so CI can",
+    "tell when mobile/ has drifted ahead of what anyone can install.",
+    "",
+    "This exists because on 2026-08-21 the installed app turned out to be",
+    "three days and eleven commits stale. The share button the owner was",
+    "looking for had never been in a build. Nothing surfaced that: CI",
+    "typechecks mobile/ but has never built it, and the API deploys on every",
+    "merge, so the two halves drifted apart silently.",
+    "",
+    "Update it by running `node scripts/record-eas-build.mjs` from mobile/",
+    "AFTER a build finishes. It reads the real build from EAS rather than",
+    "taking your word for it.",
+    "",
+    "Not authoritative, and honest about that: nothing stops a human editing",
+    "this file without building. Adding an EXPO_TOKEN secret would let the",
+    "CI job query EAS directly and remove that gap — see the job's own",
+    "comment in .github/workflows/ci-cd.yml."
+  ],
+  "buildId": "68ac5e77-db8b-4259-889e-64cab049a505",
+  "commit": "2922972c30e8b0a97d53d30826881e1d65d74297",
+  "platform": "IOS",
+  "profile": "production",
+  "buildNumber": "6",
+  "finishedAt": "2026-08-21"
+}
