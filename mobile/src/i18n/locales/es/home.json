@@ -158,7 +158,9 @@
       "back": "Atrás",
       "logout": "Cerrar sesión",
       "deleteAccount": "Borrar mi cuenta",
-      "reportProblem": "Informar de un problema"
+      "reportProblem": "Informar de un problema",
+      "trainerPrompt": "¿Eres entrenador?",
+      "trainerLink": "Abrir el modo entrenador"
     }
   },
   "erasureCheckEmail": {

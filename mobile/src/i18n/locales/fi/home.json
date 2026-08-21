@@ -158,7 +158,9 @@
       "back": "Takaisin",
       "logout": "Kirjaudu ulos",
       "deleteAccount": "Poista tilini",
-      "reportProblem": "Ilmoita ongelmasta"
+      "reportProblem": "Ilmoita ongelmasta",
+      "trainerPrompt": "Oletko valmentaja?",
+      "trainerLink": "Avaa valmentajatila"
     }
   },
   "erasureCheckEmail": {

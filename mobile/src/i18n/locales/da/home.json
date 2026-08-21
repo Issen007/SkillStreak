@@ -158,7 +158,9 @@
       "back": "Tilbage",
       "logout": "Log ud",
       "deleteAccount": "Slet min konto",
-      "reportProblem": "Rapportér et problem"
+      "reportProblem": "Rapportér et problem",
+      "trainerPrompt": "Er du træner?",
+      "trainerLink": "Åbn trænertilstand"
     }
   },
   "erasureCheckEmail": {

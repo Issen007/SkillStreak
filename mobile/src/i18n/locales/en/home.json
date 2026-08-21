@@ -158,7 +158,9 @@
       "back": "Back",
       "logout": "Log out",
       "deleteAccount": "Delete my account",
-      "reportProblem": "Report a problem"
+      "reportProblem": "Report a problem",
+      "trainerPrompt": "Are you a trainer?",
+      "trainerLink": "Open trainer mode"
     }
   },
   "erasureCheckEmail": {
