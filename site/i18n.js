@@ -77,21 +77,29 @@
       'Jag vill vara med på resan som delägare':
         'I want to join the journey as a co-owner',
       'Visning': 'Live demo',
-      'Kom på visningen': 'Come to the live demo',
-      'I början av september visar vi SkillStreak live — hur en träning\n        loggas, hur laget jagar VM-guldet ihop, och hur trygghetsreglerna\n        faktiskt fungerar. Vi ses över Google Meet, och du får länken via\n        mejl när tiden är spikad.':
-        'In early September we are showing SkillStreak live — how a session gets logged, how a team chases its World Championship gold together, and how the safety rules actually work. We meet over Google Meet, and you get the link by email once the time is set.',
+      'Var med på resan': 'Come along for the ride',
+      /* Keys are the source string with whitespace collapsed to single
+         spaces — see `apply()`. The entry this replaces kept the HTML's
+         newlines and indentation and therefore never matched anything:
+         this paragraph has been silently Swedish-only on the English site
+         for as long as it has existed. Write long copy on one line. */
+      'SkillStreak byggs i öppen dager av en innebandytränare. Skriv upp dig så hör du av oss när något faktiskt händer — nya släpp, och visningarna där vi går igenom hur en träning loggas, hur laget jagar VM-guldet ihop och hur trygghetsreglerna fungerar. Du väljer själv vad du vill ha, och kan säga upp det när som helst.':
+        'SkillStreak is being built in the open by a floorball coach. Put your name down and you will hear from us when something actually happens — new releases, and the live demos where we go through how a session gets logged, how a team chases its World Championship gold together, and how the safety rules work. You choose what you want, and you can stop it at any time.',
       'Namn': 'Name',
       'E-post': 'Email',
-      'Vad är ditt intresse?': 'What brings you here?',
+      'Hur vill du vara med?': 'How would you like to be involved?',
+      'Vad vill du att vi hör av oss om?': 'What should we get in touch about?',
+      'Håll mig uppdaterad om nya släpp': 'Keep me posted about new releases',
+      'Bjud in mig till nästa visning': 'Invite me to the next live demo',
       'Jag är bara nyfiken': 'Just curious',
       'Jag vill bli tränare i appen': 'I want to be a trainer in the app',
       'Jag vill vara med och bygga': 'I want to help build it',
       'Jag vill veta mer om investering': 'I want to know more about investing',
       'Annat': 'Something else',
       'Något särskilt du vill se? (frivilligt)': 'Anything in particular you want to see? (optional)',
-      'Ja, spara mitt namn och min mejladress så ni kan bjuda in mig. Vi använder dem bara till det här, och du kan be oss radera dem när som helst.':
-        'Yes, keep my name and email so you can invite me. We use them only for this, and you can ask us to delete them at any time.',
-      'Anmäl mig': 'Sign me up',
+      'Ja, spara mitt namn och min mejladress så ni kan höra av er om det jag kryssat i ovan. Vi använder dem bara till det, delar dem inte med någon, och du kan be oss radera dem när som helst.':
+        'Yes, keep my name and email so you can get in touch about what I ticked above. We use them only for that, we do not share them with anyone, and you can ask us to delete them at any time.',
+      'Skriv upp mig': 'Put me on the list',
       'Webbplats': 'Website',
 
       /* --- banner + nav ------------------------------------------------ */

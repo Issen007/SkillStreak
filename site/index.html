@@ -1436,21 +1436,33 @@ footer .foot-row {
     </div>
   </section>
 
-  <!-- Demo-event registration. Adult-facing: this collects a name and an
-       email from grown-ups who want to see the app, and is deliberately
+  <!-- Keep-in-touch signup. Adult-facing: this collects a name and an
+       email from grown-ups who want to follow the app, and is deliberately
        kept apart from anything the app knows about children (see the
        event_registration entity in the backend for why that separation is
        structural). No tracking pixel, no third-party form embed — it posts
        to our own API, and attribution is the plain ?campaign= parameter on
-       whichever link brought the visitor here. -->
+       whichever link brought the visitor here.
+
+       Two questions, on purpose (2026-08-21): *how* someone wants to be
+       involved, and *what* mail they want. They are orthogonal — the
+       person offering to come in as a co-owner wants release news too —
+       and the single dropdown this used to be could only hold one of them.
+
+       Neither mail box is pre-ticked, and that is not a style choice:
+       consent under GDPR has to be an affirmative act, and a pre-ticked
+       box is the textbook example of one that is not (Recital 32; the
+       CJEU said the same in Planet49). A box the visitor ticks themselves
+       is the only kind worth having in a file. -->
   <section class="section-pad on-paper-dim" id="visning">
     <div class="wrap" style="max-width:640px;">
-      <h2 class="reveal">Kom på visningen</h2>
+      <h2 class="reveal">Var med på resan</h2>
       <p class="reveal">
-        I början av september visar vi SkillStreak live — hur en träning
-        loggas, hur laget jagar VM-guldet ihop, och hur trygghetsreglerna
-        faktiskt fungerar. Vi ses över Google Meet, och du får länken via
-        mejl när tiden är spikad.
+        SkillStreak byggs i öppen dager av en innebandytränare. Skriv upp
+        dig så hör du av oss när något faktiskt händer — nya släpp, och
+        visningarna där vi går igenom hur en träning loggas, hur laget
+        jagar VM-guldet ihop och hur trygghetsreglerna fungerar. Du väljer
+        själv vad du vill ha, och kan säga upp det när som helst.
       </p>
       <form class="reveal" id="signupForm" novalidate>
         <div style="display:grid;gap:12px;">
@@ -1460,7 +1472,7 @@ footer .foot-row {
           <label>E-post
             <input class="wz-input" id="suEmail" type="email" maxlength="254" autocomplete="email" required>
           </label>
-          <label>Vad är ditt intresse?
+          <label>Hur vill du vara med?
             <select class="wz-input" id="suInterest">
               <option value="curious">Jag är bara nyfiken</option>
               <option value="trainer">Jag vill bli tränare i appen</option>
@@ -1470,12 +1482,27 @@ footer .foot-row {
               <option value="other">Annat</option>
             </select>
           </label>
+          <!-- `--hairline-on-paper`, not `--line`: this section sits on the
+               paper background, and `--line` is the admin console's token,
+               not this page's. An undefined custom property makes the whole
+               `border` shorthand invalid, so the box just vanishes. -->
+          <fieldset style="border:1px solid var(--hairline-on-paper);border-radius:12px;padding:14px 16px;margin:0;">
+            <legend style="padding:0 6px;font-size:.95rem;">Vad vill du att vi hör av oss om?</legend>
+            <label style="display:flex;gap:10px;align-items:flex-start;font-size:.95rem;">
+              <input type="checkbox" id="suReleases" style="margin-top:.3rem;">
+              <span>Håll mig uppdaterad om nya släpp</span>
+            </label>
+            <label style="display:flex;gap:10px;align-items:flex-start;font-size:.95rem;margin-top:10px;">
+              <input type="checkbox" id="suDemo" style="margin-top:.3rem;">
+              <span>Bjud in mig till nästa visning</span>
+            </label>
+          </fieldset>
           <label>Något särskilt du vill se? (frivilligt)
             <textarea class="wz-input" id="suNote" rows="3" maxlength="500"></textarea>
           </label>
           <label style="display:flex;gap:10px;align-items:flex-start;font-size:.95rem;">
             <input type="checkbox" id="suConsent" style="margin-top:.3rem;">
-            <span>Ja, spara mitt namn och min mejladress så ni kan bjuda in mig. Vi använder dem bara till det här, och du kan be oss radera dem när som helst.</span>
+            <span>Ja, spara mitt namn och min mejladress så ni kan höra av er om det jag kryssat i ovan. Vi använder dem bara till det, delar dem inte med någon, och du kan be oss radera dem när som helst.</span>
           </label>
           <!-- Honeypot: never shown to a person, never focusable. A bot that
                fills in every field fills in this one too, and the server
@@ -1484,7 +1511,7 @@ footer .foot-row {
             <label>Webbplats<input id="suWebsite" type="text" tabindex="-1" autocomplete="off"></label>
           </div>
           <div>
-            <button class="btn btn-flame" type="submit" id="suSubmit">Anmäl mig</button>
+            <button class="btn btn-flame" type="submit" id="suSubmit">Skriv upp mig</button>
           </div>
           <p id="suMsg" style="margin:0;min-height:1.2em;"></p>
         </div>
@@ -1772,16 +1799,21 @@ window.__beaconReady__ = (function () {
   var MESSAGES = {
     sv: {
       missing: 'Fyll i namn och e-post.',
+      pickOne: 'Kryssa i minst en sak du vill höra om.',
       consent: 'Vi behöver ditt ja för att få spara uppgifterna.',
       sending: 'Skickar…',
-      ok: 'Tack! Du får en inbjudan med Meet-länken när tiden är spikad.',
+      // Deliberately does not promise a Meet link any more: most people
+      // ticking a box here are asking for release news, and telling them
+      // an invitation is coming would be a promise we do not keep.
+      ok: 'Tack! Vi hör av oss om det du kryssat i — inget annat.',
       failed: 'Det gick inte just nu. Försök gärna igen om en stund.'
     },
     en: {
       missing: 'Please fill in your name and email.',
+      pickOne: 'Tick at least one thing you want to hear about.',
       consent: 'We need your yes before we can store your details.',
       sending: 'Sending…',
-      ok: 'Thank you! You will get an invitation with the Meet link once the time is set.',
+      ok: 'Thank you! We will be in touch about what you ticked — nothing else.',
       failed: 'That did not work just now. Please try again in a moment.'
     }
   };
@@ -1827,12 +1859,21 @@ window.__beaconReady__ = (function () {
       return;
     }
 
+    var wantsReleases = document.getElementById('suReleases').checked;
+    var wantsDemo = document.getElementById('suDemo').checked;
+    // Nothing ticked means we would be holding an address we have no
+    // reason to use. Asking again is kinder than storing it and never
+    // writing, and it keeps the list to people who asked for something.
+    if (!wantsReleases && !wantsDemo) { msg.textContent = t('pickOne'); return; }
+
     var note = document.getElementById('suNote').value.trim();
     var body = {
       name: name,
       email: email,
       interest: document.getElementById('suInterest').value,
       locale: document.documentElement.getAttribute('lang') === 'en' ? 'en' : 'sv',
+      wantsReleaseUpdates: wantsReleases,
+      wantsDemoInvite: wantsDemo,
       privacyAccepted: true
     };
     if (note) body.note = note;

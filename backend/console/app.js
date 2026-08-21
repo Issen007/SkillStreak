@@ -66,11 +66,21 @@
   var SIGNUP_FILTERS = {
     todo: {
       label: 'To invite',
-      match: function (row) { return !row.inviteSentAt; }
+      /* Only people who actually asked for a demo. Since 2026-08-21 that
+       * is a box on the form rather than the whole point of it, and
+       * someone who signed up for release news alone must never appear on
+       * a send list for a Google Meet they did not ask for. */
+      match: function (row) {
+        return !!row.demoInviteRequestedAt && !row.inviteSentAt;
+      }
     },
     invited: {
       label: 'Already invited',
       match: function (row) { return !!row.inviteSentAt; }
+    },
+    releases: {
+      label: 'Release news',
+      match: function (row) { return !!row.releaseUpdatesOptedInAt; }
     },
     all: { label: 'Everyone', match: function () { return true; } }
   };
@@ -433,11 +443,17 @@
       return '"' + text.replace(/"/g, '""') + '"';
     }
     var header = ['Registered', 'Name', 'Email', 'Interest', 'Language',
-                  'Campaign', 'Note', 'Invited', 'UnsubscribeUrl'];
+                  'Campaign', 'Note', 'Invited', 'ReleaseNewsOptIn',
+                  'DemoInviteAsked', 'UnsubscribeUrl'];
     var lines = [header.map(cell).join(',')].concat(rows.map(function (row) {
       return [row.createdAt, row.name, row.email,
               INTEREST_LABEL[row.interest] || row.interest, row.locale,
               row.campaign || '', row.note || '', row.inviteSentAt || '',
+              /* Exported as the consent date rather than yes/no: a mail
+               * merge sent from outside this app is exactly where someone
+               * needs to be able to prove when the person agreed. */
+              row.releaseUpdatesOptedInAt || '',
+              row.demoInviteRequestedAt || '',
               row.unsubscribeUrl || ''].map(cell).join(',');
     }));
     // BOM so Excel opens UTF-8 correctly — å/ä/ö are guaranteed here.
@@ -1815,7 +1831,9 @@
           '<div class="card">' +
             '<p style="margin:0 0 4px"><strong>' + esc(all.length) +
             '</strong> registered · <strong>' + esc(pending) +
-            '</strong> still to invite</p>' +
+            '</strong> still to invite · <strong>' +
+            esc(all.filter(SIGNUP_FILTERS.releases.match).length) +
+            '</strong> want release news</p>' +
             '<p class="muted" style="margin:0 0 12px">' +
             esc(interestSummary(all)) + '</p>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
@@ -1864,19 +1882,22 @@
             '<p id="signupMsg" class="muted" style="margin:0 0 12px"></p>' +
             '<table><tr><th>When</th><th>Name</th><th>Email</th>' +
             '<th>Interest</th><th>Lang</th><th>Campaign</th>' +
-            '<th>Invited</th><th></th></tr>' +
+            '<th>Releases</th><th>Invited</th><th></th></tr>' +
             (rows.length ? rows.map(function (row) {
               return '<tr><td>' + esc(row.createdAt.slice(0, 10)) + '</td><td>' +
                 esc(row.name) + '</td><td>' + esc(row.email) + '</td><td>' +
                 esc(INTEREST_LABEL[row.interest] || row.interest) + '</td><td>' +
                 esc(row.locale) + '</td><td>' + esc(row.campaign || '—') +
+                '</td><td>' + (row.releaseUpdatesOptedInAt
+                  ? esc(row.releaseUpdatesOptedInAt.slice(0, 10))
+                  : '<span class="muted">no</span>') +
                 '</td><td>' + (row.inviteSentAt
                   ? esc(row.inviteSentAt.slice(0, 10))
                   : '<span class="muted">not yet</span>') +
                 '</td><td style="text-align:right"><button data-remove="' +
                 esc(row.id) + '">Remove</button></td></tr>';
             }).join('')
-              : '<tr><td colspan="8" class="muted">Nothing here.</td></tr>') +
+              : '<tr><td colspan="9" class="muted">Nothing here.</td></tr>') +
             '</table></div>' +
           '<p class="muted">The CSV carries a personal unsubscribe link per ' +
           'row — put it in whatever you send, including a mail merge. ' +
