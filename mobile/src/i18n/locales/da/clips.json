@@ -130,6 +130,7 @@
     "ask": "Spørg min forælder",
     "headingPending": "Vi har spurgt din forælder",
     "bodyPending": "Vi har sendt en mail. Så snart de siger ja, kan du begynde at dele. Det kan tage en dag eller to.",
+    "askAgain": "Send spørgsmålet igen",
     "headingOn": "Del denne video",
     "bodyOn": "Andre, der spiller floorball, kan se videoen, dit skærmnavn og din avatar. De ser aldrig dit rigtige navn, dit hold eller hvor du træner.",
     "publish": "Del video",
@@ -138,7 +139,8 @@
     "unpublish": "Stop med at dele videoen",
     "close": "Luk",
     "errorGeneric": "Det virkede ikke lige nu. Prøv igen om lidt.",
-    "errorRevoked": "Deling er slået fra for din konto lige nu. Spørg din forælder."
+    "errorRevoked": "Deling er slået fra for din konto lige nu. Spørg din forælder.",
+    "errorTooSoon": "Du spurgte lige. Vent lidt, og prøv igen."
   },
   "publicFeed": {
     "tabArchive": "Arkiv",
@@ -175,6 +177,8 @@
     "unshareHint": "Klippet forsvinder fra Udforsk med det samme.",
     "askParent": "Spørg din forælder",
     "askParentHint": "Vi sender din forælder en mail med spørgsmålet.",
+    "askAgain": "Send spørgsmålet igen",
+    "askAgainHint": "Hvis mailen blev væk — vi sender en ny.",
     "delete": "Slet klippet",
     "deleteHint": "Forsvinder for hele holdet. Kan ikke fortrydes.",
     "report": "Rapportér klippet",

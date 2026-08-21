@@ -130,6 +130,7 @@
     "ask": "Zeptat se rodiče",
     "headingPending": "Zeptali jsme se tvého rodiče",
     "bodyPending": "Poslali jsme e-mail. Jakmile souhlasí, můžeš začít sdílet. Může to trvat den nebo dva.",
+    "askAgain": "Poslat otázku znovu",
     "headingOn": "Sdílet toto video",
     "bodyOn": "Ostatní, kdo hrají florbal, uvidí video, tvoje zobrazované jméno a avatara. Nikdy neuvidí tvoje skutečné jméno, tvůj tým ani kde trénuješ.",
     "publish": "Sdílet video",
@@ -138,7 +139,8 @@
     "unpublish": "Ukončit sdílení videa",
     "close": "Zavřít",
     "errorGeneric": "Teď se to nepovedlo. Zkus to za chvíli znovu.",
-    "errorRevoked": "Sdílení je pro tvůj účet vypnuté. Zeptej se rodiče."
+    "errorRevoked": "Sdílení je pro tvůj účet vypnuté. Zeptej se rodiče.",
+    "errorTooSoon": "Právě ses ptal. Chvíli počkej a zkus to znovu."
   },
   "publicFeed": {
     "tabArchive": "Archiv",
@@ -175,6 +177,8 @@
     "unshareHint": "Klip zmizí z Objevuj okamžitě.",
     "askParent": "Zeptej se rodiče",
     "askParentHint": "Pošleme tvému rodiči otázku e-mailem.",
+    "askAgain": "Poslat otázku znovu",
+    "askAgainHint": "Když se e-mail ztratil — pošleme nový.",
     "delete": "Smazat klip",
     "deleteHint": "Zmizí celému týmu. Nelze vrátit zpět.",
     "report": "Nahlásit klip",

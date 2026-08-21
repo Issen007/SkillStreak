@@ -130,6 +130,7 @@
     "ask": "Spør forelderen min",
     "headingPending": "Vi har spurt forelderen din",
     "bodyPending": "Vi har sendt en e-post. Så snart de sier ja, kan du begynne å dele. Det kan ta en dag eller to.",
+    "askAgain": "Send spørsmålet på nytt",
     "headingOn": "Del denne videoen",
     "bodyOn": "Andre som spiller innebandy kan se videoen, skjermnavnet ditt og avataren din. De ser aldri det ekte navnet ditt, laget ditt eller hvor du trener.",
     "publish": "Del video",
@@ -138,7 +139,8 @@
     "unpublish": "Slutt å dele videoen",
     "close": "Lukk",
     "errorGeneric": "Det gikk ikke akkurat nå. Prøv igjen om litt.",
-    "errorRevoked": "Deling er slått av for kontoen din akkurat nå. Spør forelderen din."
+    "errorRevoked": "Deling er slått av for kontoen din akkurat nå. Spør forelderen din.",
+    "errorTooSoon": "Du spurte nettopp. Vent litt og prøv igjen."
   },
   "publicFeed": {
     "tabArchive": "Arkiv",
@@ -175,6 +177,8 @@
     "unshareHint": "Klippet forsvinner fra Utforsk med en gang.",
     "askParent": "Spør forelderen din",
     "askParentHint": "Vi sender forelderen din en e-post med spørsmålet.",
+    "askAgain": "Send spørsmålet på nytt",
+    "askAgainHint": "Om e-posten forsvant — vi sender en ny.",
     "delete": "Slett klippet",
     "deleteHint": "Forsvinner for hele laget. Kan ikke angres.",
     "report": "Meld fra om klippet",

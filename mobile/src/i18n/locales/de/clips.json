@@ -130,6 +130,7 @@
     "ask": "Meine Eltern fragen",
     "headingPending": "Wir haben deine Eltern gefragt",
     "bodyPending": "Wir haben eine E-Mail geschickt. Sobald sie zustimmen, kannst du teilen. Das kann ein bis zwei Tage dauern.",
+    "askAgain": "Frage noch einmal senden",
     "headingOn": "Dieses Video teilen",
     "bodyOn": "Andere Floorball-Spielerinnen und -Spieler sehen das Video, deinen Anzeigenamen und deinen Avatar. Deinen echten Namen, dein Team und wo du trainierst sehen sie nie.",
     "publish": "Video teilen",
@@ -138,7 +139,8 @@
     "unpublish": "Teilen beenden",
     "close": "Schließen",
     "errorGeneric": "Das hat gerade nicht geklappt. Versuch es gleich noch einmal.",
-    "errorRevoked": "Teilen ist für dein Konto gerade ausgeschaltet. Frag deine Eltern."
+    "errorRevoked": "Teilen ist für dein Konto gerade ausgeschaltet. Frag deine Eltern.",
+    "errorTooSoon": "Du hast gerade gefragt. Warte kurz und versuch es noch einmal."
   },
   "publicFeed": {
     "tabArchive": "Archiv",
@@ -175,6 +177,8 @@
     "unshareHint": "Der Clip verschwindet sofort aus Entdecken.",
     "askParent": "Frag deine Eltern",
     "askParentHint": "Wir schicken deinen Eltern die Frage per E-Mail.",
+    "askAgain": "Frage noch einmal senden",
+    "askAgainHint": "Falls die E-Mail verloren ging — wir schicken eine neue.",
     "delete": "Clip löschen",
     "deleteHint": "Verschwindet für die ganze Mannschaft. Nicht rückgängig zu machen.",
     "report": "Clip melden",

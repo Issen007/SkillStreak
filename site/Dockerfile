@@ -117,6 +117,22 @@ ARG TRY_IT_URL=https://try.skillstreak.app2.isstech.io
 RUN sed -i "s|__TRY_IT_URL__|${TRY_IT_URL}|g" /usr/share/nginx/marketing/index.html \
     && grep -qF "${TRY_IT_URL}" /usr/share/nginx/marketing/index.html
 
+# Both substitutions above verify only that they *happened*. That is what
+# let the 2026-08-21 outage ship: the `g` flag on TRY_IT_URL rewrote the
+# global's own name as well as its value, leaving `window.https://... = `
+# in the config block. A syntax error kills the entire <script>, so the API
+# origin assigned on the line before it was never set either, and every
+# fetch the page makes went to `undefined/api/v1/...` — the signup form,
+# the visit counter, click tracking and the create-a-team wizard, all
+# failing silently for as long as the page had been deployed.
+#
+# So: assert the two config lines still have the shape of an assignment.
+# site/tools/check-substitutions.mjs does the thorough version (it parses
+# every inline script) and runs in CI where node exists; this is the same
+# guard on the actual artifact, in a stage that has only a shell.
+RUN grep -qE '^  window\.__API_BASE__ = "[^":]+://[^"]+";$' /usr/share/nginx/marketing/index.html \
+    && grep -qE '^  window\.__TRY_IT__ = "[^":]+://[^"]+";$' /usr/share/nginx/marketing/index.html
+
 # site/download.html: its visible URL text and step-1/3/note copy differ
 # depending on whether the QR above targets Expo Go or the web export
 # (qr-build's own /qr-target.txt records which URL actually got encoded,

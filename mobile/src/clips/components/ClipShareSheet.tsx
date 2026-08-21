@@ -69,16 +69,23 @@ export function ClipShareSheet({
       };
     }
     if (status?.consent === 'pending') {
-      // No action button at all. The only thing that moves this forward is
-      // a parent clicking a link in their own inbox, and offering a button
-      // that re-sends would invite a child to mail-bomb their parent — the
-      // server's cooldown would refuse anyway, so the button could only
-      // ever produce an error.
+      // This used to offer no action at all, reasoning that a re-send
+      // would invite a child to mail-bomb their parent and that the
+      // server's cooldown would refuse anyway. The second half was simply
+      // wrong: the cooldown is 15 minutes and the cap is three a day, so
+      // asking again is both allowed and, on 2026-08-21, the only way out
+      // of a real trap — the first consent mail went out with a broken
+      // link, and "wait for your parent" is a dead end when the mail they
+      // were sent cannot be acted on.
+      //
+      // A lost or unopened mail is the ordinary case this serves. The
+      // mail-bomb worry is real and is what the server's limits are for;
+      // it is not a reason to leave a child with no move.
       return {
         heading: t('clipShareSheet.headingPending'),
         text: t('clipShareSheet.bodyPending'),
-        action: null,
-        onPress: undefined,
+        action: t('clipShareSheet.askAgain'),
+        onPress: onAskParent,
       };
     }
     return {
