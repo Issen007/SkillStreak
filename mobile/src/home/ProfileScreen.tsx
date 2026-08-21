@@ -60,6 +60,14 @@ interface ProfileScreenProps {
    * successor picker (E3) and from the "other players on the team" count
    * that decides E2's captain-gate variant. */
   playerId: string;
+  /**
+   * Server-computed "is 13 or older" — the same flag the consent flow
+   * keys off, reused rather than re-deriving an age from `birthYear` on
+   * the client. The rule is Sweden's GDPR Art. 8 age via Dataskyddslagen
+   * and lives in one place on the backend; a second copy here would be
+   * the version that goes stale.
+   */
+  isSelfVerification: boolean;
 }
 
 type ProfileView =
@@ -83,7 +91,14 @@ type ProfileView =
  * posture as every other multi-step screen in this app. Birth year is
  * shown, never editable (decision 2 — a self-verification-age bypass
  * risk) — there is no input for it anywhere in this file. */
-export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }: ProfileScreenProps) {
+export function ProfileScreen({
+  screenName,
+  onBack,
+  onLogout,
+  teamId,
+  playerId,
+  isSelfVerification,
+}: ProfileScreenProps) {
   const { t } = useTranslation('home');
   const [profile, setProfile] = useState<PlayerProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -740,9 +755,15 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
             incident where production served an internal-test build. */}
         <Text style={styles.versionLine}>{APP_VERSION}</Text>
 
-        {/* Trainer mode.
-            **Self-selecting rather than role-gated, because there is no
-            role to gate on.** A trainer is a `StaffAccount` authenticated
+        {/* Trainer mode — **not rendered at all below 13**.
+            A trainer account is an adult identity; offering a
+            nine-year-old the entry to make one is wrong even though the
+            console's own SSO would stop them. The gate is the server's
+            `isSelfVerification` (Sweden's GDPR Art. 8 age), reused rather
+            than re-deriving an age from `birthYear` here — one rule, one
+            place.
+            Above 13 it is still **self-selecting rather than role-gated,
+            because there is no role to gate on.** A trainer is a `StaffAccount` authenticated
             by SSO; a player is a `Player` with a JWT. The two identities
             are unlinked — `staff_account` has no `player_id` column — so
             this app genuinely cannot know whether the person holding the
@@ -758,13 +779,15 @@ export function ProfileScreen({ screenName, onBack, onLogout, teamId, playerId }
             SameSite=Strict and same-origin with the API, which is exactly
             what makes it safe, and a native re-implementation would need
             its own staff auth path before it could show anything. */}
-        <View style={styles.trainerBlock}>
-          <Text style={styles.trainerPrompt}>{t('profileScreen.view.trainerPrompt')}</Text>
-          <SecondaryLink
-            label={t('profileScreen.view.trainerLink')}
-            onPress={() => void Linking.openURL(CONSOLE_URL)}
-          />
-        </View>
+        {isSelfVerification ? (
+          <View style={styles.trainerBlock}>
+            <Text style={styles.trainerPrompt}>{t('profileScreen.view.trainerPrompt')}</Text>
+            <SecondaryLink
+              label={t('profileScreen.view.trainerLink')}
+              onPress={() => void Linking.openURL(CONSOLE_URL)}
+            />
+          </View>
+        ) : null}
 
         {/* Screen E1 — only shown when no erasure request is active
             (Judgment call 8: never alongside E6's status card above). */}
