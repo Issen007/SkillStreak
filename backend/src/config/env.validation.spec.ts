@@ -130,3 +130,36 @@ describe('validateEnv', () => {
     ).not.toThrow();
   });
 });
+
+/*
+ * The same trap, on the six fields the earlier rounds missed.
+ *
+ * Each of these was `@IsOptional()` stacked with `@IsNotEmpty()` — the
+ * exact pairing this file's own comments warn about four separate times,
+ * and which the OAuth, usage-report and bounce-mailbox blocks were each
+ * fixed for in turn. Nobody swept the rest. SMTP_HOST and APP_PUBLIC_URL
+ * are the ones that matter: both are routinely set and cleared while mail
+ * is being configured, and a blank one refused the boot outright rather
+ * than degrading to "no mail", which is what every consumer of them
+ * already expects from a missing value.
+ */
+describe.each([
+  'JWT_EXPIRES_IN',
+  'SMTP_HOST',
+  'SMTP_USER',
+  'SMTP_FROM',
+  'APP_PUBLIC_URL',
+  'CORS_ORIGIN',
+])('%s set to an empty string', (name) => {
+  it('is treated as absent rather than refusing the boot', () => {
+    expect(() =>
+      validateEnv({ ...baseRequiredEnv(), [name]: '' }),
+    ).not.toThrow();
+  });
+});
+
+it('still refuses a required variable that is present but blank', () => {
+  expect(() =>
+    validateEnv({ ...baseRequiredEnv(), DATABASE_URL: '' }),
+  ).toThrow();
+});
