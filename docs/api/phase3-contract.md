@@ -13,7 +13,7 @@ team-scoping, auto-hide-on-report, retention) and doesn't re-derive them.
 
 **security-reviewer sign-off on this contract is a blocking requirement
 before backend-developer builds against it**, per CLAUDE.md and
-`docs/ACTION_PLAN.md`'s explicit Phase 3 sequencing — this is real video of
+`docs/internal/ACTION_PLAN.md`'s explicit Phase 3 sequencing — this is real video of
 real children.
 
 **Revised 2026-07-22**: endpoint 2 (`complete`) and the implementer notes
@@ -30,7 +30,7 @@ implementation never actually performed step 1's declared HEAD-based size/
 content-type spot-check (only checked that the object existed at all),
 despite this doc already describing it correctly. Fixed in
 `VideoClipsService.completeUpload`; no request/response shape changed. See
-`docs/ACTION_PLAN.md`'s Phase 3 code-critic entry for the full finding.
+`docs/internal/ACTION_PLAN.md`'s Phase 3 code-critic entry for the full finding.
 
 **Revised 2026-08-06 per [`docs/adr/0021-clip-challenge-notifications.md`](../adr/0021-clip-challenge-notifications.md)**:
 adds two new endpoints (6, 7 below) for the "pending challenges for me"
@@ -203,7 +203,7 @@ Errors:
   1's spot-check found its real, HEAD-reported size/content-type
   inconsistent with what was declared at endpoint 1 (**code-critic
   finding, fixed 2026-07-25**: this branch of the check was missing from
-  the first implementation — see `docs/ACTION_PLAN.md`'s Phase 3
+  the first implementation — see `docs/internal/ACTION_PLAN.md`'s Phase 3
   code-critic entry), or (b) the mandatory metadata-stripping remux (step
   2 above) failed. The clip stays `pending_upload` (not published, not
   silently published-unstripped); client should treat this like

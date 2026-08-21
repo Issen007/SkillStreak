@@ -179,10 +179,10 @@ phone" walkthrough. The mobile-specific pieces:
   dev-client/EAS build), so this only matters once this project produces
   one of those, not for day-to-day Expo Go testing.
 - **No iOS Simulator/Android emulator in this Linux dev environment** (a
-  known, previously-flagged gap — see `docs/ACTION_PLAN.md`'s Phase 1
+  known, previously-flagged gap — see `docs/internal/ACTION_PLAN.md`'s Phase 1
   entry) — still true for Fas 3. Verification for this phase leaned on a
   clean Metro bundle (`npx expo export`) plus exercising every new endpoint
-  against a real running backend directly (see `docs/ACTION_PLAN.md`'s
+  against a real running backend directly (see `docs/internal/ACTION_PLAN.md`'s
   Phase 3 entry for the exact scenarios covered) — a real tap-through of
   the camera/picker/playback UI still needs a physical device or a
   macOS/Android host.
@@ -190,7 +190,7 @@ phone" walkthrough. The mobile-specific pieces:
 ## Known duplication / consolidation candidates
 
 Three items tracked here since the Phase 2.5 pass (see
-`docs/ACTION_PLAN.md` for that pass's original reasoning) were resolved in
+`docs/internal/ACTION_PLAN.md` for that pass's original reasoning) were resolved in
 a dedicated cleanup pass (2026-08-02); one item remains deliberately
 unresolved:
 

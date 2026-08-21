@@ -9,7 +9,7 @@ This is `docs/PROJECT.md` Fas 4, point 7: "24/7 drifts-/hälsoövervakning
 ... Börja med en enkel schemalagd hälsokontroll, inte den större
 'AI-driven'-idén" — deliberately the simplest thing that's still real
 monitoring (alerts on a state *change*), not the bigger dashboard/AI idea
-tracked separately in `docs/BACKLOG.md`.
+tracked separately in `docs/internal/BACKLOG.md`.
 
 Not part of the SkillStreak product itself — a standalone local-dev/ops
 tool, same posture as `tools/local-release-poller/` and `tools/lab-access/`
@@ -118,6 +118,6 @@ and to avoid over-building a "simple" first version:
 
 The bigger "control monitoring web UI" idea (stats, error visibility,
 social media campaign control, blog generation) is tracked separately in
-`docs/BACKLOG.md` as its own, much larger, not-yet-designed idea — this
+`docs/internal/BACKLOG.md` as its own, much larger, not-yet-designed idea — this
 tool is not a step toward that, just the small thing this backlog item
 actually asked for.

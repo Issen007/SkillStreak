@@ -19,7 +19,7 @@ leave a paper trail so the decision doesn't get re-litigated later:
   hard constraints on every design, not preferences to weigh against
   convenience.
 - Build for the phase that's actually in front of us (check CLAUDE.md's
-  Project status / docs/ACTION_PLAN.md — this project is well past MVP,
+  Project status / docs/internal/ACTION_PLAN.md — this project is well past MVP,
   currently mid-Fas-4 with a real Kubernetes beta running). Favor the
   boring, easy-to-change option over the impressive one; don't design for
   load or scale the project doesn't have yet.

@@ -921,7 +921,7 @@ earlier draft of this section built a visible *trust* split into the
 roadmap tab, on the ADR's original premise that `ACTION_PLAN.md` was
 tracked, public and parsed from the deployed image while the other sources
 were internal. Commit `6b06d81` (2026-08-06) inverted both halves of that
-premise: `docs/ACTION_PLAN.md` moved to `docs/internal/ACTION_PLAN.md`,
+premise: `docs/internal/ACTION_PLAN.md` moved to `docs/internal/ACTION_PLAN.md`,
 which `.gitignore`'s line 3 (`docs/internal/`) has excluded from the start,
 so it is **untracked and not in the CI-built image**; and `docs/PROJECT.md`
 moved the other way and is **tracked and public again**. The badge copy

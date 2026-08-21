@@ -91,7 +91,7 @@ to reach the demo instead.
 > delete the stale `skillstreak-xyz-tls` Secret so cert-manager reissues a
 > trusted one, and confirm *that* one is also `Ready` before MailService
 > actually sends anything real. Originally flagged as CONFIRMED/High in
-> the pre-beta security review (see `docs/ACTION_PLAN.md`) back when there
+> the pre-beta security review (see `docs/internal/ACTION_PLAN.md`) back when there
 > was no TLS story at all.
 
 ## Internal test cluster (ubuntu01) — tracks `review`, not `main`

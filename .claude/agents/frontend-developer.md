@@ -13,7 +13,7 @@ Stack: React Native with Expo, TypeScript. Practical rules:
   user directly) — don't invent extra states, settings, or screens beyond
   what's asked.
 - Follow the phase actually in front of us — check CLAUDE.md's Project
-  status / docs/ACTION_PLAN.md rather than assuming; this project is well
+  status / docs/internal/ACTION_PLAN.md rather than assuming; this project is well
   past its original "Jag har tränat" MVP button, with a real onboarding
   flow, team chat, a video clip feed, and more already built and deployed.
   Keep individual-streak state and team-pool state as distinct concerns in
