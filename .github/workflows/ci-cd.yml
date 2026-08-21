@@ -404,6 +404,55 @@ jobs:
           echo "and commit the updated .last-eas-build.json."
           exit 1
 
+  mobile-lint:
+    name: Mobile lint (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    # **Added 2026-08-21, after a crash a lint rule would have caught.**
+    # Two hooks were written below an early return in ClipsScreen, so they
+    # ran on some renders and not others; React threw "rendered more hooks
+    # than during the previous render" and the Shorts tab died on every
+    # open. It reached a TestFlight build with `tsc --noEmit` and the i18n
+    # parity check both clean, because neither can see that class of bug.
+    #
+    # Two rules, not a rule set — see mobile/eslint.config.mjs for why a
+    # full sweep would bury the one that matters. `rules-of-hooks` is an
+    # error because the failure is a runtime crash; `exhaustive-deps` is a
+    # warning because real exceptions exist and an error invites blanket
+    # disable comments.
+    #
+    # Advisory like the other two mobile jobs, matching the branch
+    # protection this repo actually has. Worth promoting to required once
+    # it has held for a while — it is the only mobile check whose failures
+    # are crashes rather than opinions.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          # Pinned to mobile/package.json's own pin, same reason the
+          # typecheck job pins it explicitly.
+          version: 11.11.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: mobile/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Warnings are allowed through: the repo has one pre-existing
+      # exhaustive-deps warning, and failing on it today would make this
+      # job red from birth — which is precisely how the stale expo-doctor
+      # red taught everyone to ignore CI.
+      - name: Lint
+        run: npx eslint src
+
   mobile-expo-doctor:
     name: Mobile expo-doctor (advisory)
     runs-on: ubuntu-latest

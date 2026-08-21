@@ -255,8 +255,8 @@ four checks, with "require branches to be up to date" on:
 
 Two consequences worth knowing before you plan a change:
 
-- **`Mobile typecheck`, `Mobile expo-doctor` and `Mobile build drift` are
-  NOT required** — the mobile side of a PR is advisory and cannot block a
+- **`Mobile typecheck`, `Mobile expo-doctor`, `Mobile build drift` and
+  `Mobile lint` are NOT required** — the mobile side of a PR is advisory and cannot block a
   merge. Don't rely on CI to catch a broken `tsc`; run it yourself.
 
   **`Mobile build drift` is new (2026-08-21) and worth understanding**,
@@ -268,7 +268,25 @@ Two consequences worth knowing before you plan a change:
   commits stale, and the share button the owner was hunting for had never
   been in a build at all.
 
-  It compares against `mobile/.last-eas-build.json`. To clear it: run an
+  **`Mobile lint` is also new (2026-08-21)** and exists for a specific
+  reason: two hooks were written below an early return in `ClipsScreen`,
+  so they ran on some renders and not others, and React threw "rendered
+  more hooks than during the previous render" — the Shorts tab crashed on
+  every open. It reached a TestFlight build with `tsc --noEmit` and the
+  i18n parity check both clean, because neither can see that.
+  `react-hooks/rules-of-hooks` catches it exactly, and `mobile/` had no
+  eslint config at all.
+
+  It is deliberately **two rules rather than a rule set** — this app has
+  never been linted, and a full sweep would produce hundreds of findings
+  that bury the one that matters. `rules-of-hooks` errors (the failure is
+  a crash); `exhaustive-deps` warns (real exceptions exist, and an error
+  invites blanket disabling). Run it yourself with `pnpm lint` in
+  `mobile/`; of the mobile checks it is the one whose failures are
+  crashes rather than opinions, so it is the first worth promoting to
+  required.
+
+  `Mobile build drift` compares against `mobile/.last-eas-build.json`. To clear it: run an
   EAS build, then `cd mobile && node scripts/record-eas-build.mjs` and
   commit the result — the script asks EAS rather than taking your word
   for what was built. It is deliberately advisory (a blocking version
