@@ -165,5 +165,17 @@
     "savedEmptyHeading": "Rien d'enregistré",
     "savedEmptyBody": "Appuie sur le marque-page dans Explorer pour enregistrer un clip.",
     "savedMissing": "Un clip enregistré n'est plus partagé. La personne qui l'a fait l'a retiré d'Explorer."
+  },
+  "clipActions": {
+    "share": "Partager hors de l'équipe",
+    "shareHint": "D'autres joueurs de floorball verront le clip.",
+    "unshare": "Arrêter de partager",
+    "unshareHint": "Le clip quitte Explorer tout de suite.",
+    "delete": "Supprimer le clip",
+    "deleteHint": "Disparaît pour toute l'équipe. Irréversible.",
+    "report": "Signaler le clip",
+    "reportHint": "Un adulte va y jeter un œil.",
+    "cancel": "Annuler",
+    "a11yOpen": "Plus d'options pour ce clip"
   }
 }

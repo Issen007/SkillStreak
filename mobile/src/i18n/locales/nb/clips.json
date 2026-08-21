@@ -165,5 +165,17 @@
     "savedEmptyHeading": "Ingenting lagret ennå",
     "savedEmptyBody": "Trykk på bokmerket i Utforsk for å lagre et klipp.",
     "savedMissing": "Et lagret klipp deles ikke lenger. Den som lagde det, har tatt det bort fra Utforsk."
+  },
+  "clipActions": {
+    "share": "Del utenfor laget",
+    "shareHint": "Andre innebandyspillere kan se klippet.",
+    "unshare": "Slutt å dele",
+    "unshareHint": "Klippet forsvinner fra Utforsk med en gang.",
+    "delete": "Slett klippet",
+    "deleteHint": "Forsvinner for hele laget. Kan ikke angres.",
+    "report": "Meld fra om klippet",
+    "reportHint": "En voksen ser på det.",
+    "cancel": "Avbryt",
+    "a11yOpen": "Flere valg for klippet"
   }
 }

@@ -165,5 +165,17 @@
     "savedEmptyHeading": "Inget sparat än",
     "savedEmptyBody": "Tryck på bokmärket i Utforska för att spara ett klipp.",
     "savedMissing": "Ett sparat klipp är inte längre delat. Den som gjorde det har tagit bort det från Utforska."
+  },
+  "clipActions": {
+    "share": "Dela utanför laget",
+    "shareHint": "Andra innebandyspelare kan se klippet.",
+    "unshare": "Sluta dela",
+    "unshareHint": "Klippet försvinner från Utforska direkt.",
+    "delete": "Radera klippet",
+    "deleteHint": "Försvinner för hela laget. Går inte att ångra.",
+    "report": "Anmäl klippet",
+    "reportHint": "En vuxen tittar på det.",
+    "cancel": "Avbryt",
+    "a11yOpen": "Fler val för klippet"
   }
 }

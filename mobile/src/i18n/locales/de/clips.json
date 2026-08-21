@@ -165,5 +165,17 @@
     "savedEmptyHeading": "Noch nichts gespeichert",
     "savedEmptyBody": "Tippe in Entdecken auf das Lesezeichen, um einen Clip zu speichern.",
     "savedMissing": "Ein gespeicherter Clip wird nicht mehr geteilt. Wer ihn gemacht hat, hat ihn aus Entdecken genommen."
+  },
+  "clipActions": {
+    "share": "Außerhalb der Mannschaft teilen",
+    "shareHint": "Andere Floorball-Spieler sehen den Clip.",
+    "unshare": "Nicht mehr teilen",
+    "unshareHint": "Der Clip verschwindet sofort aus Entdecken.",
+    "delete": "Clip löschen",
+    "deleteHint": "Verschwindet für die ganze Mannschaft. Nicht rückgängig zu machen.",
+    "report": "Clip melden",
+    "reportHint": "Ein Erwachsener schaut es sich an.",
+    "cancel": "Abbrechen",
+    "a11yOpen": "Mehr Optionen für diesen Clip"
   }
 }

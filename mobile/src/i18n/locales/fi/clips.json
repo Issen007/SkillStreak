@@ -165,5 +165,17 @@
     "savedEmptyHeading": "Ei vielä tallennettuja",
     "savedEmptyBody": "Tallenna klippi painamalla kirjanmerkkiä Tutki-osiossa.",
     "savedMissing": "Yhtä tallennettua klippiä ei enää jaeta. Tekijä otti sen pois Tutki-osiosta."
+  },
+  "clipActions": {
+    "share": "Jaa joukkueen ulkopuolelle",
+    "shareHint": "Muut salibandynpelaajat näkevät klipin.",
+    "unshare": "Lopeta jakaminen",
+    "unshareHint": "Klippi katoaa Tutki-osiosta heti.",
+    "delete": "Poista klippi",
+    "deleteHint": "Katoaa koko joukkueelta. Ei voi perua.",
+    "report": "Ilmoita klipistä",
+    "reportHint": "Aikuinen katsoo sen.",
+    "cancel": "Peruuta",
+    "a11yOpen": "Lisää valintoja klipille"
   }
 }
