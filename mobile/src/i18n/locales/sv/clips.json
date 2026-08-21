@@ -169,8 +169,12 @@
   "clipActions": {
     "share": "Dela utanför laget",
     "shareHint": "Andra innebandyspelare kan se klippet.",
+    "shareLockedHint": "Din förälder måste säga ja först.",
+    "sharePendingHint": "Vi har mejlat din förälder. Väntar på svar.",
     "unshare": "Sluta dela",
     "unshareHint": "Klippet försvinner från Utforska direkt.",
+    "askParent": "Fråga din förälder",
+    "askParentHint": "Vi mejlar en fråga till din förälder.",
     "delete": "Radera klippet",
     "deleteHint": "Försvinner för hela laget. Går inte att ångra.",
     "report": "Anmäl klippet",

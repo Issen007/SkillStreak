@@ -169,8 +169,12 @@
   "clipActions": {
     "share": "Außerhalb der Mannschaft teilen",
     "shareHint": "Andere Floorball-Spieler sehen den Clip.",
+    "shareLockedHint": "Deine Eltern müssen erst Ja sagen.",
+    "sharePendingHint": "Wir haben deinen Eltern eine E-Mail geschickt. Wir warten auf Antwort.",
     "unshare": "Nicht mehr teilen",
     "unshareHint": "Der Clip verschwindet sofort aus Entdecken.",
+    "askParent": "Frag deine Eltern",
+    "askParentHint": "Wir schicken deinen Eltern die Frage per E-Mail.",
     "delete": "Clip löschen",
     "deleteHint": "Verschwindet für die ganze Mannschaft. Nicht rückgängig zu machen.",
     "report": "Clip melden",

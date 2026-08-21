@@ -169,8 +169,12 @@
   "clipActions": {
     "share": "Share outside the team",
     "shareHint": "Other floorball players can see the clip.",
+    "shareLockedHint": "Your parent has to say yes first.",
+    "sharePendingHint": "We've emailed your parent. Waiting for an answer.",
     "unshare": "Stop sharing",
     "unshareHint": "The clip leaves Explore straight away.",
+    "askParent": "Ask your parent",
+    "askParentHint": "We'll email your parent a question.",
     "delete": "Delete the clip",
     "deleteHint": "Disappears for the whole team. Can't be undone.",
     "report": "Report the clip",

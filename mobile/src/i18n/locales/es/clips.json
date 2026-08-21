@@ -169,8 +169,12 @@
   "clipActions": {
     "share": "Compartir fuera del equipo",
     "shareHint": "Otros jugadores de floorball verán el clip.",
+    "shareLockedHint": "Tu madre o tu padre tiene que decir que sí primero.",
+    "sharePendingHint": "Hemos enviado un correo a tu familia. Esperando respuesta.",
     "unshare": "Dejar de compartir",
     "unshareHint": "El clip sale de Explorar al instante.",
+    "askParent": "Pregunta a tu familia",
+    "askParentHint": "Enviaremos la pregunta por correo a tu familia.",
     "delete": "Borrar el clip",
     "deleteHint": "Desaparece para todo el equipo. No se puede deshacer.",
     "report": "Denunciar el clip",

@@ -38,6 +38,12 @@ interface ClipPlayerModalProps {
    * share affordance is drawn at all — a disabled one would invite a child
    * to keep tapping something nothing they can do will unlock. */
   onTapShare?: () => void;
+  /** ADR-0030. The player's own parental sharing permission, or null while
+   * the status request is still in flight. Threaded straight through to
+   * the actions sheet, which decides what it greys out. */
+  sharingConsent?: 'none' | 'pending' | 'active' | null;
+  /** ADR-0030. Absent when there is nothing useful to ask for. */
+  onTapAskParent?: () => void;
   onClose: () => void;
 }
 
@@ -73,6 +79,8 @@ function ClipPlayerModalContent({
   onTapReport,
   onTapDelete,
   onTapShare,
+  sharingConsent = null,
+  onTapAskParent,
   onClose,
 }: ClipPlayerModalContentProps) {
   const { t } = useTranslation('clips');
@@ -300,7 +308,9 @@ function ClipPlayerModalContent({
             visible={revealed}
             isOwn={isOwn}
             publishedPublicly={clip.publishedPublicly}
+            consent={sharingConsent}
             onShare={onTapShare}
+            onAskParent={onTapAskParent}
             onDelete={onTapDelete}
             onReport={onTapReport}
             onClose={onTapMeta}

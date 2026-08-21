@@ -169,8 +169,12 @@
   "clipActions": {
     "share": "Jaa joukkueen ulkopuolelle",
     "shareHint": "Muut salibandynpelaajat näkevät klipin.",
+    "shareLockedHint": "Huoltajasi pitää ensin sanoa kyllä.",
+    "sharePendingHint": "Lähetimme huoltajallesi sähköpostin. Odotetaan vastausta.",
     "unshare": "Lopeta jakaminen",
     "unshareHint": "Klippi katoaa Tutki-osiosta heti.",
+    "askParent": "Kysy huoltajaltasi",
+    "askParentHint": "Lähetämme huoltajallesi kysymyksen sähköpostilla.",
     "delete": "Poista klippi",
     "deleteHint": "Katoaa koko joukkueelta. Ei voi perua.",
     "report": "Ilmoita klipistä",
