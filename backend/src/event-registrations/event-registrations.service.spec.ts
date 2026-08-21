@@ -140,6 +140,26 @@ describe('EventRegistrationsService', () => {
     });
   });
 
+  it('does not re-confirm an address that was already on the list', async () => {
+    // `orIgnore` swallowed the insert, which is how a returning person is
+    // detected. They have had a confirmation already; a second one for
+    // coming back to tick a box is mail nobody asked for, on a list whose
+    // sending reputation the parental-consent flow also depends on.
+    execute.mockResolvedValue({ identifiers: [] });
+
+    await service.register({ ...dto, wantsReleaseUpdates: true });
+
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it('still confirms a genuinely new registration', async () => {
+    execute.mockResolvedValue({ identifiers: [{ id: 'id-1' }] });
+
+    await service.register({ ...dto });
+
+    expect(sendMail).toHaveBeenCalledTimes(1);
+  });
+
   it('records the release opt-in as a moment, not a flag', async () => {
     await service.register({ ...dto, wantsReleaseUpdates: true });
 

@@ -101,7 +101,11 @@ export class EventRegistrationsService {
     // `orIgnore` rather than a read-then-write: two people submitting the
     // same address at once would both see "not there yet" and one would
     // hit the unique index. Let Postgres settle it.
-    await this.registrations
+    //
+    // The result is read, not discarded: empty `identifiers` means the
+    // conflict clause swallowed this insert, which is the only reliable
+    // signal that the address was already on the list.
+    const insert = await this.registrations
       .createQueryBuilder()
       .insert()
       .into(EventRegistration)
@@ -118,6 +122,9 @@ export class EventRegistrationsService {
       })
       .orIgnore()
       .execute();
+    const isNewRegistration = (insert.identifiers ?? []).some(
+      (identifier) => identifier !== undefined,
+    );
 
     // Someone already on the list who comes back to tick a box they did
     // not tick the first time. `orIgnore` above drops their whole
@@ -146,7 +153,16 @@ export class EventRegistrationsService {
     // registration is the thing that matters, and an SMTP outage must not
     // turn a working form into a broken one. Failures are logged, not
     // surfaced — the person has been registered either way.
-    void this.sendConfirmation(email);
+    //
+    // Only for a genuinely new row. `sendConfirmation` intended this from
+    // the start and could not implement it: it looked the address up by
+    // email, which finds the pre-existing row whether or not the insert
+    // landed, so the "already confirmed" branch was unreachable and every
+    // repeat submission sent another confirmation. Harmless while the form
+    // was a one-time signup; not harmless now that it invites people back
+    // to tick a box they missed, on a list whose sending reputation the
+    // parental-consent mail depends on too.
+    if (isNewRegistration) void this.sendConfirmation(email);
 
     return { registered: true };
   }
@@ -178,12 +194,12 @@ export class EventRegistrationsService {
       .execute();
   }
 
+  /** Only called for a genuinely new row — see `register`. */
   private async sendConfirmation(email: string): Promise<void> {
     try {
       const row = await this.registrations.findOne({ where: { email } });
-      // Absent means the insert was ignored as a duplicate: this address
-      // was already on the list and has already had a confirmation. Not an
-      // error, and not a reason to send a second one.
+      // Absent now means the row was deleted between the insert and this
+      // read — an erasure request landing in the gap. Nothing to confirm.
       if (!row) return;
 
       const rendered = renderSignupConfirmationEmail({
