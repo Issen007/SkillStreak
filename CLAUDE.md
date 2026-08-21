@@ -317,7 +317,9 @@ The existing mechanism for this is build-time, not runtime: `.github/
 workflows/ci-cd.yml` builds **separate Docker images per environment**
 (the `deploy`/`release` jobs bake the real domains for `main`; the
 `internal-images` job bakes the `192.168.55.x` LAN addresses for
-`prerelease`), and backend config comes from each cluster's own
+`review` — the images it pushes keep the `prerelease-<sha>` *tag*, which
+names the build channel rather than the branch), and backend config comes
+from each cluster's own
 `ConfigMap`/`Secret`, not a shared one. Reuse this pattern — don't invent a
 second, runtime-detection mechanism alongside it. See `site/Dockerfile`'s
 build-arg/placeholder scheme and the two CI jobs' differing `build-args`

@@ -37,4 +37,4 @@ leave a paper trail so the decision doesn't get re-litigated later:
 
 **Git rule:** see CLAUDE.md's "Git workflow rule" — never merge/push
 directly to `main`, no exception; merging a finished feature branch into
-`prerelease` yourself (plain `git merge` + `git push`) is fine.
+`review` yourself (plain `git merge` + `git push`) is fine.

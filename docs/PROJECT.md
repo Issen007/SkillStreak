@@ -123,13 +123,16 @@ lansering, inte bara förbättringar:
      konfigureras. Blockerar en riktig publik lansering tills det är löst.
    - **Internt testkluster: `ubuntu01`** (microk8s, `192.168.55.x`, bara på
      det lokala nätverket) — uteslutande testmiljön, aldrig tänkt att bli
-     publikt. Kör bara det som byggs från `prerelease`:
+     publikt. Kör bara det som byggs från `review`:
      `.github/workflows/ci-cd.yml`s `internal-images`-jobb bygger
-     `prerelease-<sha>`-taggade images (site-imagen med klustrets egna
-     LAN-adresser inbakade, `192.168.55.71` api / `192.168.55.72` site och
-     try-it, istället för `skillstreak.xyz`), och
-     `tools/local-release-poller` (en systemd-timer på maskinen själv,
-     inte denna repos CI) pollar `prerelease` och deployar automatiskt.
+     `prerelease-<sha>`-taggade images (taggnamnet är kvar med flit — det
+     beskriver *bygg-kanalen*, inte grenen, så images som redan finns på
+     GHCR och versionen en körande pod rapporterar på `/health` fortsätter
+     betyda något; site-imagen har klustrets egna LAN-adresser inbakade,
+     `192.168.55.71` api / `192.168.55.72` site och try-it, istället för
+     `skillstreak.xyz`), och `tools/local-release-poller` (en systemd-timer
+     på maskinen själv, inte denna repos CI) pollar `review` och deployar
+     automatiskt.
      Egen testdatabas, helt separat från produktionens. Ingen TLS/Ingress
      behövs eller är planerad här — nås direkt via metallb:s
      LoadBalancer-IP:er över vanlig HTTP; se `k8s/README.md`s egna avsnitt
