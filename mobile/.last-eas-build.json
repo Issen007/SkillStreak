@@ -18,10 +18,10 @@
     "CI job query EAS directly and remove that gap — see the job's own",
     "comment in .github/workflows/ci-cd.yml."
   ],
-  "buildId": "68ac5e77-db8b-4259-889e-64cab049a505",
-  "commit": "2922972c30e8b0a97d53d30826881e1d65d74297",
+  "buildId": "7e93cb51-a138-4e14-91d8-29ed18b84bf7",
+  "commit": "8b5d9ecb8d3bc0705c35fac712a6ce19aed97754",
   "platform": "IOS",
   "profile": "production",
-  "buildNumber": "6",
+  "buildNumber": "8",
   "finishedAt": "2026-08-21"
 }
