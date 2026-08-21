@@ -1844,6 +1844,7 @@ window.__beaconReady__ = (function () {
     sv: {
       missing: 'Fyll i namn och e-post.',
       pickOne: 'Kryssa i minst en sak du vill höra om.',
+      invalid: 'Kontrollera mejladressen — den ser inte riktig ut.',
       consent: 'Vi behöver ditt ja för att få spara uppgifterna.',
       sending: 'Skickar…',
       // Deliberately does not promise a Meet link any more: most people
@@ -1855,6 +1856,7 @@ window.__beaconReady__ = (function () {
     en: {
       missing: 'Please fill in your name and email.',
       pickOne: 'Tick at least one thing you want to hear about.',
+      invalid: 'Check the email address — it does not look quite right.',
       consent: 'We need your yes before we can store your details.',
       sending: 'Sending…',
       ok: 'Thank you! We will be in touch about what you ticked — nothing else.',
@@ -1937,8 +1939,17 @@ window.__beaconReady__ = (function () {
       if (!response.ok) throw new Error(String(response.status));
       form.reset();
       msg.textContent = t('ok');
-    }).catch(function () {
-      msg.textContent = t('failed');
+    }).catch(function (error) {
+      // A 400 is the server rejecting what was typed — almost always a
+      // malformed email address, since that is the only free-text field it
+      // validates strictly. Saying "something went wrong, try again later"
+      // for that is worse than unhelpful: it tells the visitor the site is
+      // broken and that waiting will fix it, when neither is true, and it
+      // sends them away. It also made the form's real breakage harder to
+      // diagnose twice, because a genuine outage and a typo looked
+      // identical from the outside.
+      msg.textContent =
+        String(error && error.message) === '400' ? t('invalid') : t('failed');
     }).finally(function () {
       submit.disabled = false;
     });
