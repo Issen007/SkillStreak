@@ -68,6 +68,22 @@ export class AdminEventRegistrationsController {
   }
 
   /**
+   * The one-off re-consent ask: mails everyone who predates the
+   * release-news box, once, and adds nobody.
+   *
+   * Takes no body deliberately. There is nothing to configure — the
+   * message is fixed, the recipients are "everyone not yet asked", and a
+   * knob here would only be a way to ask the same people again. Safe to
+   * call twice: the second run finds nobody, because the first stamped
+   * `release_consent_asked_at`.
+   */
+  @Post('ask-release-consent')
+  @HttpCode(HttpStatus.OK)
+  askReleaseConsent(): Promise<{ sent: number; failed: number }> {
+    return this.eventRegistrationsService.askForReleaseConsent();
+  }
+
+  /**
    * No step-up guard here, unlike the planning-docs routes. Those hold the
    * project's own unpublished roadmap; this holds names and email addresses
    * that their owners typed into a public form, and the delete is how an

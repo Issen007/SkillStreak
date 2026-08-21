@@ -55,6 +55,24 @@ export class CreateEventRegistrationDto {
   privacyAccepted!: boolean;
 
   /**
+   * "Mail me when there's a new release." Optional and defaulted to false,
+   * so an older client that does not send it registers exactly as before
+   * rather than 400ing.
+   *
+   * Its own field rather than an `interest` value, because the two are
+   * orthogonal — see the entity. Absent or `false` both mean "no", and
+   * neither writes a consent timestamp.
+   */
+  @IsOptional()
+  @IsBoolean()
+  wantsReleaseUpdates?: boolean;
+
+  /** "Invite me to the next live demo." Same shape and same reasoning. */
+  @IsOptional()
+  @IsBoolean()
+  wantsDemoInvite?: boolean;
+
+  /**
    * Honeypot. Real people never see this field; bots that fill in every
    * input do.
    *

@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import {
   renderDemoInviteEmail,
+  renderReleaseConsentEmail,
   renderSignupConfirmationEmail,
 } from '../mail/templates/event-demo-emails.template';
 import { MailService } from '../mail/mail.service';
@@ -26,6 +27,13 @@ export interface EventRegistrationRow {
   createdAt: string;
   /** null = still to invite. Drives the admin console's send list. */
   inviteSentAt: string | null;
+  /** When they consented to release mail, or null if they never did. The
+   * console shows it as a column so "who may I mail about the launch" is
+   * answerable by looking rather than by remembering. */
+  releaseUpdatesOptedInAt: string | null;
+  /** When they asked for a demo invite, or null. Backfilled for everyone
+   * who registered before the box existed. */
+  demoInviteRequestedAt: string | null;
   /**
    * The per-person opt-out link, exported with the send list so an invite
    * mailed from outside this app can still carry one. Every message to
@@ -88,6 +96,7 @@ export class EventRegistrationsService {
     }
 
     const email = dto.email.trim().toLowerCase();
+    const now = new Date();
 
     // `orIgnore` rather than a read-then-write: two people submitting the
     // same address at once would both see "not there yet" and one would
@@ -104,9 +113,34 @@ export class EventRegistrationsService {
         locale: dto.locale,
         campaign: dto.campaign?.trim() ? dto.campaign.trim() : null,
         privacyAcceptedAt: new Date(),
+        releaseUpdatesOptedInAt: dto.wantsReleaseUpdates ? now : null,
+        demoInviteRequestedAt: dto.wantsDemoInvite ? now : null,
       })
       .orIgnore()
       .execute();
+
+    // Someone already on the list who comes back to tick a box they did
+    // not tick the first time. `orIgnore` above drops their whole
+    // submission, so without this their new opt-in would be silently lost
+    // — and the form would answer "registered" while having ignored the
+    // only thing they came back to say.
+    //
+    // Only ever null → now, never the reverse: a resubmission with a box
+    // left blank is far more likely to be someone re-registering than a
+    // deliberate opt-out, and there is a real unsubscribe link for that.
+    // Both statements are no-ops when the box was not ticked.
+    await this.applyOptIn(
+      email,
+      'release_updates_opted_in_at',
+      dto.wantsReleaseUpdates,
+      now,
+    );
+    await this.applyOptIn(
+      email,
+      'demo_invite_requested_at',
+      dto.wantsDemoInvite,
+      now,
+    );
 
     // Fire-and-forget on purpose. A confirmation email is a nicety; the
     // registration is the thing that matters, and an SMTP outage must not
@@ -115,6 +149,33 @@ export class EventRegistrationsService {
     void this.sendConfirmation(email);
 
     return { registered: true };
+  }
+
+  /**
+   * Raises one opt-in flag on an existing row, and never lowers it.
+   *
+   * The `IS NULL` guard is what keeps the original consent moment
+   * intact: someone who signs up three times should keep the date they
+   * first agreed, not the date they last filled in a form.
+   */
+  private async applyOptIn(
+    email: string,
+    column: 'release_updates_opted_in_at' | 'demo_invite_requested_at',
+    wanted: boolean | undefined,
+    at: Date,
+  ): Promise<void> {
+    if (!wanted) return;
+    await this.registrations
+      .createQueryBuilder()
+      .update(EventRegistration)
+      .set({
+        [column === 'release_updates_opted_in_at'
+          ? 'releaseUpdatesOptedInAt'
+          : 'demoInviteRequestedAt']: at,
+      })
+      .where('email = :email', { email })
+      .andWhere(`${column} IS NULL`)
+      .execute();
   }
 
   private async sendConfirmation(email: string): Promise<void> {
@@ -164,7 +225,14 @@ export class EventRegistrationsService {
   async sendInvites(
     dto: SendDemoInvitesDto,
   ): Promise<{ sent: number; failed: number; skipped: number }> {
-    const all = await this.registrations.find({ order: { createdAt: 'ASC' } });
+    // Only people who actually asked for a demo invitation. Before
+    // 2026-08-21 that was everyone — the form *was* the demo signup, and
+    // the migration backfills them accordingly — but it is now a box you
+    // tick, and someone who signed up only for release news must not be
+    // mailed a Google Meet link they never asked for.
+    const all = (
+      await this.registrations.find({ order: { createdAt: 'ASC' } })
+    ).filter((row) => Boolean(row.demoInviteRequestedAt));
     const targets = dto.resend
       ? all
       : all.filter((row) => row.inviteSentAt === null);
@@ -228,6 +296,91 @@ export class EventRegistrationsService {
     return { sent, failed, skipped: all.length - targets.length };
   }
 
+  /**
+   * The one-off re-consent campaign: asks everyone who predates the
+   * release-news box whether they want it.
+   *
+   * Sent under the consent they already gave — it is about the demo list
+   * they are on — and asks for a new, narrower one. Nobody is added by
+   * this method; it only asks. The add happens when a human presses the
+   * button in the message.
+   *
+   * Three exclusions, each load-bearing:
+   *
+   * - already opted in — there is nothing to ask;
+   * - already asked — `releaseConsentAskedAt` is what stops a second run
+   *   mailing the same people twice, the same job `inviteSentAt` does;
+   * - no unsubscribe code — a message to this list without one is not a
+   *   message we are willing to send.
+   *
+   * Mail failures leave `releaseConsentAskedAt` null so the next run picks
+   * them up, which is the same trade `sendInvites` makes: a duplicate ask
+   * is recoverable, a silently-never-asked person is not.
+   */
+  async askForReleaseConsent(): Promise<{ sent: number; failed: number }> {
+    const rows = await this.registrations.find({ order: { createdAt: 'ASC' } });
+    const targets = rows.filter(
+      (row) =>
+        row.releaseUpdatesOptedInAt === null &&
+        row.releaseConsentAskedAt === null &&
+        Boolean(row.unsubscribeCode),
+    );
+
+    let sent = 0;
+    let failed = 0;
+    for (const row of targets) {
+      try {
+        const rendered = renderReleaseConsentEmail({
+          locale: row.locale,
+          optInUrl: this.releaseOptInUrl(row.unsubscribeCode),
+          unsubscribeUrl: this.unsubscribeUrl(row.unsubscribeCode),
+        });
+        await this.mailService.sendMail({
+          to: row.email,
+          subject: rendered.subject,
+          html: rendered.html,
+          text: rendered.text,
+        });
+        await this.registrations.update(
+          { id: row.id, releaseConsentAskedAt: IsNull() },
+          { releaseConsentAskedAt: new Date() },
+        );
+        sent += 1;
+      } catch (error) {
+        failed += 1;
+        this.logger.error(
+          `Release-consent ask failed for one recipient — left unasked for the next run: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    return { sent, failed };
+  }
+
+  /**
+   * Records a release-news consent against the row that owns this code.
+   *
+   * Guarded on `IS NULL` so a second click keeps the moment of the first
+   * one — the date is the evidence, and rewriting it would replace "when
+   * they agreed" with "when they last clicked a link".
+   */
+  async optInToReleaseUpdates(code: string): Promise<{ optedIn: boolean }> {
+    const result = await this.registrations.update(
+      { unsubscribeCode: code, releaseUpdatesOptedInAt: IsNull() },
+      { releaseUpdatesOptedInAt: new Date() },
+    );
+    return { optedIn: (result.affected ?? 0) > 0 };
+  }
+
+  private releaseOptInUrl(code: string): string {
+    const base = (
+      this.configService.get<string>('APP_PUBLIC_URL') ?? ''
+    ).replace(/\/+$/, '');
+    return `${base}/api/v1/event-registrations/release-updates/${code}`;
+  }
+
   /** Admin-only. Newest first — the list is read as "who signed up today". */
   async list(): Promise<EventRegistrationRow[]> {
     const rows = await this.registrations.find({
@@ -247,6 +400,12 @@ export class EventRegistrationsService {
       campaign: row.campaign,
       createdAt: row.createdAt.toISOString(),
       inviteSentAt: row.inviteSentAt ? row.inviteSentAt.toISOString() : null,
+      releaseUpdatesOptedInAt: row.releaseUpdatesOptedInAt
+        ? row.releaseUpdatesOptedInAt.toISOString()
+        : null,
+      demoInviteRequestedAt: row.demoInviteRequestedAt
+        ? row.demoInviteRequestedAt.toISOString()
+        : null,
       unsubscribeUrl: this.unsubscribeUrl(row.unsubscribeCode),
     };
   }

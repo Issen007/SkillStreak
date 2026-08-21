@@ -29,6 +29,8 @@ describe('EventRegistrationsService', () => {
   let del: jest.Mock;
   let update: jest.Mock;
   let sendMail: jest.Mock;
+  let optInSet: jest.Mock;
+  let optInWhere: jest.Mock;
 
   const dto = {
     name: '  Anna Svensson  ',
@@ -46,11 +48,19 @@ describe('EventRegistrationsService', () => {
     update = jest.fn().mockResolvedValue({ affected: 2 });
     sendMail = jest.fn().mockResolvedValue(undefined);
 
+    optInSet = jest.fn().mockReturnThis();
+    optInWhere = jest.fn().mockReturnThis();
     const queryBuilder = {
       insert: jest.fn().mockReturnThis(),
       into: jest.fn().mockReturnThis(),
       values,
       orIgnore: jest.fn().mockReturnThis(),
+      // The second, conditional statement `register` issues for a
+      // returning address — see `applyOptIn`.
+      update: jest.fn().mockReturnThis(),
+      set: optInSet,
+      where: jest.fn().mockReturnThis(),
+      andWhere: optInWhere,
       execute,
     };
 
@@ -128,6 +138,137 @@ describe('EventRegistrationsService', () => {
     await expect(service.register({ ...dto })).resolves.toEqual({
       registered: true,
     });
+  });
+
+  it('records the release opt-in as a moment, not a flag', async () => {
+    await service.register({ ...dto, wantsReleaseUpdates: true });
+
+    const [written] = values.mock.calls[0] as [
+      { releaseUpdatesOptedInAt: Date | null; demoInviteRequestedAt: null },
+    ];
+    expect(written.releaseUpdatesOptedInAt).toBeInstanceOf(Date);
+    // Two boxes, and ticking one must not tick the other.
+    expect(written.demoInviteRequestedAt).toBeNull();
+  });
+
+  it('writes no consent timestamp when the box was left alone', async () => {
+    await service.register({ ...dto });
+
+    const [written] = values.mock.calls[0] as [
+      { releaseUpdatesOptedInAt: null; demoInviteRequestedAt: null },
+    ];
+    expect(written.releaseUpdatesOptedInAt).toBeNull();
+    expect(written.demoInviteRequestedAt).toBeNull();
+    // And no second statement — an untouched box writes nothing at all.
+    expect(optInSet).not.toHaveBeenCalled();
+  });
+
+  it('raises a new opt-in for an address already on the list', async () => {
+    // `orIgnore` drops the insert for a returning address, so without the
+    // follow-up statement the only thing they came back to say would be
+    // silently discarded.
+    await service.register({ ...dto, wantsReleaseUpdates: true });
+
+    const [patch] = optInSet.mock.calls[0] as [
+      { releaseUpdatesOptedInAt?: Date },
+    ];
+    expect(patch.releaseUpdatesOptedInAt).toBeInstanceOf(Date);
+    // Guarded so a re-registration keeps the date they first agreed.
+    expect(optInWhere).toHaveBeenCalledWith(
+      'release_updates_opted_in_at IS NULL',
+    );
+  });
+
+  describe('asking the old list about release news', () => {
+    function registration(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'r1',
+        name: 'Anna',
+        email: 'anna@example.se',
+        interest: EventRegistrationInterest.CURIOUS,
+        note: null,
+        locale: EventRegistrationLocale.SV,
+        campaign: null,
+        createdAt: new Date('2026-08-01T09:00:00Z'),
+        inviteSentAt: null,
+        demoInviteRequestedAt: new Date('2026-08-01T09:00:00Z'),
+        releaseUpdatesOptedInAt: null,
+        releaseConsentAskedAt: null,
+        unsubscribeCode: 'code-1',
+        ...overrides,
+      };
+    }
+
+    it('asks nobody twice, and adds nobody at all', async () => {
+      find.mockResolvedValue([
+        registration(),
+        registration({
+          id: 'r2',
+          email: 'asked@example.se',
+          releaseConsentAskedAt: new Date('2026-08-20T09:00:00Z'),
+        }),
+        registration({
+          id: 'r3',
+          email: 'already-in@example.se',
+          releaseUpdatesOptedInAt: new Date('2026-08-20T09:00:00Z'),
+        }),
+      ]);
+
+      const result = await service.askForReleaseConsent();
+
+      expect(result).toEqual({ sent: 1, failed: 0 });
+      expect(sentMails(sendMail).map((mail) => mail.to)).toEqual([
+        'anna@example.se',
+      ]);
+      // The whole point: asking is not consenting. Only the recipient
+      // pressing the button in their own inbox writes an opt-in.
+      const patches = update.mock.calls.map(
+        (call) => (call as [unknown, Record<string, unknown>])[1],
+      );
+      patches.forEach((patch) => {
+        expect(patch).not.toHaveProperty('releaseUpdatesOptedInAt');
+      });
+    });
+
+    it('carries both an opt-in link and a way off the list entirely', async () => {
+      find.mockResolvedValue([registration()]);
+
+      await service.askForReleaseConsent();
+
+      const [mail] = sentMails(sendMail);
+      expect(mail.text).toContain(
+        '/api/v1/event-registrations/release-updates/code-1',
+      );
+      expect(mail.text).toContain(
+        '/api/v1/event-registrations/unsubscribe/code-1',
+      );
+    });
+
+    it('leaves a failed recipient unasked so the next run finds them', async () => {
+      find.mockResolvedValue([registration()]);
+      sendMail.mockRejectedValueOnce(new Error('mailbox full'));
+
+      const result = await service.askForReleaseConsent();
+
+      expect(result).toEqual({ sent: 0, failed: 1 });
+      expect(update).not.toHaveBeenCalled();
+    });
+  });
+
+  it('keeps the first consent date when a link is clicked twice', async () => {
+    // The guard is the assertion: the update is conditional on the column
+    // still being null, so a second click cannot overwrite the moment the
+    // person actually agreed.
+    update.mockResolvedValue({ affected: 0 });
+
+    await expect(service.optInToReleaseUpdates('code-1')).resolves.toEqual({
+      optedIn: false,
+    });
+    const [criteria] = update.mock.calls[0] as [Record<string, unknown>];
+    expect(Object.keys(criteria).sort()).toEqual([
+      'releaseUpdatesOptedInAt',
+      'unsubscribeCode',
+    ]);
   });
 
   it('deletes for real — a consent-based list must be able to forget', async () => {
@@ -231,10 +372,38 @@ describe('EventRegistrationsService', () => {
         campaign: null,
         createdAt: new Date('2026-08-01T09:00:00Z'),
         inviteSentAt: null,
+        // Every fixture here is someone who asked for a demo — which is
+        // what the whole list was before the box existed, and what the
+        // migration backfills. The one who did not is written explicitly
+        // in the test below.
+        demoInviteRequestedAt: new Date('2026-08-01T09:00:00Z'),
+        releaseUpdatesOptedInAt: null,
         unsubscribeCode: 'code-1',
         ...overrides,
       };
     }
+
+    it('never mails a demo link to someone who only wanted release news', async () => {
+      find.mockResolvedValue([
+        registration(),
+        registration({
+          id: 'r2',
+          email: 'release-only@example.se',
+          demoInviteRequestedAt: null,
+        }),
+      ]);
+
+      const result = await service.sendInvites({
+        startsAt: '2026-09-05T17:00:00Z',
+        durationMinutes: 45,
+        meetUrl: 'https://meet.example/abc',
+      });
+
+      expect(result.sent).toBe(1);
+      expect(sentMails(sendMail).map((mail) => mail.to)).toEqual([
+        'anna@example.se',
+      ]);
+    });
 
     it('skips anyone already invited unless resend is asked for', async () => {
       find.mockResolvedValue([

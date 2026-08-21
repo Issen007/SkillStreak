@@ -9,6 +9,7 @@ import { EventRegistrationRetentionService } from './event-registration-retentio
 import { EventRegistration } from './entities/event-registration.entity';
 import { EventRegistrationsController } from './event-registrations.controller';
 import { EventRegistrationsService } from './event-registrations.service';
+import { ReleaseOptInController } from './release-opt-in.controller';
 import { UnsubscribeController } from './unsubscribe.controller';
 
 /**
@@ -36,6 +37,7 @@ import { UnsubscribeController } from './unsubscribe.controller';
     EventRegistrationsController,
     AdminEventRegistrationsController,
     UnsubscribeController,
+    ReleaseOptInController,
   ],
   providers: [EventRegistrationsService, EventRegistrationRetentionService],
 })

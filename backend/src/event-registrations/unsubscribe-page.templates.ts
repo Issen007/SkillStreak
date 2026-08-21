@@ -9,6 +9,11 @@ interface Copy {
   doneBody: string;
   goneTitle: string;
   goneBody: string;
+  optInTitle: string;
+  optInBody: string;
+  optInButton: string;
+  optInDoneTitle: string;
+  optInDoneBody: string;
 }
 
 const COPY: Record<EventRegistrationLocale, Copy> = {
@@ -21,6 +26,13 @@ const COPY: Record<EventRegistrationLocale, Copy> = {
     goneTitle: 'Du finns inte på listan',
     goneBody:
       'Länken är använd eller så är uppgifterna redan borttagna. Du behöver inte göra något.',
+    optInTitle: 'Vill du höra om nya släpp?',
+    optInBody:
+      'Vi mejlar när appen finns att hämta och vad som är nytt. Inget annat, och du kan säga upp det när som helst.',
+    optInButton: 'Ja, hör av er',
+    optInDoneTitle: 'Tack — då hör vi av oss',
+    optInDoneBody:
+      'Du får ett mejl när nästa släpp är ute. Varje utskick har en länk för att sluta.',
   },
   [EventRegistrationLocale.EN]: {
     title: 'Remove you from the list?',
@@ -31,6 +43,13 @@ const COPY: Record<EventRegistrationLocale, Copy> = {
     goneTitle: 'You are not on the list',
     goneBody:
       'This link has been used, or the details were already removed. Nothing more to do.',
+    optInTitle: 'Want to hear about new releases?',
+    optInBody:
+      'We will email you when the app is available and what is new. Nothing else, and you can stop it at any time.',
+    optInButton: 'Yes, keep me posted',
+    optInDoneTitle: 'Thank you — we will be in touch',
+    optInDoneBody:
+      'You will get an email when the next release is out. Every message carries a link to stop.',
   },
 };
 
@@ -93,4 +112,27 @@ export function renderUnsubscribeGone(
 ): string {
   const copy = copyFor(locale);
   return page(copy.goneTitle, copy.goneBody, '');
+}
+
+/**
+ * The GET view of the release-news opt-in link. Shows a button; changes
+ * nothing — same reason the unsubscribe page does, and here it cuts the
+ * other way too: a scanner prefetching this URL would manufacture a
+ * consent nobody gave, which is worse than manufacturing an opt-out.
+ */
+export function renderReleaseOptInPreview(
+  locale: EventRegistrationLocale | null,
+  actionUrl: string,
+): string {
+  const copy = copyFor(locale);
+  const form = `<form method="post" action="${escapeHtml(actionUrl)}">
+    <button type="submit">${escapeHtml(copy.optInButton)}</button></form>`;
+  return page(copy.optInTitle, copy.optInBody, form);
+}
+
+export function renderReleaseOptInDone(
+  locale: EventRegistrationLocale | null,
+): string {
+  const copy = copyFor(locale);
+  return page(copy.optInDoneTitle, copy.optInDoneBody, '');
 }
