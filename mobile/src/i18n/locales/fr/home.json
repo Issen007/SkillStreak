@@ -160,7 +160,11 @@
       "deleteAccount": "Supprimer mon compte",
       "reportProblem": "Signaler un problème",
       "trainerPrompt": "Tu es entraîneur ?",
-      "trainerLink": "Ouvrir le mode entraîneur"
+      "trainerLink": "Ouvrir le mode entraîneur",
+      "trainerLinked": "Mode entraîneur",
+      "trainerLinkAccounts": "Relier ton compte entraîneur",
+      "trainerUnlink": "Délier le compte entraîneur",
+      "trainerLinkFailed": "Ça n'a pas marché là. Réessaie."
     }
   },
   "erasureCheckEmail": {

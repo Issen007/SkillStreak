@@ -160,7 +160,11 @@
       "deleteAccount": "Delete my account",
       "reportProblem": "Report a problem",
       "trainerPrompt": "Are you a trainer?",
-      "trainerLink": "Open trainer mode"
+      "trainerLink": "Open trainer mode",
+      "trainerLinked": "Trainer mode",
+      "trainerLinkAccounts": "Link your trainer account",
+      "trainerUnlink": "Unlink the trainer account",
+      "trainerLinkFailed": "That didn't work just now. Try again."
     }
   },
   "erasureCheckEmail": {

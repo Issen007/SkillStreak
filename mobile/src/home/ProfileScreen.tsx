@@ -27,6 +27,9 @@ import {
   requestContactChange,
   requestErasure,
   updateProfile,
+  getAccountLinkStatus,
+  createAccountLinkChallenge,
+  unlinkAccount,
 } from '../api/endpoints';
 import { ApiError } from '../api/ApiError';
 import { CONSOLE_URL } from '../api/config';
@@ -104,6 +107,10 @@ export function ProfileScreen({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  /** ADR-0031. `null` while unknown — the block renders nothing until we
+   * know, rather than flashing the wrong affordance. */
+  const [trainerLinked, setTrainerLinked] = useState<boolean | null>(null);
+  const [linking, setLinking] = useState(false);
   const [toastDurationMs, setToastDurationMs] = useState(2000);
 
   const [view, setView] = useState<ProfileView>('view');
@@ -162,12 +169,19 @@ export function ProfileScreen({
       // Fetched alongside getProfile() every time this screen loads or is
       // returned to (Promise.all, not a second round-trip) — this is what
       // decides whether E1 or E6 renders, per the flow doc.
-      const [profileResponse, statusResponse] = await Promise.all([
+      // The trainer-link status rides along in the same Promise.all
+      // rather than a third round trip. It is deliberately allowed to
+      // fail on its own: not knowing whether an account is linked is a
+      // missing convenience, not a broken profile screen, so a failure
+      // there must not surface the whole-screen error state.
+      const [profileResponse, statusResponse, linkResponse] = await Promise.all([
         getProfile(),
         getErasureStatus(),
+        getAccountLinkStatus().catch(() => ({ linked: false })),
       ]);
       setProfile(profileResponse);
       setErasureStatus(statusResponse);
+      setTrainerLinked(linkResponse.linked);
       setLoadError(null);
     } catch {
       setLoadError(t('profileScreen.loadError'));
@@ -426,6 +440,38 @@ export function ProfileScreen({
       await refreshErasureStatus();
     } finally {
       setErasureCancelling(false);
+    }
+  };
+
+  /**
+   * Starts the link: mint a one-shot challenge and hand it to the console,
+   * which redeems it once staff SSO has completed.
+   *
+   * The token is never stored by the app. It goes into the URL and is
+   * forgotten — the console moves it into its own sessionStorage and
+   * strips it from the address bar immediately.
+   */
+  const handleLinkTrainer = async () => {
+    if (linking) return;
+    setLinking(true);
+    try {
+      const { token } = await createAccountLinkChallenge();
+      await Linking.openURL(`${CONSOLE_URL}?link=${encodeURIComponent(token)}`);
+    } catch {
+      setToastDurationMs(3000);
+      setToastMessage(t('profileScreen.view.trainerLinkFailed'));
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  const handleUnlinkTrainer = async () => {
+    try {
+      await unlinkAccount();
+      setTrainerLinked(false);
+    } catch {
+      setToastDurationMs(3000);
+      setToastMessage(t('profileScreen.view.trainerLinkFailed'));
     }
   };
 
@@ -779,13 +825,34 @@ export function ProfileScreen({
             SameSite=Strict and same-origin with the API, which is exactly
             what makes it safe, and a native re-implementation would need
             its own staff auth path before it could show anything. */}
-        {isSelfVerification ? (
+        {isSelfVerification && trainerLinked !== null ? (
           <View style={styles.trainerBlock}>
-            <Text style={styles.trainerPrompt}>{t('profileScreen.view.trainerPrompt')}</Text>
-            <SecondaryLink
-              label={t('profileScreen.view.trainerLink')}
-              onPress={() => void Linking.openURL(CONSOLE_URL)}
-            />
+            {trainerLinked ? (
+              <>
+                {/* Linked: the app now knows, so it states rather than asks. */}
+                <Text style={styles.trainerPrompt}>
+                  {t('profileScreen.view.trainerLinked')}
+                </Text>
+                <SecondaryLink
+                  label={t('profileScreen.view.trainerLink')}
+                  onPress={() => void Linking.openURL(CONSOLE_URL)}
+                />
+                <SecondaryLink
+                  label={t('profileScreen.view.trainerUnlink')}
+                  onPress={() => void handleUnlinkTrainer()}
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.trainerPrompt}>
+                  {t('profileScreen.view.trainerPrompt')}
+                </Text>
+                <SecondaryLink
+                  label={t('profileScreen.view.trainerLinkAccounts')}
+                  onPress={() => void handleLinkTrainer()}
+                />
+              </>
+            )}
           </View>
         ) : null}
 

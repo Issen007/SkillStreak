@@ -160,7 +160,11 @@
       "deleteAccount": "Slet min konto",
       "reportProblem": "Rapportér et problem",
       "trainerPrompt": "Er du træner?",
-      "trainerLink": "Åbn trænertilstand"
+      "trainerLink": "Åbn trænertilstand",
+      "trainerLinked": "Trænertilstand",
+      "trainerLinkAccounts": "Forbind med din trænerkonto",
+      "trainerUnlink": "Afbryd forbindelsen til trænerkontoen",
+      "trainerLinkFailed": "Det gik ikke lige nu. Prøv igen."
     }
   },
   "erasureCheckEmail": {
