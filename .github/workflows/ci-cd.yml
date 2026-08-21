@@ -317,6 +317,93 @@ jobs:
   #
   # `tsc --noEmit` stays in the job above, blocking, because that is the
   # check that catches a genuinely broken app.
+  mobile-build-drift:
+    name: Mobile build drift (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # **Why this exists.** On 2026-08-21 the installed app was three days
+    # and eleven commits stale. The share button the project owner was
+    # looking for had never been in a build at all, and the sharing feature
+    # was declared "deployed" on the strength of the API being deployed.
+    #
+    # Nothing surfaced it. CI typechecks mobile/ and has never built it,
+    # while the API and site deploy on every merge to main — so the two
+    # halves drift apart silently, and the only signal was a screenshot
+    # three days later.
+    #
+    # **Advisory on purpose, and self-clearing on purpose.** Blocking a
+    # merge would be wrong: mobile changes have to land before anyone can
+    # build them, so a blocking version would refuse the very commit it is
+    # asking for. And permanent red is worse than no check — expo-doctor
+    # sat red for weeks and everyone learned to ignore it, which is
+    # precisely how this drift went unnoticed. This goes red only while
+    # there is genuinely unshipped mobile work, and turns green again the
+    # moment a build is recorded.
+    #
+    # **Not authoritative, and it says so in its own output.** It compares
+    # against mobile/.last-eas-build.json, a file a human could edit
+    # without building. Adding an EXPO_TOKEN repository secret would let
+    # this query EAS directly and close that gap; the check is written so
+    # that swap is a small change rather than a rewrite.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The whole job is a git-history question, so the default
+          # shallow clone cannot answer it.
+          fetch-depth: 0
+
+      - name: Compare mobile/ against the last recorded build
+        run: |
+          set -euo pipefail
+          MARKER=mobile/.last-eas-build.json
+          BUILT_COMMIT=$(python3 -c "import json;print(json.load(open('$MARKER'))['commit'])")
+          BUILT_NUMBER=$(python3 -c "import json;print(json.load(open('$MARKER')).get('buildNumber',''))")
+
+          if ! git cat-file -e "$BUILT_COMMIT^{commit}" 2>/dev/null; then
+            echo "::warning::The recorded build commit $BUILT_COMMIT is not in this repository's history."
+            echo "Cannot judge drift. Re-record it with: cd mobile && node scripts/record-eas-build.mjs"
+            exit 0
+          fi
+
+          # Three exclusions, each because the path cannot change what a
+          # person installs — and a check that cries drift over things
+          # that ship nothing is a check people learn to ignore, which is
+          # the failure this job exists to prevent.
+          #
+          #   .last-eas-build.json  recording a build necessarily changes
+          #                         it, so counting it would make the
+          #                         check impossible to satisfy
+          #   scripts/             dev and CI tooling; never bundled
+          #   *.md                 documentation; never bundled
+          EXCLUDES=(
+            ':(exclude)mobile/.last-eas-build.json'
+            ':(exclude)mobile/scripts/**'
+            ':(exclude)mobile/**/*.md'
+          )
+          CHANGED=$(git diff --name-only "$BUILT_COMMIT"..HEAD -- mobile/ "${EXCLUDES[@]}" | wc -l)
+
+          if [ "$CHANGED" -eq 0 ]; then
+            echo "In sync: no mobile/ changes since build $BUILT_NUMBER ($BUILT_COMMIT)."
+            exit 0
+          fi
+
+          COMMITS=$(git log --oneline "$BUILT_COMMIT"..HEAD -- mobile/ "${EXCLUDES[@]}")
+          N=$(echo "$COMMITS" | grep -c . || true)
+
+          echo "::error::$N mobile commit(s) are not in any installed build."
+          echo ""
+          echo "The last recorded EAS build is number $BUILT_NUMBER at ${BUILT_COMMIT:0:7}."
+          echo "Everything below exists on this branch and in no app anyone can install:"
+          echo ""
+          echo "$COMMITS"
+          echo ""
+          echo "$CHANGED file(s) changed under mobile/."
+          echo ""
+          echo "To clear this: run an EAS build, then from mobile/ run"
+          echo "  node scripts/record-eas-build.mjs"
+          echo "and commit the updated .last-eas-build.json."
+          exit 1
+
   mobile-expo-doctor:
     name: Mobile expo-doctor (advisory)
     runs-on: ubuntu-latest

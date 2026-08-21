@@ -107,6 +107,26 @@ unchecked, actually-buildable item in those two docs (skip anything
 blocked on something outside this repo, e.g. external infra access this
 project doesn't control) unless told otherwise.
 
+## Claude Code skills for this project
+
+Defined in `.claude/skills/`, one directory per skill. Invoked by name
+(`/verify-deployed`) or automatically when the task matches.
+
+1. **verify-deployed** — check that a change is actually *running*, not
+   merely merged. Use after a merge, after changing a secret or
+   ConfigMap, before telling anyone something shipped, and whenever a
+   report of "it doesn't work" contradicts what the repo says.
+
+   It exists because this project has been wrong about that distinction
+   at least five separate times, in five different ways: PRs reported
+   merged that were still open; a mobile app three days and eleven
+   commits stale while the API deployed on every merge; an SMTP secret
+   correct in GitHub and absent from the cluster for three deploys; a
+   certificate "verified" by a cached ACME authorization that solved no
+   challenge; and production serving an internal-LAN image for a stretch
+   of 2026-07-30. Every one looked fine from wherever it was checked.
+   The skill's whole content is *which place to ask*.
+
 ## Claude Code subagents for this project
 
 Defined in `.claude/agents/`, one file per role. Invoke by name (e.g. "have
@@ -235,9 +255,26 @@ four checks, with "require branches to be up to date" on:
 
 Two consequences worth knowing before you plan a change:
 
-- **`Mobile typecheck` and `Mobile expo-doctor` are NOT required** — the
-  mobile side of a PR is advisory and cannot block a merge. Don't rely on
-  CI to catch a broken `tsc`; run it yourself.
+- **`Mobile typecheck`, `Mobile expo-doctor` and `Mobile build drift` are
+  NOT required** — the mobile side of a PR is advisory and cannot block a
+  merge. Don't rely on CI to catch a broken `tsc`; run it yourself.
+
+  **`Mobile build drift` is new (2026-08-21) and worth understanding**,
+  because it reports something no other check can: whether the code in
+  `mobile/` has run ahead of any app a person can actually install. CI
+  builds and deploys the API and the site on every merge to `main`, and
+  has never built the app — so the two drift apart silently. On
+  2026-08-21 the installed build turned out to be three days and eleven
+  commits stale, and the share button the owner was hunting for had never
+  been in a build at all.
+
+  It compares against `mobile/.last-eas-build.json`. To clear it: run an
+  EAS build, then `cd mobile && node scripts/record-eas-build.mjs` and
+  commit the result — the script asks EAS rather than taking your word
+  for what was built. It is deliberately advisory (a blocking version
+  would refuse the very commit it is asking for) and deliberately
+  self-clearing, since permanent red is what taught everyone to ignore
+  expo-doctor.
 - **Strict mode means a stale branch is unmergeable**, so `review` may
   need `main` merged back into it before a PR will go green — which is
   the normal reason a PR that passed yesterday won't merge today.
