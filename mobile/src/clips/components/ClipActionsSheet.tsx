@@ -51,10 +51,14 @@ interface ClipActionsSheetProps {
  * legible from the menu instead of only after a tap into the share sheet.
  * Three details are deliberate:
  *
- * - **A pending request gets no ask row.** The only thing that moves that
- *   state forward is a parent clicking a link in their own inbox, and a
- *   second button would invite a child to mail-bomb them — the server's
- *   cooldown would refuse anyway. ClipShareSheet made the same call.
+ * - **A pending request gets a "send it again" row**, not a dead end. It
+ *   first shipped with no row at all, on the reasoning that the server's
+ *   cooldown would refuse a re-send anyway. That was wrong on the facts —
+ *   the cooldown is 15 minutes and the cap three a day — and the day it
+ *   shipped, the first consent mail went out with a broken link, leaving
+ *   the only person testing it staring at "waiting for your parent" with
+ *   no move. A lost mail is the ordinary case; mail-bombing is what the
+ *   server's limits are for.
  * - **Unshare is never greyed.** A clip that is already public stays
  *   removable whatever the consent says; a permission that lapsed must not
  *   trap a child's own video outside the team.
@@ -123,9 +127,15 @@ export function ClipActionsSheet({
                 onPress={onAskParent}
                 style={styles.row}
               >
-                <Text style={styles.rowLabel}>{t('clipActions.askParent')}</Text>
+                <Text style={styles.rowLabel}>
+                  {consent === 'pending'
+                    ? t('clipActions.askAgain')
+                    : t('clipActions.askParent')}
+                </Text>
                 <Text style={styles.rowHint}>
-                  {t('clipActions.askParentHint')}
+                  {consent === 'pending'
+                    ? t('clipActions.askAgainHint')
+                    : t('clipActions.askParentHint')}
                 </Text>
               </Pressable>
             ) : null}

@@ -130,6 +130,7 @@
     "ask": "Fråga min förälder",
     "headingPending": "Vi har frågat din förälder",
     "bodyPending": "Vi har skickat ett mejl. Så fort de säger ja kan du börja dela. Det kan ta någon dag.",
+    "askAgain": "Skicka frågan igen",
     "headingOn": "Dela den här videon",
     "bodyOn": "Andra som tränar innebandy kan se videon, ditt skärmnamn och din avatar. De ser aldrig ditt riktiga namn, ditt lag eller var du tränar.",
     "publish": "Dela videon",
@@ -138,7 +139,8 @@
     "unpublish": "Sluta dela videon",
     "close": "Stäng",
     "errorGeneric": "Det gick inte just nu. Försök igen om en stund.",
-    "errorRevoked": "Delning är avstängd för ditt konto just nu. Fråga din förälder."
+    "errorRevoked": "Delning är avstängd för ditt konto just nu. Fråga din förälder.",
+    "errorTooSoon": "Du frågade nyss. Vänta en liten stund och försök igen."
   },
   "publicFeed": {
     "tabArchive": "Arkiv",
@@ -175,6 +177,8 @@
     "unshareHint": "Klippet försvinner från Utforska direkt.",
     "askParent": "Fråga din förälder",
     "askParentHint": "Vi mejlar en fråga till din förälder.",
+    "askAgain": "Skicka frågan igen",
+    "askAgainHint": "Om mejlet kom bort — vi skickar ett nytt.",
     "delete": "Radera klippet",
     "deleteHint": "Försvinner för hela laget. Går inte att ångra.",
     "report": "Anmäl klippet",

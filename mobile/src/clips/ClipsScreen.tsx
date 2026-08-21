@@ -359,8 +359,16 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
     try {
       await requestPublicSharing();
       await fetchSharingStatus();
-    } catch {
-      setShareError(t('clipShareSheet.errorGeneric'));
+    } catch (err) {
+      // The server refuses a second request inside its 15-minute cooldown
+      // (and past three a day) with a 400. Now that asking again is a
+      // button a child can press, "something went wrong" would be a lie
+      // about the one case they are most likely to hit.
+      setShareError(
+        err instanceof ApiError && err.status === 400
+          ? t('clipShareSheet.errorTooSoon')
+          : t('clipShareSheet.errorGeneric'),
+      );
     } finally {
       setShareSubmitting(false);
     }
@@ -770,11 +778,12 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
         sharingConsent={sharingStatus?.consent ?? null}
         // Same destination as the share row, deliberately: the share sheet
         // is where the child reads what a stranger would see before any
-        // mail goes to their parent. Offered only for `none` — a pending
-        // request is moved by the parent's inbox, not by asking twice.
+        // mail goes to their parent. Offered for `pending` as well as
+        // `none` — a mail that never arrived, or one whose link did not
+        // work, leaves "waiting for your parent" as a dead end otherwise.
         onTapAskParent={
           sharingStatus?.available &&
-          sharingStatus.consent === 'none' &&
+          sharingStatus.consent !== 'active' &&
           activeClip
             ? () => handleTapShare(activeClip)
             : undefined

@@ -130,6 +130,7 @@
     "ask": "Kysy huoltajalta",
     "headingPending": "Olemme kysyneet huoltajaltasi",
     "bodyPending": "Lähetimme sähköpostin. Heti kun hän antaa luvan, voit alkaa jakaa. Siinä voi mennä päivä tai pari.",
+    "askAgain": "Lähetä kysymys uudelleen",
     "headingOn": "Jaa tämä video",
     "bodyOn": "Muut salibandyn harrastajat näkevät videon, näyttönimesi ja avatarisi. He eivät koskaan näe oikeaa nimeäsi, joukkuettasi tai sitä missä harjoittelet.",
     "publish": "Jaa video",
@@ -138,7 +139,8 @@
     "unpublish": "Lopeta videon jakaminen",
     "close": "Sulje",
     "errorGeneric": "Se ei onnistunut juuri nyt. Yritä hetken kuluttua uudelleen.",
-    "errorRevoked": "Jakaminen on kytketty pois päältä tililtäsi. Kysy huoltajaltasi."
+    "errorRevoked": "Jakaminen on kytketty pois päältä tililtäsi. Kysy huoltajaltasi.",
+    "errorTooSoon": "Kysyit juuri. Odota hetki ja yritä uudelleen."
   },
   "publicFeed": {
     "tabArchive": "Arkisto",
@@ -175,6 +177,8 @@
     "unshareHint": "Klippi katoaa Tutki-osiosta heti.",
     "askParent": "Kysy huoltajaltasi",
     "askParentHint": "Lähetämme huoltajallesi kysymyksen sähköpostilla.",
+    "askAgain": "Lähetä kysymys uudelleen",
+    "askAgainHint": "Jos viesti katosi — lähetämme uuden.",
     "delete": "Poista klippi",
     "deleteHint": "Katoaa koko joukkueelta. Ei voi perua.",
     "report": "Ilmoita klipistä",

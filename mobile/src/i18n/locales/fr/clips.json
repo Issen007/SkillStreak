@@ -130,6 +130,7 @@
     "ask": "Demander à mon parent",
     "headingPending": "Nous avons demandé à ton parent",
     "bodyPending": "Nous avons envoyé un e-mail. Dès qu'il accepte, tu pourras partager. Cela peut prendre un jour ou deux.",
+    "askAgain": "Renvoyer la demande",
     "headingOn": "Partager cette vidéo",
     "bodyOn": "D'autres joueurs de floorball peuvent voir la vidéo, ton pseudo et ton avatar. Ils ne voient jamais ton vrai nom, ton équipe ni où tu t'entraînes.",
     "publish": "Partager la vidéo",
@@ -138,7 +139,8 @@
     "unpublish": "Arrêter de partager",
     "close": "Fermer",
     "errorGeneric": "Ça n'a pas marché. Réessaie dans un instant.",
-    "errorRevoked": "Le partage est désactivé pour ton compte. Demande à ton parent."
+    "errorRevoked": "Le partage est désactivé pour ton compte. Demande à ton parent.",
+    "errorTooSoon": "Tu viens de demander. Attends un moment et réessaie."
   },
   "publicFeed": {
     "tabArchive": "Archives",
@@ -175,6 +177,8 @@
     "unshareHint": "Le clip quitte Explorer tout de suite.",
     "askParent": "Demande à tes parents",
     "askParentHint": "Nous enverrons la question à tes parents par e-mail.",
+    "askAgain": "Renvoyer la demande",
+    "askAgainHint": "Si l'e-mail s'est perdu — nous en enverrons un autre.",
     "delete": "Supprimer le clip",
     "deleteHint": "Disparaît pour toute l'équipe. Irréversible.",
     "report": "Signaler le clip",

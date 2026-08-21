@@ -130,6 +130,7 @@
     "ask": "Ask my parent",
     "headingPending": "We've asked your parent",
     "bodyPending": "We've sent an email. As soon as they say yes you can start sharing. It might take a day or two.",
+    "askAgain": "Send the question again",
     "headingOn": "Share this video",
     "bodyOn": "Other floorball players can see the video, your screen name and your avatar. They never see your real name, your team or where you train.",
     "publish": "Share video",
@@ -138,7 +139,8 @@
     "unpublish": "Stop sharing this video",
     "close": "Close",
     "errorGeneric": "That didn't work just now. Try again in a moment.",
-    "errorRevoked": "Sharing is switched off for your account right now. Ask your parent."
+    "errorRevoked": "Sharing is switched off for your account right now. Ask your parent.",
+    "errorTooSoon": "You just asked. Wait a little while and try again."
   },
   "publicFeed": {
     "tabArchive": "Archive",
@@ -175,6 +177,8 @@
     "unshareHint": "The clip leaves Explore straight away.",
     "askParent": "Ask your parent",
     "askParentHint": "We'll email your parent a question.",
+    "askAgain": "Send the question again",
+    "askAgainHint": "If the email went astray — we'll send a new one.",
     "delete": "Delete the clip",
     "deleteHint": "Disappears for the whole team. Can't be undone.",
     "report": "Report the clip",

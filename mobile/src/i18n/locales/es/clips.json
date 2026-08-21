@@ -130,6 +130,7 @@
     "ask": "Preguntar a mi madre o padre",
     "headingPending": "Ya se lo hemos preguntado a tu madre o padre",
     "bodyPending": "Hemos enviado un correo. En cuanto diga que sí, podrás empezar a compartir. Puede tardar un día o dos.",
+    "askAgain": "Enviar la pregunta otra vez",
     "headingOn": "Compartir este vídeo",
     "bodyOn": "Otros jugadores de floorball podrán ver el vídeo, tu nombre en la app y tu avatar. Nunca ven tu nombre real, tu equipo ni dónde entrenas.",
     "publish": "Compartir vídeo",
@@ -138,7 +139,8 @@
     "unpublish": "Dejar de compartir este vídeo",
     "close": "Cerrar",
     "errorGeneric": "Eso no funcionó ahora mismo. Inténtalo de nuevo en un momento.",
-    "errorRevoked": "Ahora mismo compartir está desactivado en tu cuenta. Pregúntale a tu madre o padre."
+    "errorRevoked": "Ahora mismo compartir está desactivado en tu cuenta. Pregúntale a tu madre o padre.",
+    "errorTooSoon": "Acabas de preguntar. Espera un poco e inténtalo de nuevo."
   },
   "publicFeed": {
     "tabArchive": "Archivo",
@@ -175,6 +177,8 @@
     "unshareHint": "El clip sale de Explorar al instante.",
     "askParent": "Pregunta a tu familia",
     "askParentHint": "Enviaremos la pregunta por correo a tu familia.",
+    "askAgain": "Enviar la pregunta otra vez",
+    "askAgainHint": "Si el correo se perdió, enviaremos otro.",
     "delete": "Borrar el clip",
     "deleteHint": "Desaparece para todo el equipo. No se puede deshacer.",
     "report": "Denunciar el clip",
