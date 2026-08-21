@@ -160,7 +160,11 @@
       "deleteAccount": "Mein Konto löschen",
       "reportProblem": "Ein Problem melden",
       "trainerPrompt": "Bist du Trainer/in?",
-      "trainerLink": "Trainermodus öffnen"
+      "trainerLink": "Trainermodus öffnen",
+      "trainerLinked": "Trainermodus",
+      "trainerLinkAccounts": "Mit deinem Trainerkonto verbinden",
+      "trainerUnlink": "Trainerkonto trennen",
+      "trainerLinkFailed": "Das hat gerade nicht geklappt. Versuch es nochmal."
     }
   },
   "erasureCheckEmail": {

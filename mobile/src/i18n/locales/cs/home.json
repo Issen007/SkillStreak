@@ -160,7 +160,11 @@
       "deleteAccount": "Smazat můj účet",
       "reportProblem": "Nahlásit problém",
       "trainerPrompt": "Jsi trenér?",
-      "trainerLink": "Otevřít trenérský režim"
+      "trainerLink": "Otevřít trenérský režim",
+      "trainerLinked": "Trenérský režim",
+      "trainerLinkAccounts": "Propojit s trenérským účtem",
+      "trainerUnlink": "Odpojit trenérský účet",
+      "trainerLinkFailed": "Teď to nevyšlo. Zkus to znovu."
     }
   },
   "erasureCheckEmail": {

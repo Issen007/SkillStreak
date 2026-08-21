@@ -160,7 +160,11 @@
       "deleteAccount": "Poista tilini",
       "reportProblem": "Ilmoita ongelmasta",
       "trainerPrompt": "Oletko valmentaja?",
-      "trainerLink": "Avaa valmentajatila"
+      "trainerLink": "Avaa valmentajatila",
+      "trainerLinked": "Valmentajatila",
+      "trainerLinkAccounts": "Yhdistä valmentajatiliisi",
+      "trainerUnlink": "Katkaise yhteys valmentajatiliin",
+      "trainerLinkFailed": "Se ei onnistunut juuri nyt. Yritä uudelleen."
     }
   },
   "erasureCheckEmail": {

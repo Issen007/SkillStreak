@@ -3116,7 +3116,72 @@
    * Nothing here is a security boundary: every /admin and /pt route keeps
    * its own guard, and those guards decide access. This only decides which
    * navigation to draw. */
+  /**
+   * ADR-0031 — redeeming an account-link challenge.
+   *
+   * The token arrives as `?link=<token>` from the app. It is moved into
+   * sessionStorage and stripped from the URL immediately, for two
+   * reasons: it must survive the SSO round trip that follows when the
+   * operator is not signed in yet, and a live ticket sitting in a
+   * visible address bar is the kind of thing that gets pasted into a
+   * chat window.
+   *
+   * It carries no authority on its own — possessing it lets you attach
+   * *your own* staff account to that player and nothing else, and the
+   * resulting link grants nothing either way (ADR-0031 Decision 3). The
+   * care here is proportionate to it being a one-shot ticket, not to it
+   * being a credential.
+   */
+  function captureLinkToken() {
+    var match = /[?&]link=([^&]+)/.exec(location.search || '');
+    if (!match) return;
+    try {
+      sessionStorage.setItem('skillstreak.linkToken', decodeURIComponent(match[1]));
+    } catch (e) { /* private mode: the redeem below simply will not fire */ }
+    /* Strip it from the address bar without reloading. */
+    try {
+      history.replaceState(null, '', location.pathname + location.hash);
+    } catch (e) { /* older browser: harmless, the token is already stored */ }
+  }
+
+  function takeLinkToken() {
+    try {
+      var t = sessionStorage.getItem('skillstreak.linkToken');
+      sessionStorage.removeItem('skillstreak.linkToken');
+      return t || null;
+    } catch (e) { return null; }
+  }
+
+  /** One-line result, drawn where the operator is already looking. */
+  function sayLinkResult(text) {
+    var who = el('who');
+    if (!who) return;
+    var note = document.createElement('span');
+    note.className = 'linkNote';
+    note.textContent = ' · ' + text;
+    who.appendChild(note);
+    setTimeout(function () {
+      if (note.parentNode) note.parentNode.removeChild(note);
+    }, 8000);
+  }
+
+  function redeemLinkIfPending() {
+    var token = takeLinkToken();
+    if (!token) return;
+    api.post('/api/v1/staff/account-link/complete', { token: token })
+      .then(function () {
+        sayLinkResult('Linked to your player account');
+      })
+      .catch(function () {
+        /* One message for every refusal, matching the server: expired,
+         * already used, already linked and under-age are deliberately
+         * indistinguishable. */
+        sayLinkResult('That link request could not be completed');
+      });
+  }
+
   function start() {
+    captureLinkToken();
     api.get('/api/v1/staff-auth/session').then(function (session) {
       if (!session.authenticated) {
         show('login');
@@ -3131,6 +3196,11 @@
       el('who').textContent =
         session.displayName || (state.role === 'admin' ? '' : 'Trainer');
       show('shell');
+
+      /* Only after a session is confirmed — the endpoint is behind
+       * StaffAuthGuard, so redeeming before sign-in would just 401 and
+       * burn the token. */
+      redeemLinkIfPending();
 
       if (state.role === 'admin') {
         /* Only admins ask for this, and only once we know they are one —

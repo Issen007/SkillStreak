@@ -160,7 +160,11 @@
       "deleteAccount": "Borrar mi cuenta",
       "reportProblem": "Informar de un problema",
       "trainerPrompt": "¿Eres entrenador?",
-      "trainerLink": "Abrir el modo entrenador"
+      "trainerLink": "Abrir el modo entrenador",
+      "trainerLinked": "Modo entrenador",
+      "trainerLinkAccounts": "Vincular tu cuenta de entrenador",
+      "trainerUnlink": "Desvincular la cuenta de entrenador",
+      "trainerLinkFailed": "Eso no ha funcionado ahora. Inténtalo otra vez."
     }
   },
   "erasureCheckEmail": {

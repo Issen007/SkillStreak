@@ -160,7 +160,11 @@
       "deleteAccount": "Radera mitt konto",
       "reportProblem": "Rapportera ett problem",
       "trainerPrompt": "Är du tränare?",
-      "trainerLink": "Öppna tränarläget"
+      "trainerLink": "Öppna tränarläget",
+      "trainerLinked": "Tränarläge",
+      "trainerLinkAccounts": "Koppla ihop med ditt tränarkonto",
+      "trainerUnlink": "Koppla från tränarkontot",
+      "trainerLinkFailed": "Det gick inte just nu. Testa igen."
     }
   },
   "erasureCheckEmail": {

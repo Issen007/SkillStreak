@@ -162,6 +162,11 @@
     border: 1px solid var(--line); color: var(--ink-2);
   }
   .env.prod { color: var(--err); border-color: var(--err); }
+  /* ADR-0031's one-line link result, appended next to the signed-in name
+     and removed after a few seconds. Deliberately not a modal: it reports
+     the outcome of something the operator already asked for, and the
+     link grants nothing that would warrant interrupting them. */
+  .linkNote { color: var(--ink-2); }
 
   main { padding: 26px 30px 70px; max-width: 1040px; }
   h2 { font-size: 20px; margin: 0 0 16px; letter-spacing: -.015em; }

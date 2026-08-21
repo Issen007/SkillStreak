@@ -782,3 +782,37 @@ export function getSavedClips(): Promise<SavedClipsResponse> {
     auth: true,
   });
 }
+
+/** ADR-0031 — whether this player already has a trainer account attached.
+ * Returns a boolean and nothing else: the staff account's email, role and
+ * provider are facts about an identity this session does not
+ * authenticate. */
+export function getAccountLinkStatus(): Promise<{ linked: boolean }> {
+  return apiClient.request<{ linked: boolean }>('/me/account-link', {
+    auth: true,
+  });
+}
+
+/**
+ * Mint the one-shot challenge the console redeems. The token is returned
+ * once and is not stored by the app — it goes straight into the URL that
+ * opens the console and is forgotten.
+ */
+export function createAccountLinkChallenge(): Promise<{
+  token: string;
+  expiresAt: string;
+}> {
+  return apiClient.request<{ token: string; expiresAt: string }>(
+    '/me/account-link/challenge',
+    { method: 'POST', auth: true },
+  );
+}
+
+/** Break the link from the player side. Unilateral by design — no
+ * confirmation from the trainer, and always available. */
+export function unlinkAccount(): Promise<{ linked: false }> {
+  return apiClient.request<{ linked: false }>('/me/account-link', {
+    method: 'DELETE',
+    auth: true,
+  });
+}
