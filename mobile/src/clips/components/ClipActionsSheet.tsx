@@ -11,10 +11,19 @@ interface ClipActionsSheetProps {
   isOwn: boolean;
   /** Whether this clip is currently visible outside the team (ADR-0030). */
   publishedPublicly: boolean;
+  /** The player's own parental sharing permission, or null while the status
+   * request is still in flight. Anything other than `active` greys the
+   * share row out — see the note on the component. */
+  consent: 'none' | 'pending' | 'active' | null;
   /** Absent when the rollout has not reached this team, so no share row is
    * drawn at all — a disabled one invites a child to keep tapping
-   * something nothing they can do will unlock. */
+   * something nothing they can do will unlock. Missing *consent* is the
+   * opposite case: there the child has something to do about it, so the
+   * row stays visible and an ask row appears beside it. */
   onShare?: () => void;
+  /** Absent when there is nothing useful to ask for — no rollout, consent
+   * already active, or a request already pending. */
+  onAskParent?: () => void;
   onDelete?: () => void;
   onReport?: () => void;
   onClose: () => void;
@@ -35,17 +44,44 @@ interface ClipActionsSheetProps {
  * be undone — sharing and un-sharing are both reversible in a tap. Two
  * children reaching for "share" and hitting "delete" is the failure this
  * layout is arranged to prevent.
+ *
+ * **Sharing shows its lock rather than hiding it** (project owner,
+ * 2026-08-21). Until a parent has approved, the share row is greyed and
+ * unpressable and an "ask your parent" row sits under it, so the state is
+ * legible from the menu instead of only after a tap into the share sheet.
+ * Three details are deliberate:
+ *
+ * - **A pending request gets no ask row.** The only thing that moves that
+ *   state forward is a parent clicking a link in their own inbox, and a
+ *   second button would invite a child to mail-bomb them — the server's
+ *   cooldown would refuse anyway. ClipShareSheet made the same call.
+ * - **Unshare is never greyed.** A clip that is already public stays
+ *   removable whatever the consent says; a permission that lapsed must not
+ *   trap a child's own video outside the team.
+ * - **The ask row opens the share sheet rather than mailing straight from
+ *   here.** That sheet is where the child is told, in their own words,
+ *   what a stranger would be able to see — the disclosure ADR-0030 puts
+ *   in front of the decision, not after it.
  */
 export function ClipActionsSheet({
   visible,
   isOwn,
   publishedPublicly,
+  consent,
   onShare,
+  onAskParent,
   onDelete,
   onReport,
   onClose,
 }: ClipActionsSheetProps) {
   const { t } = useTranslation('clips');
+
+  // An already-public clip is always un-shareable, consent or no consent.
+  const shareEnabled = publishedPublicly || consent === 'active';
+  const lockedHint =
+    consent === 'pending'
+      ? t('clipActions.sharePendingHint')
+      : t('clipActions.shareLockedHint');
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -56,18 +92,40 @@ export function ClipActionsSheet({
             {onShare ? (
               <Pressable
                 accessibilityRole="button"
+                accessibilityState={{ disabled: !shareEnabled }}
+                disabled={!shareEnabled}
                 onPress={onShare}
-                style={styles.row}
+                style={[styles.row, shareEnabled ? null : styles.rowDisabled]}
               >
-                <Text style={styles.rowLabel}>
+                <Text
+                  style={[
+                    styles.rowLabel,
+                    shareEnabled ? null : styles.labelDisabled,
+                  ]}
+                >
                   {publishedPublicly
                     ? t('clipActions.unshare')
                     : t('clipActions.share')}
                 </Text>
                 <Text style={styles.rowHint}>
-                  {publishedPublicly
-                    ? t('clipActions.unshareHint')
-                    : t('clipActions.shareHint')}
+                  {!shareEnabled
+                    ? lockedHint
+                    : publishedPublicly
+                      ? t('clipActions.unshareHint')
+                      : t('clipActions.shareHint')}
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {!shareEnabled && onAskParent ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={onAskParent}
+                style={styles.row}
+              >
+                <Text style={styles.rowLabel}>{t('clipActions.askParent')}</Text>
+                <Text style={styles.rowHint}>
+                  {t('clipActions.askParentHint')}
                 </Text>
               </Pressable>
             ) : null}
@@ -136,6 +194,16 @@ const styles = StyleSheet.create({
   rowHint: {
     fontFamily: fonts.body,
     fontSize: 12.5,
+    color: colors.textMuted,
+  },
+  // Greyed, not hidden: the row is the explanation of why sharing is not
+  // available yet, so it has to stay readable while being obviously inert.
+  rowDisabled: {
+    backgroundColor: colors.paper,
+    borderColor: colors.border,
+    opacity: 0.6,
+  },
+  labelDisabled: {
     color: colors.textMuted,
   },
   destructive: {

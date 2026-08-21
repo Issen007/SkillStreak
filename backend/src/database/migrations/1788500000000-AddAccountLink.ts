@@ -71,7 +71,9 @@ export class AddAccountLink1788500000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "account_link_challenge" DROP CONSTRAINT "FK_account_link_challenge_player"`,
     );
-    await queryRunner.query(`DROP INDEX "public"."IDX_account_link_challenge_token"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_account_link_challenge_token"`,
+    );
     await queryRunner.query(`DROP TABLE "account_link_challenge"`);
     await queryRunner.query(
       `ALTER TABLE "account_link" DROP CONSTRAINT "FK_account_link_staff"`,

@@ -169,8 +169,12 @@
   "clipActions": {
     "share": "Sdílet mimo tým",
     "shareHint": "Uvidí ho i další florbalisté.",
+    "shareLockedHint": "Nejdřív musí souhlasit tvůj rodič.",
+    "sharePendingHint": "Poslali jsme tvému rodiči e-mail. Čekáme na odpověď.",
     "unshare": "Přestat sdílet",
     "unshareHint": "Klip zmizí z Objevuj okamžitě.",
+    "askParent": "Zeptej se rodiče",
+    "askParentHint": "Pošleme tvému rodiči otázku e-mailem.",
     "delete": "Smazat klip",
     "deleteHint": "Zmizí celému týmu. Nelze vrátit zpět.",
     "report": "Nahlásit klip",

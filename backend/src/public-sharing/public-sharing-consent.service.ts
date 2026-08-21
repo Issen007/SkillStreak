@@ -817,12 +817,21 @@ export class PublicSharingConsentService {
     return this.configService.get<string>('APP_PUBLIC_URL') ?? '';
   }
 
+  /*
+   * These two paths must match `PublicSharingPublicController`'s mounted
+   * routes exactly. They did not until 2026-08-21: both said
+   * `public-sharing-consent` (the *file* name) where the controller mounts
+   * `public-sharing`, so the very first consent mail ever delivered in
+   * production handed a parent a 404. `public-sharing-url.spec.ts` now
+   * asserts the two against the controller's own route metadata rather
+   * than against a copy of these strings.
+   */
   private approvalUrl(code: string): string {
-    return `${this.appPublicUrl()}/api/v1/public-sharing-consent/${code}`;
+    return `${this.appPublicUrl()}/api/v1/public-sharing/${code}`;
   }
 
   private revokeUrl(code: string): string {
-    return `${this.appPublicUrl()}/api/v1/public-sharing-consent/revoke/${code}`;
+    return `${this.appPublicUrl()}/api/v1/public-sharing/revoke/${code}`;
   }
 
   /**

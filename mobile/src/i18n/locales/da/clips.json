@@ -169,8 +169,12 @@
   "clipActions": {
     "share": "Del uden for holdet",
     "shareHint": "Andre floorballspillere kan se klippet.",
+    "shareLockedHint": "Din forælder skal sige ja først.",
+    "sharePendingHint": "Vi har sendt en mail til din forælder. Venter på svar.",
     "unshare": "Stop med at dele",
     "unshareHint": "Klippet forsvinder fra Udforsk med det samme.",
+    "askParent": "Spørg din forælder",
+    "askParentHint": "Vi sender din forælder en mail med spørgsmålet.",
     "delete": "Slet klippet",
     "deleteHint": "Forsvinder for hele holdet. Kan ikke fortrydes.",
     "report": "Rapportér klippet",

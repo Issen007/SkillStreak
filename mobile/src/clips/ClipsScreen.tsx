@@ -767,6 +767,18 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
             ? () => handleTapShare(activeClip)
             : undefined
         }
+        sharingConsent={sharingStatus?.consent ?? null}
+        // Same destination as the share row, deliberately: the share sheet
+        // is where the child reads what a stranger would see before any
+        // mail goes to their parent. Offered only for `none` — a pending
+        // request is moved by the parent's inbox, not by asking twice.
+        onTapAskParent={
+          sharingStatus?.available &&
+          sharingStatus.consent === 'none' &&
+          activeClip
+            ? () => handleTapShare(activeClip)
+            : undefined
+        }
         onClose={() => setActiveClip(null)}
       />
 

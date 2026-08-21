@@ -169,8 +169,12 @@
   "clipActions": {
     "share": "Del utenfor laget",
     "shareHint": "Andre innebandyspillere kan se klippet.",
+    "shareLockedHint": "Forelderen din må si ja først.",
+    "sharePendingHint": "Vi har sendt e-post til forelderen din. Venter på svar.",
     "unshare": "Slutt å dele",
     "unshareHint": "Klippet forsvinner fra Utforsk med en gang.",
+    "askParent": "Spør forelderen din",
+    "askParentHint": "Vi sender forelderen din en e-post med spørsmålet.",
     "delete": "Slett klippet",
     "deleteHint": "Forsvinner for hele laget. Kan ikke angres.",
     "report": "Meld fra om klippet",
