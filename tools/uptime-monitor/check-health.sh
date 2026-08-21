@@ -27,9 +27,25 @@ CURL_TIMEOUT="10"
 mkdir -p "$STATE_DIR"
 
 # name|url|required-body-substring (empty = just check the status code)
+#
+# The site targets carry a substring for a reason learned the hard way on
+# 2026-08-21: a page can return 200 while being comprehensively broken.
+# That day the marketing page's config <script> was a syntax error, so
+# every API call it made went to `undefined/...`, and `/i18n.js` had been
+# 404ing for as long as the page existed — no language switcher, no
+# English. The homepage answered 200 throughout, and a status-code check
+# would have called that "up" for the whole outage.
+#
+#   site      — `id="topnav"` proves the document body rendered, not just
+#               that something answered. Deliberately a structural anchor
+#               rather than copy, which changes.
+#   site-i18n — the file that was missing. `lang-switch` is the class the
+#               language switcher is built from, so its absence means the
+#               site has no way to reach English even if the file is served.
 TARGETS=(
   "api|https://api.skillstreak.xyz/health|\"status\":\"ok\""
-  "site|https://skillstreak.xyz/|"
+  "site|https://skillstreak.xyz/|id=\"topnav\""
+  "site-i18n|https://skillstreak.xyz/i18n.js|lang-switch"
   "try-it|https://try.skillstreak.xyz/|"
 )
 

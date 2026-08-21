@@ -21,10 +21,20 @@ report a networking-level failure of that same cluster.
 ## What it actually does
 
 `check-health.sh`, once per run:
-1. Requests each of the three production URLs (`https://api.skillstreak.xyz
-   /health`, `https://skillstreak.xyz/`, `https://try.skillstreak.xyz/`),
-   with a 10s timeout. The API check also confirms the response body
-   actually contains `"status":"ok"`, not just a 2xx status code.
+1. Requests each of the four production URLs (`https://api.skillstreak.xyz
+   /health`, `https://skillstreak.xyz/`, `https://skillstreak.xyz/i18n.js`,
+   `https://try.skillstreak.xyz/`), with a 10s timeout. Three of the four
+   also confirm the response *body*, not just a 2xx status code — the API
+   must contain `"status":"ok"`, the site must contain `id="topnav"`, and
+   `i18n.js` must contain `lang-switch`.
+
+   The body checks on the site exist because of 2026-08-21, when the
+   marketing page's config `<script>` was a syntax error and `/i18n.js` had
+   been 404ing for as long as the page existed — no language switcher, no
+   English, and every API call the page made going to `undefined/...`. The
+   homepage answered 200 throughout. A status-code check would have
+   reported "up" for the entire outage, which is the failure mode this tool
+   exists to prevent.
 2. Compares each target's result to its last known status (tracked per
    target in `~/.local/state/skillstreak-uptime/<name>.state`).
 3. **Only sends an email on a state change** — healthy → down, or
