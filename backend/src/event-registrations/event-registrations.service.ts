@@ -205,6 +205,12 @@ export class EventRegistrationsService {
       const rendered = renderSignupConfirmationEmail({
         locale: row.locale,
         unsubscribeUrl: this.unsubscribeUrl(row.unsubscribeCode),
+        // Read back off the row rather than passed down from the DTO, so
+        // the confirmation describes what was actually stored — including
+        // the case where `orIgnore` kept an earlier opt-in this submission
+        // did not repeat.
+        wantsDemoInvite: row.demoInviteRequestedAt !== null,
+        wantsReleaseUpdates: row.releaseUpdatesOptedInAt !== null,
       });
       await this.mailService.sendMail({
         to: row.email,
