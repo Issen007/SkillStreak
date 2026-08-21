@@ -9,8 +9,22 @@
   // Replaced at image-build time (see site/Dockerfile) with the real API
   // origin — same "PLACEHOLDER + sed at build time" convention already
   // used for k8s/api-deployment.yaml's image field.
+  //
+  // **A global's name must never contain its own placeholder token**, and
+  // this comment deliberately spells no token out in full — sed would
+  // rewrite the explanation along with the code.
+  //
+  // The try-it global used to be named after the very token that replaces
+  // its value, and the Dockerfile substitutes that token globally (it also
+  // appears in two hrefs below). So the substitution rewrote the property
+  // *name* as well, leaving `window.https://try...` — a syntax error that
+  // killed this whole <script> block and with it the API origin on the
+  // line above, silently, in production for as long as the page existed.
+  //
+  // The names below differ from their tokens by construction. Keep it that
+  // way; site/tools/check-substitutions.mjs fails the build otherwise.
   window.__API_BASE__ = "__API_BASE_URL__";
-  window.__TRY_IT_URL__ = "__TRY_IT_URL__";
+  window.__TRY_IT__ = "__TRY_IT_URL__";
 </script>
 <style>
 @font-face {
@@ -1764,7 +1778,7 @@ window.__beaconReady__ = (function () {
     if (!anchor) return;
     var href = anchor.getAttribute('href') || '';
 
-    if (window.__TRY_IT_URL__ && href.indexOf(window.__TRY_IT_URL__) === 0) {
+    if (window.__TRY_IT__ && href.indexOf(window.__TRY_IT__) === 0) {
       report('try_it');
       return;
     }

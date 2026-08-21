@@ -490,6 +490,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Before building anything: does site/index.html still survive its own
+      # build-time substitutions? The Dockerfile's `grep -qF` guards only
+      # prove a substitution landed, and on 2026-08-21 one landed *on a
+      # global's name*, breaking the config <script> and every API call the
+      # marketing page makes — for as long as the page had been deployed.
+      # This runs here rather than in its own job so it sits inside a
+      # required check: a new advisory job would not have blocked it.
+      - name: Site build-time substitutions
+        run: node site/tools/check-substitutions.mjs
+
       - name: Build backend image
         run: docker build -t skillstreak-api:ci ./backend
 
