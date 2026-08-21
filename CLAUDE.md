@@ -107,6 +107,26 @@ unchecked, actually-buildable item in those two docs (skip anything
 blocked on something outside this repo, e.g. external infra access this
 project doesn't control) unless told otherwise.
 
+## Claude Code skills for this project
+
+Defined in `.claude/skills/`, one directory per skill. Invoked by name
+(`/verify-deployed`) or automatically when the task matches.
+
+1. **verify-deployed** — check that a change is actually *running*, not
+   merely merged. Use after a merge, after changing a secret or
+   ConfigMap, before telling anyone something shipped, and whenever a
+   report of "it doesn't work" contradicts what the repo says.
+
+   It exists because this project has been wrong about that distinction
+   at least five separate times, in five different ways: PRs reported
+   merged that were still open; a mobile app three days and eleven
+   commits stale while the API deployed on every merge; an SMTP secret
+   correct in GitHub and absent from the cluster for three deploys; a
+   certificate "verified" by a cached ACME authorization that solved no
+   challenge; and production serving an internal-LAN image for a stretch
+   of 2026-07-30. Every one looked fine from wherever it was checked.
+   The skill's whole content is *which place to ask*.
+
 ## Claude Code subagents for this project
 
 Defined in `.claude/agents/`, one file per role. Invoke by name (e.g. "have
