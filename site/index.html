@@ -169,7 +169,10 @@ a:focus-visible, button:focus-visible {
 }
 
 /* ------------------------------------------------------- lang switch */
-.lang-switch { display:flex; gap:2px; margin-left:auto; margin-right:12px; }
+/* No `margin-left:auto` any more — `.nav-right` does the pushing now, and
+   the auto margin here is precisely what un-centred the links. */
+.lang-switch { display:flex; gap:2px; margin-right:12px; }
+.nav-right { flex: 1 1 0; display: flex; align-items: center; justify-content: flex-end; }
 .lang-switch button {
   font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .04em;
   padding: 5px 7px; border-radius: 8px; cursor: pointer;
@@ -186,13 +189,26 @@ a:focus-visible, button:focus-visible {
 @media (max-width: 720px) { .lang-switch { margin-right: 8px; } }
 
 /* ---------------------------------------------------------------- nav */
+/* Three columns, and the two outer ones share the leftover space equally
+   so the links land on the real centre.
+ *
+ * `justify-content: space-between` did that on its own while the nav held
+ * exactly three children. It stopped the day the language switcher started
+ * being served (2026-08-21): a fourth child with `margin-left:auto` absorbs
+ * all the free space, which collapsed the links back against the brand.
+ * Reported as "the English menu is not centered like the Swedish" — it was
+ * neither language, it was the switcher, and Swedish only looked right
+ * because it was last seen before the switcher existed.
+ *
+ * Equal `flex: 1 1 0` on the outer two is what makes this survive the next
+ * thing added to either side, which `space-between` never did. */
 .topnav {
   position: fixed;
   inset: 0 0 auto 0;
   z-index: 50;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding: 14px clamp(20px, 5vw, 64px);
   background: transparent;
   transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
@@ -204,6 +220,8 @@ a:focus-visible, button:focus-visible {
   box-shadow: 0 1px 0 var(--hairline);
 }
 .brand {
+  flex: 1 1 0;
+  min-width: 0;
   font-family: 'Baloo 2', system-ui, sans-serif;
   font-weight: 800;
   font-size: 19px;
@@ -216,6 +234,12 @@ a:focus-visible, button:focus-visible {
 .brand .dot { color: var(--flame); }
 .navlinks {
   display: flex;
+  /* Shrinkable on purpose. `0 0 auto` centres identically at comfortable
+     widths and overflows the bar around 900px, where the English labels are
+     longest — measured, not assumed. Letting the links give way keeps the
+     degradation graceful in the one band where the three columns cannot
+     all have what they want. */
+  flex: 0 1 auto;
   gap: clamp(14px, 2.4vw, 30px);
   list-style: none;
   margin: 0;
@@ -966,7 +990,13 @@ footer .foot-row {
     <li><a href="#visning">Visning</a></li>
     <li><a href="/download.html">Skaffa appen</a></li>
   </ul>
-  <a class="btn btn-flame" href="#demo">Skapa konto gratis</a>
+  <!-- The right-hand group is a real element so the nav can be three
+       balanced columns: brand, links, right. i18n.js puts the language
+       switcher in here. Without it, whatever sits on the right pushes the
+       links off-centre by half its own width. -->
+  <div class="nav-right">
+    <a class="btn btn-flame" href="#demo">Skapa konto gratis</a>
+  </div>
 </nav>
 
 <main id="top">

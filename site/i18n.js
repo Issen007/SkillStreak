@@ -428,10 +428,14 @@
       b.dataset.lang = lang.code;
       wrap.appendChild(b);
     });
-    // Before the CTA so the language choice reads as chrome, not as an
-    // action competing with "create an account".
-    var cta = nav.querySelector('.btn');
-    nav.insertBefore(wrap, cta || null);
+    // Into the right-hand group, before the CTA, so the language choice
+    // reads as chrome rather than an action competing with "create an
+    // account" — and, more importantly, so it does not become a fourth
+    // top-level flex child. As a direct child of the nav it pushed the
+    // links off-centre; `.nav-right` is a balanced column that absorbs it.
+    var right = nav.querySelector('.nav-right') || nav;
+    var cta = right.querySelector('.btn');
+    right.insertBefore(wrap, cta || null);
   }
 
   function setActive(code) {
