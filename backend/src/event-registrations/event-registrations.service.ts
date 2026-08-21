@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import {
   renderDemoInviteEmail,
+  renderReleaseConsentEmail,
   renderSignupConfirmationEmail,
 } from '../mail/templates/event-demo-emails.template';
 import { MailService } from '../mail/mail.service';
@@ -293,6 +294,91 @@ export class EventRegistrationsService {
     }
 
     return { sent, failed, skipped: all.length - targets.length };
+  }
+
+  /**
+   * The one-off re-consent campaign: asks everyone who predates the
+   * release-news box whether they want it.
+   *
+   * Sent under the consent they already gave — it is about the demo list
+   * they are on — and asks for a new, narrower one. Nobody is added by
+   * this method; it only asks. The add happens when a human presses the
+   * button in the message.
+   *
+   * Three exclusions, each load-bearing:
+   *
+   * - already opted in — there is nothing to ask;
+   * - already asked — `releaseConsentAskedAt` is what stops a second run
+   *   mailing the same people twice, the same job `inviteSentAt` does;
+   * - no unsubscribe code — a message to this list without one is not a
+   *   message we are willing to send.
+   *
+   * Mail failures leave `releaseConsentAskedAt` null so the next run picks
+   * them up, which is the same trade `sendInvites` makes: a duplicate ask
+   * is recoverable, a silently-never-asked person is not.
+   */
+  async askForReleaseConsent(): Promise<{ sent: number; failed: number }> {
+    const rows = await this.registrations.find({ order: { createdAt: 'ASC' } });
+    const targets = rows.filter(
+      (row) =>
+        row.releaseUpdatesOptedInAt === null &&
+        row.releaseConsentAskedAt === null &&
+        Boolean(row.unsubscribeCode),
+    );
+
+    let sent = 0;
+    let failed = 0;
+    for (const row of targets) {
+      try {
+        const rendered = renderReleaseConsentEmail({
+          locale: row.locale,
+          optInUrl: this.releaseOptInUrl(row.unsubscribeCode),
+          unsubscribeUrl: this.unsubscribeUrl(row.unsubscribeCode),
+        });
+        await this.mailService.sendMail({
+          to: row.email,
+          subject: rendered.subject,
+          html: rendered.html,
+          text: rendered.text,
+        });
+        await this.registrations.update(
+          { id: row.id, releaseConsentAskedAt: IsNull() },
+          { releaseConsentAskedAt: new Date() },
+        );
+        sent += 1;
+      } catch (error) {
+        failed += 1;
+        this.logger.error(
+          `Release-consent ask failed for one recipient — left unasked for the next run: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    return { sent, failed };
+  }
+
+  /**
+   * Records a release-news consent against the row that owns this code.
+   *
+   * Guarded on `IS NULL` so a second click keeps the moment of the first
+   * one — the date is the evidence, and rewriting it would replace "when
+   * they agreed" with "when they last clicked a link".
+   */
+  async optInToReleaseUpdates(code: string): Promise<{ optedIn: boolean }> {
+    const result = await this.registrations.update(
+      { unsubscribeCode: code, releaseUpdatesOptedInAt: IsNull() },
+      { releaseUpdatesOptedInAt: new Date() },
+    );
+    return { optedIn: (result.affected ?? 0) > 0 };
+  }
+
+  private releaseOptInUrl(code: string): string {
+    const base = (
+      this.configService.get<string>('APP_PUBLIC_URL') ?? ''
+    ).replace(/\/+$/, '');
+    return `${base}/api/v1/event-registrations/release-updates/${code}`;
   }
 
   /** Admin-only. Newest first — the list is read as "who signed up today". */

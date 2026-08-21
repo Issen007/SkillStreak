@@ -1899,6 +1899,19 @@
             }).join('')
               : '<tr><td colspan="9" class="muted">Nothing here.</td></tr>') +
             '</table></div>' +
+          (filter === 'releases'
+            ? '<div class="card"><h3 style="margin:0 0 4px;font-size:15px">' +
+              'Ask the rest of the list</h3>' +
+              '<p class="muted" style="margin:0 0 12px">Everyone who signed ' +
+              'up before the release-news box existed agreed to a demo ' +
+              'invitation and nothing else, so they cannot be mailed about ' +
+              'releases until they say yes. This asks them once, under the ' +
+              'consent they already gave, and adds nobody — only the button ' +
+              'in their own inbox does that. Anyone already asked is ' +
+              'skipped, so pressing it twice is safe.</p>' +
+              '<button id="askReleases">Send the question</button> ' +
+              '<span id="askMsg" class="muted"></span></div>'
+            : '') +
           '<p class="muted">The CSV carries a personal unsubscribe link per ' +
           'row — put it in whatever you send, including a mail merge. ' +
           'Held on consent, so &ldquo;remove&rdquo; deletes the row outright. ' +
@@ -1907,6 +1920,30 @@
         var exportButton = document.getElementById('exportCsv');
         if (exportButton) {
           exportButton.onclick = function () { downloadCsv(rows, filter); };
+        }
+
+        var askButton = document.getElementById('askReleases');
+        if (askButton) {
+          askButton.onclick = function () {
+            var askMsg = document.getElementById('askMsg');
+            askButton.disabled = true;
+            askMsg.className = 'muted';
+            askMsg.textContent = 'Sending…';
+            api.post('/api/v1/admin/event-registrations/ask-release-consent',
+                     {})
+              .then(function (result) {
+                askMsg.textContent = 'Asked ' + result.sent + '. ' +
+                  (result.failed
+                    ? result.failed + ' failed — they stay unasked and the ' +
+                      'next run picks them up.'
+                    : 'Nobody is on the release list until they answer.');
+              })
+              .catch(function (e) {
+                askButton.disabled = false;
+                askMsg.className = 'err';
+                askMsg.textContent = errorMessage(e);
+              });
+          };
         }
 
         var markButton = document.getElementById('markInvited');

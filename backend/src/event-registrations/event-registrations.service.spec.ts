@@ -179,6 +179,98 @@ describe('EventRegistrationsService', () => {
     );
   });
 
+  describe('asking the old list about release news', () => {
+    function registration(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'r1',
+        name: 'Anna',
+        email: 'anna@example.se',
+        interest: EventRegistrationInterest.CURIOUS,
+        note: null,
+        locale: EventRegistrationLocale.SV,
+        campaign: null,
+        createdAt: new Date('2026-08-01T09:00:00Z'),
+        inviteSentAt: null,
+        demoInviteRequestedAt: new Date('2026-08-01T09:00:00Z'),
+        releaseUpdatesOptedInAt: null,
+        releaseConsentAskedAt: null,
+        unsubscribeCode: 'code-1',
+        ...overrides,
+      };
+    }
+
+    it('asks nobody twice, and adds nobody at all', async () => {
+      find.mockResolvedValue([
+        registration(),
+        registration({
+          id: 'r2',
+          email: 'asked@example.se',
+          releaseConsentAskedAt: new Date('2026-08-20T09:00:00Z'),
+        }),
+        registration({
+          id: 'r3',
+          email: 'already-in@example.se',
+          releaseUpdatesOptedInAt: new Date('2026-08-20T09:00:00Z'),
+        }),
+      ]);
+
+      const result = await service.askForReleaseConsent();
+
+      expect(result).toEqual({ sent: 1, failed: 0 });
+      expect(sentMails(sendMail).map((mail) => mail.to)).toEqual([
+        'anna@example.se',
+      ]);
+      // The whole point: asking is not consenting. Only the recipient
+      // pressing the button in their own inbox writes an opt-in.
+      const patches = update.mock.calls.map(
+        (call) => (call as [unknown, Record<string, unknown>])[1],
+      );
+      patches.forEach((patch) => {
+        expect(patch).not.toHaveProperty('releaseUpdatesOptedInAt');
+      });
+    });
+
+    it('carries both an opt-in link and a way off the list entirely', async () => {
+      find.mockResolvedValue([registration()]);
+
+      await service.askForReleaseConsent();
+
+      const [mail] = sentMails(sendMail);
+      expect(mail.text).toContain(
+        '/api/v1/event-registrations/release-updates/code-1',
+      );
+      expect(mail.text).toContain(
+        '/api/v1/event-registrations/unsubscribe/code-1',
+      );
+    });
+
+    it('leaves a failed recipient unasked so the next run finds them', async () => {
+      find.mockResolvedValue([registration()]);
+      sendMail.mockRejectedValueOnce(new Error('mailbox full'));
+
+      const result = await service.askForReleaseConsent();
+
+      expect(result).toEqual({ sent: 0, failed: 1 });
+      expect(update).not.toHaveBeenCalled();
+    });
+  });
+
+  it('keeps the first consent date when a link is clicked twice', async () => {
+    // The guard is the assertion: the update is conditional on the column
+    // still being null, so a second click cannot overwrite the moment the
+    // person actually agreed.
+    update.mockResolvedValue({ affected: 0 });
+
+    await expect(service.optInToReleaseUpdates('code-1')).resolves.toEqual({
+      optedIn: false,
+    });
+    const [criteria] = update.mock.calls[0] as [Record<string, unknown>];
+    expect(Object.keys(criteria).sort()).toEqual([
+      'releaseUpdatesOptedInAt',
+      'unsubscribeCode',
+    ]);
+  });
+
   it('deletes for real — a consent-based list must be able to forget', async () => {
     await expect(service.remove('id-1')).resolves.toEqual({ deleted: true });
     expect(del).toHaveBeenCalledWith({ id: 'id-1' });
