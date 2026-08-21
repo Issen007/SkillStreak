@@ -139,5 +139,31 @@
     "close": "Close",
     "errorGeneric": "That didn't work just now. Try again in a moment.",
     "errorRevoked": "Sharing is switched off for your account right now. Ask your parent."
+  },
+  "publicFeed": {
+    "tabArchive": "Archive",
+    "tabExplore": "Explore",
+    "emptyHeading": "Nothing to explore yet",
+    "emptyBody": "When others start sharing clips, they'll show up here.",
+    "loadError": "Couldn't load the clips. Check your connection.",
+    "reactionFailed": "That didn't work just now. Try again.",
+    "reportThanks": "Thanks. The clip is off Explore.",
+    "reportA11y": "Report this clip",
+    "seconds": "{{count}} s",
+    "reactions": {
+      "nice": "Nice one!",
+      "strong": "Strong!",
+      "creative": "Creative!",
+      "well_done": "Well done!"
+    },
+    "collectionTeam": "Team",
+    "collectionMine": "Mine",
+    "mineEmptyHeading": "You have no clips yet",
+    "mineEmptyBody": "The clips you upload end up here.",
+    "saveA11y": "Save this clip",
+    "collectionSaved": "Saved",
+    "savedEmptyHeading": "Nothing saved yet",
+    "savedEmptyBody": "Tap the bookmark in Explore to save a clip.",
+    "savedMissing": "A saved clip isn't shared any more. Whoever made it took it off Explore."
   }
 }

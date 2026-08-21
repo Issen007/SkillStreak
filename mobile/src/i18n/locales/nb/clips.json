@@ -139,5 +139,31 @@
     "close": "Lukk",
     "errorGeneric": "Det gikk ikke akkurat nå. Prøv igjen om litt.",
     "errorRevoked": "Deling er slått av for kontoen din akkurat nå. Spør forelderen din."
+  },
+  "publicFeed": {
+    "tabArchive": "Arkiv",
+    "tabExplore": "Utforsk",
+    "emptyHeading": "Ingenting å utforske ennå",
+    "emptyBody": "Når andre begynner å dele klipp, dukker de opp her.",
+    "loadError": "Klarte ikke å hente klippene. Sjekk tilkoblingen din.",
+    "reactionFailed": "Det gikk ikke akkurat nå. Prøv igjen.",
+    "reportThanks": "Takk. Klippet er borte fra Utforsk.",
+    "reportA11y": "Meld fra om klippet",
+    "seconds": "{{count}} s",
+    "reactions": {
+      "nice": "Fint!",
+      "strong": "Sterkt!",
+      "creative": "Kreativt!",
+      "well_done": "Bra jobba!"
+    },
+    "collectionTeam": "Laget",
+    "collectionMine": "Mine",
+    "mineEmptyHeading": "Du har ingen klipp ennå",
+    "mineEmptyBody": "Klippene du laster opp havner her.",
+    "saveA11y": "Lagre klippet",
+    "collectionSaved": "Lagret",
+    "savedEmptyHeading": "Ingenting lagret ennå",
+    "savedEmptyBody": "Trykk på bokmerket i Utforsk for å lagre et klipp.",
+    "savedMissing": "Et lagret klipp deles ikke lenger. Den som lagde det, har tatt det bort fra Utforsk."
   }
 }

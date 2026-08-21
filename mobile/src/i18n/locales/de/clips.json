@@ -139,5 +139,31 @@
     "close": "Schließen",
     "errorGeneric": "Das hat gerade nicht geklappt. Versuch es gleich noch einmal.",
     "errorRevoked": "Teilen ist für dein Konto gerade ausgeschaltet. Frag deine Eltern."
+  },
+  "publicFeed": {
+    "tabArchive": "Archiv",
+    "tabExplore": "Entdecken",
+    "emptyHeading": "Noch nichts zu entdecken",
+    "emptyBody": "Wenn andere anfangen, Clips zu teilen, tauchen sie hier auf.",
+    "loadError": "Clips konnten nicht geladen werden. Prüf deine Verbindung.",
+    "reactionFailed": "Das hat gerade nicht geklappt. Versuch es nochmal.",
+    "reportThanks": "Danke. Der Clip ist aus Entdecken verschwunden.",
+    "reportA11y": "Clip melden",
+    "seconds": "{{count}} s",
+    "reactions": {
+      "nice": "Schön!",
+      "strong": "Stark!",
+      "creative": "Kreativ!",
+      "well_done": "Gut gemacht!"
+    },
+    "collectionTeam": "Mannschaft",
+    "collectionMine": "Meine",
+    "mineEmptyHeading": "Du hast noch keine Clips",
+    "mineEmptyBody": "Die Clips, die du hochlädst, landen hier.",
+    "saveA11y": "Clip speichern",
+    "collectionSaved": "Gespeichert",
+    "savedEmptyHeading": "Noch nichts gespeichert",
+    "savedEmptyBody": "Tippe in Entdecken auf das Lesezeichen, um einen Clip zu speichern.",
+    "savedMissing": "Ein gespeicherter Clip wird nicht mehr geteilt. Wer ihn gemacht hat, hat ihn aus Entdecken genommen."
   }
 }

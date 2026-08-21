@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ClipIntroCard } from './components/ClipIntroCard';
 import { ClipsWaitingCard } from './components/ClipsWaitingCard';
+import { PublicFeedScreen } from './PublicFeedScreen';
 import { ClipGrid } from './components/ClipGrid';
 import { ClipPlayerModal } from './components/ClipPlayerModal';
 import { ClipReportSheet } from './components/ClipReportSheet';
@@ -33,6 +34,7 @@ import {
   reportClip,
   requestPublicSharing,
   unpublishClipPublicly,
+  getSavedClips,
 } from '../api/endpoints';
 import type { PublicSharingStatus } from '../api/types';
 import { ApiError } from '../api/ApiError';
@@ -121,6 +123,32 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
   const [blockSubmitting, setBlockSubmitting] = useState(false);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  /**
+   * Which of the two Shorts surfaces is showing.
+   *
+   * **Defaults to the archive, never to Utforska.** Opening straight into
+   * an endless scroll of strangers is the pattern the reference apps use
+   * and the one this app should not copy — a child arrives in their own
+   * and their team's material and chooses to go outward.
+   */
+  const [surface, setSurface] = useState<'archive' | 'explore'>('archive');
+  /**
+   * Which collection inside Arkiv. `team` is the whole team feed; `mine`
+   * is the same feed filtered to this player's own uploads, which is the
+   * only place a clip can be published from — offering that control on a
+   * teammate's cell would teach the wrong model of who may publish what.
+   */
+  const [collection, setCollection] = useState<'team' | 'mine' | 'saved'>('team');
+  const [savedItems, setSavedItems] = useState<ClipFeedItem[] | null>(null);
+  /** How many saved clips are no longer public. A number, never a list —
+   * naming them would let a viewer track another child's un-publish
+   * decisions. */
+  const [savedMissingCount, setSavedMissingCount] = useState(0);
+  const [savedError, setSavedError] = useState(false);
+  /** Opened from Sparade. Kept apart from `activeClip` so the player is
+   * mounted read-only: a stranger's clip must not offer delete, share, or
+   * the team report path, which would post to a team the viewer is not in. */
+  const [activeSavedClip, setActiveSavedClip] = useState<ClipFeedItem | null>(null);
   const [view, setView] = useState<'feed' | 'upload'>('feed');
 
   const hasOpenedRef = useRef(false);
@@ -475,6 +503,92 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
     (consentStatus !== null && consentStatus !== 'approved') ||
     (teamJoinStatus !== null && teamJoinStatus !== 'approved');
 
+  const loadSaved = useCallback(async () => {
+    setSavedError(false);
+    try {
+      const response = await getSavedClips();
+      // Adapted to the grid's existing shape rather than duplicating the
+      // cell. `uploaderPlayerId` is deliberately empty: it is only ever
+      // compared against the viewer's own id to decide ownership, and a
+      // saved clip is by definition someone else's.
+      setSavedItems(
+        response.items.map((item) => ({
+          clipId: item.clipId,
+          uploaderPlayerId: '',
+          uploaderScreenName: item.screenName,
+          uploaderAvatarId: item.avatarId ?? '',
+          taggedPlayerId: null,
+          taggedScreenName: null,
+          caption: item.caption,
+          playbackUrl: item.playbackUrl,
+          createdAt: item.publishedAt,
+          reportedByMe: false,
+          publishedPublicly: true,
+        })),
+      );
+      setSavedMissingCount(response.missingCount);
+    } catch {
+      setSavedError(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (collection === 'saved' && savedItems === null && !savedError) {
+      void loadSaved();
+    }
+  }, [collection, savedItems, savedError, loadSaved]);
+
+  const visibleClips =
+    clips === null
+      ? null
+      : collection === 'mine'
+        ? clips.filter((c) => c.uploaderPlayerId === viewerPlayerId)
+        : clips;
+
+  // The tab pair only exists once the feature is live for this team. A
+  // team outside the rollout allow-list sees no Utforska tab at all —
+  // the same reasoning as the absent share row: nothing is advertised to
+  // a child who cannot use it.
+  const exploreAvailable = !locked && sharingStatus?.available === true;
+
+  const tabs = exploreAvailable ? (
+    <View style={styles.tabRow} accessibilityRole="tablist">
+      {(['archive', 'explore'] as const).map((value) => {
+        const selected = surface === value;
+        return (
+          <Pressable
+            key={value}
+            style={[styles.tab, selected ? styles.tabOn : null]}
+            onPress={() => setSurface(value)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+          >
+            <Text style={[styles.tabLabel, selected ? styles.tabLabelOn : null]}>
+              {t(value === 'archive' ? 'publicFeed.tabArchive' : 'publicFeed.tabExplore')}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  ) : null;
+
+  // Utforska is a full-bleed pager, so it replaces the scrolling body
+  // rather than sitting inside it. No upload FAB here either: you publish
+  // from your own archive, and offering it over a stranger's clip would
+  // teach the wrong model.
+  if (exploreAvailable && surface === 'explore') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.heading}>{t('v2.heading')}</Text>
+        {tabs}
+        <PublicFeedScreen onToast={setToastMessage} />
+        {toastMessage ? (
+          <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -488,8 +602,69 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
         }
       >
         <Text style={styles.heading}>{t('v2.heading')}</Text>
+        {tabs}
 
-        {locked ? (
+        {!locked && clips !== null && !loadError ? (
+          <View style={styles.tabRow} accessibilityRole="tablist">
+            {(['team', 'mine', 'saved'] as const).map((value) => {
+              const selected = collection === value;
+              return (
+                <Pressable
+                  key={value}
+                  style={[styles.subTab, selected ? styles.subTabOn : null]}
+                  onPress={() => setCollection(value)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected }}
+                >
+                  <Text
+                    style={[styles.subTabLabel, selected ? styles.subTabLabelOn : null]}
+                  >
+                    {t(
+                      value === 'team'
+                        ? 'publicFeed.collectionTeam'
+                        : value === 'mine'
+                          ? 'publicFeed.collectionMine'
+                          : 'publicFeed.collectionSaved',
+                    )}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {!locked && collection === 'saved' ? (
+          savedError ? (
+            <LoadingOrRetry
+              loading={false}
+              fullScreen={false}
+              style={{ gap: 8, paddingTop: 60 }}
+              errorMessage={t('publicFeed.loadError')}
+              retryLabel={t('v2.retry')}
+              onRetry={() => void loadSaved()}
+            />
+          ) : savedItems === null ? (
+            <LoadingOrRetry loading fullScreen={false} style={{ gap: 8, paddingTop: 60 }} />
+          ) : savedItems.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyHeading}>{t('publicFeed.savedEmptyHeading')}</Text>
+              <Text style={styles.emptySub}>{t('publicFeed.savedEmptyBody')}</Text>
+            </View>
+          ) : (
+            <>
+              <ClipGrid
+                clips={savedItems}
+                hasMore={false}
+                loadingMore={false}
+                onPressClip={setActiveSavedClip}
+                onShowMore={() => undefined}
+              />
+              {savedMissingCount > 0 ? (
+                <Text style={styles.savedMissingRow}>{t('publicFeed.savedMissing')}</Text>
+              ) : null}
+            </>
+          )
+        ) : locked ? (
           <ClipsWaitingCard
             consentStatus={consentStatus ?? 'pending'}
             isSelfVerification={isSelfVerification}
@@ -508,16 +683,28 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
             retryLabel={t('v2.retry')}
             onRetry={() => void fetchInitial()}
           />
-        ) : clips.length === 0 ? (
+        ) : visibleClips !== null && visibleClips.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyHeading}>{t('v2.emptyHeading')}</Text>
-            <Text style={styles.emptySub}>{t('v2.emptySub')}</Text>
+            <Text style={styles.emptyHeading}>
+              {t(
+                collection === 'mine'
+                  ? 'publicFeed.mineEmptyHeading'
+                  : 'v2.emptyHeading',
+              )}
+            </Text>
+            <Text style={styles.emptySub}>
+              {t(
+                collection === 'mine'
+                  ? 'publicFeed.mineEmptyBody'
+                  : 'v2.emptySub',
+              )}
+            </Text>
             <PrimaryButton label={t('v2.uploadButton')} onPress={handleTapFab} />
           </View>
         ) : (
           <ClipGrid
-            clips={clips}
-            hasMore={hasMore}
+            clips={visibleClips ?? []}
+            hasMore={collection === 'team' && hasMore}
             loadingMore={loadingMore}
             onPressClip={setActiveClip}
             onShowMore={() => void handleShowMore()}
@@ -532,6 +719,20 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       >
         <Text style={styles.fabIcon}>{locked ? '🔒' : '+'}</Text>
       </Pressable>
+
+      {/* Sparade's player, deliberately a second mount rather than a
+          branch on the one below. A saved clip belongs to a stranger, so
+          every action callback is omitted: no delete, no share, and
+          crucially no report — the team report path posts to a team this
+          viewer is not in. Reporting a public clip happens in Utforska,
+          where the endpoint that matches it lives. */}
+      <ClipPlayerModal
+        clip={activeSavedClip}
+        isOwn={false}
+        revealed={false}
+        onTapMeta={() => undefined}
+        onClose={() => setActiveSavedClip(null)}
+      />
 
       <ClipPlayerModal
         clip={activeClip}
@@ -621,6 +822,52 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 90,
     gap: 14,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  tab: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  tabOn: {
+    borderColor: colors.flame,
+    backgroundColor: colors.flameTint,
+  },
+  tabLabel: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.textBody,
+  },
+  tabLabelOn: {
+    fontFamily: fonts.headingBold,
+    color: colors.flame,
+  },
+  subTab: {
+    paddingVertical: 6,
+    paddingHorizontal: 13,
+    borderRadius: 999,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  subTabOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  subTabLabel: { fontFamily: fonts.body, fontSize: 13, color: colors.textBody },
+  subTabLabelOn: { fontFamily: fonts.bodyBold, color: colors.white },
+  savedMissingRow: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.textMuted,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    lineHeight: 17,
   },
   heading: {
     fontFamily: fonts.headingBold,

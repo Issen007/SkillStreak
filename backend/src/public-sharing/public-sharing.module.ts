@@ -7,9 +7,12 @@ import { PlayerPrivateInfoModule } from '../player-private-info/player-private-i
 import { Player } from '../players/entities/player.entity';
 import { RedisModule } from '../redis/redis.module';
 import { ClipReaction } from '../video-clips/entities/clip-reaction.entity';
+import { ClipBookmark } from '../video-clips/entities/clip-bookmark.entity';
+import { ClipReport } from '../video-clips/entities/clip-report.entity';
 import { VideoClip } from '../video-clips/entities/video-clip.entity';
 import { ClipReactionsService } from '../video-clips/clip-reactions.service';
 import { PublicFeedService } from '../video-clips/public-feed.service';
+import { VideoClipsModule } from '../video-clips/video-clips.module';
 import { PublicSharingConsent } from './entities/public-sharing-consent.entity';
 import { BounceMailboxService } from './bounce-mailbox.service';
 import { PublicSharingAccessService } from './public-sharing-access.service';
@@ -41,11 +44,20 @@ import { PublicSharingReminderService } from './public-sharing-reminder.service'
       Player,
       VideoClip,
       ClipReaction,
+      ClipReport,
+      ClipBookmark,
     ]),
     AuthModule,
     PlayerPrivateInfoModule,
     MailModule,
     RedisModule,
+    // For ObjectStorageService, so the public feed mints its playback
+    // URLs through the same presigner the team feed uses rather than a
+    // second copy of that logic. Safe in this direction only:
+    // VideoClipsModule has no PublicSharing dependency of its own — this
+    // module is where PublicFeedService lives precisely so it never
+    // needs one.
+    VideoClipsModule,
     // For the two scheduled jobs below: a failed run gets a row rather
     // than disappearing into an unobserved rejected promise, the same
     // way every other @Cron-owning module here records one.

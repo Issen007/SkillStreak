@@ -139,5 +139,31 @@
     "close": "Luk",
     "errorGeneric": "Det virkede ikke lige nu. Prøv igen om lidt.",
     "errorRevoked": "Deling er slået fra for din konto lige nu. Spørg din forælder."
+  },
+  "publicFeed": {
+    "tabArchive": "Arkiv",
+    "tabExplore": "Udforsk",
+    "emptyHeading": "Intet at udforske endnu",
+    "emptyBody": "Når andre begynder at dele klip, dukker de op her.",
+    "loadError": "Kunne ikke hente klippene. Tjek din forbindelse.",
+    "reactionFailed": "Det gik ikke lige nu. Prøv igen.",
+    "reportThanks": "Tak. Klippet er væk fra Udforsk.",
+    "reportA11y": "Rapportér klippet",
+    "seconds": "{{count}} s",
+    "reactions": {
+      "nice": "Flot!",
+      "strong": "Stærkt!",
+      "creative": "Kreativt!",
+      "well_done": "Godt gået!"
+    },
+    "collectionTeam": "Holdet",
+    "collectionMine": "Mine",
+    "mineEmptyHeading": "Du har ingen klip endnu",
+    "mineEmptyBody": "De klip, du uploader, havner her.",
+    "saveA11y": "Gem klippet",
+    "collectionSaved": "Gemte",
+    "savedEmptyHeading": "Intet gemt endnu",
+    "savedEmptyBody": "Tryk på bogmærket i Udforsk for at gemme et klip.",
+    "savedMissing": "Et gemt klip deles ikke længere. Den, der lavede det, har taget det væk fra Udforsk."
   }
 }

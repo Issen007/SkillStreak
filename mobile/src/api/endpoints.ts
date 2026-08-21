@@ -61,6 +61,11 @@ import type {
   TrainerPost,
   SubmitBugReportRequest,
   SubmitBugReportResponse,
+  ClipReactionType,
+  PublicFeedPage,
+  ViewerReactionResult,
+  ClipReportReason,
+  SavedClipsResponse,
 } from './types';
 
 // The only four endpoints Phase 1's Expo app talks to, per
@@ -702,6 +707,78 @@ export function submitBugReport(
   return apiClient.request<SubmitBugReportResponse>('/bug-reports', {
     method: 'POST',
     body,
+    auth: true,
+  });
+}
+
+/** Screen F1 — one page of the public feed. Keyset-paginated; pass the
+ * previous page's `nextCursor` to continue. */
+export function getPublicFeed(cursor?: string): Promise<PublicFeedPage> {
+  const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+  return apiClient.request<PublicFeedPage>(`/public-feed${query}`, {
+    auth: true,
+  });
+}
+
+/** Screen F2 — set, change or toggle off a reaction. One call for all
+ * three: the server decides which, from what the child tapped. */
+export function reactToClip(
+  clipId: string,
+  reaction: ClipReactionType,
+): Promise<ViewerReactionResult> {
+  return apiClient.request<ViewerReactionResult>(
+    `/public-feed/${clipId}/reaction`,
+    { method: 'POST', body: { reaction }, auth: true },
+  );
+}
+
+/** Withdraw a reaction explicitly. Idempotent. */
+export function clearClipReaction(
+  clipId: string,
+): Promise<ViewerReactionResult> {
+  return apiClient.request<ViewerReactionResult>(
+    `/public-feed/${clipId}/reaction`,
+    { method: 'DELETE', auth: true },
+  );
+}
+
+/** Screen F3 — report a stranger's public clip. Takes it off the public
+ * feed; it stays a team clip for the team that already had it. */
+export function reportPublicClip(
+  clipId: string,
+  reason: ClipReportReason,
+): Promise<{ clipId: string; reported: true }> {
+  return apiClient.request<{ clipId: string; reported: true }>(
+    `/public-feed/${clipId}/report`,
+    { method: 'POST', body: { reason }, auth: true },
+  );
+}
+
+/** Save a public clip to Sparade. */
+export function saveClip(clipId: string): Promise<{ clipId: string; saved: true }> {
+  return apiClient.request<{ clipId: string; saved: true }>(
+    `/public-feed/${clipId}/save`,
+    { method: 'POST', auth: true },
+  );
+}
+
+/** Remove it from Sparade. Idempotent. */
+export function unsaveClip(
+  clipId: string,
+): Promise<{ clipId: string; saved: false }> {
+  return apiClient.request<{ clipId: string; saved: false }>(
+    `/public-feed/${clipId}/save`,
+    { method: 'DELETE', auth: true },
+  );
+}
+
+/**
+ * Screen A1's Sparade. Re-validated server-side on every call, so the
+ * response is what is *still* public — `missingCount` is how many saved
+ * clips are no longer there, deliberately without saying which.
+ */
+export function getSavedClips(): Promise<SavedClipsResponse> {
+  return apiClient.request<SavedClipsResponse>('/me/saved-clips', {
     auth: true,
   });
 }

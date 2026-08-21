@@ -139,5 +139,31 @@
     "close": "Stäng",
     "errorGeneric": "Det gick inte just nu. Försök igen om en stund.",
     "errorRevoked": "Delning är avstängd för ditt konto just nu. Fråga din förälder."
+  },
+  "publicFeed": {
+    "tabArchive": "Arkiv",
+    "tabExplore": "Utforska",
+    "emptyHeading": "Inget att utforska än",
+    "emptyBody": "När andra börjar dela klipp dyker de upp här.",
+    "loadError": "Kunde inte hämta klippen. Kolla din uppkoppling.",
+    "reactionFailed": "Det där gick inte just nu. Testa igen.",
+    "reportThanks": "Tack. Klippet är borttaget från Utforska.",
+    "reportA11y": "Anmäl klippet",
+    "seconds": "{{count}} s",
+    "reactions": {
+      "nice": "Snyggt!",
+      "strong": "Starkt!",
+      "creative": "Kreativt!",
+      "well_done": "Bra jobbat!"
+    },
+    "collectionTeam": "Laget",
+    "collectionMine": "Mina",
+    "mineEmptyHeading": "Du har inga klipp än",
+    "mineEmptyBody": "Klippen du laddar upp hamnar här.",
+    "saveA11y": "Spara klippet",
+    "collectionSaved": "Sparade",
+    "savedEmptyHeading": "Inget sparat än",
+    "savedEmptyBody": "Tryck på bokmärket i Utforska för att spara ett klipp.",
+    "savedMissing": "Ett sparat klipp är inte längre delat. Den som gjorde det har tagit bort det från Utforska."
   }
 }

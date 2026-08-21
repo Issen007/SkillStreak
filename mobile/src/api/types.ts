@@ -1042,3 +1042,53 @@ export interface SubmitBugReportResponse {
   id: string;
   createdAt: string;
 }
+
+/* -------------------------------------------------------------------------
+ * Public feed (Utforska) — ADR-0019, screens F1–F3 in
+ * docs/design/phase6-public-feed-flows.md.
+ * ---------------------------------------------------------------------- */
+
+/** Mirrors the backend's `ClipReactionType`. Named by meaning, not glyph —
+ * the emoji is presentation and lives in the screen, not the wire. */
+export type ClipReactionType = 'nice' | 'strong' | 'creative' | 'well_done';
+
+/**
+ * One card in the public feed.
+ *
+ * **Note what is absent, because it is absent on purpose** (ADR-0019
+ * Decision 3): no team name, no tagged teammate, no uploader id, no
+ * streak/level/badge, and no reaction totals. A viewer sees a stranger's
+ * clip, their screen name, and their own reaction to it.
+ */
+export interface PublicFeedItem {
+  clipId: string;
+  durationSeconds: number;
+  screenName: string;
+  avatarId: string | null;
+  caption: string | null;
+  /** Short-lived presigned URL — re-fetched with the page, never stored. */
+  playbackUrl: string;
+  publishedAt: string;
+  /** The viewer's own reaction, or null. Never anyone else's. */
+  myReaction: ClipReactionType | null;
+  /** Whether this is in the viewer's Sparade. */
+  savedByMe: boolean;
+}
+
+export interface PublicFeedPage {
+  items: PublicFeedItem[];
+  nextCursor: string | null;
+}
+
+export interface SavedClipsResponse {
+  items: PublicFeedItem[];
+  /** How many saved clips are no longer public. Deliberately a number and
+   * not a list — naming them would let a viewer track another child's
+   * un-publish decisions. */
+  missingCount: number;
+}
+
+export interface ViewerReactionResult {
+  clipId: string;
+  reaction: ClipReactionType | null;
+}

@@ -18,6 +18,7 @@ import { CurrentPlayerId } from '../auth/current-player-id.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Player } from '../players/entities/player.entity';
 import {
+  PublicFeedItem,
   PublicFeedPage,
   PublicFeedService,
 } from '../video-clips/public-feed.service';
@@ -27,6 +28,7 @@ import {
   ViewerReactionResult,
 } from '../video-clips/clip-reactions.service';
 import { ReactToClipDto } from './dto/react-to-clip.dto';
+import { ReportPublicClipDto } from './dto/report-public-clip.dto';
 import { PublicSharingAccessService } from './public-sharing-access.service';
 import { PublicSharingConsentService } from './public-sharing-consent.service';
 
@@ -158,14 +160,16 @@ export class PublicSharingController {
     // PublicFeedService — the reactions service depends on the feed's
     // visibility gate, so having the feed depend back on it would cycle.
     // One query for the page, not one per card.
-    const mine = await this.reactions.viewerReactionsFor(
-      playerId,
-      page.items.map((item) => item.clipId),
-    );
+    const clipIds = page.items.map((item) => item.clipId);
+    const [mine, saved] = await Promise.all([
+      this.reactions.viewerReactionsFor(playerId, clipIds),
+      this.feed.savedClipIdsFor(playerId, clipIds),
+    ]);
     return {
       ...page,
       items: page.items.map((item) => ({
         ...item,
+        savedByMe: saved.has(item.clipId),
         // `myReaction` and nothing else. There is no total on a feed card
         // by design — see ClipReactionsService's class doc for why that
         // asymmetry is the product decision rather than an omission.
@@ -209,6 +213,66 @@ export class PublicSharingController {
     @Param('clipId') clipId: string,
   ): Promise<ViewerReactionResult> {
     return this.reactions.clear(playerId, clipId);
+  }
+
+  /** Save a public clip to Sparade. */
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Post('api/v1/public-feed/:clipId/save')
+  @HttpCode(HttpStatus.OK)
+  async saveClip(
+    @CurrentPlayerId() playerId: string,
+    @Param('clipId') clipId: string,
+  ): Promise<{ clipId: string; saved: true }> {
+    return this.feed.saveBookmark(playerId, clipId);
+  }
+
+  /** Remove it again. Idempotent, and never gated on visibility. */
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Delete('api/v1/public-feed/:clipId/save')
+  @HttpCode(HttpStatus.OK)
+  async unsaveClip(
+    @CurrentPlayerId() playerId: string,
+    @Param('clipId') clipId: string,
+  ): Promise<{ clipId: string; saved: false }> {
+    return this.feed.removeBookmark(playerId, clipId);
+  }
+
+  /**
+   * Screen A1's Sparade collection.
+   *
+   * Re-validated server-side on every call — see `listSaved` for why a
+   * stored bookmark must never be rendered from. `missingCount` lets the
+   * UI say something is gone without saying which.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('api/v1/me/saved-clips')
+  async savedClips(
+    @CurrentPlayerId() playerId: string,
+  ): Promise<{ items: PublicFeedItem[]; missingCount: number }> {
+    return this.feed.listSaved(playerId);
+  }
+
+  /**
+   * Screen F3 — report a public clip.
+   *
+   * Throttled hard. A report auto-revokes public visibility, so the
+   * cheapest possible denial-of-service against another child's clip is
+   * a script that reports everything it can see; the per-viewer-per-clip
+   * uniqueness bounds the damage per clip and this bounds the rate
+   * across them.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
+  @Post('api/v1/public-feed/:clipId/report')
+  @HttpCode(HttpStatus.OK)
+  async reportPublic(
+    @CurrentPlayerId() playerId: string,
+    @Param('clipId') clipId: string,
+    @Body() dto: ReportPublicClipDto,
+  ): Promise<{ clipId: string; reported: true }> {
+    return this.feed.reportPublicClip(playerId, clipId, dto.reason);
   }
 
   /**
