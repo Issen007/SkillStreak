@@ -83,6 +83,61 @@ for (const locale of locales) {
   }
 }
 
+/*
+ * Second pass: every `t('...')` the app calls must exist in the reference
+ * locale.
+ *
+ * Parity above proves the locales agree with each other. It cannot see a
+ * key that is missing from *all* of them, and that failure is uglier than
+ * the one parity guards: i18next falls back to the key path itself, so a
+ * child reads "clipActions.shareHint" on the button. `tsc` cannot catch
+ * it — the argument is just a string.
+ *
+ * Only literal calls are checked. A key built from a template literal is
+ * skipped rather than guessed at, which keeps this free of false alarms at
+ * the cost of not covering dynamic lookups.
+ */
+const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
+
+function sourceFiles(dir) {
+  return readdirSync(dir).flatMap((entry) => {
+    const path = join(dir, entry);
+    if (statSync(path).isDirectory()) return sourceFiles(path);
+    // `.d.ts` holds types, never calls — and its prose mentions `t('...')`.
+    return /\.tsx?$/.test(path) && !path.endsWith('.d.ts') ? [path] : [];
+  });
+}
+
+const referenceKeys = new Set(
+  [...reference.entries()].flatMap(([file, keys]) =>
+    [...keys].map((key) => `${file}:${key}`),
+  ),
+);
+
+for (const file of sourceFiles(SRC)) {
+  const source = readFileSync(file, 'utf8');
+  const defaultNamespace = /useTranslation\(\s*'([^']+)'/.exec(source)?.[1];
+  // Line by line so a comment describing `t('...')` is not read as a call.
+  const code = source
+    .split('\n')
+    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+    .join('\n');
+  for (const [, key] of code.matchAll(/\bt\(\s*'([^']+)'/g)) {
+    const qualified = key.includes(':')
+      ? key
+      : defaultNamespace && `${defaultNamespace}:${key}`;
+    if (!qualified) continue;
+    const [namespace, path] = qualified.split(':');
+    if (!referenceKeys.has(`${namespace}.json:${path}`)) {
+      console.error(
+        `✖ ${file.replace(`${SRC}/`, '')}: t('${key}') has no ${REFERENCE} ` +
+          `translation — i18next would render the key path to the user`,
+      );
+      failures += 1;
+    }
+  }
+}
+
 if (failures > 0) {
   console.error(`\ni18n parity FAILED — ${failures} problem(s).`);
   process.exit(1);
