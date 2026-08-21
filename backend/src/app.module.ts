@@ -50,11 +50,21 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     // below).
     ScheduleModule.forRoot(),
     // Global default is deliberately generous — it's a backstop, not the
-    // control that matters. The two genuinely open (unauthenticated)
-    // routes — POST /players and GET /teams/invite/:inviteCode — override
-    // this with a tighter, route-specific @Throttle() limit (see their
-    // controllers). Every other route is authenticated (JwtAuthGuard), so
-    // brute-forcing/spamming them already requires a valid session token.
+    // control that matters. Each genuinely open route overrides it with a
+    // tighter, route-specific @Throttle() (see their controllers).
+    //
+    // This comment used to say there were *two* such routes: POST /players
+    // and GET /teams/invite/:inviteCode. There are now **35**. Every mailed
+    // link a parent clicks is one — consent, revoke, unsubscribe, erasure
+    // confirm and cancel, the release opt-in — plus the public feed and the
+    // marketing form. The old sentence was not merely out of date; it
+    // described this app as having almost no unauthenticated surface, which
+    // is the opposite of true and exactly the belief that gets a new public
+    // route added without anyone thinking about limits.
+    //
+    // `throttle-coverage.spec.ts` now enumerates them and fails when a new
+    // one appears without an explicit decision, so this number cannot drift
+    // silently again.
     //
     // Redis-backed storage (RedisThrottlerStorage), not the library's
     // in-memory default — Fas 4 production-hardening, 2026-07-27. The
