@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Avatar } from '../../components/Avatar';
 import { formatClipRelativeTime } from '../../utils/formatDate';
+import { ClipActionsSheet } from './ClipActionsSheet';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
 import { BLANK_PLAYBACK_TIMEOUT_MS, CLIP_ASPECT_RATIO } from '../constants';
@@ -267,31 +268,43 @@ function ClipPlayerModalContent({
             </View>
           ) : null}
 
-          <Pressable onPress={onTapMeta} accessibilityRole="button" style={styles.metaZone}>
+          <View style={styles.metaZone}>
             {clip.caption ? <Text style={styles.caption}>{clip.caption}</Text> : null}
             <View style={styles.metaFooter}>
               <Text style={styles.timestamp}>{formatClipRelativeTime(clip.createdAt)}</Text>
-              <Text style={styles.moreAffordance}>⋯</Text>
+              {/* The actions button.
+                  Was 15px of 60%-opacity text inside a Pressable that
+                  spanned the whole meta row — so the tap target was
+                  technically large and visually invisible, and the project
+                  owner reported it as "very difficult to hit". Now a real
+                  44pt circular button, which is Apple's own minimum and
+                  generous for a child's thumb, with a white fill so it
+                  reads as a button against the video rather than as
+                  decoration. `hitSlop` adds another 8pt on every side. */}
+              <Pressable
+                onPress={onTapMeta}
+                accessibilityRole="button"
+                accessibilityLabel={t('clipActions.a11yOpen')}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.moreButton,
+                  pressed ? styles.moreButtonPressed : null,
+                ]}
+              >
+                <Text style={styles.moreGlyph}>⋯</Text>
+              </Pressable>
             </View>
-          </Pressable>
+          </View>
 
-          {revealed && !isOwn ? (
-            <Pressable onPress={onTapReport} accessibilityRole="button" style={styles.actionRow}>
-              <Text style={styles.reportLink}>{t('clipCard.report')}</Text>
-            </Pressable>
-          ) : null}
-          {revealed && isOwn && onTapShare ? (
-            <Pressable onPress={onTapShare} accessibilityRole="button" style={styles.actionRow}>
-              <Text style={clip.publishedPublicly ? styles.sharedLink : styles.shareLink}>
-                {clip.publishedPublicly ? t('clipCard.shared') : t('clipCard.share')}
-              </Text>
-            </Pressable>
-          ) : null}
-          {revealed && isOwn ? (
-            <Pressable onPress={onTapDelete} accessibilityRole="button" style={styles.actionRow}>
-              <Text style={styles.deleteLink}>{t('clipCard.delete')}</Text>
-            </Pressable>
-          ) : null}
+          <ClipActionsSheet
+            visible={revealed}
+            isOwn={isOwn}
+            publishedPublicly={clip.publishedPublicly}
+            onShare={onTapShare}
+            onDelete={onTapDelete}
+            onReport={onTapReport}
+            onClose={onTapMeta}
+          />
         </ScrollView>
       </View>
     </View>
@@ -299,18 +312,6 @@ function ClipPlayerModalContent({
 }
 
 const styles = StyleSheet.create({
-  shareLink: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  // Bold + success green: "already shared" is a state the child should be
-  // able to read at a glance without opening the sheet, not another offer.
-  sharedLink: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 13,
-    color: colors.success,
-  },
   container: {
     flex: 1,
     // The app's existing "night court" dark token (style-guide.md), not a
@@ -495,23 +496,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: 'rgba(255,255,255,0.6)',
   },
-  moreAffordance: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.6)',
+  moreButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+    // A hairline edge so the circle still reads as a control on a pale
+    // frame of video, where a white fill alone would disappear.
+    borderWidth: 1,
+    borderColor: 'rgba(27,27,58,0.14)',
   },
-  actionRow: {
-    paddingTop: 2,
-    paddingBottom: 4,
+  moreButtonPressed: {
+    backgroundColor: colors.border,
   },
-  reportLink: {
+  moreGlyph: {
     fontFamily: fonts.bodyBold,
-    fontSize: 12.5,
-    color: colors.error,
-  },
-  deleteLink: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 12.5,
-    color: colors.error,
+    fontSize: 22,
+    lineHeight: 24,
+    color: colors.ink,
   },
 });

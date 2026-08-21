@@ -165,5 +165,17 @@
     "savedEmptyHeading": "Nothing saved yet",
     "savedEmptyBody": "Tap the bookmark in Explore to save a clip.",
     "savedMissing": "A saved clip isn't shared any more. Whoever made it took it off Explore."
+  },
+  "clipActions": {
+    "share": "Share outside the team",
+    "shareHint": "Other floorball players can see the clip.",
+    "unshare": "Stop sharing",
+    "unshareHint": "The clip leaves Explore straight away.",
+    "delete": "Delete the clip",
+    "deleteHint": "Disappears for the whole team. Can't be undone.",
+    "report": "Report the clip",
+    "reportHint": "An adult will take a look.",
+    "cancel": "Cancel",
+    "a11yOpen": "More options for this clip"
   }
 }

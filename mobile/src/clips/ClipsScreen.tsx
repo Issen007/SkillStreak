@@ -466,6 +466,51 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
     setReportConfirmation(null);
   };
 
+  // **Declared here, above every early return, and that placement is the
+  // whole point.** These two were originally written next to the Sparade
+  // render branch, which sits after `if (hasSeenIntro === null) return`.
+  // On the first render that early return fires and these hooks never
+  // run; once `hasSeenIntro` resolves the render continues past it and
+  // React sees two hooks that did not exist before — "rendered more hooks
+  // than during the previous render", which crashes the screen outright.
+  // Shipped that way on 2026-08-21 and crashed the Shorts tab for the
+  // project owner. Any hook added to this component belongs above line
+  // one of the early returns, no matter where its markup lives.
+  const loadSaved = useCallback(async () => {
+    setSavedError(false);
+    try {
+      const response = await getSavedClips();
+      // Adapted to the grid's existing shape rather than duplicating the
+      // cell. `uploaderPlayerId` is deliberately empty: it is only ever
+      // compared against the viewer's own id to decide ownership, and a
+      // saved clip is by definition someone else's.
+      setSavedItems(
+        response.items.map((item) => ({
+          clipId: item.clipId,
+          uploaderPlayerId: '',
+          uploaderScreenName: item.screenName,
+          uploaderAvatarId: item.avatarId ?? '',
+          taggedPlayerId: null,
+          taggedScreenName: null,
+          caption: item.caption,
+          playbackUrl: item.playbackUrl,
+          createdAt: item.publishedAt,
+          reportedByMe: false,
+          publishedPublicly: true,
+        })),
+      );
+      setSavedMissingCount(response.missingCount);
+    } catch {
+      setSavedError(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (collection === 'saved' && savedItems === null && !savedError) {
+      void loadSaved();
+    }
+  }, [collection, savedItems, savedError, loadSaved]);
+
   if (view === 'upload') {
     return (
       <UploadFlow
@@ -502,41 +547,6 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
   const locked =
     (consentStatus !== null && consentStatus !== 'approved') ||
     (teamJoinStatus !== null && teamJoinStatus !== 'approved');
-
-  const loadSaved = useCallback(async () => {
-    setSavedError(false);
-    try {
-      const response = await getSavedClips();
-      // Adapted to the grid's existing shape rather than duplicating the
-      // cell. `uploaderPlayerId` is deliberately empty: it is only ever
-      // compared against the viewer's own id to decide ownership, and a
-      // saved clip is by definition someone else's.
-      setSavedItems(
-        response.items.map((item) => ({
-          clipId: item.clipId,
-          uploaderPlayerId: '',
-          uploaderScreenName: item.screenName,
-          uploaderAvatarId: item.avatarId ?? '',
-          taggedPlayerId: null,
-          taggedScreenName: null,
-          caption: item.caption,
-          playbackUrl: item.playbackUrl,
-          createdAt: item.publishedAt,
-          reportedByMe: false,
-          publishedPublicly: true,
-        })),
-      );
-      setSavedMissingCount(response.missingCount);
-    } catch {
-      setSavedError(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (collection === 'saved' && savedItems === null && !savedError) {
-      void loadSaved();
-    }
-  }, [collection, savedItems, savedError, loadSaved]);
 
   const visibleClips =
     clips === null

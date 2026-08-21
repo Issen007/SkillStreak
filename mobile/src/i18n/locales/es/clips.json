@@ -165,5 +165,17 @@
     "savedEmptyHeading": "Nada guardado todavía",
     "savedEmptyBody": "Toca el marcador en Explorar para guardar un clip.",
     "savedMissing": "Un clip guardado ya no se comparte. Quien lo hizo lo ha quitado de Explorar."
+  },
+  "clipActions": {
+    "share": "Compartir fuera del equipo",
+    "shareHint": "Otros jugadores de floorball verán el clip.",
+    "unshare": "Dejar de compartir",
+    "unshareHint": "El clip sale de Explorar al instante.",
+    "delete": "Borrar el clip",
+    "deleteHint": "Desaparece para todo el equipo. No se puede deshacer.",
+    "report": "Denunciar el clip",
+    "reportHint": "Un adulto lo mirará.",
+    "cancel": "Cancelar",
+    "a11yOpen": "Más opciones para este clip"
   }
 }

@@ -165,5 +165,17 @@
     "savedEmptyHeading": "Zatím nic uloženého",
     "savedEmptyBody": "Klip uložíš klepnutím na záložku v Objevuj.",
     "savedMissing": "Jeden uložený klip už není sdílený. Ten, kdo ho udělal, ho stáhl z Objevuj."
+  },
+  "clipActions": {
+    "share": "Sdílet mimo tým",
+    "shareHint": "Uvidí ho i další florbalisté.",
+    "unshare": "Přestat sdílet",
+    "unshareHint": "Klip zmizí z Objevuj okamžitě.",
+    "delete": "Smazat klip",
+    "deleteHint": "Zmizí celému týmu. Nelze vrátit zpět.",
+    "report": "Nahlásit klip",
+    "reportHint": "Podívá se na to dospělý.",
+    "cancel": "Zrušit",
+    "a11yOpen": "Další možnosti klipu"
   }
 }

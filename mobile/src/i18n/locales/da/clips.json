@@ -165,5 +165,17 @@
     "savedEmptyHeading": "Intet gemt endnu",
     "savedEmptyBody": "Tryk på bogmærket i Udforsk for at gemme et klip.",
     "savedMissing": "Et gemt klip deles ikke længere. Den, der lavede det, har taget det væk fra Udforsk."
+  },
+  "clipActions": {
+    "share": "Del uden for holdet",
+    "shareHint": "Andre floorballspillere kan se klippet.",
+    "unshare": "Stop med at dele",
+    "unshareHint": "Klippet forsvinder fra Udforsk med det samme.",
+    "delete": "Slet klippet",
+    "deleteHint": "Forsvinder for hele holdet. Kan ikke fortrydes.",
+    "report": "Rapportér klippet",
+    "reportHint": "En voksen kigger på det.",
+    "cancel": "Annullér",
+    "a11yOpen": "Flere valg for klippet"
   }
 }
