@@ -325,6 +325,7 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
         onLogout={onSessionInvalid}
         teamId={me.team.teamId}
         playerId={me.player.id}
+        isSelfVerification={me.player.isSelfVerification}
       />
     );
   }
