@@ -10,7 +10,7 @@ moving. Each cycle spawns one non-interactive `claude -p` session that:
   3. does the work (dispatching the right subagent roles, same as an
      interactive session would),
   4. runs the project's own tests/lint/build,
-  5. commits and pushes STRAIGHT TO `prerelease` (never `main` — the
+  5. commits and pushes STRAIGHT TO `review` (never `main` — the
      prompt below is explicit about this, mirroring CLAUDE.md's own rule),
   6. updates ACTION_PLAN.md/CONTINUE.md so the next cycle (or you, when
      you're back) can see what happened.
@@ -40,7 +40,12 @@ from zoneinfo import ZoneInfo
 # ---------------------------------------------------------------------------
 
 REPO_DIR = Path(__file__).resolve().parents[2]  # .../SkillStreak
-BRANCH = "prerelease"
+# `review`, not `prerelease`. The branch this pointed at was deleted on
+# 2026-08-10 and nothing updated the tool, so every one of the git steps
+# below — checkout, pull, push — targeted a ref that no longer exists. A
+# run would either fail outright or recreate a dead branch and push a
+# cycle's work somewhere nobody reads.
+BRANCH = "review"
 LOG_FILE = Path(__file__).resolve().parent / "loop.log"
 STOP_FILE = Path(__file__).resolve().parent / "STOP"
 # Raw stream-json saved per cycle — added after this tool's own supervised
@@ -132,7 +137,7 @@ then a code-critic review before committing, and fix confirmed findings. \
 Run this project's real tests/lint/build and confirm they pass before \
 committing anything — don't skip verification just because no one's \
 watching.
-4. Commit and push directly to the `prerelease` branch. NEVER commit to, \
+4. Commit and push directly to the `review` branch. NEVER commit to, \
 merge into, or push `main` — that is the project owner's own action only, \
 no exception, per CLAUDE.md's unconditional git workflow rule. Never \
 force-push. Never touch anything outside this repository.
@@ -200,7 +205,7 @@ def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
 
 
 def ensure_clean_branch() -> bool:
-    """Make sure we're on `prerelease`, up to date, and the tree is clean.
+    """Make sure we're on `review`, up to date, and the tree is clean.
 
     Returns False (and logs why) if it's not safe to proceed — e.g. leftover
     uncommitted changes from a previous crashed cycle. We do not touch those
