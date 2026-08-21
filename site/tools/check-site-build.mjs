@@ -126,6 +126,46 @@ for (const line of substituted.split('\n')) {
 }
 
 /*
+ * Every `__PLACEHOLDER__` in a served page must have a `sed` in the
+ * Dockerfile that fills it. Without this, adding a placeholder to the
+ * markup and forgetting the substitution ships the literal token to
+ * visitors — and the Dockerfile's own `grep -qF` guards cannot see it,
+ * because they only check that the value they *did* substitute landed.
+ *
+ * download.html carries four placeholders and the build verifies exactly
+ * one of them, which is what prompted this.
+ */
+const dockerfileSource = readFileSync(join(siteRoot, 'Dockerfile'), 'utf8');
+
+for (const page of ['index.html', 'download.html']) {
+  const markup = readFileSync(join(siteRoot, page), 'utf8');
+  const candidates = new Set(markup.match(/__[A-Z][A-Z0-9_]*__/g) ?? []);
+  /*
+   * `window.__API_BASE__` and `window.__TRY_IT__` look like placeholders
+   * and are the opposite: they are the globals the placeholders are
+   * substituted *into*, and they must survive. They are distinguishable
+   * only because their names differ from their tokens — which is exactly
+   * the rule this morning's outage established, when a global named after
+   * its own token got rewritten into a URL. A token that only ever appears
+   * as `window.<token>` is a name, not a hole to fill.
+   */
+  const placeholders = [...candidates].filter(
+    (token) =>
+      !new RegExp(`window\\.${token}\\b`).test(markup) ||
+      markup.split(token).length - 1 >
+        markup.split(`window.${token}`).length - 1,
+  );
+  for (const placeholder of placeholders) {
+    if (!dockerfileSource.includes(`s|${placeholder}|`)) {
+      fail(
+        `${page} contains ${placeholder}, but site/Dockerfile has no sed ` +
+          `that substitutes it — the literal token would ship to visitors.`,
+      );
+    }
+  }
+}
+
+/*
  * i18n.js is keyed by the Swedish source string, which makes two silent
  * failures possible and neither is visible in review.
  *
@@ -200,8 +240,7 @@ for (const [, locale, block] of i18n.matchAll(
  * COPY list. Checking the repo for the file is not enough — that was
  * always true of i18n.js — so this reads the Dockerfile itself.
  */
-const dockerfile = readFileSync(join(siteRoot, 'Dockerfile'), 'utf8');
-const copiedPaths = [...dockerfile.matchAll(/^COPY\s+\S*site\/(\S+)/gm)].map(
+const copiedPaths = [...dockerfileSource.matchAll(/^COPY\s+\S*site\/(\S+)/gm)].map(
   ([, path]) => path.replace(/\/$/, ''),
 );
 
@@ -232,5 +271,5 @@ if (failures > 0) {
 console.log(
   `site build OK: ${SUBSTITUTIONS.length} placeholders, ${scripts.length} inline ` +
     `scripts parse, ${referenced.length} referenced file(s) copied into the image, ` +
-    `i18n keys unique and all still matched.`,
+    `i18n keys unique and all still matched, every placeholder substituted.`,
 );
