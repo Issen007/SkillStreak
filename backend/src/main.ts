@@ -173,7 +173,14 @@ async function bootstrap() {
     // Not fatal: the API's own routes are unaffected, and a missing console
     // should not take the backend down. Say so loudly, though — otherwise
     // the only symptom is a 404 after a successful sign-in.
-    console.warn('Staff console assets not found — /console will 404.');
+    //
+    // Through the app's own Logger, like every other boot message in this
+    // file: a bare `console.warn` prints outside the format the log tooling
+    // reads, so the one line that explains a mysterious 404 is the one line
+    // nothing would attribute to a service.
+    new Logger('Bootstrap').warn(
+      'Staff console assets not found — /console will 404.',
+    );
   }
 
   await app.listen(process.env.PORT ?? 3000);
