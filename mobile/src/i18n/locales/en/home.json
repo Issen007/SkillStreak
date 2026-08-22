@@ -285,5 +285,16 @@
     "successCta": "Done",
     "a11yCategoryGroup": "Choose what happened",
     "a11yScreenGroup": "Choose where in the app it happened"
+  },
+  "trainingReminder": {
+    "heading": "Training reminder",
+    "body": "One friendly reminder a day. You choose when — and it never arrives in the evening or at night.",
+    "toggle": "Remind me every day",
+    "time": "Time",
+    "denied": "Your phone is blocking notifications. Turn them on for SkillStreak in your phone's settings if you want the reminder.",
+    "onToast": "Reminder on — see you at {{hour}}.",
+    "offToast": "Reminder is off.",
+    "notifTitle": "Time to train",
+    "notifBody": "10–15 minutes is enough. Your streak is waiting!"
   }
 }

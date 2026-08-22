@@ -28,6 +28,7 @@ import {
   setLastSeenBonusAwardedAt,
 } from './api/localFlags';
 import { ApiError } from './api/ApiError';
+import { rearmReminder } from './api/trainingReminder';
 import i18n from './i18n';
 import { colors } from './theme/colors';
 
@@ -82,6 +83,10 @@ type CaptainBannerState = { variant: 'promoted' | 'demoted' };
  */
 export function AppShell({ onSessionInvalid }: AppShellProps) {
   const { t } = useTranslation('common');
+  // A second binding for the `home` namespace: the reminder's copy lives
+  // there with the rest of the training UI, and the i18n types narrow `t`
+  // to whichever namespace it was created with.
+  const { t: tHome } = useTranslation('home');
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [teamId, setTeamId] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -277,6 +282,25 @@ export function AppShell({ onSessionInvalid }: AppShellProps) {
     hasRunOnce.current = true;
     void runForegroundChecks();
   }, [runForegroundChecks]);
+
+  /*
+   * ADR-0033: restore the repeating daily reminder on every app open.
+   *
+   * Two things need it. `skipRemainderOfToday` replaces the daily trigger
+   * with a one-off for tomorrow after a log, so without this the schedule
+   * would decay into a single future notification and then silence. And a
+   * child who revokes notification permission in OS settings should find
+   * the switch off next time rather than on and lying.
+   *
+   * A no-op when the reminder is off, so it costs nothing for the children
+   * who never turn it on.
+   */
+  useEffect(() => {
+    void rearmReminder({
+      title: tHome('trainingReminder.notifTitle'),
+      body: tHome('trainingReminder.notifBody'),
+    });
+  }, [tHome]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {

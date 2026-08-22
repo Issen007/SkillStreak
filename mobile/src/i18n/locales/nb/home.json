@@ -285,5 +285,16 @@
     "successCta": "Ferdig",
     "a11yCategoryGroup": "Velg hva som skjedde",
     "a11yScreenGroup": "Velg hvor i appen det skjedde"
+  },
+  "trainingReminder": {
+    "heading": "Treningspåminnelse",
+    "body": "En vennlig påminnelse én gang om dagen. Du velger når — og den kommer aldri på kvelden eller natten.",
+    "toggle": "Minn meg på det hver dag",
+    "time": "Tid",
+    "denied": "Telefonen din blokkerer varsler. Slå dem på for SkillStreak i innstillingene hvis du vil ha påminnelsen.",
+    "onToast": "Påminnelse på — vi sees kl. {{hour}}.",
+    "offToast": "Påminnelsen er av.",
+    "notifTitle": "På tide å trene",
+    "notifBody": "10–15 minutter holder. Streaken din venter!"
   }
 }

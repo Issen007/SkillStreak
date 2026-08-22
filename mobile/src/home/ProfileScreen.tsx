@@ -41,6 +41,7 @@ import { ErasureSuccessorScreen } from './erasure/ErasureSuccessorScreen';
 import { ErasureConfirmSheet } from './erasure/ErasureConfirmSheet';
 import { ErasureCheckEmailScreen } from './erasure/ErasureCheckEmailScreen';
 import { ErasureStatusCard } from './erasure/ErasureStatusCard';
+import { TrainingReminderCard } from './TrainingReminderCard';
 import { PtRelationshipsScreen } from './PtRelationshipsScreen';
 import { BugReportScreen } from './bugReport/BugReportScreen';
 import { BugReportSentScreen } from './bugReport/BugReportSentScreen';
@@ -731,6 +732,11 @@ export function ProfileScreen({
             cancelling={erasureCancelling}
           />
         ) : null}
+
+        {/* ADR-0033. Above the profile fields on purpose: it is the one
+            setting here a child actually chooses for themselves, and it is
+            the reason they come back. */}
+        <TrainingReminderCard onMessage={setToastMessage} />
 
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>{t('profileScreen.view.avatarLabel')}</Text>

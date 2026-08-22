@@ -285,5 +285,16 @@
     "successCta": "Valmis",
     "a11yCategoryGroup": "Valitse mitä tapahtui",
     "a11yScreenGroup": "Valitse missä sovelluksessa se tapahtui"
+  },
+  "trainingReminder": {
+    "heading": "Harjoitusmuistutus",
+    "body": "Yksi ystävällinen muistutus päivässä. Sinä valitset milloin — eikä se tule koskaan illalla tai yöllä.",
+    "toggle": "Muistuta minua joka päivä",
+    "time": "Aika",
+    "denied": "Puhelimesi estää ilmoitukset. Ota ne käyttöön SkillStreakille puhelimen asetuksista, jos haluat muistutuksen.",
+    "onToast": "Muistutus päällä — nähdään klo {{hour}}.",
+    "offToast": "Muistutus on pois päältä.",
+    "notifTitle": "Aika harjoitella",
+    "notifBody": "10–15 minuuttia riittää. Putkesi odottaa!"
   }
 }
