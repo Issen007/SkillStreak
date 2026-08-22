@@ -63,7 +63,12 @@ export function renderReviewPage(input: {
       delas, och när. Du kan när som helst stänga av det igen.</p>
 
     <p style="${P}"><strong>Om du godkänner kan andra se:</strong> klippet,
-      ${name}s skärmnamn och avatar.</p>
+      ${name}s skärmnamn och avatar, och den <strong>bildtext ${name} själv
+      skrivit till klippet</strong>.</p>
+    <p style="${P}">Bildtexten är fri text, skriven för det egna laget innan
+      delning fanns, och den följer med klippet oförändrad. Om den råkar
+      innehålla ett namn eller en plats syns det — så det är värt att titta
+      på bildtexterna tillsammans första gången.</p>
     <p style="${P}"><strong>Andra ser aldrig:</strong> riktigt namn,
       kontaktuppgifter, lagnamn, ort, lagchatt eller något om var ${name}
       tränar. Appen sparar aldrig plats.</p>
