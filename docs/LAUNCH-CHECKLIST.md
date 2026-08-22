@@ -57,12 +57,21 @@ link is fine as it stands. The link is deliberately *not* pre-gated — a
 gate built against a decision nobody has made yet is as likely to be wrong
 as right. Whichever way §2.1 goes, revisit this line.
 
-### 1.3 The store declarations are not filled in
+### 1.3 The store declarations — **drafted 2026-08-22, still to be entered**
 
-Neither Apple's App Privacy nor Play's Data Safety form has been completed.
-They must be answered **from the schema, not from memory** — the security
-review found the privacy policy itself had drifted from the code, and these
-forms are the same risk with a worse failure mode.
+Neither Apple's App Privacy nor Play's Data Safety form has been submitted.
+The answers now exist in [`STORE-DATA-SAFETY.md`](STORE-DATA-SAFETY.md),
+walked from all 37 entities and the dependency list rather than from
+memory — the same care the privacy policy was written with, which had
+still drifted by the time the security review caught it, so every claim
+there names the column or file it comes from.
+
+Two things that came out of doing it: **training logs are fitness data**,
+which puts the app in a Health & Fitness category it would be easy to
+under-declare, and **"Data used to track you" is genuinely None** — no
+advertising id, no device id, no analytics or ad SDK anywhere in the
+dependency list. That last answer is the most valuable one on either form
+and the easiest to lose by adding one library.
 
 The honest answers are unusually good and worth using deliberately: no
 location ever, no ads, no in-app purchases, no third-party analytics or
