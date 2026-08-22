@@ -356,12 +356,13 @@ jobs:
         run: |
           set -euo pipefail
           MARKER=mobile/.last-eas-build.json
-          BUILT_COMMIT=$(python3 -c "import json;print(json.load(open('$MARKER'))['commit'])")
-          BUILT_NUMBER=$(python3 -c "import json;print(json.load(open('$MARKER')).get('buildNumber',''))")
-
-          if ! git cat-file -e "$BUILT_COMMIT^{commit}" 2>/dev/null; then
-            echo "::warning::The recorded build commit $BUILT_COMMIT is not in this repository's history."
-            echo "Cannot judge drift. Re-record it with: cd mobile && node scripts/record-eas-build.mjs"
+          # Per platform since 2026-08-22. A single newest-build-across-both
+          # answer went green the moment Android caught up, while every iOS
+          # tester was still on a build without that week's changes. "One of
+          # your platforms is current" is not the question this job asks.
+          PLATFORMS=$(python3 -c "import json;print(' '.join(json.load(open('$MARKER'))['builds']))")
+          if [ -z "$PLATFORMS" ]; then
+            echo "::warning::$MARKER records no builds. Re-record with: cd mobile && node scripts/record-eas-build.mjs"
             exit 0
           fi
 
@@ -380,24 +381,42 @@ jobs:
             ':(exclude)mobile/scripts/**'
             ':(exclude)mobile/**/*.md'
           )
-          CHANGED=$(git diff --name-only "$BUILT_COMMIT"..HEAD -- mobile/ "${EXCLUDES[@]}" | wc -l)
+          BEHIND=0
+          for PLATFORM in $PLATFORMS; do
+            BUILT_COMMIT=$(python3 -c "import json;print(json.load(open('$MARKER'))['builds']['$PLATFORM']['commit'])")
+            BUILT_NUMBER=$(python3 -c "import json;print(json.load(open('$MARKER'))['builds']['$PLATFORM'].get('buildNumber',''))")
 
-          if [ "$CHANGED" -eq 0 ]; then
-            echo "In sync: no mobile/ changes since build $BUILT_NUMBER ($BUILT_COMMIT)."
+            if ! git cat-file -e "$BUILT_COMMIT^{commit}" 2>/dev/null; then
+              echo "::warning::$PLATFORM's recorded commit $BUILT_COMMIT is not in this repository's history."
+              echo "Cannot judge $PLATFORM. Re-record with: cd mobile && node scripts/record-eas-build.mjs"
+              continue
+            fi
+
+            CHANGED=$(git diff --name-only "$BUILT_COMMIT"..HEAD -- mobile/ "${EXCLUDES[@]}" | wc -l)
+            if [ "$CHANGED" -eq 0 ]; then
+              echo "$PLATFORM in sync: no mobile/ changes since build $BUILT_NUMBER (${BUILT_COMMIT:0:7})."
+              continue
+            fi
+
+            COMMITS=$(git log --oneline "$BUILT_COMMIT"..HEAD -- mobile/ "${EXCLUDES[@]}")
+            N=$(echo "$COMMITS" | grep -c . || true)
+            BEHIND=$((BEHIND + 1))
+
+            echo "::error::$PLATFORM is behind: $N mobile commit(s) are in no installed $PLATFORM build."
+            echo ""
+            echo "Its last recorded build is number $BUILT_NUMBER at ${BUILT_COMMIT:0:7}."
+            echo "Everything below exists on this branch and in no $PLATFORM app anyone can install:"
+            echo ""
+            echo "$COMMITS"
+            echo ""
+            echo "$CHANGED file(s) changed under mobile/."
+            echo ""
+          done
+
+          if [ "$BEHIND" -eq 0 ]; then
+            echo "Every recorded platform is in sync."
             exit 0
           fi
-
-          COMMITS=$(git log --oneline "$BUILT_COMMIT"..HEAD -- mobile/ "${EXCLUDES[@]}")
-          N=$(echo "$COMMITS" | grep -c . || true)
-
-          echo "::error::$N mobile commit(s) are not in any installed build."
-          echo ""
-          echo "The last recorded EAS build is number $BUILT_NUMBER at ${BUILT_COMMIT:0:7}."
-          echo "Everything below exists on this branch and in no app anyone can install:"
-          echo ""
-          echo "$COMMITS"
-          echo ""
-          echo "$CHANGED file(s) changed under mobile/."
           echo ""
           echo "To clear this: run an EAS build, then from mobile/ run"
           echo "  node scripts/record-eas-build.mjs"
