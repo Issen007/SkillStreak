@@ -27,7 +27,7 @@ export class UnpublishClipsWithoutActiveConsent1788800000000 implements Migratio
   name = 'UnpublishClipsWithoutActiveConsent1788800000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    const result: unknown = await queryRunner.query(
+    await queryRunner.query(
       `UPDATE "video_clip" c
           SET "published_publicly_at" = NULL
         WHERE c."published_publicly_at" IS NOT NULL
@@ -38,13 +38,11 @@ export class UnpublishClipsWithoutActiveConsent1788800000000 implements Migratio
                    AND psc."status" = 'active'
               )`,
     );
-    // Row count varies by driver shape; log what we can rather than assume.
-    const affected = Array.isArray(result) ? result[1] : undefined;
-    if (typeof affected === 'number') {
-      console.log(
-        `UnpublishClipsWithoutActiveConsent: cleared ${affected} clip(s).`,
-      );
-    }
+    // No row-count logging: `queryRunner.query` returns `any`, and pulling
+    // a count out of it costs an unsafe cast for a line nobody reads. The
+    // migration is idempotent and the effect is checkable directly —
+    // `SELECT count(*) FROM video_clip WHERE published_publicly_at IS NOT
+    // NULL` before and after.
   }
 
   public async down(): Promise<void> {
