@@ -185,6 +185,40 @@ the page three times counts as three. Telling them apart would need a
 per-visitor identifier, which is exactly the thing above that is not
 collected.
 
+### The signup form
+
+The website also has a form for adults who want to hear from us. It is
+the one place on the public site that collects personal data about an
+identifiable person, so it is described separately from the counters
+above.
+
+If you fill it in we store: your **name**, your **email address**, how
+you said you would like to be involved, the optional note you wrote, the
+language the form was in, and — if you arrived through a campaign link —
+the plain `?campaign=` value from that link. There is no cookie and no
+tracking identifier behind that last one; it is simply part of the
+address you followed.
+
+**The lawful basis is your consent**, and we record the moment you gave
+it rather than merely that you did. The two things you can ask for —
+news about new releases, and an invitation to a live demo — are stored
+separately and each records its own moment, because they are separate
+permissions. Ticking neither means we hold nothing to contact you about,
+and the form declines to submit.
+
+Every message carries a link to remove yourself. **Using it deletes the
+row outright** — it is not a flag that stops the sending, and nothing is
+kept to remember that you left. Otherwise the entry is deleted after 365
+days (see the table below) whether or not you ever hear from us.
+
+**This is adult data and is deliberately kept apart from anything the app
+knows about a child.** It lives in its own table with no link to any
+player, team or training log; there is no field that could join them, and
+the only way to read it is a staff-only admin page. Someone filling in
+this form is a stranger who typed their address into a website, not a
+child under a parental-consent regime, and the two are never queried
+together.
+
 ## 9. How long we keep things
 
 | Data | Kept for |

@@ -138,16 +138,11 @@ export class EventRegistrationsService {
     // Both statements are no-ops when the box was not ticked.
     await this.applyOptIn(
       email,
-      'release_updates_opted_in_at',
+      'releaseUpdates',
       dto.wantsReleaseUpdates,
       now,
     );
-    await this.applyOptIn(
-      email,
-      'demo_invite_requested_at',
-      dto.wantsDemoInvite,
-      now,
-    );
+    await this.applyOptIn(email, 'demoInvite', dto.wantsDemoInvite, now);
 
     // Fire-and-forget on purpose. A confirmation email is a nicety; the
     // registration is the thing that matters, and an SMTP outage must not
@@ -174,23 +169,45 @@ export class EventRegistrationsService {
    * intact: someone who signs up three times should keep the date they
    * first agreed, not the date they last filled in a form.
    */
+  /*
+   * The two opt-ins, as whole literal fragments rather than a column name
+   * to interpolate.
+   *
+   * This used to build its predicate as `` `${column} IS NULL` ``, with
+   * `column` typed to two allowed strings. That is safe only for as long
+   * as the type holds: types are erased at runtime, so a later refactor
+   * that widens the parameter to `string`, or any call from untyped
+   * JavaScript, turns it into SQL injection with nothing failing to warn.
+   * It was the only place in this codebase that interpolated anything but
+   * a fixed alias into SQL. Nothing is built from a variable now — the
+   * clause is a literal in this file either way.
+   */
+  private static readonly OPT_IN_FIELDS = {
+    releaseUpdates: {
+      entityField: 'releaseUpdatesOptedInAt',
+      notYetSet: 'release_updates_opted_in_at IS NULL',
+    },
+    demoInvite: {
+      entityField: 'demoInviteRequestedAt',
+      notYetSet: 'demo_invite_requested_at IS NULL',
+    },
+  } as const;
+
   private async applyOptIn(
     email: string,
-    column: 'release_updates_opted_in_at' | 'demo_invite_requested_at',
+    which: keyof typeof EventRegistrationsService.OPT_IN_FIELDS,
     wanted: boolean | undefined,
     at: Date,
   ): Promise<void> {
     if (!wanted) return;
+    const { entityField, notYetSet } =
+      EventRegistrationsService.OPT_IN_FIELDS[which];
     await this.registrations
       .createQueryBuilder()
       .update(EventRegistration)
-      .set({
-        [column === 'release_updates_opted_in_at'
-          ? 'releaseUpdatesOptedInAt'
-          : 'demoInviteRequestedAt']: at,
-      })
+      .set({ [entityField]: at })
       .where('email = :email', { email })
-      .andWhere(`${column} IS NULL`)
+      .andWhere(notYetSet)
       .execute();
   }
 
@@ -205,6 +222,12 @@ export class EventRegistrationsService {
       const rendered = renderSignupConfirmationEmail({
         locale: row.locale,
         unsubscribeUrl: this.unsubscribeUrl(row.unsubscribeCode),
+        // Read back off the row rather than passed down from the DTO, so
+        // the confirmation describes what was actually stored — including
+        // the case where `orIgnore` kept an earlier opt-in this submission
+        // did not repeat.
+        wantsDemoInvite: row.demoInviteRequestedAt !== null,
+        wantsReleaseUpdates: row.releaseUpdatesOptedInAt !== null,
       });
       await this.mailService.sendMail({
         to: row.email,

@@ -376,7 +376,7 @@ Response `200`:
 - **backend-developer:** new `backend/src/team-chat/` module. Inject
   `ChatModerationCheck` via a DI token (`CHAT_MODERATION_CHECK`), bound to
   `KeywordChatModerationCheck` for Fas 2.6b — this is the seam
-  `docs/BACKLOG.md`'s deferred LLM-moderation item slots into later, per
+  `docs/internal/BACKLOG.md`'s deferred LLM-moderation item slots into later, per
   ADR-0007 Decision 2. Don't call the keyword-list logic directly from
   `TeamChatService` — go through the interface even though there's only one
   implementation today.

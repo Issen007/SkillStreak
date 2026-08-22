@@ -2,10 +2,15 @@
 
 NestJS (TypeScript) API for SkillStreak — see the repo root
 [`CLAUDE.md`](../CLAUDE.md) for full project context/constraints and
-[`docs/ACTION_PLAN.md`](../docs/ACTION_PLAN.md) for the live phase-by-phase
-status. This file is a map for a new contributor: what lives where, how to
-run it locally, and where the actual decisions/contracts are written down
-(this file deliberately does not duplicate those — see the pointers below).
+`docs/internal/ACTION_PLAN.md` for the live phase-by-phase status. This
+file is a map for a new contributor: what lives where, how to run it
+locally, and where the actual decisions/contracts are written down (this
+file deliberately does not duplicate those — see the pointers below).
+
+> `docs/internal/` is gitignored, which is why ACTION_PLAN.md is written
+> as a plain path here rather than a link: it exists only in a working
+> tree, so a link would 404 for anyone reading this on GitHub. CLAUDE.md
+> makes the same choice for the same reason.
 
 ## Module map
 
@@ -19,7 +24,7 @@ surrounding decision has changed.
 | `auth/` | The player session JWT: issuing (`PlayerTokenService`), verifying + `token_version` revocation check (`JwtAuthGuard`). One JWT universe for players; there is no separate coach-auth JWT universe (see `teams/entities/team-coach.entity.ts` and `coaches/` below). |
 | `players/` | The `Player` entity/table and everything safe to read/write about a player *without* touching PII — screen name, avatar, streak counters, consent status, captain flag, session-reissue fields. Never imports `player-private-info/` (hard boundary, see that module). Owns the shared `assertTeamMembership`/`assertIsCaptainOfTeam` checks every Phase 2 team-scoped endpoint calls. |
 | `player-private-info/` | The *only* module allowed to hold `real_name`/`parent_contact` (`PlayerPrivateInfo`) and the append-only consent audit trail (`ParentalConsentRecord`). Narrow, purpose-specific methods only — never a bulk/leaderboard-shaped read. |
-| `onboarding/` | `POST /players` — creates the player "shell" row, the private-info row, and the initial consent record/token, all in one transaction; one of only two modules allowed to depend on both `players/` and `player-private-info/` (the other is `consent/`). Since ADR-0009 (Fas 2.9), also resolves self-service team creation when `inviteCode` matches nothing and `teamName` is supplied — see `teams/`'s `createTeam` and `team-pool/`'s `createInitialSeasonAndPot`, both called from inside this module's transaction. |
+| `onboarding/` | `POST /players` — creates the player "shell" row, the private-info row, and the initial consent record/token, all in one transaction; historically "one of only two modules allowed to depend on both `players/` and `player-private-info/`" — as of 2026-08-22 there are **nine**: `onboarding/`, `consent/`, `profile/`, `session/`, `team-chat/`, `video-clips/`, `pt/`, `public-sharing/` and `account-erasure/`, each added with its own reason (ADR-0010 documented the video-clips widening, ADR-0030 the public-sharing one). The count is not the control and never was: `PlayerPrivateInfoService` exposes only single-player, purpose-specific methods — `getRealName(playerId)`, `getParentContact(playerId)`, and code-based lookups — with **no bulk or list-shaped read anywhere in its API**. That is what keeps a widened caller list from becoming a leak, and it is the property to check before adding a tenth. Since ADR-0009 (Fas 2.9), also resolves self-service team creation when `inviteCode` matches nothing and `teamName` is supplied — see `teams/`'s `createTeam` and `team-pool/`'s `createInitialSeasonAndPot`, both called from inside this module's transaction. |
 | `consent/` | The parent-facing consent-approval link (`GET`/`POST /consent/:token`, no auth, no side effects on GET) and the captain-facing "resend a reminder" action. Shares the mail template with `onboarding/`. |
 | `teams/` | The `Team` entity (invite-code lookup only — no public team listing/search, per the "closed team bubbles" constraint) and the dormant `TeamCoach` join entity. `TeamsService.createTeam` (ADR-0009) is the single entry point for creating a `Team` row anywhere in this codebase — checks `name`/`inviteCode` against `moderation/`'s `ChatModerationCheck` before saving, called only from `onboarding/`'s transaction. |
 | `moderation/` | Owns *only* the `CHAT_MODERATION_CHECK` DI binding (ADR-0009 Decision 5) — extracted out of `team-chat/` so `teams/` can reuse the same content-safety check without importing all of `team-chat/`'s unrelated entities/imports. The interface/implementation/wordlist themselves stay in `team-chat/`, unmoved. |
@@ -43,7 +48,7 @@ surrounding decision has changed.
 
 - **Coach auth / coach dashboard** (`coaches/`, `teams/entities/team-coach.entity.ts`) — superseded by Phase 2's kapten pivot. Kept only because the schema already exists and a coach-facing view is plausible again later. See `docs/adr/0004-coach-auth-and-session-reissue.md`'s 2026-07-05 addendum.
 - **Badges** (`badges/`) — schema + DTO boundary exist, no award endpoint. `BadgeTriggerReason.COACH_MANUAL_AWARD` specifically assumes a coach identity that doesn't currently exist — see that enum's file comment.
-- **Session reissue** (`session/`) — implemented and then deliberately disabled after a confirmed security-review finding (the reissue code, once generated, can be redeemed by *anyone*, not just the intended teammate — full impersonation, not just a leak). Both routes return `503 session_reissue_disabled`. The underlying `SessionService`/`token_version`/single-use-code mechanism is intentionally left intact for a future redesign that binds redemption to the target player. **Do not re-enable these routes without that redesign** — see `docs/ACTION_PLAN.md`'s Phase 2 section and `SessionReissueDisabledException`'s comment for the full finding.
+- **Session reissue** (`session/`) — implemented and then deliberately disabled after a confirmed security-review finding (the reissue code, once generated, can be redeemed by *anyone*, not just the intended teammate — full impersonation, not just a leak). Both routes return `503 session_reissue_disabled`. The underlying `SessionService`/`token_version`/single-use-code mechanism is intentionally left intact for a future redesign that binds redemption to the target player. **Do not re-enable these routes without that redesign** — see `docs/internal/ACTION_PLAN.md`'s Phase 2 section and `SessionReissueDisabledException`'s comment for the full finding.
 - **`Challenge.challenge_id` tagging on `TrainingLogEntry`** — the column/DTO field exist but nothing reads them; weekly-goal progress is computed live from `(team_id, logged_at, activity_type)`, not per-log tagging (ADR-0005 Decision 2).
 
 ## Running locally
@@ -127,7 +132,7 @@ the served object was actually re-muxed.
 - [`docs/adr/0007-team-chat.md`](../docs/adr/0007-team-chat.md) — the moderation/report/block model `video-clips/` reuses/extends.
 - [`docs/adr/0010-video-storage-and-serving.md`](../docs/adr/0010-video-storage-and-serving.md) — Fas 3: MinIO storage, structural team-scoping, the mandatory metadata-stripping remux, retention/deletion.
 - [`docs/api/phase1-contract.md`](../docs/api/phase1-contract.md) / [`docs/api/phase2-contract.md`](../docs/api/phase2-contract.md) / [`docs/api/phase3-contract.md`](../docs/api/phase3-contract.md) — the actual request/response contracts this code implements.
-- [`docs/ACTION_PLAN.md`](../docs/ACTION_PLAN.md) — what's done, what's deferred, and why, phase by phase.
+- `docs/internal/ACTION_PLAN.md` — what's done, what's deferred, and why, phase by phase. Deliberately not a link: `docs/internal/` is gitignored, so it exists only in a working tree.
 
 ## A few patterns worth recognizing before you extend them
 

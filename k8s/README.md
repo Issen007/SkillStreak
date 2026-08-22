@@ -91,25 +91,29 @@ to reach the demo instead.
 > delete the stale `skillstreak-xyz-tls` Secret so cert-manager reissues a
 > trusted one, and confirm *that* one is also `Ready` before MailService
 > actually sends anything real. Originally flagged as CONFIRMED/High in
-> the pre-beta security review (see `docs/ACTION_PLAN.md`) back when there
+> the pre-beta security review (see `docs/internal/ACTION_PLAN.md`) back when there
 > was no TLS story at all.
 
-## Internal test cluster (ubuntu01) — tracks `prerelease`, not `main`
+## Internal test cluster (ubuntu01) — tracks `review`, not `main`
 
 Everything above describes the public cluster (context `skillstreak`),
 which only ever runs what `main` builds. There's a second, separate deployment: a
 microk8s cluster on `ubuntu01` (`192.168.55.x`, LAN-only, no public
 DNS/TLS), namespace `skillstreak` there too, with its own Postgres/Redis/
 MinIO — a real test database, not shared with production. It exists so
-`prerelease` work can be exercised end-to-end before it ever reaches
+`review` work can be exercised end-to-end before it ever reaches
 `main`, per the root `CLAUDE.md`'s git workflow rule.
 
 It's kept up to date automatically by `tools/local-release-poller/`
 (a systemd user timer on ubuntu01 itself, not this repo's CI) polling for
-new `prerelease` commits, and by `.github/workflows/ci-cd.yml`'s
+new `review` commits, and by `.github/workflows/ci-cd.yml`'s
 `internal-images` job, which builds and pushes
 `ghcr.io/issen007/skillstreak-{api,site}:prerelease-<sha>` on every push to
-`prerelease` — a separate tag from what `main`'s `deploy`/`release` jobs
+`review` — the tag keeps the older name deliberately, because it labels the
+build *channel* ("an internal pre-release build") rather than the branch,
+so images already on GHCR and the version a running pod reports at
+`/health` stay meaningful. That is a separate tag from what `main`'s
+`deploy`/`release` jobs
 push, because the site image bakes in this cluster's own LAN addresses
 (`192.168.55.71` api, `192.168.55.72` site/try-it) at Docker build time
 instead of `skillstreak.xyz`. See that tool's own README for exactly how

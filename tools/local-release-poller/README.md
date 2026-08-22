@@ -1,10 +1,10 @@
 # local-release-poller
 
 A small script + systemd user timer that watches for new commits on the
-SkillStreak `prerelease` branch and automatically redeploys the local
+SkillStreak `review` branch and automatically redeploys the local
 microk8s test cluster (namespace `skillstreak`, on this machine — ubuntu01,
 `192.168.55.x`, no public DNS/TLS) to whatever it finds. This cluster is
-the **internal test environment** and only ever tracks `prerelease` — the
+the **internal test environment** and only ever tracks `review` — the
 public isstech-2 cluster is the opposite, only ever running what's built
 from `main` (see the root [`CLAUDE.md`](../../CLAUDE.md)'s "Git workflow
 rule" section for the full branch split).
@@ -15,7 +15,7 @@ same posture as `tools/lab-access/`.
 ## What it actually does
 
 `poll-and-deploy.sh`:
-1. Asks GitHub's public REST API for the latest commit SHA on `prerelease`
+1. Asks GitHub's public REST API for the latest commit SHA on `review`
    (no auth needed — GHCR packages and this API are both public here).
 2. Compares it to the last commit it successfully deployed (tracked in
    `~/.local/state/skillstreak-poller/current-sha`).
@@ -61,7 +61,7 @@ journalctl --user -u skillstreak-poller.service -n 50 --no-pager
 ```
 
 Run it once by hand instead of waiting for the timer (e.g. right after a
-merge to `prerelease`, to see it work immediately):
+merge to `review`, to see it work immediately):
 
 ```bash
 systemctl --user start skillstreak-poller.service

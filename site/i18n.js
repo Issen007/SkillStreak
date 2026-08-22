@@ -102,6 +102,19 @@
       'Skriv upp mig': 'Put me on the list',
       'Webbplats': 'Website',
 
+      /* --- safety cards -------------------------------------------------
+       * The closed-bubble paragraph is three entries, not one, because
+       * `<em>egna</em>` splits it into three text nodes and this file
+       * translates node by node. Written out in full rather than
+       * simplified: this is the product's central promise about children's
+       * privacy, and until 2026-08-21 English visitors read it in Swedish.
+       * If the Swedish is ever reworded, all three move together. */
+      'Inget syns utanför ditt eget verifierade lag — som standard, inte som inställning. Enda undantaget: ett barns':
+        'Nothing is visible outside your own verified team — by default, not as a setting. The one exception: a child\'s',
+      'egna': 'own',
+      'klipp kan delas vidare, men bara om barnets egen förälder har sagt ja, och det kan stängas av när som helst.':
+        'clips can be shared further, but only while that child\'s own parent has said yes — and it can be switched off at any time.',
+
       /* --- banner + nav ------------------------------------------------ */
       '🧪 Det här är bara ett TEST — skapa inte ett riktigt konto med riktiga uppgifter. Allt kan raderas när som helst.':
         '🧪 This is only a TEST — do not create a real account with real details. Everything may be deleted at any time.',
@@ -171,8 +184,11 @@
       'Trygghet, konkret': 'Safety, concretely',
       'Fyra löften vi aldrig förhandlar om': 'Four promises we never negotiate',
       'Slutna lagbubblor': 'Closed team bubbles',
-      'Inget syns utanför ditt eget verifierade lag — som standard, inte som inställning.':
-        'Nothing is visible outside your own verified team — by default, not as a setting.',
+      /* The longer form of this sentence lives in the safety-cards block
+         above. The short one was left behind when the Swedish gained
+         ADR-0030's sharing exception, and stopped applying the moment the
+         copy changed — found by check-site-build.mjs's dead-key pass on
+         its first run. */
       'Skärmnamn som standard': 'Screen names by default',
       'Riktiga namn är aldrig synliga för andra spelare — anonymt utan att behöva slås på.':
         'Real names are never visible to other players — anonymous without having to switch anything on.',
@@ -428,10 +444,14 @@
       b.dataset.lang = lang.code;
       wrap.appendChild(b);
     });
-    // Before the CTA so the language choice reads as chrome, not as an
-    // action competing with "create an account".
-    var cta = nav.querySelector('.btn');
-    nav.insertBefore(wrap, cta || null);
+    // Into the right-hand group, before the CTA, so the language choice
+    // reads as chrome rather than an action competing with "create an
+    // account" — and, more importantly, so it does not become a fourth
+    // top-level flex child. As a direct child of the nav it pushed the
+    // links off-centre; `.nav-right` is a balanced column that absorbs it.
+    var right = nav.querySelector('.nav-right') || nav;
+    var cta = right.querySelector('.btn');
+    right.insertBefore(wrap, cta || null);
   }
 
   function setActive(code) {

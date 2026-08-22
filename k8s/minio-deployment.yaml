@@ -43,7 +43,20 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: fix-data-dir-ownership
-          image: minio/minio:latest
+          # Pinned by digest, not `latest`.
+          #
+          # This stores children's video clips, and `latest` meant any pod
+          # restart could silently move to a different MinIO build — no
+          # manifest change, no review, and no way afterwards to say which
+          # version had been running. Postgres and Redis were already pinned;
+          # this was the one that was not.
+          #
+          # The digest is exactly what production was already serving on
+          # 2026-08-21 (read from the running pod's imageID), so pinning it
+          # changed nothing that day. To move it: pick the new release
+          # deliberately, put its digest here, and deploy that as its own
+          # change.
+          image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
           command: ["sh", "-c", "chown -R 1000:1000 /data"]
           securityContext:
             runAsNonRoot: false
@@ -53,7 +66,20 @@ spec:
               mountPath: /data
       containers:
         - name: minio
-          image: minio/minio:latest
+          # Pinned by digest, not `latest`.
+          #
+          # This stores children's video clips, and `latest` meant any pod
+          # restart could silently move to a different MinIO build — no
+          # manifest change, no review, and no way afterwards to say which
+          # version had been running. Postgres and Redis were already pinned;
+          # this was the one that was not.
+          #
+          # The digest is exactly what production was already serving on
+          # 2026-08-21 (read from the running pod's imageID), so pinning it
+          # changed nothing that day. To move it: pick the new release
+          # deliberately, put its digest here, and deploy that as its own
+          # change.
+          image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

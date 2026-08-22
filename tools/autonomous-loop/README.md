@@ -12,7 +12,7 @@ disconnecting) and stop it yourself when you're back.
 Each cycle, `run_loop.py` spawns one non-interactive `claude -p` session
 in this repo and gives it one job: read `docs/internal/ACTION_PLAN.md`'s
 "Next Up" section, do the first item that isn't blocked on you, verify it
-(tests/lint/build), commit and push straight to `prerelease`, update
+(tests/lint/build), commit and push straight to `review`, update
 `ACTION_PLAN.md`/`CONTINUE.md` so the next cycle (or you) can see what
 happened, then exit. The Python script watches that session's live
 output, prints `[INFO]`/`[WARN]`/`[ERROR]` lines to the screen (and to
@@ -29,7 +29,7 @@ on and what it's done, and then either:
 
 It **never touches `main`** — the prompt given to each cycle repeats
 CLAUDE.md's own unconditional git-workflow rule explicitly, and every
-push target in the script itself is hardcoded to `prerelease`.
+push target in the script itself is hardcoded to `review`.
 
 ## Before you leave it running unattended — read this part
 
@@ -77,7 +77,7 @@ cd tools/autonomous-loop
 python3 run_loop.py --max-cycles 1
 ```
 
-Watch the whole cycle happen, check the resulting commit on `prerelease`
+Watch the whole cycle happen, check the resulting commit on `review`
 looks right, and read `loop.log`, before starting it for real with no
 `--max-cycles` cap.
 
@@ -163,4 +163,4 @@ is summarized from.
   and could be added, but cutting a cycle off mid-commit is its own
   risk — left as a manual edit to `run_loop.py` if you want it).
 - No parallelism — one cycle at a time, strictly sequential, so nothing
-  ever races itself over the same `prerelease` branch.
+  ever races itself over the same `review` branch.

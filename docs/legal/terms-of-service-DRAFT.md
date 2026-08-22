@@ -24,7 +24,7 @@
 >
 > This same "real draft, not yet reviewed, not yet launch-ready" posture is
 > already how this project treats other business documents it hasn't
-> written yet (see `docs/BACKLOG.md`'s business-plan item) — this is the
+> written yet (see `docs/internal/BACKLOG.md`'s business-plan item) — this is the
 > same thing, for legal copy instead of financial content.
 
 ---

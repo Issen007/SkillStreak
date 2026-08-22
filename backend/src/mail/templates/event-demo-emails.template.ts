@@ -21,29 +21,66 @@ export interface RenderedEmail {
  * link protects that pipeline at least as much as it protects the reader.
  */
 
+/*
+ * One shape per thing a person can ask for, because the form now asks two
+ * separate questions.
+ *
+ * Until 2026-08-21 the form *was* the demo signup, so a single "see you at
+ * the showing" confirmation was accurate for everyone who received it. It
+ * stopped being accurate the moment release news became its own box:
+ * someone who ticked only that got "Tack — du är anmäld till
+ * SkillStreak-visningen" and a promise of a Meet link nobody would send
+ * them. The on-page message was corrected the same day and this was
+ * missed.
+ */
 interface ConfirmationCopy {
-  subject: string;
-  heading: string;
-  body: string;
-  whatNext: string;
+  subjectDemo: string;
+  subjectReleases: string;
+  subjectBoth: string;
+  headingDemo: string;
+  headingReleases: string;
+  headingBoth: string;
+  bodyDemo: string;
+  bodyReleases: string;
+  whatNextDemo: string;
+  whatNextReleases: string;
   unsubscribe: string;
 }
 
 const CONFIRMATION: Record<EventRegistrationLocale, ConfirmationCopy> = {
   [EventRegistrationLocale.SV]: {
-    subject: 'Tack — du är anmäld till SkillStreak-visningen',
-    heading: 'Vi ses på visningen',
-    body: 'Tack för din anmälan! Vi visar SkillStreak live i början av september — hur en träning loggas, hur laget jagar VM-guldet ihop, och hur trygghetsreglerna fungerar.',
-    whatNext:
+    subjectDemo: 'Tack — du är anmäld till SkillStreak-visningen',
+    subjectReleases: 'Tack — vi hör av oss när SkillStreak släpps',
+    subjectBoth: 'Tack — du är anmäld, och vi hör av oss vid nya släpp',
+    headingDemo: 'Vi ses på visningen',
+    headingReleases: 'Tack för att du skrev upp dig',
+    headingBoth: 'Vi ses på visningen',
+    bodyDemo:
+      'Tack för din anmälan! Vi visar SkillStreak live i början av september — hur en träning loggas, hur laget jagar VM-guldet ihop, och hur trygghetsreglerna fungerar.',
+    bodyReleases:
+      'Tack för att du skrev upp dig! SkillStreak byggs av en innebandytränare, och vi hör av oss när det finns något riktigt att visa.',
+    whatNextDemo:
       'Du får en inbjudan med Meet-länken och exakt tid så snart den är spikad. Du behöver inte göra något innan dess.',
+    whatNextReleases:
+      'Du får ett mejl när appen finns att hämta och när något nytt är på plats. Inget annat — och du kan säga upp det när som helst.',
     unsubscribe: 'Vill du inte vara med på listan? Ta bort dig här:',
   },
   [EventRegistrationLocale.EN]: {
-    subject: 'Thanks — you are signed up for the SkillStreak demo',
-    heading: 'See you at the demo',
-    body: 'Thanks for signing up. We are showing SkillStreak live in early September — how a session gets logged, how a team chases its gold together, and how the safety rules work.',
-    whatNext:
+    subjectDemo: 'Thanks — you are signed up for the SkillStreak demo',
+    subjectReleases: 'Thanks — we will tell you when SkillStreak ships',
+    subjectBoth:
+      'Thanks — you are signed up, and we will tell you about releases',
+    headingDemo: 'See you at the demo',
+    headingReleases: 'Thanks for putting your name down',
+    headingBoth: 'See you at the demo',
+    bodyDemo:
+      'Thanks for signing up. We are showing SkillStreak live in early September — how a session gets logged, how a team chases its gold together, and how the safety rules work.',
+    bodyReleases:
+      'Thanks for putting your name down. SkillStreak is being built by a floorball coach, and we will be in touch when there is something real to show.',
+    whatNextDemo:
       'You will get an invitation with the Meet link and the exact time as soon as it is set. Nothing to do until then.',
+    whatNextReleases:
+      'You will get an email when the app is available and when something new lands. Nothing else — and you can stop it at any time.',
     unsubscribe: 'Would you rather not be on the list? Remove yourself here:',
   },
 };
@@ -144,29 +181,56 @@ function localeCopy<T>(
   return table[locale ?? EventRegistrationLocale.SV] ?? table.sv;
 }
 
+/**
+ * Confirms only what the person actually asked for.
+ *
+ * Both false cannot happen — the form refuses to submit with neither box
+ * ticked — but if it ever did, the demo wording is the safer of the two to
+ * fall back on: it promises a single dated event rather than an open-ended
+ * stream of mail.
+ */
 export function renderSignupConfirmationEmail(input: {
   locale: EventRegistrationLocale | null;
   unsubscribeUrl: string;
+  wantsDemoInvite: boolean;
+  wantsReleaseUpdates: boolean;
 }): RenderedEmail {
   const copy = localeCopy(CONFIRMATION, input.locale);
+  const demo = input.wantsDemoInvite || !input.wantsReleaseUpdates;
+  const both = demo && input.wantsReleaseUpdates;
+
+  const subject = both
+    ? copy.subjectBoth
+    : demo
+      ? copy.subjectDemo
+      : copy.subjectReleases;
+  const heading = both
+    ? copy.headingBoth
+    : demo
+      ? copy.headingDemo
+      : copy.headingReleases;
+  // Both asked for: say each thing once, demo first, since it is the one
+  // with a date attached.
+  const paragraphs = [
+    demo ? copy.bodyDemo : copy.bodyReleases,
+    demo ? copy.whatNextDemo : copy.whatNextReleases,
+    ...(both ? [copy.whatNextReleases] : []),
+  ];
+
   const text = [
-    copy.heading,
+    heading,
     '',
-    copy.body,
-    '',
-    copy.whatNext,
-    '',
+    ...paragraphs.flatMap((paragraph) => [paragraph, '']),
     `${copy.unsubscribe} ${input.unsubscribeUrl}`,
   ].join('\n');
 
   const html = `${WRAP_START}
-<h1 style="font-size:20px;margin:0 0 12px">${escapeHtml(copy.heading)}</h1>
-<p>${escapeHtml(copy.body)}</p>
-<p>${escapeHtml(copy.whatNext)}</p>
+<h1 style="font-size:20px;margin:0 0 12px">${escapeHtml(heading)}</h1>
+${paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('\n')}
 ${unsubscribeBlock(copy.unsubscribe, input.unsubscribeUrl)}
 ${WRAP_END}`;
 
-  return { subject: copy.subject, html, text };
+  return { subject, html, text };
 }
 
 export function renderDemoInviteEmail(input: {

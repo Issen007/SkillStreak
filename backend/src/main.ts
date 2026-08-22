@@ -8,6 +8,7 @@ import type { NextFunction, Request, Response } from 'express';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+import { securityHeaders } from './common/security-headers.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -131,6 +132,9 @@ async function bootstrap() {
     next();
   });
 
+  // See the middleware for why each of these three is here.
+  app.use(securityHeaders);
+
   const corsOrigin = configService.get<string>('CORS_ORIGIN');
   if (corsOrigin) {
     app.enableCors({
@@ -169,7 +173,14 @@ async function bootstrap() {
     // Not fatal: the API's own routes are unaffected, and a missing console
     // should not take the backend down. Say so loudly, though — otherwise
     // the only symptom is a 404 after a successful sign-in.
-    console.warn('Staff console assets not found — /console will 404.');
+    //
+    // Through the app's own Logger, like every other boot message in this
+    // file: a bare `console.warn` prints outside the format the log tooling
+    // reads, so the one line that explains a mysterious 404 is the one line
+    // nothing would attribute to a service.
+    new Logger('Bootstrap').warn(
+      'Staff console assets not found — /console will 404.',
+    );
   }
 
   await app.listen(process.env.PORT ?? 3000);

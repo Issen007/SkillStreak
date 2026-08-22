@@ -35,14 +35,12 @@ class EnvironmentVariables {
   PII_ENCRYPTION_KEY!: string;
 
   @IsOptional()
-  @IsNotEmpty()
   JWT_EXPIRES_IN?: string;
 
   // All optional: mail sending degrades to a clearly-logged no-op rather
   // than failing app boot when unset (see MailService) — lets the rest of
   // the app keep working while SMTP is still being configured.
   @IsOptional()
-  @IsNotEmpty()
   SMTP_HOST?: string;
 
   @IsOptional()
@@ -50,21 +48,18 @@ class EnvironmentVariables {
   SMTP_PORT?: string;
 
   @IsOptional()
-  @IsNotEmpty()
   SMTP_USER?: string;
 
   @IsOptional()
   SMTP_PASSWORD?: string;
 
   @IsOptional()
-  @IsNotEmpty()
   SMTP_FROM?: string;
 
   // The address a parent's browser can actually reach to click the consent
   // link — a LAN IP during local testing, a real domain once deployed.
   // Optional with a localhost fallback in code so nothing crashes if unset.
   @IsOptional()
-  @IsNotEmpty()
   APP_PUBLIC_URL?: string;
 
   // Comma-separated list of origins allowed to call this API cross-origin
@@ -73,7 +68,6 @@ class EnvironmentVariables {
   // Optional, degrades to CORS disabled entirely if unset — same posture
   // as SMTP/APP_PUBLIC_URL, not a silent wildcard default. See main.ts.
   @IsOptional()
-  @IsNotEmpty()
   CORS_ORIGIN?: string;
 
   // --- Fas 3 (video clips / MinIO) -------------------------------------------
@@ -98,7 +92,6 @@ class EnvironmentVariables {
   // which talk to MinIO from inside the same network MINIO_ENDPOINT
   // already resolves on.
   @IsOptional()
-  @IsNotEmpty()
   MINIO_PUBLIC_ENDPOINT?: string;
 
   @IsNotEmpty()
@@ -110,7 +103,6 @@ class EnvironmentVariables {
   // Optional — ObjectStorageService defaults to 'clips' (ADR-0010's bucket
   // layout) if unset.
   @IsOptional()
-  @IsNotEmpty()
   MINIO_BUCKET?: string;
 
   // Tunable product config, per ADR-0010's own framing ("a config value...

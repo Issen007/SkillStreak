@@ -70,8 +70,8 @@ Projektet byggs med en modern stack som är optimerad för att utvecklas effekti
 > **2026-07-26:** roadmapen nedan är omskriven för att (a) faktiskt matcha
 > vad som är klart — Fas 1-3 var kraftigt eftersläpande här jämfört med
 > `docs/internal/ACTION_PLAN.md`s levande checklista — och (b) slå
-> ihop `docs/BACKLOG.md`s tidigare oprioriterade idélista med rätt fas,
-> i prioritetsordning inom varje fas. `docs/BACKLOG.md` är kvar som en
+> ihop `docs/internal/BACKLOG.md`s tidigare oprioriterade idélista med rätt fas,
+> i prioritetsordning inom varje fas. `docs/internal/BACKLOG.md` är kvar som en
 > ren "inkorg" för nya, ännu otriagerade idéer — så fort en idé får en
 > plats här är det härifrån den planeras, inte därifrån.
 
@@ -123,13 +123,16 @@ lansering, inte bara förbättringar:
      konfigureras. Blockerar en riktig publik lansering tills det är löst.
    - **Internt testkluster: `ubuntu01`** (microk8s, `192.168.55.x`, bara på
      det lokala nätverket) — uteslutande testmiljön, aldrig tänkt att bli
-     publikt. Kör bara det som byggs från `prerelease`:
+     publikt. Kör bara det som byggs från `review`:
      `.github/workflows/ci-cd.yml`s `internal-images`-jobb bygger
-     `prerelease-<sha>`-taggade images (site-imagen med klustrets egna
-     LAN-adresser inbakade, `192.168.55.71` api / `192.168.55.72` site och
-     try-it, istället för `skillstreak.xyz`), och
-     `tools/local-release-poller` (en systemd-timer på maskinen själv,
-     inte denna repos CI) pollar `prerelease` och deployar automatiskt.
+     `prerelease-<sha>`-taggade images (taggnamnet är kvar med flit — det
+     beskriver *bygg-kanalen*, inte grenen, så images som redan finns på
+     GHCR och versionen en körande pod rapporterar på `/health` fortsätter
+     betyda något; site-imagen har klustrets egna LAN-adresser inbakade,
+     `192.168.55.71` api / `192.168.55.72` site och try-it, istället för
+     `skillstreak.xyz`), och `tools/local-release-poller` (en systemd-timer
+     på maskinen själv, inte denna repos CI) pollar `review` och deployar
+     automatiskt.
      Egen testdatabas, helt separat från produktionens. Ingen TLS/Ingress
      behövs eller är planerad här — nås direkt via metallb:s
      LoadBalancer-IP:er över vanlig HTTP; se `k8s/README.md`s egna avsnitt
@@ -156,7 +159,7 @@ lansering, inte bara förbättringar:
    spelare — det var exakt den lucka den här punkten redan förutsåg,
    nu stängd på både mobilappen och webbplatsen.
    Starkare autentisering (Sign in with Apple/Google) är fortfarande
-   ett separat, större beslut — inte löst här, se `docs/BACKLOG.md`.
+   ett separat, större beslut — inte löst här, se `docs/internal/BACKLOG.md`.
 3. [x] **Åldersbaserad självverifiering (13+, bara e-post — ingen
    förälder)** — klar 2026-07-27. Reverserar Fas 1-beslutet
    (föräldragodkännande för *alla* spelare oavsett ålder,
@@ -174,7 +177,7 @@ lansering, inte bara förbättringar:
 4. [x] **Missbruksskydd för webbsidans anmälningsflöde** — klar 2026-07-27.
    `POST /players`s `10/min/IP`-gräns använde `@nestjs/throttler`s
    in-memory-lagring, per-pod snarare än klusterbrett — flaggad av
-   security-reviewer i Fas 2.9-granskningen (`docs/ACTION_PLAN.md`). Fixad
+   security-reviewer i Fas 2.9-granskningen (`docs/internal/ACTION_PLAN.md`). Fixad
    med en Redis-baserad `ThrottlerStorage` (samma fixed-window
    INCR+EXPIRE-mönster som appens övriga rate limits, `RedisService`), så
    gränsen gäller hela klustret, inte per pod. Live-verifierad: skalade
@@ -291,7 +294,7 @@ sponsor-/bidragsmodell hänger ihop och bör beslutas tillsammans, inte var
 för sig.
 
 ### Fas 6: Publik Shorts-feed, reaktioner & personligt arkiv (ej designad)
-Tillagd 2026-07-27 direkt av projektägaren — se `docs/ACTION_PLAN.md`s
+Tillagd 2026-07-27 direkt av projektägaren — se `docs/internal/ACTION_PLAN.md`s
 Fas 6-avsnitt för hela resonemanget. I korthet: en oändligt scrollbar feed
 av klipp andra spelare valt att göra publika (inspiration från Snapchat/
 TikTok/Instagram/YouTube för scroll-/reaktionsmekaniken), ett sätt att

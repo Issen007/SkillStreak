@@ -8,3 +8,22 @@ allowBuilds:
 # dependency chain — overriding now rather than waiting.
 overrides:
   multer: ">=2.2.0"
+
+# NOT overridden, and the attempt is recorded so it is not retried blindly:
+# brace-expansion, js-yaml and fast-uri each carry high-severity advisories
+# through TypeORM's migration globbing, the Nest CLI and eslint/jest. All
+# are denial-of-service via a crafted pattern or document, and none is
+# reachable here — the only inputs any of them ever see are our own
+# migration paths and our own config files.
+#
+# Overriding them on 2026-08-22 took the audit from 13 findings to 1 and
+# broke the application twice. A blanket `brace-expansion: ">=2.1.4"`
+# killed eslint ("TypeError: expand is not a function"); scoping it to
+# `brace-expansion@2` still broke `migration:run` with
+# "(0, brace_expansion_1.default) is not a function", because TypeORM's
+# glob chain wants the 1.x export shape. Build, tests, lint and the Docker
+# image all passed through both — migrations are run by a separate command
+# and were the thing not checked.
+#
+# The advisories stay open on purpose. An unreachable DoS in build tooling
+# is a smaller problem than a migration step that cannot run.

@@ -9,7 +9,7 @@ This is `docs/PROJECT.md` Fas 4, point 7: "24/7 drifts-/hälsoövervakning
 ... Börja med en enkel schemalagd hälsokontroll, inte den större
 'AI-driven'-idén" — deliberately the simplest thing that's still real
 monitoring (alerts on a state *change*), not the bigger dashboard/AI idea
-tracked separately in `docs/BACKLOG.md`.
+tracked separately in `docs/internal/BACKLOG.md`.
 
 Not part of the SkillStreak product itself — a standalone local-dev/ops
 tool, same posture as `tools/local-release-poller/` and `tools/lab-access/`
@@ -21,10 +21,20 @@ report a networking-level failure of that same cluster.
 ## What it actually does
 
 `check-health.sh`, once per run:
-1. Requests each of the three production URLs (`https://api.skillstreak.xyz
-   /health`, `https://skillstreak.xyz/`, `https://try.skillstreak.xyz/`),
-   with a 10s timeout. The API check also confirms the response body
-   actually contains `"status":"ok"`, not just a 2xx status code.
+1. Requests each of the four production URLs (`https://api.skillstreak.xyz
+   /health`, `https://skillstreak.xyz/`, `https://skillstreak.xyz/i18n.js`,
+   `https://try.skillstreak.xyz/`), with a 10s timeout. Three of the four
+   also confirm the response *body*, not just a 2xx status code — the API
+   must contain `"status":"ok"`, the site must contain `id="topnav"`, and
+   `i18n.js` must contain `lang-switch`.
+
+   The body checks on the site exist because of 2026-08-21, when the
+   marketing page's config `<script>` was a syntax error and `/i18n.js` had
+   been 404ing for as long as the page existed — no language switcher, no
+   English, and every API call the page made going to `undefined/...`. The
+   homepage answered 200 throughout. A status-code check would have
+   reported "up" for the entire outage, which is the failure mode this tool
+   exists to prevent.
 2. Compares each target's result to its last known status (tracked per
    target in `~/.local/state/skillstreak-uptime/<name>.state`).
 3. **Only sends an email on a state change** — healthy → down, or
@@ -118,6 +128,6 @@ and to avoid over-building a "simple" first version:
 
 The bigger "control monitoring web UI" idea (stats, error visibility,
 social media campaign control, blog generation) is tracked separately in
-`docs/BACKLOG.md` as its own, much larger, not-yet-designed idea — this
+`docs/internal/BACKLOG.md` as its own, much larger, not-yet-designed idea — this
 tool is not a step toward that, just the small thing this backlog item
 actually asked for.

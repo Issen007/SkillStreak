@@ -126,12 +126,121 @@ for (const line of substituted.split('\n')) {
 }
 
 /*
+ * Every `__PLACEHOLDER__` in a served page must have a `sed` in the
+ * Dockerfile that fills it. Without this, adding a placeholder to the
+ * markup and forgetting the substitution ships the literal token to
+ * visitors — and the Dockerfile's own `grep -qF` guards cannot see it,
+ * because they only check that the value they *did* substitute landed.
+ *
+ * download.html carries four placeholders and the build verifies exactly
+ * one of them, which is what prompted this.
+ */
+const dockerfileSource = readFileSync(join(siteRoot, 'Dockerfile'), 'utf8');
+
+for (const page of ['index.html', 'download.html']) {
+  const markup = readFileSync(join(siteRoot, page), 'utf8');
+  const candidates = new Set(markup.match(/__[A-Z][A-Z0-9_]*__/g) ?? []);
+  /*
+   * `window.__API_BASE__` and `window.__TRY_IT__` look like placeholders
+   * and are the opposite: they are the globals the placeholders are
+   * substituted *into*, and they must survive. They are distinguishable
+   * only because their names differ from their tokens — which is exactly
+   * the rule this morning's outage established, when a global named after
+   * its own token got rewritten into a URL. A token that only ever appears
+   * as `window.<token>` is a name, not a hole to fill.
+   */
+  const placeholders = [...candidates].filter(
+    (token) =>
+      !new RegExp(`window\\.${token}\\b`).test(markup) ||
+      markup.split(token).length - 1 >
+        markup.split(`window.${token}`).length - 1,
+  );
+  for (const placeholder of placeholders) {
+    if (!dockerfileSource.includes(`s|${placeholder}|`)) {
+      fail(
+        `${page} contains ${placeholder}, but site/Dockerfile has no sed ` +
+          `that substitutes it — the literal token would ship to visitors.`,
+      );
+    }
+  }
+}
+
+/*
+ * i18n.js is keyed by the Swedish source string, which makes two silent
+ * failures possible and neither is visible in review.
+ *
+ * 1. **A duplicate key** is legal JavaScript: the last one quietly wins.
+ *    One was introduced and caught by hand on 2026-08-21; nothing would
+ *    have reported it.
+ * 2. **A key whose source no longer exists** is what the file's own header
+ *    warns about — edit the Swedish copy and its translation detaches,
+ *    leaving English visitors reading Swedish with no error anywhere.
+ *
+ * Both are plain text problems, so they are checked here rather than
+ * needing a browser.
+ */
+const i18n = readFileSync(join(siteRoot, 'i18n.js'), 'utf8');
+
+const ENTITIES = {
+  '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'",
+  '&nbsp;': '\u00a0', '&mdash;': '—', '&ndash;': '–', '&hellip;': '…',
+  '&rsquo;': '\u2019', '&lsquo;': '\u2018', '&ldquo;': '\u201c', '&rdquo;': '\u201d',
+};
+const decodeEntities = (text) =>
+  text.replace(/&[a-z]+;|&#\d+;/gi, (entity) => ENTITIES[entity] ?? entity);
+
+/*
+ * The page's text nodes, collapsed exactly as `apply()` collapses them —
+ * trimmed, runs of whitespace squeezed to one space, and the same
+ * "longer than two characters" filter its TreeWalker uses.
+ */
+const pageNodes = new Set(
+  source
+    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '<>')
+    .split(/<[^>]*>/)
+    .map((node) => decodeEntities(node).trim().replace(/\s+/g, ' '))
+    .filter((node) => node.length > 2),
+);
+
+for (const [, locale, block] of i18n.matchAll(
+  /^ {4}(\w+): \{$([\s\S]*?)^ {4}\},?$/gm,
+)) {
+  const keys = [...block.matchAll(/^ {6}'((?:[^'\\]|\\.)+)':/gm)].map(
+    ([, key]) => key,
+  );
+  const seen = new Set();
+  for (const key of keys) {
+    if (seen.has(key)) {
+      fail(`i18n.js "${locale}" has a duplicate key — the later one silently wins: ${key}`);
+    }
+    seen.add(key);
+  }
+
+  /*
+   * Compared per *text node*, not against the page as one string. A
+   * substring sweep passes whenever the phrase survives anywhere else on
+   * the page, which is exactly the case a reword produces — verified: it
+   * missed "Slutna lagbubblor" being changed in its heading while the same
+   * words remained in a sentence further down. `apply()` matches whole
+   * collapsed nodes, so this has to as well.
+   */
+  for (const key of keys) {
+    const literal = decodeEntities(key.replace(/\\'/g, "'"));
+    if (!pageNodes.has(literal)) {
+      fail(
+        `i18n.js "${locale}" translates a string that is no longer a text node ` +
+          `in index.html, so it can never apply: ${literal.slice(0, 70)}…`,
+      );
+    }
+  }
+}
+
+/*
  * Every local file index.html pulls in must appear in the Dockerfile's
  * COPY list. Checking the repo for the file is not enough — that was
  * always true of i18n.js — so this reads the Dockerfile itself.
  */
-const dockerfile = readFileSync(join(siteRoot, 'Dockerfile'), 'utf8');
-const copiedPaths = [...dockerfile.matchAll(/^COPY\s+\S*site\/(\S+)/gm)].map(
+const copiedPaths = [...dockerfileSource.matchAll(/^COPY\s+\S*site\/(\S+)/gm)].map(
   ([, path]) => path.replace(/\/$/, ''),
 );
 
@@ -161,5 +270,6 @@ if (failures > 0) {
 }
 console.log(
   `site build OK: ${SUBSTITUTIONS.length} placeholders, ${scripts.length} inline ` +
-    `scripts parse, ${referenced.length} referenced file(s) are copied into the image.`,
+    `scripts parse, ${referenced.length} referenced file(s) copied into the image, ` +
+    `i18n keys unique and all still matched, every placeholder substituted.`,
 );

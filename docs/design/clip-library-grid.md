@@ -2,7 +2,7 @@
 
 Scope: a **layout-only** revision of Screen V2 (the "Klipp"/Shorts tab feed,
 `docs/design/phase3-flows.md`), raised by the project owner 2026-08-05
-(`docs/BACKLOG.md` "Clip library layout" entry): replace the current
+(`docs/internal/BACKLOG.md` "Clip library layout" entry): replace the current
 one-clip-per-row vertical feed with a dense thumbnail grid, moving playback
 into a tap-to-open modal/full-screen player. No backend change, no new
 privacy surface — every consent gate, report/delete/block flow, and

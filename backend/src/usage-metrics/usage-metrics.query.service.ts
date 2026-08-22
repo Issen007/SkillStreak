@@ -362,7 +362,11 @@ export class UsageMetricsQueryService {
 
   private async queryWeeklyCounts<T extends ObjectLiteral>(
     queryBuilder: SelectQueryBuilder<T>,
-    alias: string,
+    // The two aliases this helper is ever called with, named rather than
+    // left as `string`. It is the only other place in the codebase that
+    // interpolates an identifier into SQL; both call sites pass a literal,
+    // and typing it that way keeps a future one from passing a variable.
+    alias: 'clip' | 'message',
     windowStart: Date,
   ): Promise<WeeklyCountRow[]> {
     // date_trunc('week', ...) is Postgres's ISO week (Monday-start), in the

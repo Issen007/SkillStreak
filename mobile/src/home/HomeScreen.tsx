@@ -57,7 +57,21 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
   const { t } = useTranslation('home');
   const [me, setMe] = useState<PlayerMeResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  /*
+   * A translation *key*, not a translated string.
+   *
+   * `fetchMe` is memoised and would otherwise capture the `t` that existed
+   * when it was created. The language changes after that: AppShell calls
+   * `changeLanguage(me.player.locale)` once the player loads, and
+   * onboarding lets the child pick one. So a failure after that point
+   * rendered its message in the device's language rather than the one the
+   * player chose — visible only to the non-Swedish users the nine locales
+   * exist for. Holding the key and translating at render also means the
+   * message follows a language change while it is still on screen.
+   */
+  const [loadErrorKey, setLoadErrorKey] = useState<
+    'homeScreen.loadError' | null
+  >(null);
   const [manualRefreshing, setManualRefreshing] = useState(false);
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -130,7 +144,7 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
       const response = await getMe();
       if (requestId !== fetchRequestId.current) return;
       setMe(response);
-      setLoadError(null);
+      setLoadErrorKey(null);
     } catch (err) {
       if (requestId !== fetchRequestId.current) return;
       if (err instanceof ApiError && err.status === 401) {
@@ -138,13 +152,14 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
         onSessionInvalid();
         return;
       }
-      setLoadError(t('homeScreen.loadError'));
+      setLoadErrorKey('homeScreen.loadError');
     } finally {
       if (requestId !== fetchRequestId.current) return;
       setLoading(false);
       setManualRefreshing(false);
       hasLoadedOnce.current = true;
     }
+    // `t` is deliberately absent: nothing here translates any more.
   }, [onSessionInvalid]);
 
   useEffect(() => {
@@ -302,11 +317,11 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
     return <LoadingOrRetry loading />;
   }
 
-  if (loadError || !me) {
+  if (loadErrorKey || !me) {
     return (
       <LoadingOrRetry
         loading={false}
-        errorMessage={loadError ?? t('shared.genericError')}
+        errorMessage={t(loadErrorKey ?? 'shared.genericError')}
         retryLabel={t('shared.retry')}
         onRetry={() => void fetchMe()}
       />

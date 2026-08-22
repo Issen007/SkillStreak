@@ -131,7 +131,11 @@ services:
     # debugging only (browse the bucket during dev) — the API only ever
     # talks to the S3 API port (9000); k8s's minio-service.yaml exposes
     # neither externally (ClusterIP only, no console at all).
-    image: minio/minio:latest
+    # Same digest the cluster is pinned to (see k8s/minio-deployment.yaml
+    # for why). Keeping the two identical is what makes the compose smoke
+    # test a meaningful rehearsal of production rather than a test against
+    # whatever MinIO published most recently.
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
