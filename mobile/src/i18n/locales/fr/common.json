@@ -15,5 +15,13 @@
     "team": "Équipe",
     "tips": "Conseils"
   },
-  "testModeBanner": "🧪 Ceci est juste un TEST — ne crée pas de vrai compte avec de vraies informations."
+  "testModeBanner": "🧪 Ceci est juste un TEST — ne crée pas de vrai compte avec de vraies informations.",
+  "parentalGate": {
+    "heading": "Un adulte doit t'aider",
+    "body": "Ceci ouvre quelque chose en dehors de l'application. Demande à un adulte de résoudre le calcul.",
+    "inputLabel": "Réponse",
+    "wrong": "Pas tout à fait. Réessaie avec le nouveau calcul.",
+    "confirm": "Continuer",
+    "cancel": "Annuler"
+  }
 }

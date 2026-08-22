@@ -97,17 +97,32 @@ submission today would ship a version that predates most of this month.
 
 ## 2. Decisions only the project owner can make
 
-### 2.1 Apple's Kids Category, or a general app with an age rating
+### 2.1 ~~Apple's Kids Category, or a general app~~ — DECIDED 2026-08-22: **Kids Category**
+
+Owner's decision, written up as
+[ADR-0034](adr/0034-kids-category-and-the-parental-gate.md). The one thing
+it required in code is built: a parental gate in front of **all five** ways
+out of the app, including the two OS share sheets — the friend invite and
+the captain's PT-link code — which are easy to miss because App Review 1.3
+reads like it is only about hyperlinks.
+
+The gate is a compliance control, not a security one, and says so in its
+own source: the users are 9–13 and can do arithmetic. It makes leaving the
+app deliberate rather than accidental.
+
+The original framing is kept below, because the reasoning is what makes
+the decision re-checkable.
+
+#### The choice as it stood
 
 Two different regimes, and the choice is deliberate. Kids Category is
 stricter — no behavioural advertising, a parental gate on anything leaving
 the app, no external links without one — and it signals exactly what this
 app is. A general listing with an age rating is easier and says less.
 
-This decision changes the answers to several store questions, so it comes
-before filling the forms in — and it now decides one piece of code: the
-profile screen's privacy-policy link leaves the app, which Kids Category
-would require a parental gate in front of (§1.2).
+This decision changed the answers to several store questions, so it came
+before filling the forms in — and it decided one piece of code: every exit
+from the app now sits behind a parental gate (§1.2, ADR-0034).
 
 ### 2.2 Whether public sharing is on at launch
 

@@ -15,5 +15,13 @@
     "team": "Hold",
     "tips": "Tips"
   },
-  "testModeBanner": "🧪 Det her er kun en TEST — opret ikke en rigtig konto med rigtige oplysninger."
+  "testModeBanner": "🧪 Det her er kun en TEST — opret ikke en rigtig konto med rigtige oplysninger.",
+  "parentalGate": {
+    "heading": "En voksen skal hjælpe",
+    "body": "Det her åbner noget uden for appen. Bed en voksen om at løse regnestykket.",
+    "inputLabel": "Svar",
+    "wrong": "Ikke helt. Prøv igen med det nye regnestykke.",
+    "confirm": "Fortsæt",
+    "cancel": "Annullér"
+  }
 }

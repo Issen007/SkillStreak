@@ -41,6 +41,7 @@ import { ErasureSuccessorScreen } from './erasure/ErasureSuccessorScreen';
 import { ErasureConfirmSheet } from './erasure/ErasureConfirmSheet';
 import { ErasureCheckEmailScreen } from './erasure/ErasureCheckEmailScreen';
 import { ErasureStatusCard } from './erasure/ErasureStatusCard';
+import { ParentalGate } from '../components/ParentalGate';
 import { TrainingReminderCard } from './TrainingReminderCard';
 import { PtRelationshipsScreen } from './PtRelationshipsScreen';
 import { BugReportScreen } from './bugReport/BugReportScreen';
@@ -108,6 +109,10 @@ export function ProfileScreen({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  /* What to run once a grown-up has passed the gate. Holding the action
+     rather than a boolean means one gate serves every exit on this screen
+     — see ParentalGate for why Kids Category needs it at all. */
+  const [gatedAction, setGatedAction] = useState<null | (() => void)>(null);
   /** ADR-0031. `null` while unknown — the block renders nothing until we
    * know, rather than flashing the wrong affordance. */
   const [trainerLinked, setTrainerLinked] = useState<boolean | null>(null);
@@ -719,6 +724,17 @@ export function ProfileScreen({
 
   return (
     <View style={styles.container}>
+      {/* One gate for every exit on this screen — Kids Category requires
+          it in front of anything that leaves the app. */}
+      <ParentalGate
+        visible={gatedAction !== null}
+        onPass={() => {
+          const run = gatedAction;
+          setGatedAction(null);
+          run?.();
+        }}
+        onClose={() => setGatedAction(null)}
+      />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>{t('profileScreen.view.heading')}</Text>
         <Text style={styles.greeting}>{screenName}</Text>
@@ -814,7 +830,9 @@ export function ProfileScreen({
             wrong as right. */}
         <SecondaryLink
           label={t('profileScreen.view.privacyPolicy')}
-          onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+          onPress={() =>
+            setGatedAction(() => () => void Linking.openURL(PRIVACY_POLICY_URL))
+          }
         />
 
         {/* The running build, stamped at image-build time (see
@@ -860,7 +878,9 @@ export function ProfileScreen({
                 </Text>
                 <SecondaryLink
                   label={t('profileScreen.view.trainerLink')}
-                  onPress={() => void Linking.openURL(CONSOLE_URL)}
+                  onPress={() =>
+                    setGatedAction(() => () => void Linking.openURL(CONSOLE_URL))
+                  }
                 />
                 <SecondaryLink
                   label={t('profileScreen.view.trainerUnlink')}
@@ -874,7 +894,7 @@ export function ProfileScreen({
                 </Text>
                 <SecondaryLink
                   label={t('profileScreen.view.trainerLinkAccounts')}
-                  onPress={() => void handleLinkTrainer()}
+                  onPress={() => setGatedAction(() => () => void handleLinkTrainer())}
                 />
               </>
             )}

@@ -15,5 +15,13 @@
     "team": "Team",
     "tips": "Tipps"
   },
-  "testModeBanner": "🧪 Das hier ist nur ein TEST — leg kein echtes Konto mit echten Daten an."
+  "testModeBanner": "🧪 Das hier ist nur ein TEST — leg kein echtes Konto mit echten Daten an.",
+  "parentalGate": {
+    "heading": "Ein Erwachsener muss helfen",
+    "body": "Das öffnet etwas außerhalb der App. Bitte einen Erwachsenen, die Aufgabe zu lösen.",
+    "inputLabel": "Antwort",
+    "wrong": "Nicht ganz. Versuch es mit der neuen Aufgabe.",
+    "confirm": "Weiter",
+    "cancel": "Abbrechen"
+  }
 }

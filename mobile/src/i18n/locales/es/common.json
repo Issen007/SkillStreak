@@ -15,5 +15,13 @@
     "team": "Equipo",
     "tips": "Consejos"
   },
-  "testModeBanner": "🧪 Esto es solo una PRUEBA: no crees una cuenta real con información real."
+  "testModeBanner": "🧪 Esto es solo una PRUEBA: no crees una cuenta real con información real.",
+  "parentalGate": {
+    "heading": "Necesitas la ayuda de un adulto",
+    "body": "Esto abre algo fuera de la aplicación. Pide a una persona adulta que resuelva la operación.",
+    "inputLabel": "Respuesta",
+    "wrong": "Casi. Inténtalo otra vez con la nueva operación.",
+    "confirm": "Continuar",
+    "cancel": "Cancelar"
+  }
 }
