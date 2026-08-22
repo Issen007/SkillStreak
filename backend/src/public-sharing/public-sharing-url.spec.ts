@@ -86,8 +86,25 @@ function build() {
   const mailService = {
     sendMail: jest.fn(() => Promise.resolve({ handedOff: true, rejected: [] })),
   };
+  // Clips the fake player has published, so the un-publish on revoke can be
+  // asserted rather than assumed.
+  const publishedClips = { affected: 0 };
+  const clipRepo = {
+    createQueryBuilder: () => {
+      const qb = {
+        update: () => qb,
+        set: () => qb,
+        where: () => qb,
+        andWhere: () => qb,
+        execute: () => Promise.resolve(publishedClips),
+      };
+      return qb;
+    },
+  };
+
   const service = new PublicSharingConsentService(
     repo as unknown as Repository<PublicSharingConsent>,
+    clipRepo as never,
     {
       findOne: jest.fn().mockResolvedValue({ screenName: 'FloorballStar15' }),
     } as never,
