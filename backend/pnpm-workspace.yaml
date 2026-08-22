@@ -8,3 +8,31 @@ allowBuilds:
 # dependency chain — overriding now rather than waiting.
 overrides:
   multer: ">=2.2.0"
+
+# Three transitive build-tooling dependencies, added 2026-08-22 during a
+# security review. All are pulled in by TypeORM's migration globbing, the
+# Nest CLI and eslint/jest; every advisory against them is a
+# denial-of-service via a crafted pattern or document, and none is
+# reachable here — the only inputs any of them ever see are our own
+# migration paths and our own config files.
+#
+# Pinned anyway, for the same reason the multer entry above did not wait:
+# thirteen permanent "high" findings is how `pnpm audit` becomes a thing
+# nobody reads, exactly as a permanently red check taught everyone here to
+# ignore expo-doctor. An empty list is what makes the next advisory
+# visible.
+#
+# Deliberately backend-only. mobile/ has the same class of finding through
+# Metro and Expo's build pipeline, and its dependency resolution is
+# load-bearing for EAS builds and expo-doctor — not something to change as
+# a side effect of a security review.
+  # Scoped to the 2.x line only. A blanket ">=2.1.4" also rewrites the 1.x
+  # dependants (eslint's own glob chain), and 2.x changed the export shape:
+  # eslint died with "TypeError: expand is not a function" on every run.
+  # Caught by running lint, not by the audit count going down.
+  #
+  # The 1.x advisories stay open and are accepted: that line is reachable
+  # only through eslint's file globbing over this repo's own paths.
+  "brace-expansion@2": ">=2.1.4"
+  js-yaml: ">=4.3.1"
+  fast-uri: ">=3.1.5"
