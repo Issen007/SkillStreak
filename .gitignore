@@ -158,7 +158,16 @@ activemq-data/
 !.env.example
 .envrc
 
-# Kubernetes secrets — copied locally from k8s/secret.yaml.example and
+# Kubernetes secrets — copied locally from k8s/secret.yaml
+
+# The Google Play service-account key. `mobile/eas.json`'s submit profile
+# points `serviceAccountKeyPath` at exactly this path, so this is where the
+# file lands the first time anyone submits to Play — and until 2026-08-22
+# nothing here would have stopped it being committed. It is a credential
+# that can publish to the store under this app's name; a repository is the
+# last place it should be recoverable from.
+secrets/
+.example and
 # filled in with real values. Never commit the real file, only the
 # .example template.
 k8s/secret.yaml
