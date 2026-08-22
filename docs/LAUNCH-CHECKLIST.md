@@ -40,21 +40,22 @@ describes the real schema, and the security review on 2026-08-22 corrected
 the one place it was wrong. What it needs is review and sign-off, and that
 is not something to fake.
 
-### 1.2 Nothing links to the privacy policy
+### 1.2 ~~Nothing links to the privacy policy~~ — done 2026-08-22
 
-Neither the app nor the marketing site links to it. The page exists only
-if you already know the URL:
+Neither the app nor the site linked to it; the page existed only for
+someone who already knew the URL. Now:
 
-- **the app**: no reference to the policy anywhere in `mobile/src`;
-- **the site**: no link in the footer or anywhere else, despite the site
-  now collecting a name and an email through the signup form.
+- **the site** links it from the footer, and from the signup form's own
+  consent line — the sentence promising how a name and an email are used
+  now points at the document that explains it;
+- **the app** links it from the profile screen, beside "report a problem".
 
-Both stores expect the policy reachable from the store listing, and a
-child-directed app is expected to surface it in the app itself. The site
-gap is separately a transparency problem under GDPR, because the form
-collects personal data and its consent line points at nothing.
-
-Small work, and it cannot be skipped.
+**One consequence, feeding §2.1.** The app's link is external. If
+SkillStreak enters Apple's Kids Category, anything leaving the app needs a
+parental gate; if it ships as a general listing with an age rating, the
+link is fine as it stands. The link is deliberately *not* pre-gated — a
+gate built against a decision nobody has made yet is as likely to be wrong
+as right. Whichever way §2.1 goes, revisit this line.
 
 ### 1.3 The store declarations are not filled in
 
@@ -95,7 +96,9 @@ the app, no external links without one — and it signals exactly what this
 app is. A general listing with an age rating is easier and says less.
 
 This decision changes the answers to several store questions, so it comes
-before filling the forms in.
+before filling the forms in — and it now decides one piece of code: the
+profile screen's privacy-policy link leaves the app, which Kids Category
+would require a parental gate in front of (§1.2).
 
 ### 2.2 Whether public sharing is on at launch
 

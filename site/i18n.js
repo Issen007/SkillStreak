@@ -99,6 +99,7 @@
       'Något särskilt du vill se? (frivilligt)': 'Anything in particular you want to see? (optional)',
       'Ja, spara mitt namn och min mejladress så ni kan höra av er om det jag kryssat i ovan. Vi använder dem bara till det, delar dem inte med någon, och du kan be oss radera dem när som helst.':
         'Yes, keep my name and email so you can get in touch about what I ticked above. We use them only for that, we do not share them with anyone, and you can ask us to delete them at any time.',
+      'Så hanterar vi uppgifterna.': 'How we handle your details.',
       'Skriv upp mig': 'Put me on the list',
       'Webbplats': 'Website',
 
@@ -324,6 +325,7 @@
       'Öppna demot': 'Open the demo',
       'Se det själv innan ni bestämmer er.': 'See it yourself before you decide.',
       'Öppna demot →': 'Open the demo →',
+      'Integritetspolicy': 'Privacy policy',
       'Tidig betaversion. Funktioner och innehåll kan ändras.':
         'Early beta. Features and content may change.'
     }

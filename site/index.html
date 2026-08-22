@@ -1546,7 +1546,7 @@ footer .foot-row {
           </label>
           <label style="display:flex;gap:10px;align-items:flex-start;font-size:.95rem;">
             <input type="checkbox" id="suConsent" style="margin-top:.3rem;">
-            <span>Ja, spara mitt namn och min mejladress så ni kan höra av er om det jag kryssat i ovan. Vi använder dem bara till det, delar dem inte med någon, och du kan be oss radera dem när som helst.</span>
+            <span>Ja, spara mitt namn och min mejladress så ni kan höra av er om det jag kryssat i ovan. Vi använder dem bara till det, delar dem inte med någon, och du kan be oss radera dem när som helst. <a href="/privacy/">Så hanterar vi uppgifterna.</a></span>
           </label>
           <!-- Honeypot: never shown to a person, never focusable. A bot that
                fills in every field fills in this one too, and the server
@@ -1616,6 +1616,13 @@ footer .foot-row {
       </section>
       <div class="foot-row">
         <span>SkillStreak — byggt av en innebandytränare, med barnens trygghet först.</span>
+        <!-- The one link to the privacy policy on the whole site until
+             2026-08-22. The page has always been served at /privacy/, and
+             nothing pointed at it — so it existed only for someone who
+             already knew the URL. That is a gap on any site and a real one
+             here, because the form above collects a name and an email and
+             its consent line promises how they are used. -->
+        <a href="/privacy/">Integritetspolicy</a>
         <span>Tidig betaversion. Funktioner och innehåll kan ändras.</span>
       </div>
     </div>

@@ -798,6 +798,25 @@ export function ProfileScreen({
           onPress={() => setView('bugReport')}
         />
 
+        {/* The app's only link to the privacy policy, added 2026-08-22.
+            Until then nothing in the app pointed at it and nothing on the
+            site did either — the page existed only for someone who already
+            knew the URL, on a product whose whole argument is what it does
+            with children's data.
+
+            **This is an external link, and that is a live store question.**
+            If SkillStreak enters Apple's Kids Category, anything leaving
+            the app needs a parental gate (see docs/RELEASING.md §4 and
+            LAUNCH-CHECKLIST §2.1, where that choice is still open). If it
+            ships as a general listing with an age rating, this is fine as
+            it stands. Flagged rather than pre-emptively gated: a gate
+            built against a decision nobody has made yet is as likely to be
+            wrong as right. */}
+        <SecondaryLink
+          label={t('profileScreen.view.privacyPolicy')}
+          onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+        />
+
         {/* The running build, stamped at image-build time (see
             site/Dockerfile's EXPO_PUBLIC_APP_VERSION). Deliberately the
             last thing on the screen and deliberately plain: nobody is
@@ -888,6 +907,13 @@ export function ProfileScreen({
 
 /** "dev" for a local run; CI stamps the release tag or the short SHA. */
 const APP_VERSION = process.env.EXPO_PUBLIC_APP_VERSION ?? 'dev';
+
+/* The published policy. A fixed public URL rather than an env var: it is
+   the same document in every environment, it is not environment-specific
+   the way the API origin is, and a build that pointed at a LAN address
+   here would be worse than useless — it would be a dead privacy link in a
+   shipped app. */
+const PRIVACY_POLICY_URL = 'https://skillstreak.xyz/privacy/';
 
 const styles = StyleSheet.create({
   trainerBlock: {
