@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { ParentalGate } from '../components/ParentalGate';
+
 import {
   createTeamPtInvite,
   getTeamPtLinks,
@@ -38,6 +40,8 @@ export function TeamPtLinksScreen({ teamId }: TeamPtLinksScreenProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [invite, setInvite] = useState<{ code: string } | null>(null);
   const [inviting, setInviting] = useState(false);
+  /* The code waiting behind the parental gate, or null. */
+  const [shareCode, setShareCode] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<PtTeamLinkRow | null>(null);
   const [removing, setRemoving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -105,6 +109,15 @@ export function TeamPtLinksScreen({ teamId }: TeamPtLinksScreenProps) {
 
   return (
     <View style={styles.screen}>
+      <ParentalGate
+        visible={shareCode !== null}
+        onPass={() => {
+          const code = shareCode;
+          setShareCode(null);
+          if (code) void Share.share({ message: code });
+        }}
+        onClose={() => setShareCode(null)}
+      />
       <Text style={styles.title}>{t('captain.title')}</Text>
 
       {loadError ? (
@@ -139,7 +152,9 @@ export function TeamPtLinksScreen({ teamId }: TeamPtLinksScreenProps) {
           <View style={styles.inviteActions}>
             <Pressable
               accessibilityRole="button"
-              onPress={() => void Share.share({ message: invite.code })}
+              /* Same gate as the friend invite: a captain is a child, and
+                 the share sheet sends a code out of the app. */
+              onPress={() => setShareCode(invite.code)}
               style={styles.shareButton}
             >
               <Text style={styles.shareButtonText}>{t('captain.share')}</Text>

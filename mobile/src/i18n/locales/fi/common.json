@@ -15,5 +15,13 @@
     "team": "Joukkue",
     "tips": "Vinkit"
   },
-  "testModeBanner": "🧪 Tämä on vain TESTI — älä luo oikeaa tiliä oikeilla tiedoilla."
+  "testModeBanner": "🧪 Tämä on vain TESTI — älä luo oikeaa tiliä oikeilla tiedoilla.",
+  "parentalGate": {
+    "heading": "Aikuisen pitää auttaa",
+    "body": "Tämä avaa jotain sovelluksen ulkopuolella. Pyydä aikuista ratkaisemaan lasku.",
+    "inputLabel": "Vastaus",
+    "wrong": "Ei aivan. Kokeile uudelleen uudella laskulla.",
+    "confirm": "Jatka",
+    "cancel": "Peruuta"
+  }
 }

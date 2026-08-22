@@ -159,6 +159,7 @@
       "logout": "Odhlásit se",
       "deleteAccount": "Smazat můj účet",
       "reportProblem": "Nahlásit problém",
+      "privacyPolicy": "Zásady ochrany soukromí",
       "trainerPrompt": "Jsi trenér?",
       "trainerLink": "Otevřít trenérský režim",
       "trainerLinked": "Trenérský režim",
@@ -285,5 +286,16 @@
     "successCta": "Hotovo",
     "a11yCategoryGroup": "Vyber, co se stalo",
     "a11yScreenGroup": "Vyber, kde v aplikaci se to stalo"
+  },
+  "trainingReminder": {
+    "heading": "Připomenutí tréninku",
+    "body": "Jedno přátelské připomenutí denně. Ty si vybereš kdy — a nikdy nepřijde večer ani v noci.",
+    "toggle": "Připomínej mi to každý den",
+    "time": "Čas",
+    "denied": "Tvůj telefon blokuje oznámení. Zapni je pro SkillStreak v nastavení telefonu, pokud chceš připomenutí.",
+    "onToast": "Připomenutí zapnuto — uvidíme se v {{hour}}.",
+    "offToast": "Připomenutí je vypnuté.",
+    "notifTitle": "Čas trénovat",
+    "notifBody": "Stačí 10–15 minut. Tvoje série čeká!"
   }
 }

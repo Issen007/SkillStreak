@@ -159,6 +159,7 @@
       "logout": "Abmelden",
       "deleteAccount": "Mein Konto löschen",
       "reportProblem": "Ein Problem melden",
+      "privacyPolicy": "Datenschutzerklärung",
       "trainerPrompt": "Bist du Trainer/in?",
       "trainerLink": "Trainermodus öffnen",
       "trainerLinked": "Trainermodus",
@@ -285,5 +286,16 @@
     "successCta": "Fertig",
     "a11yCategoryGroup": "Wähle aus, was passiert ist",
     "a11yScreenGroup": "Wähle aus, wo in der App es passiert ist"
+  },
+  "trainingReminder": {
+    "heading": "Trainingserinnerung",
+    "body": "Eine freundliche Erinnerung pro Tag. Du bestimmst wann — und sie kommt nie abends oder nachts.",
+    "toggle": "Erinnere mich jeden Tag",
+    "time": "Uhrzeit",
+    "denied": "Dein Handy blockiert Mitteilungen. Schalte sie für SkillStreak in den Einstellungen ein, wenn du die Erinnerung möchtest.",
+    "onToast": "Erinnerung an — bis {{hour}} Uhr.",
+    "offToast": "Erinnerung ist aus.",
+    "notifTitle": "Zeit zu trainieren",
+    "notifBody": "10–15 Minuten reichen. Deine Serie wartet!"
   }
 }

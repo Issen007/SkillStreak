@@ -159,6 +159,7 @@
       "logout": "Cerrar sesión",
       "deleteAccount": "Borrar mi cuenta",
       "reportProblem": "Informar de un problema",
+      "privacyPolicy": "Política de privacidad",
       "trainerPrompt": "¿Eres entrenador?",
       "trainerLink": "Abrir el modo entrenador",
       "trainerLinked": "Modo entrenador",
@@ -285,5 +286,16 @@
     "successCta": "Listo",
     "a11yCategoryGroup": "Elige qué pasó",
     "a11yScreenGroup": "Elige dónde en la app pasó"
+  },
+  "trainingReminder": {
+    "heading": "Recordatorio de entrenamiento",
+    "body": "Un recordatorio amable al día. Tú eliges cuándo, y nunca llega por la noche.",
+    "toggle": "Recuérdamelo cada día",
+    "time": "Hora",
+    "denied": "Tu teléfono está bloqueando las notificaciones. Actívalas para SkillStreak en los ajustes si quieres el recordatorio.",
+    "onToast": "Recordatorio activado: nos vemos a las {{hour}}.",
+    "offToast": "El recordatorio está desactivado.",
+    "notifTitle": "Hora de entrenar",
+    "notifBody": "Con 10–15 minutos basta. ¡Tu racha te espera!"
   }
 }

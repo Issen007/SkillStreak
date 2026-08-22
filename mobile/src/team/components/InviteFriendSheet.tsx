@@ -1,6 +1,9 @@
 import { Modal, Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import { ParentalGate } from '../../components/ParentalGate';
 
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
@@ -50,6 +53,12 @@ export function InviteFriendSheet({
     ? t('inviteFriendSheet.shareMessageExpoGo', { teamName, inviteCode, joinUrl })
     : t('inviteFriendSheet.shareMessageDefault', { teamName, inviteCode, joinUrl });
 
+  /* Kids Category (App Review 1.3) treats the OS share sheet the same as a
+     link out: it sends information away from the app. A child inviting a
+     friend is a good thing, so the gate does not remove it — it makes a
+     grown-up part of the moment the invite leaves. */
+  const [gateOpen, setGateOpen] = useState(false);
+
   const handleShare = async () => {
     if (Platform.OS === 'web') {
       // React Native's Share API has no react-native-web implementation
@@ -97,7 +106,18 @@ export function InviteFriendSheet({
         <Text style={styles.codeLabel}>{t('inviteFriendSheet.codeLabel')}</Text>
         <Text style={styles.code}>{inviteCode}</Text>
 
-        <PrimaryButton label={t('inviteFriendSheet.shareButton')} onPress={() => void handleShare()} />
+        <PrimaryButton
+          label={t('inviteFriendSheet.shareButton')}
+          onPress={() => setGateOpen(true)}
+        />
+        <ParentalGate
+          visible={gateOpen}
+          onPass={() => {
+            setGateOpen(false);
+            void handleShare();
+          }}
+          onClose={() => setGateOpen(false)}
+        />
         <Pressable onPress={onClose} style={styles.closeLink}>
           <Text style={styles.closeLinkText}>{t('inviteFriendSheet.close')}</Text>
         </Pressable>

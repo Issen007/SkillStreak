@@ -159,6 +159,7 @@
       "logout": "Log ud",
       "deleteAccount": "Slet min konto",
       "reportProblem": "Rapportér et problem",
+      "privacyPolicy": "Privatlivspolitik",
       "trainerPrompt": "Er du træner?",
       "trainerLink": "Åbn trænertilstand",
       "trainerLinked": "Trænertilstand",
@@ -285,5 +286,16 @@
     "successCta": "Færdig",
     "a11yCategoryGroup": "Vælg hvad der skete",
     "a11yScreenGroup": "Vælg hvor i appen det skete"
+  },
+  "trainingReminder": {
+    "heading": "Træningspåmindelse",
+    "body": "En venlig påmindelse en gang om dagen. Du vælger hvornår — og den kommer aldrig om aftenen eller natten.",
+    "toggle": "Mind mig om det hver dag",
+    "time": "Tidspunkt",
+    "denied": "Din telefon blokerer notifikationer. Slå dem til for SkillStreak i telefonens indstillinger, hvis du vil have påmindelsen.",
+    "onToast": "Påmindelse slået til — vi ses kl. {{hour}}.",
+    "offToast": "Påmindelsen er slået fra.",
+    "notifTitle": "Tid til at træne",
+    "notifBody": "10–15 minutter er nok. Din streak venter!"
   }
 }

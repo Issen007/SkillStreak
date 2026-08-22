@@ -159,6 +159,7 @@
       "logout": "Se déconnecter",
       "deleteAccount": "Supprimer mon compte",
       "reportProblem": "Signaler un problème",
+      "privacyPolicy": "Politique de confidentialité",
       "trainerPrompt": "Tu es entraîneur ?",
       "trainerLink": "Ouvrir le mode entraîneur",
       "trainerLinked": "Mode entraîneur",
@@ -285,5 +286,16 @@
     "successCta": "Terminé",
     "a11yCategoryGroup": "Choisis ce qui s'est passé",
     "a11yScreenGroup": "Choisis où dans l'appli c'est arrivé"
+  },
+  "trainingReminder": {
+    "heading": "Rappel d'entraînement",
+    "body": "Un rappel amical par jour. Tu choisis quand — et il n'arrive jamais le soir ni la nuit.",
+    "toggle": "Rappelle-moi chaque jour",
+    "time": "Heure",
+    "denied": "Ton téléphone bloque les notifications. Active-les pour SkillStreak dans les réglages si tu veux le rappel.",
+    "onToast": "Rappel activé — à {{hour}} h.",
+    "offToast": "Le rappel est désactivé.",
+    "notifTitle": "C'est l'heure de t'entraîner",
+    "notifBody": "10 à 15 minutes suffisent. Ta série t'attend !"
   }
 }

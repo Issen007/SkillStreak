@@ -20,6 +20,7 @@ import { LeaderboardScreen } from '../leaderboard/LeaderboardScreen';
 import { getMe, postTrainingLog } from '../api/endpoints';
 import { ApiError, isConsentRequiredError } from '../api/ApiError';
 import { clearSessionToken } from '../api/authStorage';
+import { skipRemainderOfToday } from '../api/trainingReminder';
 import { colors } from '../theme/colors';
 import { UploadFlow } from '../clips/upload/UploadFlow';
 import type {
@@ -223,6 +224,13 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
       const response = await postTrainingLog(body);
       setSheetOpen(false);
       setSheetLoading(false);
+      // ADR-0033 Decision 2: nothing is sent on a day already logged.
+      // Fire-and-forget — a reminder that fails to reschedule is a small
+      // annoyance, and it must never turn a successful log into an error.
+      void skipRemainderOfToday({
+        title: t('trainingReminder.notifTitle'),
+        body: t('trainingReminder.notifBody'),
+      });
 
       setMe((prev) =>
         prev
