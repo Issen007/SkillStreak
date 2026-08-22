@@ -1065,7 +1065,13 @@ export interface PublicFeedItem {
   durationSeconds: number;
   screenName: string;
   avatarId: string | null;
-  caption: string | null;
+  /*
+   * No `caption`, unlike the team feed's item. The server stopped sending
+   * one on 2026-08-22: a caption is written for teammates and can contain
+   * a real name, a place or a team, which both consent surfaces promise a
+   * stranger never sees. It still exists on the clip and is still shown
+   * inside the team — it just does not leave the bubble.
+   */
   /** Short-lived presigned URL — re-fetched with the page, never stored. */
   playbackUrl: string;
   publishedAt: string;

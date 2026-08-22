@@ -326,10 +326,10 @@ function PublicFeedCard({
       <View style={styles.meta}>
         {/* Not a Pressable, and that is the point — see the class doc. */}
         <Text style={styles.screenName}>{item.screenName}</Text>
+        {/* Duration only. The caption is deliberately absent from this
+            surface — see PublicFeedItem in api/types.ts. */}
         <Text style={styles.caption}>
-          {[item.caption, t('publicFeed.seconds', { count: item.durationSeconds })]
-            .filter(Boolean)
-            .join(' · ')}
+          {t('publicFeed.seconds', { count: item.durationSeconds })}
         </Text>
       </View>
     </View>

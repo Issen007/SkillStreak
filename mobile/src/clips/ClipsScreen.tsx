@@ -514,7 +514,10 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
           uploaderAvatarId: item.avatarId ?? '',
           taggedPlayerId: null,
           taggedScreenName: null,
-          caption: item.caption,
+          // Always null here: a saved clip is by definition someone else's
+          // public clip, and the public feed no longer carries a caption at
+          // all — it stays inside the uploader's team.
+          caption: null,
           playbackUrl: item.playbackUrl,
           createdAt: item.publishedAt,
           reportedByMe: false,

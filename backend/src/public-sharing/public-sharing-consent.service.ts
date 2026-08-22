@@ -2,7 +2,13 @@ import { randomBytes } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, LessThanOrEqual, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  LessThanOrEqual,
+  Repository,
+} from 'typeorm';
+import { VideoClip } from '../video-clips/entities/video-clip.entity';
 import { generateHumanCode } from '../common/crypto/human-code.util';
 import { decryptPii, encryptPii } from '../common/crypto/pii-encryption.util';
 import { buildConsentMessageId, CORRELATION_HEADER } from '../mail/dsn.parser';
@@ -91,6 +97,13 @@ export class PublicSharingConsentService {
   constructor(
     @InjectRepository(PublicSharingConsent)
     private readonly consents: Repository<PublicSharingConsent>,
+    // Registered narrowly by this module (see its comment) rather than by
+    // importing VideoClipsModule — the same "take the entity, not the
+    // module" precedent team-chat and video-clips already set. Needed
+    // because withdrawing consent must un-publish, and the un-publish has
+    // to happen inside the same transaction as the state change.
+    @InjectRepository(VideoClip)
+    private readonly clips: Repository<VideoClip>,
     // Read-only, and only ever for `screen_name` — see ConsentPreview.
     // Registered via forFeature in this module rather than by importing
     // PlayersModule, the same narrow-entity precedent video-clips.module
@@ -433,6 +446,17 @@ export class PublicSharingConsentService {
       row.revokeCode = null;
       await repo.save(row);
 
+      const withdrawn = await this.withdrawPublishedClips(
+        manager,
+        row.playerId,
+      );
+      if (withdrawn > 0) {
+        this.logger.log(
+          `Public-sharing consent ${row.id} revoked by parent — ` +
+            `${withdrawn} clip(s) un-published.`,
+        );
+      }
+
       return { revoked: true as const };
     });
   }
@@ -681,9 +705,14 @@ export class PublicSharingConsentService {
           PublicSharingRevokedReason.REMINDER_UNDELIVERABLE,
         );
         await repo.save(row);
+        const withdrawn = await this.withdrawPublishedClips(
+          manager,
+          row.playerId,
+        );
         this.logger.warn(
           `Public-sharing consent ${row.id} disabled: ` +
-            `${row.reminderFailureCount} consecutive undeliverable reminders.`,
+            `${row.reminderFailureCount} consecutive undeliverable reminders. ` +
+            `${withdrawn} clip(s) un-published.`,
         );
         return { matched: true as const, counted: true, disabled: true };
       }
@@ -757,6 +786,41 @@ export class PublicSharingConsentService {
     return row.recipientContactSnapshot
       ? decryptPii(row.recipientContactSnapshot, this.encryptionKey)
       : null;
+  }
+
+  /**
+   * Takes every clip of this player back out of the public feed.
+   *
+   * **Consent ending must not leave a publication behind it.** The feed
+   * already re-reads consent through an INNER JOIN, so a revoked family's
+   * clips vanish from Utforska the instant the status changes — nothing
+   * leaks either way. What the join cannot do is forget the child's
+   * earlier choice: `published_publicly_at` survived a revoke, so a later
+   * re-approval silently made those same clips public again, with no fresh
+   * decision by the child and nothing shown to the parent who had just
+   * agreed.
+   *
+   * Owner's decision, 2026-08-22: after a revoke, sharing starts from
+   * nothing. Re-approval grants permission, never republication — each
+   * clip has to be shared again, deliberately.
+   *
+   * Runs on the caller's transaction manager so it commits or rolls back
+   * with the state change; a revoke that half-applied would be the worst
+   * of both.
+   */
+  private async withdrawPublishedClips(
+    manager: EntityManager,
+    playerId: string,
+  ): Promise<number> {
+    const result = await manager
+      .getRepository(VideoClip)
+      .createQueryBuilder()
+      .update(VideoClip)
+      .set({ publishedPubliclyAt: null })
+      .where('uploader_player_id = :playerId', { playerId })
+      .andWhere('published_publicly_at IS NOT NULL')
+      .execute();
+    return result.affected ?? 0;
   }
 
   /**

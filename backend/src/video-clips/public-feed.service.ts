@@ -22,10 +22,23 @@ export interface PublicFeedItem {
   durationSeconds: number;
   screenName: string;
   avatarId: string | null;
-  /** The uploader's own words. Still the only free text on this surface —
-   * it was written for a team audience and is moderated on upload by the
-   * same filter the team feed uses; publishing does not re-open it. */
-  caption: string | null;
+  /*
+   * `caption` is deliberately absent. It used to be here, described as
+   * "the only free text on this surface" and justified by the moderation
+   * the team feed already applies — but that filter is a safety wordlist,
+   * not a check for names and places, and the caption was written for
+   * teammates before publishing outside the team was possible.
+   *
+   * Both consent surfaces promise a stranger never sees a real name, a
+   * team or where the child trains. A caption can contain all three
+   * ("bra jobbat Anna!", "hemma hos mig"), which made the promise
+   * something the app could not keep. Owner's decision, 2026-08-22: the
+   * caption stays inside the team, and the promise goes back to being
+   * true as written.
+   *
+   * It is not deleted — `clip.caption` is untouched and still shown to the
+   * child's own team. It simply does not leave the bubble.
+   */
   /**
    * Short-lived presigned GET, minted per request exactly as the team
    * feed does. Never a durable URL: ADR-0019 Decision 2 bounds "public"
@@ -367,7 +380,6 @@ export class PublicFeedService {
         'clip.id AS "clipId"',
         'clip.duration_seconds AS "durationSeconds"',
         'clip.published_publicly_at AS "publishedAt"',
-        'clip.caption AS "caption"',
         'clip.storage_key AS "storageKey"',
         'player.screen_name AS "screenName"',
         'player.avatar_id AS "avatarId"',
@@ -517,7 +529,6 @@ export class PublicFeedService {
         'clip.id AS "clipId"',
         'clip.duration_seconds AS "durationSeconds"',
         'clip.published_publicly_at AS "publishedAt"',
-        'clip.caption AS "caption"',
         'clip.storage_key AS "storageKey"',
         'player.screen_name AS "screenName"',
         'player.avatar_id AS "avatarId"',

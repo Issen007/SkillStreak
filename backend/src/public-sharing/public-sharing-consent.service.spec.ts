@@ -1,4 +1,5 @@
 import { Repository } from 'typeorm';
+import { VideoClip } from '../video-clips/entities/video-clip.entity';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
 import {
   PublicSharingConsent,
@@ -147,8 +148,16 @@ function build(
   // all these tests need — the lock itself is a database behaviour and
   // belongs to the e2e suite, not here.
   const dataSource = {
+    // Entity-aware, like the real manager: revoking now un-publishes the
+    // player's clips in the same transaction, so a fake that hands back the
+    // consent repository for every entity would hide that call entirely.
     transaction: (fn: (m: unknown) => unknown) =>
-      Promise.resolve(fn({ getRepository: () => repo })),
+      Promise.resolve(
+        fn({
+          getRepository: (entity: unknown) =>
+            entity === VideoClip ? clipRepo : repo,
+        }),
+      ),
   };
   const configService = {
     getOrThrow: jest.fn(() => 'Y2ktb25seS10ZXN0LWtleS0zMi1ieXRlcy1sb25nISE='),
@@ -159,8 +168,31 @@ function build(
   const players = {
     findOne: jest.fn().mockResolvedValue({ screenName: 'FloorballStar15' }),
   };
+  // Clips the fake player has published, so the un-publish on revoke can be
+  // asserted rather than assumed.
+  const publishedClips = { affected: 0, cleared: false };
+  const clipRepo = {
+    createQueryBuilder: () => {
+      const qb = {
+        update: () => qb,
+        // Records that the un-publish actually ran, and with the right
+        // value — asserting the call happened is not the same as asserting
+        // it cleared anything.
+        set: (patch: { publishedPubliclyAt: Date | null }) => {
+          publishedClips.cleared = patch.publishedPubliclyAt === null;
+          return qb;
+        },
+        where: () => qb,
+        andWhere: () => qb,
+        execute: () => Promise.resolve(publishedClips),
+      };
+      return qb;
+    },
+  };
+
   const service = new PublicSharingConsentService(
     repo as unknown as Repository<PublicSharingConsent>,
+    clipRepo as never,
     players as never,
     dataSource as never,
     privateInfo,
@@ -181,6 +213,7 @@ function build(
     redisService,
     reviewCodeOf,
     revokeCodeOf,
+    publishedClips,
   };
 }
 
@@ -290,6 +323,49 @@ describe('PublicSharingConsentService: revoking', () => {
 
     await service.request('p1');
     expect(await service.isActiveFor('p1')).toBe(false);
+  });
+});
+
+describe('PublicSharingConsentService: ending consent un-publishes', () => {
+  /*
+   * Owner's decision, 2026-08-22. The public feed already re-reads consent
+   * through an INNER JOIN, so nothing leaks while a consent is revoked —
+   * these tests are about what happens *after* a re-approval.
+   *
+   * `published_publicly_at` used to survive a revoke, so re-approving
+   * silently republished every clip the child had shared before, with no
+   * fresh decision by them and nothing shown to the parent who had just
+   * agreed. Sharing now starts from nothing: permission is granted, not
+   * republication.
+   */
+  it("takes the parent-revoked player's clips out of the feed", async () => {
+    const { service, repo, revokeCodeOf, publishedClips } = build();
+    await service.request('player-1');
+    await service.approveByReviewCode(repo.rows[0].reviewCode!);
+    publishedClips.affected = 3;
+
+    await expect(service.revokeByRevokeCode(revokeCodeOf())).resolves.toEqual({
+      revoked: true,
+    });
+    expect(publishedClips.cleared).toBe(true);
+  });
+
+  it('does the same when reminders go undeliverable', async () => {
+    const { service, repo, publishedClips } = build();
+    await service.request('player-1');
+    await service.approveByReviewCode(repo.rows[0].reviewCode!);
+    publishedClips.affected = 2;
+    publishedClips.cleared = false;
+
+    // Auto-revocation after the configured run of failed reminders is a
+    // consent ending too, and must un-publish for the same reason.
+    for (let i = 0; i < MAX_REMINDER_FAILURES; i++) {
+      repo.rows[0].lastReminderToken = `token-${i}`;
+      await service.recordReminderUndeliverable(`token-${i}`, new Date());
+    }
+
+    expect(repo.rows[0].status).toBe('revoked');
+    expect(publishedClips.cleared).toBe(true);
   });
 });
 
