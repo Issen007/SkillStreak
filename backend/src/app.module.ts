@@ -7,6 +7,7 @@ import { AdminModule } from './admin/admin.module';
 import { AppConfigModule } from './config/app-config.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { ClientErrorsModule } from './client-errors/client-errors.module';
+import { ContactModule } from './contact/contact.module';
 import { DrillsModule } from './drills/drills.module';
 import { ClipTaggingModule } from './clip-tagging/clip-tagging.module';
 import { TrainingPlansModule } from './training-plans/training-plans.module';
@@ -152,6 +153,7 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     // deliberately not consent-gated; see that module/service's docstrings).
     AnalyticsModule,
     ClientErrorsModule,
+    ContactModule,
     DrillsModule,
     PrCampaignsModule,
     ClipTaggingModule,

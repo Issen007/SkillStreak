@@ -9,7 +9,7 @@
     "sub": "Frag deine Trainerin oder deinen Trainer nach dem Team-Code. Noch kein Team? Denk dir einen eigenen Code aus — wir helfen dir, das Team zu gründen.",
     "codePlaceholder": "Z. B. FALKEN24",
     "findTeamButton": "Mein Team finden",
-    "returningUserLink": "Hast du schon ein Konto?"
+    "returningUserButton": "Ich habe schon ein Konto"
   },
   "o1a": {
     "heading": "Wir haben kein Team mit dem Code {{inviteCode}} gefunden",

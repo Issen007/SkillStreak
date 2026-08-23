@@ -224,3 +224,21 @@ data:
   # `x-forwarded-for` on any request and checking `req.ip` is the real
   # client rather than a 10.x/gateway address.
   TRUSTED_PROXY_HOPS: "1"
+
+  # Where the marketing site's sponsorship contact form delivers.
+  #
+  # A ConfigMap rather than a Secret, unlike USAGE_REPORT_RECIPIENT_EMAIL
+  # next to it, and the difference is deliberate. This is a published
+  # business contact address — it is already in `cluster-issuer.yaml` as
+  # the ACME contact — so treating it as a credential buys no
+  # confidentiality and costs a real thing: a Secret key here would come
+  # from a GitHub Actions secret, which is exactly the chain that left
+  # SMTP_PASSWORD correct in GitHub and absent from the cluster for three
+  # deploys. In the ConfigMap it deploys with the manifest and there is no
+  # step anyone can forget.
+  #
+  # Unset or blank does not crash the API: the endpoint accepts the
+  # submission and answers `delivered: false`, and the page tells the
+  # sender to mail directly instead of thanking them for a message that
+  # was never sent.
+  CONTACT_RECIPIENT_EMAIL: "christian.petersson@isstech.io"

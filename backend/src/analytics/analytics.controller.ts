@@ -30,17 +30,21 @@ import { RecordSiteVisitDto } from './dto/record-site-visit.dto';
  * defending it properly would need exactly the per-visitor identity this
  * design refuses to collect.
  *
- * **Correction, 2026-08-20 (security review):** the `@Throttle` below was
- * described here as per-IP and is not. `@nestjs/throttler` keys on
- * `req.ip`, which is the socket peer unless Express `trust proxy` is set
- * — and it is not set anywhere in this app. Behind the Cilium gateway
- * that peer is the gateway itself, so every limit in this codebase
- * annotated "per IP" is in fact a single global bucket. The consequence
- * here is that the counter stops recording during a traffic spike, which
- * is when it matters most. Tracked as its own item; it is deliberately
- * not fixed in this commit, because the correct hop count cannot be
- * verified from here and `trust proxy: true` would make the limit
- * trivially evadable by a forged `X-Forwarded-For`.
+ * **Correction, 2026-08-20 (security review), now itself resolved:** the
+ * `@Throttle` below was described here as per-IP and was not.
+ * `@nestjs/throttler` keys on `req.ip`, which is the socket peer unless
+ * Express `trust proxy` is set — and at the time it was set nowhere, so
+ * behind the Cilium gateway that peer was the gateway itself and every
+ * limit in this codebase annotated "per IP" was a single global bucket.
+ *
+ * **Fixed since**: `main.ts` sets `trust proxy` to TRUSTED_PROXY_HOPS
+ * (1 in `k8s/configmap.yaml` — one gateway hop), so `req.ip` is now the
+ * real client and these limits are per-IP as described. A hop COUNT
+ * rather than `trust proxy: true` is the point: `true` would take the
+ * leftmost `X-Forwarded-For` entry, which a caller can forge, making the
+ * limit trivially evadable. Left as a correction-of-a-correction rather
+ * than deleted, because the false version of this note travelled into
+ * other files.
  */
 @Controller('api/v1/analytics')
 export class AnalyticsController {

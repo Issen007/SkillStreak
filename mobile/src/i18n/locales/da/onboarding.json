@@ -9,7 +9,7 @@
     "sub": "Spørg din træner om holdets kode. Har I ikke et hold endnu? Find selv på en kode, så hjælper vi dig med at starte holdet.",
     "codePlaceholder": "F.eks. FALKEN24",
     "findTeamButton": "Find mit hold",
-    "returningUserLink": "Har du allerede en konto?"
+    "returningUserButton": "Jeg har allerede en konto"
   },
   "o1a": {
     "heading": "Vi fandt ikke et hold med koden {{inviteCode}}",

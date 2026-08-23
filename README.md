@@ -9,10 +9,12 @@ whole squad chases a virtual World Championship gold together.
 
 🇸🇪 *Sidan finns på svenska:* **[skillstreak.xyz](https://skillstreak.xyz)**
 
-> ## ⚠️ Early beta
+> ## ⚠️ Beta, with a store release in preparation
 > Actively developed and running with a real team. **Any data — accounts,
-> streaks, team points — may be deleted at any time without warning.**
-> Nothing here is production-ready or reviewed for a public launch yet.
+> streaks, team points — may be reset while the beta lasts.** A first
+> App Store and Google Play release is being prepared; what still has to
+> be true before it happens is tracked in
+> [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md).
 
 ---
 
@@ -27,7 +29,8 @@ You do not need to install anything.
 | **Come to a live demo** | **[Sign up here](https://skillstreak.xyz/?campaign=github#visning)** — early September 2026, over Google Meet |
 | **Are you a coach?** | **[docs/TRAINERS.md](docs/TRAINERS.md)** — what the trainer role does, and what it deliberately cannot see |
 
-Want to run it yourself instead? → **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**
+- Want to run it yourself? → **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**
+- Want to work on it? → **[docs/DEVELOPER.md](docs/DEVELOPER.md)**
 
 ---
 
@@ -112,7 +115,7 @@ without explaining.
 TypeScript throughout: **NestJS** with Postgres and Redis on the backend,
 **Expo / React Native** for iOS and Android, a static marketing site, and
 an admin/trainer console the API serves itself. It runs on **Kubernetes**
-with CI/CD and automated releases, in eight languages.
+with CI/CD and automated releases, in nine languages.
 
 The interesting engineering problem is not the stack — it is that the
 users are children, which makes a surprising number of ordinary choices
@@ -127,6 +130,7 @@ the answer was "no".
 | [docs/adr/](docs/adr/) | Architecture decisions, and why — the best place to start reading |
 | [docs/PROJECT.md](docs/PROJECT.md) | The roadmap (Swedish) |
 | [docs/TRAINERS.md](docs/TRAINERS.md) | For coaches: what the trainer role can and cannot do |
+| [docs/DEVELOPER.md](docs/DEVELOPER.md) | The codebase, explained — start here if you are going to work in it |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Running it locally |
 | [docs/RELEASING.md](docs/RELEASING.md) | Releases, app store submission, costs |
 | [docs/api/phase1-contract.md](docs/api/phase1-contract.md) | The API contract between app and backend |

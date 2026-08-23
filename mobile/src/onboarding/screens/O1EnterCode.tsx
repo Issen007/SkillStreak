@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { SecondaryButton } from '../../components/SecondaryButton';
 import { TextField } from '../../components/TextField';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -97,9 +98,32 @@ export function O1EnterCode({
         disabled={code.trim().length === 0}
         loading={loading}
       />
-      <Text style={styles.returningUserLink} onPress={onReturningUser}>
-        {t('o1.returningUserLink')}
-      </Text>
+      {/* Promoted from an underlined grey `Text` to a real bordered
+          button, 2026-08-23, at the project owner's ask that returning
+          users be "more highlighted".
+
+          Three things were wrong with the link, and only the first is
+          about prominence:
+
+          1. `textMuted` on paper reads as fine print, so the one path a
+             returning player needs looked like a disclaimer under the
+             thing they should not be doing.
+          2. A `Text` with `onPress` has no `accessibilityRole`, so a
+             screen reader announced it as text rather than as something
+             activatable.
+          3. Its tap target was the height of a 14pt line — well under the
+             44pt minimum, on a screen used by nine-year-olds.
+
+          SecondaryButton fixes all three and is the component this app
+          already uses for "a real second option, subordinate to the
+          primary CTA". Deliberately not a second PrimaryButton: joining a
+          team IS the main path here, and two equal buttons would make a
+          new player stop and choose. */}
+      <View style={styles.returningUserSpacer} />
+      <SecondaryButton
+        label={t('o1.returningUserButton')}
+        onPress={onReturningUser}
+      />
     </ScreenContainer>
   );
 }
@@ -119,12 +143,5 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
   },
-  returningUserLink: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-    color: colors.textMuted,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-    marginTop: 16,
-  },
+  returningUserSpacer: { height: 12 },
 });

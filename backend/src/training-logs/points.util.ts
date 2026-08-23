@@ -39,8 +39,12 @@ export enum EvidenceTier {
  * so that proof is what earns.
  *
  * What IS points-based, and does move with this: `TeamSeasonPot
- * .goalThreshold` (the VM-Guld pot target, ADR-0008). Retuning it is a
- * separate, live task — see ADR-0025's open questions.
+ * .goalThreshold` (the VM-Guld pot target, ADR-0008). ~~Retuning it is a
+ * separate, live task.~~ **Closed 2026-08-11** — ADR-0008 Decision 4 had
+ * already dropped the fixed-target framing, so the pot is a cross-team
+ * leaderboard where every team's points inflate together and a faster
+ * fill changes no ranking. There was nothing to retune. See ADR-0025's
+ * amendment of that date.
  */
 const MULTIPLIER_BY_TIER: Record<EvidenceTier, number> = {
   [EvidenceTier.CLICK_ONLY]: 0.1,

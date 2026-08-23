@@ -9,7 +9,7 @@
     "sub": "Kysy valmentajalta joukkueen koodi. Eikö joukkuetta ole vielä? Keksi oma koodi, niin autamme sinua perustamaan sen.",
     "codePlaceholder": "Esim. FALKEN24",
     "findTeamButton": "Etsi joukkueeni",
-    "returningUserLink": "Onko sinulla jo tili?"
+    "returningUserButton": "Minulla on jo tili"
   },
   "o1a": {
     "heading": "Emme löytäneet joukkuetta koodilla {{inviteCode}}",

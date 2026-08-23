@@ -204,6 +204,20 @@ class EnvironmentVariables {
   @IsOptional()
   USAGE_REPORT_RECIPIENT_EMAIL?: string;
 
+  // Where the marketing site's sponsorship contact form delivers.
+  //
+  // `@IsOptional()` ALONE, same as every knob around it and for the same
+  // reason config/env.validation.spec.ts has now pinned down seven times:
+  // a ConfigMap key that exists but is blank arrives as '', which
+  // `@IsOptional()` does not skip, so stacking `@IsNotEmpty()` here would
+  // refuse the boot over an unconfigured contact form.
+  //
+  // Unset/empty means the endpoint accepts the submission and answers
+  // `delivered: false`, which the page renders as "email us directly"
+  // rather than a false thank-you. It never silently discards.
+  @IsOptional()
+  CONTACT_RECIPIENT_EMAIL?: string;
+
   // Cadence (Decision 6) — a cron expression, default monthly. Read from
   // process.env at import time rather than through ConfigService (see
   // usage-metrics/usage-report-cron.util.ts for why), and a malformed value

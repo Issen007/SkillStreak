@@ -144,6 +144,7 @@ describe('validateEnv', () => {
  * already expects from a missing value.
  */
 describe.each([
+  'CONTACT_RECIPIENT_EMAIL',
   'JWT_EXPIRES_IN',
   'SMTP_HOST',
   'SMTP_USER',

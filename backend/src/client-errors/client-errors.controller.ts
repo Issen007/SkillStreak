@@ -44,14 +44,17 @@ import { ReportClientErrorDto } from './dto/report-client-error.dto';
  *   caller of that service, this text was written by React Native rather
  *   than by this codebase, and RN puts request URLs in error messages as
  *   a matter of routine.
- * - **The throttle** — with the caveat that applies to every limit in
- *   this app and is worth restating rather than quietly inheriting:
- *   `@nestjs/throttler` keys on `req.ip`, Express `trust proxy` is not
- *   set, so behind the gateway this is ONE GLOBAL BUCKET, not per device.
- *   A crash loop on one phone can therefore exhaust it for everyone.
- *   That is the right failure direction — losing reports is survivable,
- *   an unbounded write endpoint is not — but it means the count in the
- *   console is a floor, never a total.
+ * - **The throttle** — 30 a minute, genuinely per-IP: `@nestjs/throttler`
+ *   keys on `req.ip`, and `main.ts` sets `trust proxy` from
+ *   TRUSTED_PROXY_HOPS, so `req.ip` is the real client rather than the
+ *   gateway. Worth stating explicitly because it was NOT true until
+ *   recently, and several comments in this codebase still say every limit
+ *   here is one global bucket.
+ *
+ *   Even per-IP, a device stuck in a crash loop will hit the ceiling and
+ *   have reports dropped. That is the right failure direction — losing
+ *   reports is survivable, an unbounded write endpoint is not — but it
+ *   means a count in the console is a floor, never a total.
  *
  * ## What it answers with
  *
