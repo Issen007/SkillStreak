@@ -79,24 +79,45 @@ tracker SDK, parental consent gating media, screen names by default,
 EXIF/GPS stripped on upload, retention windows enforced by scheduled
 sweeps, and self-service erasure that works.
 
-### 1.4 Build capacity
+### 1.4 Build capacity — **iOS is out until 1 September**
 
-The EAS free tier is spent (project owner, 2026-08-22), and store
-submission needs builds. Nothing else on this list can be finished without
-resolving that — either by waiting for the quota to reset or by paying for
-a plan.
+Confirmed by EAS refusing a build, 2026-08-23:
+
+> This account has used its iOS builds from the Free plan this month,
+> which will reset in 8 days (on Tue Sep 01 2026).
+
+Android still has quota; iOS has none. That is not a nuisance, it decides
+the schedule, because **iOS build 17 is now the last iOS build available
+this month and it does not contain the video-evidence fix** (`dd53c84`) —
+choosing "Med video" when logging a session shows no picker and records
+nothing at all.
+
+So there are three options and they should be chosen deliberately:
+
+1. **Pay for an EAS plan.** The only route to an iOS build before
+   1 September, and therefore the only route to submitting an iOS build
+   that is not knowingly broken.
+2. **Submit build 17 anyway.** Not advisable: the evidence flow is a
+   headline feature and its failure mode is silent — a child logs a session
+   and nothing is recorded.
+3. **Wait for 1 September**, build 18, then submit. Apple review then runs
+   on top of that.
+
+Option 3 puts an iOS release into the week of 1 September at the earliest.
+Combined with §1.6, that means **neither store ships in the week of
+24 August** unless the plan is upgraded.
 
 ### 1.5 Android build state — updated 2026-08-23
 
 ~~Latest Android build is build 2, from 2026-08-17. iOS is on build 14.~~
 Both platforms have been rebuilt since. Current state:
 
-    ANDROID  build 5  (d613f71, 2026-08-23)  — in sync
-    IOS      build 17 (31e6c27, 2026-08-23)  — in sync
+    ANDROID  build 8  (dd53c84, 2026-08-23)  — in sync
+    IOS      build 17 (31e6c27, 2026-08-23)  — behind, and cannot be rebuilt
+                                               until 1 Sep (see §1.4)
 
-**Both platforms carry the client crash reporter**, so from here a render
-crash on either reaches the console's Errors tab instead of vanishing.
-This is the first time since 2026-08-17 that neither platform is behind.
+**Both platforms carry the client crash reporter.** Only Android carries
+the video-evidence fix, and iOS cannot until the build quota resets.
 
 ### 1.6 The Play closed-test clock is the real calendar risk
 
@@ -227,6 +248,9 @@ the problem:
 Nothing on this list is a rewrite. The blockers are **a lawyer's sign-off
 on the legal documents**, **two store forms**, **build capacity**, and — for
 Play specifically — **the 14-day closed-test
-clock** (§1.6). The lawyer is the long pole for iOS. The closed-test clock
-is the long pole for Android, and unlike everything else here it cannot be
-shortened by doing the work faster, only by starting it sooner.
+clock** (§1.6). Two of those are calendar rather than
+code, and between them they decide the date: the **iOS build quota** does
+not reset until 1 September (§1.4), and the **Play closed-test clock**
+needs 14 continuous days that have not started (§1.6). Neither shortens by
+working faster. Upgrading the EAS plan is the only lever that moves the
+iOS date at all.

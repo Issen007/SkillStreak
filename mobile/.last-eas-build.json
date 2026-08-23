@@ -20,10 +20,10 @@
   ],
   "builds": {
     "ANDROID": {
-      "buildId": "ae5609c1-8a17-4cb6-acba-1ea504d23e8c",
-      "commit": "d613f715c9584127b542b39e64ac271501749246",
+      "buildId": "4adc5e64-e32b-4c68-be5d-395d4bb3419a",
+      "commit": "dd53c84544e6b46d3e8f114949edab76ad988353",
       "profile": "production",
-      "buildNumber": "5",
+      "buildNumber": "8",
       "finishedAt": "2026-08-23"
     },
     "IOS": {
