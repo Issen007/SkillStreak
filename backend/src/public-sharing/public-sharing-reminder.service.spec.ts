@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { PublicSharingReminderService } from './public-sharing-reminder.service';
 
 /**
@@ -41,6 +42,48 @@ function build({ bounceConfigured = true } = {}) {
 }
 
 const dueRow = (id: string) => ({ id }) as never;
+
+describe('PublicSharingReminderService: the heartbeat', () => {
+  /*
+   * A quiet day must look different from a dead scheduler.
+   *
+   * The sweep used to return silently when nothing was due, which made
+   * those two states identical in the logs — and this job is ADR-0030
+   * Decision 5's only recurring control, so a cron that stopped
+   * registering would stop parents being reminded, stop the auto-disable
+   * behind a dead address, and look exactly like a normal Tuesday.
+   * Confirmed on 2026-08-23: 48 hours of production logs contained
+   * nothing from this service, and there was no way to tell which it was.
+   */
+  it('says so when nothing is due, instead of returning silently', async () => {
+    const { service, consentService } = build();
+    const log = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    consentService.findDueReminders.mockResolvedValue([]);
+
+    await service.sendDueReminders();
+
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('none due today'));
+    log.mockRestore();
+  });
+
+  it('reports how many consents are under the control, not just that it woke', async () => {
+    // An empty sweep against 0 families and against 40 are different
+    // facts; a bare "ran ok" would hide which one this was.
+    const { service, consentService } = build();
+    consentService.countActive.mockResolvedValue(40);
+    consentService.findDueReminders.mockResolvedValue([]);
+    const log = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+
+    await service.sendDueReminders();
+
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('40 active'));
+    log.mockRestore();
+  });
+});
 
 describe('PublicSharingReminderService', () => {
   it('sends a reminder for every consent that is due', async () => {
