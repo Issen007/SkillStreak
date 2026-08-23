@@ -81,8 +81,13 @@ export class PublicSharingReminderService {
       // the handful of days a month when a reminder happened to fall due
       // — close to the silence the ADR objected to. Supervision being
       // absent is a standing condition, not a per-send event.
+      // Hoisted out of the bounce-detection branch below, because the
+      // heartbeat at the end of this method needs it too: an empty sweep
+      // against 0 consents and against 40 are different facts, and one
+      // count answers both questions.
+      const supervised = await this.consentService.countActive();
+
       if (!this.bounceMailboxService.isConfigured()) {
-        const supervised = await this.consentService.countActive();
         if (supervised === 0) {
           // Nothing is at risk yet — no consent exists to go unsupervised
           // — so this is a note, not an incident. **Deliberately not an
@@ -116,7 +121,34 @@ export class PublicSharingReminderService {
         }
       }
 
-      if (due.length === 0) return;
+      if (due.length === 0) {
+        /*
+         * A heartbeat, including on the days there is nothing to do.
+         *
+         * This sweep used to return silently here, which made a healthy
+         * quiet day and a scheduler that never ran indistinguishable —
+         * both produced no log line at all. That is a bad property for
+         * *this* job in particular: it is ADR-0030 Decision 5's only
+         * recurring control, so if the cron silently stopped registering,
+         * or every replica kept losing the lock, parents would quietly
+         * stop being reminded that sharing is on and the auto-disable
+         * behind a dead address would never fire. Nobody would find out,
+         * because nothing would look wrong.
+         *
+         * Checked 2026-08-23: nothing from this service had appeared in
+         * 48 hours of production logs, and there was no way to tell
+         * whether that meant "working" or "dead".
+         *
+         * One line a day, and it says how many families are under the
+         * control rather than just that the job woke up — an empty sweep
+         * against 0 consents and against 40 are different facts.
+         */
+        this.logger.log(
+          `Public-sharing reminders: none due today (${supervised} active ` +
+            `consent(s) under monthly reminder).`,
+        );
+        return;
+      }
 
       let sent = 0;
       let disabled = 0;

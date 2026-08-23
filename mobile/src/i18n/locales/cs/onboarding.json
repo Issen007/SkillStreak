@@ -9,7 +9,7 @@
     "sub": "Zeptej se trenéra na kód týmu. Ještě žádný tým nemáte? Vymysli si vlastní kód a my ti pomůžeme tým založit.",
     "codePlaceholder": "Např. FALKEN24",
     "findTeamButton": "Najít můj tým",
-    "returningUserLink": "Máš už účet?"
+    "returningUserButton": "Už mám účet"
   },
   "o1a": {
     "heading": "Nenašli jsme tým s kódem {{inviteCode}}",

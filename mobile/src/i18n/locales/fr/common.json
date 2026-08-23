@@ -23,5 +23,10 @@
     "wrong": "Pas tout à fait. Réessaie avec le nouveau calcul.",
     "confirm": "Continuer",
     "cancel": "Annuler"
+  },
+  "crash": {
+    "title": "Oups, quelque chose s'est cassé",
+    "body": "Ce n'était pas ta faute. Nous avons été prévenus et nous regardons ça. Ta série est conservée.",
+    "retry": "Réessayer"
   }
 }

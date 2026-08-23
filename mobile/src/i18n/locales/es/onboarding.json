@@ -9,7 +9,7 @@
     "sub": "Pídele a tu entrenador el código del equipo. ¿Todavía no tienes equipo? Inventa tu propio código y te ayudamos a crear uno.",
     "codePlaceholder": "Ej.: FALKEN24",
     "findTeamButton": "Buscar mi equipo",
-    "returningUserLink": "¿Ya tienes una cuenta?"
+    "returningUserButton": "Ya tengo una cuenta"
   },
   "o1a": {
     "heading": "No encontramos ningún equipo con el código {{inviteCode}}",

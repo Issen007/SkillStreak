@@ -9,7 +9,7 @@
     "sub": "Spør treneren om lagets kode. Har dere ikke noe lag ennå? Finn på din egen kode, så hjelper vi deg å starte laget.",
     "codePlaceholder": "F.eks. FALKEN24",
     "findTeamButton": "Finn laget mitt",
-    "returningUserLink": "Har du allerede en konto?"
+    "returningUserButton": "Jeg har allerede en konto"
   },
   "o1a": {
     "heading": "Vi fant ingen lag med koden {{inviteCode}}",

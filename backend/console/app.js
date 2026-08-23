@@ -2036,7 +2036,18 @@
     errors: function (view) {
       api.get('/api/v1/admin/errors').then(function (r) {
         var rows = (r.entries || r.rows || []).slice(0, 50).map(function (x) {
-          return '<tr><td>' + esc(x.occurredAt) + '</td><td>' + esc(x.source) +
+          /* A client row carries no status and no route, so the Source cell
+           * is where its two identifying facts go. Without the build, a
+           * crash report is close to unactionable: "only on Android" and
+           * "only since build 14" are the first two questions anyone asks,
+           * and they are the only two this table is willing to answer. */
+          var source = esc(x.source);
+          if (x.source === 'client') {
+            source += ' <span class="muted">' +
+              esc([x.clientPlatform, x.clientAppVersion]
+                    .filter(Boolean).join(' ')) + '</span>';
+          }
+          return '<tr><td>' + esc(x.occurredAt) + '</td><td>' + source +
                  '</td><td>' + esc(x.statusCode || '') + '</td><td>' +
                  esc(ERROR_NAME_LABEL[x.errorName] || x.errorName || '') +
                  '</td><td>' + esc(x.message) + '</td></tr>';
@@ -2045,6 +2056,10 @@
           '<tr><th>When</th><th>Source</th><th>Status</th><th>Why</th><th>Message</th></tr>' +
           (rows || '<tr><td colspan="5" class="muted">Nothing logged.</td></tr>') +
           '</table></div>' +
+          '<p class="muted"><strong>client</strong> rows are crashes inside ' +
+          'the phone app, reported by the device. They carry the platform ' +
+          'and the build and nothing else &mdash; there is no player or ' +
+          'team column on this table to carry more.</p>' +
           '<p class="muted">Every 401 answers the caller with the same ' +
           'generic message on purpose — telling someone &ldquo;expired&rdquo; ' +
           'rather than &ldquo;invalid&rdquo; would confirm their token was ' +

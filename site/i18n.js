@@ -61,6 +61,16 @@
       /* --- sponsors ----------------------------------------------------- */
       'Projektet stöds av': 'Supported by',
 
+      /* --- sponsorship contact form -------------------------------------- */
+      'Vill ditt företag också stödja SkillStreak?':
+        'Would your company like to support SkillStreak too?',
+      'Vi är en innebandytränare och ett projekt som drivs i öppen dager. Berätta kort vilka ni är och vad ni tänker er, så hör vi av oss.':
+        'We are a floorball coach and a project built in the open. Tell us briefly who you are and what you have in mind, and we will get back to you.',
+      'Företag eller förening (frivilligt)':
+        'Company or club (optional)',
+      'Vad vill ni berätta?': 'What would you like to tell us?',
+      'Skicka': 'Send',
+
       /* --- trainer CTA --------------------------------------------------- */
       'Vill du vara tränare i SkillStreak?': 'Do you want to be a trainer in SkillStreak?',
       'Du sätter veckans mål och ser vad som faktiskt händer mellan träningarna — vem som kört, vem som har en streak igång, och vem som tyst slutat dyka upp. Det sista är det man annars märker alldeles för sent.':

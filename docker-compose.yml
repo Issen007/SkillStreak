@@ -68,6 +68,7 @@ services:
       # here) means the job no-ops with a log line, so a local stack never
       # tries to email anyone.
       USAGE_REPORT_RECIPIENT_EMAIL: ${USAGE_REPORT_RECIPIENT_EMAIL:-}
+      CONTACT_RECIPIENT_EMAIL: ${CONTACT_RECIPIENT_EMAIL:-}
       USAGE_REPORT_CRON: ${USAGE_REPORT_CRON:-0 6 1 * *}
       USAGE_REPORT_MIN_TEAMS_PER_BUCKET: ${USAGE_REPORT_MIN_TEAMS_PER_BUCKET:-5}
     depends_on:

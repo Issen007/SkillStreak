@@ -962,6 +962,13 @@ footer .foot-row {
 .sponsor .wordmark { display: none; font-weight: 800; font-size: 15px; letter-spacing: .01em; }
 .sponsor.no-logo .wordmark { display: inline; }
 @media (max-width: 520px) { .sponsor-row { gap: 10px 18px; } }
+.sponsor-contact { margin: 22px auto 0; max-width: 560px; text-align: left; }
+.sponsor-contact > summary {
+  cursor: pointer; text-align: center; font-size: .95rem;
+  padding: 8px; border-radius: 10px;
+}
+.sponsor-contact > summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.sponsor-contact > p { font-size: .95rem; margin: 10px 0 14px; }
 .test-mode-banner {
   background: #FFB800;
   color: #1B1B3A;
@@ -1613,6 +1620,47 @@ footer .foot-row {
             <span class="wordmark">Safespring</span>
           </a>
         </div>
+        <!-- The ask. The logo row above says who already helps; without
+             this there was no way for anyone else to offer, which made the
+             section a credit rather than an invitation.
+
+             Deliberately a details/summary rather than an always-open
+             form: this sits in the footer under a children's product, and
+             a permanent contact form there competes with the signup form
+             that is the page's actual call to action. Closed by default,
+             one click to open, no JavaScript needed to reveal it. -->
+        <details class="sponsor-contact" id="sponsor-contact">
+          <summary>Vill ditt företag också stödja SkillStreak?</summary>
+          <p>
+            Vi är en innebandytränare och ett projekt som drivs i öppen
+            dager. Berätta kort vilka ni är och vad ni tänker er, så hör vi
+            av oss.
+          </p>
+          <form id="contactForm" novalidate>
+            <div style="display:grid;gap:12px;">
+              <label>Namn
+                <input class="wz-input" id="coName" type="text" maxlength="120" autocomplete="name" required>
+              </label>
+              <label>Företag eller förening (frivilligt)
+                <input class="wz-input" id="coOrg" type="text" maxlength="160" autocomplete="organization">
+              </label>
+              <label>E-post
+                <input class="wz-input" id="coEmail" type="email" maxlength="254" autocomplete="email" required>
+              </label>
+              <label>Vad vill ni berätta?
+                <textarea class="wz-input" id="coMessage" rows="4" maxlength="4000" required></textarea>
+              </label>
+              <!-- Same honeypot as the signup form above, same reasoning. -->
+              <div aria-hidden="true" style="position:absolute;left:-9999px;">
+                <label>Webbplats<input id="coWebsite" type="text" tabindex="-1" autocomplete="off"></label>
+              </div>
+              <div>
+                <button class="btn btn-flame" type="submit" id="coSubmit">Skicka</button>
+              </div>
+              <p id="coMsg" style="margin:0;min-height:1.2em;"></p>
+            </div>
+          </form>
+        </details>
       </section>
       <div class="foot-row">
         <span>SkillStreak — byggt av en innebandytränare, med barnens trygghet först.</span>
@@ -1955,6 +2003,128 @@ window.__beaconReady__ = (function () {
       // sends them away. It also made the form's real breakage harder to
       // diagnose twice, because a genuine outage and a typo looked
       // identical from the outside.
+      msg.textContent =
+        String(error && error.message) === '400' ? t('invalid') : t('failed');
+    }).finally(function () {
+      submit.disabled = false;
+    });
+  });
+})();
+</script>
+
+<script>
+/* The sponsorship contact form.
+ *
+ * Deliberately separate from the signup form's script above rather than
+ * folded into it. They post to different endpoints, mean different
+ * things, and the signup form is the page's actual call to action — a
+ * shared handler with two branches would put the more important flow one
+ * refactor away from the less important one.
+ *
+ * Posts to our own API (window.__API_BASE__, baked per environment at
+ * image build time), same as every other request this page makes.
+ */
+(function () {
+  'use strict';
+
+  var form = document.getElementById('contactForm');
+  if (!form) return;
+
+  var submit = document.getElementById('coSubmit');
+  var msg = document.getElementById('coMsg');
+
+  /* Same per-language table and the same `lang` attribute read as the
+   * signup handler above, rather than site/i18n.js's source-string
+   * lookup. i18n.js translates text nodes that exist in the markup at
+   * load; these strings are written into the DOM at submit time and were
+   * never there for it to see. Two mechanisms on one page is a real cost,
+   * but it is the existing one — inventing a third would be worse. */
+  var MESSAGES = {
+    sv: {
+      missing: 'Fyll i namn, e-post och ett meddelande.',
+      invalid: 'Kontrollera mejladressen — den ser inte riktig ut.',
+      short: 'Skriv gärna någon rad till, så vi vet vad ni tänker er.',
+      sending: 'Skickar…',
+      ok: 'Tack! Vi hör av oss.',
+      /* The one case worth its own message. `delivered: false` means the
+       * server took the request and could not mail it — an unconfigured
+       * or broken relay. Thanking someone for a message that was never
+       * sent is the worst available answer, so this says what to do
+       * instead. */
+      undelivered:
+        'Vi kunde inte skicka just nu. Mejla oss gärna direkt på ' +
+        'christian.petersson@isstech.io så svarar vi.',
+      failed: 'Det gick inte just nu. Försök gärna igen om en stund.'
+    },
+    en: {
+      missing: 'Please fill in your name, email and a message.',
+      invalid: 'Check the email address — it does not look quite right.',
+      short: 'A line or two more would help us understand what you have in mind.',
+      sending: 'Sending…',
+      ok: 'Thank you! We will be in touch.',
+      undelivered:
+        'We could not send that just now. Please email us directly at ' +
+        'christian.petersson@isstech.io and we will reply.',
+      failed: 'That did not work just now. Please try again in a moment.'
+    }
+  };
+
+  function t(key) {
+    var lang = document.documentElement.getAttribute('lang') === 'en' ? 'en' : 'sv';
+    return MESSAGES[lang][key];
+  }
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+
+    var body = {
+      name: document.getElementById('coName').value.trim(),
+      email: document.getElementById('coEmail').value.trim(),
+      message: document.getElementById('coMessage').value.trim()
+    };
+
+    /* Checked here as well as on the server, so the three mistakes a
+     * person actually makes are answered instantly instead of costing a
+     * round trip and coming back as a generic 400. The server still
+     * validates all of it — this is for the sender, not for safety. */
+    if (!body.name || !body.email || !body.message) {
+      msg.textContent = t('missing');
+      return;
+    }
+    if (body.email.indexOf('@') < 1 || body.email.indexOf('.') < 0) {
+      msg.textContent = t('invalid');
+      return;
+    }
+    if (body.message.length < 10) {
+      msg.textContent = t('short');
+      return;
+    }
+    var org = document.getElementById('coOrg').value.trim();
+    if (org) body.organisation = org;
+    var honey = document.getElementById('coWebsite').value;
+    if (honey) body.website = honey;
+
+    submit.disabled = true;
+    msg.textContent = t('sending');
+
+    fetch(window.__API_BASE__ + '/api/v1/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (response) {
+      if (!response.ok) throw new Error(String(response.status));
+      return response.json();
+    }).then(function (result) {
+      if (result && result.delivered === false) {
+        msg.textContent = t('undelivered');
+        return;
+      }
+      form.reset();
+      msg.textContent = t('ok');
+    }).catch(function (error) {
+      /* Same reasoning as the signup form's handler: a 400 is a typo, not
+       * an outage, and telling someone the site is broken sends them away
+       * over a malformed email address. */
       msg.textContent =
         String(error && error.message) === '400' ? t('invalid') : t('failed');
     }).finally(function () {

@@ -23,5 +23,10 @@
     "wrong": "Nicht ganz. Versuch es mit der neuen Aufgabe.",
     "confirm": "Weiter",
     "cancel": "Abbrechen"
+  },
+  "crash": {
+    "title": "Ups, da ist etwas kaputtgegangen",
+    "body": "Das war nicht deine Schuld. Wir wissen Bescheid und schauen es uns an. Deine Streak bleibt erhalten.",
+    "retry": "Nochmal versuchen"
   }
 }

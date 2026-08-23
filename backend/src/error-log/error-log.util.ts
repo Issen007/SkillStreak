@@ -188,3 +188,69 @@ export function positiveIntFromConfig(
   if (!Number.isInteger(parsed) || parsed <= 0) return fallback;
   return parsed;
 }
+
+// A UUID anywhere in a string. Every id this API puts in a URL path —
+// playerId, teamId, clipId — is one of these.
+//
+// Deliberately NOT the strict RFC pattern that pins the version nibble to
+// [1-5] and the variant to [89ab]. Postgres' gen_random_uuid() emits v4
+// and would pass it, but the job here is to catch anything SHAPED like an
+// id, not to certify that it is a well-formed one — a redactor that
+// declines to remove a malformed identifier has failed at the only thing
+// it exists to do. Written strictly first, and every fixture in
+// client-error-redaction.spec.ts sailed straight through it.
+const UUID_ANYWHERE =
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+
+// The opaque codes this app mails out — consent approval, revoke, erasure
+// confirm/cancel, contact change. All of them come from
+// common/crypto/human-code.util.ts: exactly 8 characters from a fixed
+// 32-character alphabet that omits the visually ambiguous 0/O and 1/I.
+//
+// Anchored to a URL PATH SEGMENT rather than matched free-floating, and
+// that narrowness is deliberate. A bare code sitting in prose is not a
+// realistic client error; a code inside a request URL is the realistic
+// one, because that is the only place these codes ever travel. Matching
+// them anywhere would mean redacting any 8-character upper-case run — and
+// `DATABASE` happens to be eight characters drawn entirely from that
+// alphabet, so a scrubber that broad would quietly eat real diagnostics
+// to defend against a case that does not occur.
+const MAILED_CODE_IN_PATH =
+  /\/[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}(?![0-9A-Za-z-])/g;
+
+/**
+ * The narrow scrubber for text this codebase did not write.
+ *
+ * Server errors are authored here: a known set of exception classes with
+ * messages this repo controls, which is why `redactUnmatchedRouteMessage`
+ * above is allowed to be as narrow as it is, and why Decision 6 rejects a
+ * general regex scrubber over server error text as unreliable false
+ * confidence.
+ *
+ * **Client errors are different in the one way that matters**: the text
+ * arrives from a device, and most of it was written by React Native, by
+ * Expo, or by `fetch` — none of which know this project's rules. The
+ * routine shape of a network failure in RN is the request URL inline in
+ * the message, and this API's URLs carry a child's `playerId` or a live
+ * mailed token as a path segment. That is not a hypothetical leak; it is
+ * the single most common client error there is.
+ *
+ * So this runs over client-supplied message and stack only, and it is
+ * deliberately about IDENTIFIERS rather than about meaning: a UUID and a
+ * mailed code are recognisable by shape, which is exactly the property a
+ * general scrubber lacks.
+ *
+ * **What it does not do, stated plainly rather than papered over.** It
+ * cannot catch a child's screen name if one is ever interpolated into an
+ * error message, because a screen name has no distinguishing shape. The
+ * control for that is a rule rather than a filter — this app's own thrown
+ * messages must never interpolate user content — and it is the reason the
+ * ingest endpoint caps `message` hard and accepts no free-form context
+ * field alongside it. Treat this function as removing the known,
+ * mechanical leak, not as making arbitrary device text safe.
+ */
+export function redactClientText(text: string): string {
+  return text
+    .replace(UUID_ANYWHERE, '(id redacted)')
+    .replace(MAILED_CODE_IN_PATH, '/(code redacted)');
+}

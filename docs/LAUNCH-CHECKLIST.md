@@ -86,12 +86,36 @@ submission needs builds. Nothing else on this list can be finished without
 resolving that — either by waiting for the quota to reset or by paying for
 a plan.
 
-### 1.5 Android is far behind
+### 1.5 Android build state — updated 2026-08-23
 
-Latest Android build is **build 2, from 2026-08-17**. iOS is on build 14.
-Everything from the last five days — the consent-link fix, the clip menu,
-the whole signup form, the caption change — exists only on iOS. A Play
-submission today would ship a version that predates most of this month.
+~~Latest Android build is build 2, from 2026-08-17. iOS is on build 14.~~
+Both platforms have been rebuilt since. Current state:
+
+    ANDROID  build 5  (d613f71, 2026-08-23)  — in sync
+    IOS      build 17 (31e6c27, 2026-08-23)  — in sync
+
+**Both platforms carry the client crash reporter**, so from here a render
+crash on either reaches the console's Errors tab instead of vanishing.
+This is the first time since 2026-08-17 that neither platform is behind.
+
+### 1.6 The Play closed-test clock is the real calendar risk
+
+Separate from every code item on this list, and the only one that cannot
+be compressed by working harder.
+
+`docs/RELEASING.md` §3: Google requires newer **personal** developer
+accounts to run a closed test with **~12 testers over 14 continuous days**
+before production access is granted at all. `secrets/play-service-account
+.json` does not exist in this working tree, so no build has ever been
+submitted to a Play track from here — which suggests that clock has not
+started.
+
+**If it has not, Google Play cannot ship next week**, whatever state the
+code reaches. That is not a reason to slow anything down; it is a reason
+to start the closed test now and let the 14 days run underneath the rest
+of the work. Apple has no equivalent waiting period, so a staggered launch
+— iOS first, Play when the clock expires — may simply be what happens, and
+it is much better to choose that than to discover it.
 
 ---
 
@@ -161,7 +185,17 @@ whether that is the posture to go out on.
 - **The monthly sharing-consent reminder has never fired in production.**
   It is ADR-0030 Decision 5's only recurring control. With consent
   currently revoked it will not fire at all until sharing is switched back
-  on.
+  on. Since 2026-08-23 it logs a line whether or not anything was due, so
+  its silence is now readable instead of ambiguous.
+- **Crash reporting from the app now exists** (2026-08-23), and it changes
+  what launch week looks like. Until now a render crash on a phone left no
+  trace anywhere — survivable with one beta team you can ask in person, not
+  survivable with strangers. Crashes now arrive in the console's Errors tab
+  as `client` rows carrying the platform and the build.
+
+  **It reaches nobody until an EAS build ships it.** The reporter is in
+  `mobile/`, and the API deploying on merge does not build the app. If the
+  store build predates this, launch week is still blind.
 - **Two moderate advisories in `mobile/`'s Expo/Metro build tooling**, plus
   a handful in the backend's. All are denial-of-service in tooling that
   only ever sees this repo's own files. An attempt to override the
@@ -191,6 +225,8 @@ the problem:
 ## The short version
 
 Nothing on this list is a rewrite. The blockers are **a lawyer's sign-off
-on the legal documents**, **two links**, **two store forms**, **build
-capacity**, and **an Android build**. The first is the long pole and the
-only one that cannot start today.
+on the legal documents**, **two store forms**, **build capacity**, and — for
+Play specifically — **the 14-day closed-test
+clock** (§1.6). The lawyer is the long pole for iOS. The closed-test clock
+is the long pole for Android, and unlike everything else here it cannot be
+shortened by doing the work faster, only by starting it sooner.

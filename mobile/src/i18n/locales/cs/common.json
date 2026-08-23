@@ -23,5 +23,10 @@
     "wrong": "Skoro. Zkus to znovu s novým příkladem.",
     "confirm": "Pokračovat",
     "cancel": "Zrušit"
+  },
+  "crash": {
+    "title": "Jejda, něco se rozbilo",
+    "body": "Nebyla to tvoje chyba. Víme o tom a díváme se na to. Tvoje série zůstává.",
+    "retry": "Zkusit znovu"
   }
 }

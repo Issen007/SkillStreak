@@ -1,15 +1,21 @@
 import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { ERROR_LOG_MESSAGE_MAX_LENGTH } from '../error-log.constants';
 
-// docs/adr/0022-admin-control-center.md Decision 6 — the two kinds of
-// failure this table can hold. An `http` row carries route/method/
-// status_code and never job_name; a `job` row carries job_name and never
-// the other three (the admin console's Source filter greys out the Status
-// control for exactly this reason — see
+// docs/adr/0022-admin-control-center.md Decision 6 — the kinds of failure
+// this table can hold. An `http` row carries route/method/status_code and
+// never job_name; a `job` row carries job_name and never the other three
+// (the admin console's Source filter greys out the Status control for
+// exactly this reason — see
 // docs/design/phase7-admin-console-flows.md §5.3).
+//
+// `client` was added 2026-08-23 for a failure the server cannot observe at
+// all: a crash inside the Expo app on a child's phone. It carries
+// client_platform/client_app_version and none of the other five. See the
+// migration's docstring for why those two columns and no others.
 export enum ErrorLogSource {
   HTTP = 'http',
   JOB = 'job',
+  CLIENT = 'client',
 }
 
 /**
@@ -80,6 +86,18 @@ export class ErrorLogEntry {
   // filter is exactly this).
   @Column({ name: 'status_code', type: 'int', nullable: true })
   statusCode!: number | null;
+
+  // Client source only. Both describe the BUILD, never the person running
+  // it — that distinction is what keeps this table's "no column here can
+  // resolve to a child" guarantee structural rather than a promise. A
+  // client crash without them is close to unactionable ("only on Android",
+  // "only since build 14" are the first two questions), and with them it
+  // still says nothing about who.
+  @Column({ name: 'client_platform', type: 'varchar', nullable: true })
+  clientPlatform!: string | null;
+
+  @Column({ name: 'client_app_version', type: 'varchar', nullable: true })
+  clientAppVersion!: string | null;
 
   // The exception class name — 'AppException', 'NotFoundException',
   // 'TypeError', 'QueryFailedError'. Decision 6's schema has no column for

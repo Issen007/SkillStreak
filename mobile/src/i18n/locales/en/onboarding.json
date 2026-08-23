@@ -9,7 +9,7 @@
     "sub": "Ask your coach for the team's code. No team yet? Make up your own code and we'll help you start one.",
     "codePlaceholder": "E.g. FALKEN24",
     "findTeamButton": "Find my team",
-    "returningUserLink": "Already have an account?"
+    "returningUserButton": "I already have an account"
   },
   "o1a": {
     "heading": "We couldn't find a team with the code {{inviteCode}}",

@@ -23,5 +23,10 @@
     "wrong": "Not quite. Try again with the new sum.",
     "confirm": "Continue",
     "cancel": "Cancel"
+  },
+  "crash": {
+    "title": "Oops, something broke",
+    "body": "That wasn't your fault. We've been told about it and we're looking into it. Your streak is safe.",
+    "retry": "Try again"
   }
 }
