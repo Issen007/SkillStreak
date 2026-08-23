@@ -161,7 +161,17 @@ whether that is the posture to go out on.
 - **The monthly sharing-consent reminder has never fired in production.**
   It is ADR-0030 Decision 5's only recurring control. With consent
   currently revoked it will not fire at all until sharing is switched back
-  on.
+  on. Since 2026-08-23 it logs a line whether or not anything was due, so
+  its silence is now readable instead of ambiguous.
+- **Crash reporting from the app now exists** (2026-08-23), and it changes
+  what launch week looks like. Until now a render crash on a phone left no
+  trace anywhere — survivable with one beta team you can ask in person, not
+  survivable with strangers. Crashes now arrive in the console's Errors tab
+  as `client` rows carrying the platform and the build.
+
+  **It reaches nobody until an EAS build ships it.** The reporter is in
+  `mobile/`, and the API deploying on merge does not build the app. If the
+  store build predates this, launch week is still blind.
 - **Two moderate advisories in `mobile/`'s Expo/Metro build tooling**, plus
   a handful in the backend's. All are denial-of-service in tooling that
   only ever sees this repo's own files. An attempt to override the
