@@ -86,12 +86,35 @@ submission needs builds. Nothing else on this list can be finished without
 resolving that — either by waiting for the quota to reset or by paying for
 a plan.
 
-### 1.5 Android is far behind
+### 1.5 Android build state — updated 2026-08-23
 
-Latest Android build is **build 2, from 2026-08-17**. iOS is on build 14.
-Everything from the last five days — the consent-link fix, the clip menu,
-the whole signup form, the caption change — exists only on iOS. A Play
-submission today would ship a version that predates most of this month.
+~~Latest Android build is build 2, from 2026-08-17. iOS is on build 14.~~
+Both platforms have been rebuilt since. Current state:
+
+    ANDROID  build 4  (f3895e7, 2026-08-23)  — behind by 2 commits
+    IOS      build 17 (31e6c27, 2026-08-23)  — in sync
+
+Android is behind by exactly the client crash reporter and the promoted
+"already have an account" button. One build clears it.
+
+### 1.6 The Play closed-test clock is the real calendar risk
+
+Separate from every code item on this list, and the only one that cannot
+be compressed by working harder.
+
+`docs/RELEASING.md` §3: Google requires newer **personal** developer
+accounts to run a closed test with **~12 testers over 14 continuous days**
+before production access is granted at all. `secrets/play-service-account
+.json` does not exist in this working tree, so no build has ever been
+submitted to a Play track from here — which suggests that clock has not
+started.
+
+**If it has not, Google Play cannot ship next week**, whatever state the
+code reaches. That is not a reason to slow anything down; it is a reason
+to start the closed test now and let the 14 days run underneath the rest
+of the work. Apple has no equivalent waiting period, so a staggered launch
+— iOS first, Play when the clock expires — may simply be what happens, and
+it is much better to choose that than to discover it.
 
 ---
 
@@ -201,6 +224,8 @@ the problem:
 ## The short version
 
 Nothing on this list is a rewrite. The blockers are **a lawyer's sign-off
-on the legal documents**, **two links**, **two store forms**, **build
-capacity**, and **an Android build**. The first is the long pole and the
-only one that cannot start today.
+on the legal documents**, **two store forms**, **build capacity**, **an
+Android build**, and — for Play specifically — **the 14-day closed-test
+clock** (§1.6). The lawyer is the long pole for iOS. The closed-test clock
+is the long pole for Android, and unlike everything else here it cannot be
+shortened by doing the work faster, only by starting it sooner.
