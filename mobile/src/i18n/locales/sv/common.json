@@ -23,5 +23,10 @@
     "wrong": "Inte riktigt. Försök igen med den nya uppgiften.",
     "confirm": "Fortsätt",
     "cancel": "Avbryt"
+  },
+  "crash": {
+    "title": "Oj, något gick sönder",
+    "body": "Det var inte ditt fel. Vi har fått veta om det och tittar på det. Din streak är kvar.",
+    "retry": "Försök igen"
   }
 }

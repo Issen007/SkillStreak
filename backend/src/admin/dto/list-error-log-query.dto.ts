@@ -28,8 +28,10 @@ export const MAX_ERROR_LOG_PAGE_SIZE = 200;
  * How docs/design/phase7-admin-console-flows.md §5.3's four Status chips map
  * onto this DTO, since the design names classes and the ADR specifies a
  * range: `2xx` → `statusCodeMin=200&statusCodeMax=299` (and so on), and
- * `No status` → `hasStatusCode=false`, which is `status_code IS NULL`, i.e.
- * job rows. Ranges rather than exact codes, per the ADR.
+ * `No status` → `hasStatusCode=false`, which is `status_code IS NULL` — job
+ * rows and, since 2026-08-23, `client` rows too, neither of which answers
+ * an HTTP request. Filter on `source` to separate them. Ranges rather than
+ * exact codes, per the ADR.
  */
 export class ListErrorLogQueryDto {
   @IsOptional()

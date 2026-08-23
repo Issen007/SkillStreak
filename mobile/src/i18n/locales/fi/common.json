@@ -23,5 +23,10 @@
     "wrong": "Ei aivan. Kokeile uudelleen uudella laskulla.",
     "confirm": "Jatka",
     "cancel": "Peruuta"
+  },
+  "crash": {
+    "title": "Hups, jokin meni rikki",
+    "body": "Se ei ollut sinun vikasi. Olemme saaneet siitä tiedon ja selvitämme asiaa. Putkesi on tallessa.",
+    "retry": "Yritä uudelleen"
   }
 }

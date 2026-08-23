@@ -23,5 +23,10 @@
     "wrong": "Casi. Inténtalo otra vez con la nueva operación.",
     "confirm": "Continuar",
     "cancel": "Cancelar"
+  },
+  "crash": {
+    "title": "Vaya, algo se ha roto",
+    "body": "No ha sido culpa tuya. Nos han avisado y lo estamos revisando. Tu racha sigue intacta.",
+    "retry": "Intentar de nuevo"
   }
 }

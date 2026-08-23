@@ -13,6 +13,7 @@ import {
 import {
   describeError,
   positiveIntFromConfig,
+  redactClientText,
   redactUnmatchedRouteMessage,
   truncateMessage,
   truncateStack,
@@ -42,6 +43,19 @@ export type ErrorLogRecordInput =
       /** One of ERROR_LOG_JOB_NAMES. */
       jobName: string;
       error: unknown;
+    }
+  | {
+      // A crash inside the Expo app, reported by the device itself. The
+      // only variant whose text this codebase did not author, which is
+      // why it is the only one that goes through redactClientText.
+      source: 'client';
+      /** 'ios' | 'android' | 'web' — validated at the controller. */
+      platform: string;
+      /** EXPO_PUBLIC_APP_VERSION as the crashing build reports it. */
+      appVersion: string;
+      errorName: string;
+      message: string;
+      stack: string | null;
     };
 
 /**
@@ -77,6 +91,10 @@ export class ErrorLogService {
 
   async record(input: ErrorLogRecordInput): Promise<void> {
     try {
+      if (input.source === 'client') {
+        await this.recordClient(input);
+        return;
+      }
       const described = describeError(input.error);
       // Only for an unmatched HTTP request, where Nest's own default 404
       // message is the resolved URL and nothing else — see
@@ -93,6 +111,8 @@ export class ErrorLogService {
         method: input.source === 'http' ? input.method : null,
         jobName: input.source === 'job' ? input.jobName : null,
         statusCode: input.source === 'http' ? input.statusCode : null,
+        clientPlatform: null,
+        clientAppVersion: null,
         // `error_name` is an unbounded varchar, but it's fed by whatever
         // class an arbitrary library threw, so it gets the same ceiling as
         // `message` rather than being trusted to be short.
@@ -111,6 +131,39 @@ export class ErrorLogService {
         }`,
       );
     }
+  }
+
+  /**
+   * The client variant, kept as its own method rather than more branches
+   * in `record()` — it shares only the table, not the pipeline. Nothing
+   * here comes from an `unknown` throw, so `describeError` has no part in
+   * it; everything has already been validated as a bounded string by the
+   * controller, and the one step that does not apply to any other source
+   * — redaction — applies to all three of its text fields.
+   */
+  private async recordClient(input: {
+    platform: string;
+    appVersion: string;
+    errorName: string;
+    message: string;
+    stack: string | null;
+  }): Promise<void> {
+    await this.errorLogRepository.insert({
+      occurredAt: new Date(),
+      source: ErrorLogSource.CLIENT,
+      route: null,
+      method: null,
+      jobName: null,
+      statusCode: null,
+      clientPlatform: input.platform,
+      clientAppVersion: input.appVersion,
+      errorName: truncateMessage(redactClientText(input.errorName)),
+      message: truncateMessage(redactClientText(input.message)),
+      stack: truncateStack(
+        input.stack === null ? null : redactClientText(input.stack),
+        this.stackMaxFrames(),
+      ),
+    });
   }
 
   /**

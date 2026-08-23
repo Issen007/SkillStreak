@@ -23,5 +23,10 @@
     "wrong": "Ikke helt. Prøv igjen med det nye regnestykket.",
     "confirm": "Fortsett",
     "cancel": "Avbryt"
+  },
+  "crash": {
+    "title": "Oi, noe gikk i stykker",
+    "body": "Det var ikke din feil. Vi har fått beskjed om det og ser på det. Streaken din er trygg.",
+    "retry": "Prøv igjen"
   }
 }

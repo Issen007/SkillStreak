@@ -44,6 +44,9 @@ export interface AdminErrorLogRow {
   errorName: string;
   message: string;
   stack: string | null;
+  /** Client source only — NULL on http and job rows. */
+  clientPlatform: string | null;
+  clientAppVersion: string | null;
 }
 
 export interface AdminErrorLogResponse {
@@ -123,6 +126,8 @@ function toAdminErrorLogRow(entry: ErrorLogEntry): AdminErrorLogRow {
     errorName: entry.errorName,
     message: entry.message,
     stack: entry.stack,
+    clientPlatform: entry.clientPlatform,
+    clientAppVersion: entry.clientAppVersion,
   };
 }
 

@@ -6,6 +6,7 @@ import { AccountErasureModule } from './account-erasure/account-erasure.module';
 import { AdminModule } from './admin/admin.module';
 import { AppConfigModule } from './config/app-config.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { ClientErrorsModule } from './client-errors/client-errors.module';
 import { DrillsModule } from './drills/drills.module';
 import { ClipTaggingModule } from './clip-tagging/clip-tagging.module';
 import { TrainingPlansModule } from './training-plans/training-plans.module';
@@ -150,6 +151,7 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     // "Report a problem" submission (POST /api/v1/bug-reports, JwtAuthGuard,
     // deliberately not consent-gated; see that module/service's docstrings).
     AnalyticsModule,
+    ClientErrorsModule,
     DrillsModule,
     PrCampaignsModule,
     ClipTaggingModule,
