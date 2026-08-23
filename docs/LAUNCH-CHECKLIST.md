@@ -91,11 +91,12 @@ a plan.
 ~~Latest Android build is build 2, from 2026-08-17. iOS is on build 14.~~
 Both platforms have been rebuilt since. Current state:
 
-    ANDROID  build 4  (f3895e7, 2026-08-23)  — behind by 2 commits
+    ANDROID  build 5  (d613f71, 2026-08-23)  — in sync
     IOS      build 17 (31e6c27, 2026-08-23)  — in sync
 
-Android is behind by exactly the client crash reporter and the promoted
-"already have an account" button. One build clears it.
+**Both platforms carry the client crash reporter**, so from here a render
+crash on either reaches the console's Errors tab instead of vanishing.
+This is the first time since 2026-08-17 that neither platform is behind.
 
 ### 1.6 The Play closed-test clock is the real calendar risk
 
@@ -224,8 +225,8 @@ the problem:
 ## The short version
 
 Nothing on this list is a rewrite. The blockers are **a lawyer's sign-off
-on the legal documents**, **two store forms**, **build capacity**, **an
-Android build**, and — for Play specifically — **the 14-day closed-test
+on the legal documents**, **two store forms**, **build capacity**, and — for
+Play specifically — **the 14-day closed-test
 clock** (§1.6). The lawyer is the long pole for iOS. The closed-test clock
 is the long pole for Android, and unlike everything else here it cannot be
 shortened by doing the work faster, only by starting it sooner.
