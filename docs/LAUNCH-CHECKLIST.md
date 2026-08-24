@@ -206,6 +206,61 @@ whether that is the posture to go out on.
 
 ---
 
+## 2.5 The eight-day window (24–31 August)
+
+iOS cannot build until 1 September (§1.4). That is a constraint, but for
+one category of work it is the opposite — **mobile changes are free this
+week**. They could not reach an iOS tester before 1 September whatever we
+did, so batching them costs nothing, and this is the cheapest week of the
+year to ask for app changes. Android can still build and install, so they
+can even be tested.
+
+### What is actually open, checked rather than assumed (2026-08-24)
+
+- **`ACTION_PLAN.md` "Next Up": zero unchecked items.** The queue is done.
+- **`BACKLOG.md`: 25 entries, none buildable without a decision.** The
+  three that needed no decision were built on 2026-08-23. What remains is
+  9 owner decisions, 7 new-initiative-sized ideas, and items needing
+  outside input.
+- **Production's error log holds no live defect.** Six 5xx rows in its
+  entire history, every one the "OAuth provider not configured" path —
+  already fixed and deployed (`microsoft/login` now answers 503, and the
+  sign-in page draws only configured providers). The most recent of the
+  six is a probe from this investigation.
+- The 1,190 step-up 401s look alarming in a total and are not: they are a
+  burst on 10–11 August while the Planning tab was being built. Eleven
+  rows since. Real, worth fixing eventually, not worth a week.
+
+**So there is no queue of known bugs to clear before 1 September.** That
+is the honest finding, and it changes what the week is for.
+
+### What is worth doing with it
+
+1. **Fix the build version stamp — and do it now, specifically because
+   iOS is frozen.** `eas.json` sets `EXPO_PUBLIC_APP_VERSION` to the
+   literal string `"production"`, so the profile screen's version line
+   reads "production" and every crash report's `client_app_version` says
+   the same. That defeats the column's whole purpose ("only since build
+   14") and blunts the check that exists because production once served
+   an internal-test image. It needs a real build to verify, iOS cannot
+   build, **and Android can** — so this week it can be fixed and proven,
+   and the first iOS build on 1 September gets it right.
+2. **Prove the bug-report flow end to end.** `bug_report` is empty. The
+   console's own copy says it best: an empty queue and a broken reporting
+   flow look identical. File one from the app before launch, not after.
+3. **The two security-reviewer passes.** `client-errors` and `contact`
+   are both new unauthenticated write endpoints added 2026-08-23, and
+   CLAUDE.md makes that review blocking. Neither has had one.
+4. **Turn decisions into decision-ready drafts.** Nine backlog items are
+   blocked on an owner call. Several could be an ADR draft with the
+   trade-offs laid out, so 1 September is spent building rather than
+   deciding.
+
+None of these is a launch blocker. The launch blockers are in §1 and §2
+and are, without exception, things only the project owner can do.
+
+---
+
 ## 3. Not blocking, worth knowing
 
 - **Helm chart** — still the one unchecked Fas 4 item. The plain manifests
