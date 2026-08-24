@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { API_BASE_URL, API_PREFIX } from './config';
+import { APP_VERSION } from '../appVersion';
 
 /**
  * Reports a crash in this app to the API's `client-errors` endpoint.
@@ -21,7 +22,7 @@ import { API_BASE_URL, API_PREFIX } from './config';
  * always better than the reporter becoming the problem.
  */
 
-const APP_VERSION = process.env.EXPO_PUBLIC_APP_VERSION ?? 'dev';
+
 
 /** Matches the server's CLIENT_ERROR_PLATFORMS. */
 function platform(): string {

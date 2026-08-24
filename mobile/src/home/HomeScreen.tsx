@@ -360,6 +360,63 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
     me.player.consentStatus === 'approved' &&
     me.player.teamJoinStatus === 'approved';
 
+  /**
+   * The upload owns the whole screen, exactly as it does on the Shorts tab.
+   *
+   * **This used to be rendered inline**, as a sibling below `styles.content`
+   * inside the home container — and that was the bug the project owner hit
+   * on 2026-08-23: picking "with a video" closed the activity sheet and
+   * appeared to do nothing at all.
+   *
+   * Nothing was broken in the flow itself. V4-V7 are full-screen views
+   * (`flex: 1`, their own `paddingTop: 64`) written on the assumption that
+   * they ARE the screen, which is true where `ClipsScreen` early-returns
+   * them and was false here: the home content had already taken the
+   * vertical space, so the picker rendered into whatever was left — below
+   * the fold, effectively invisible. Every other overlay on this screen is
+   * a `<Modal>`, which is why none of them showed the same symptom.
+   *
+   * The consequence was worse than a cosmetic one. Nothing is logged until
+   * `onPublished` fires, so a child who chose video and saw the sheet close
+   * had **no session recorded at all** — not the x0.1 they would have got
+   * by choosing "no proof", and no way to tell, because the app looked like
+   * it had accepted the log.
+   *
+   * An early return rather than wrapping it in a `<Modal>`: it matches the
+   * one place this flow is known to work, and it is what V4-V7's own
+   * layout already expects.
+   */
+  if (pendingEvidenceLog) {
+    return (
+      <UploadFlow
+        teamId={me.team.teamId}
+        viewerPlayerId={me.player.id}
+        onCancel={() => {
+          // The child backed out, or the upload failed. Their session is
+          // still real, so offer to keep it rather than silently dropping
+          // it — see EvidenceFallbackSheet below.
+          setAbandonedEvidenceLog(pendingEvidenceLog);
+          setPendingEvidenceLog(null);
+        }}
+        onConsentRevoked={() => {
+          setPendingEvidenceLog(null);
+          void fetchMe();
+        }}
+        onPublished={(clipId) => {
+          const pending = pendingEvidenceLog;
+          setPendingEvidenceLog(null);
+          if (!pending || !clipId) return;
+          void writeTrainingLog({
+            activityType: pending.activityType,
+            durationMinutes: pending.durationMinutes,
+            evidenceClipId: clipId,
+            sharedWithTeam: pending.evidence === 'video_shared',
+          });
+        }}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <AppHeader
@@ -428,35 +485,6 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
           onPress={() => setView('leaderboard')}
         />
       </View>
-
-      {pendingEvidenceLog ? (
-        <UploadFlow
-          teamId={me.team.teamId}
-          viewerPlayerId={me.player.id}
-          onCancel={() => {
-            // The child backed out, or the upload failed. Their session is
-            // still real, so offer to keep it rather than silently
-            // dropping it — see EvidenceFallbackSheet below.
-            setAbandonedEvidenceLog(pendingEvidenceLog);
-            setPendingEvidenceLog(null);
-          }}
-          onConsentRevoked={() => {
-            setPendingEvidenceLog(null);
-            void fetchMe();
-          }}
-          onPublished={(clipId) => {
-            const pending = pendingEvidenceLog;
-            setPendingEvidenceLog(null);
-            if (!pending || !clipId) return;
-            void writeTrainingLog({
-              activityType: pending.activityType,
-              durationMinutes: pending.durationMinutes,
-              evidenceClipId: clipId,
-              sharedWithTeam: pending.evidence === 'video_shared',
-            });
-          }}
-        />
-      ) : null}
 
       <EvidenceFallbackSheet
         visible={abandonedEvidenceLog !== null}

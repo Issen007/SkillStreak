@@ -79,24 +79,45 @@ tracker SDK, parental consent gating media, screen names by default,
 EXIF/GPS stripped on upload, retention windows enforced by scheduled
 sweeps, and self-service erasure that works.
 
-### 1.4 Build capacity
+### 1.4 Build capacity — **iOS is out until 1 September**
 
-The EAS free tier is spent (project owner, 2026-08-22), and store
-submission needs builds. Nothing else on this list can be finished without
-resolving that — either by waiting for the quota to reset or by paying for
-a plan.
+Confirmed by EAS refusing a build, 2026-08-23:
+
+> This account has used its iOS builds from the Free plan this month,
+> which will reset in 8 days (on Tue Sep 01 2026).
+
+Android still has quota; iOS has none. That is not a nuisance, it decides
+the schedule, because **iOS build 17 is now the last iOS build available
+this month and it does not contain the video-evidence fix** (`dd53c84`) —
+choosing "Med video" when logging a session shows no picker and records
+nothing at all.
+
+So there are three options and they should be chosen deliberately:
+
+1. **Pay for an EAS plan.** The only route to an iOS build before
+   1 September, and therefore the only route to submitting an iOS build
+   that is not knowingly broken.
+2. **Submit build 17 anyway.** Not advisable: the evidence flow is a
+   headline feature and its failure mode is silent — a child logs a session
+   and nothing is recorded.
+3. **Wait for 1 September**, build 18, then submit. Apple review then runs
+   on top of that.
+
+Option 3 puts an iOS release into the week of 1 September at the earliest.
+Combined with §1.6, that means **neither store ships in the week of
+24 August** unless the plan is upgraded.
 
 ### 1.5 Android build state — updated 2026-08-23
 
 ~~Latest Android build is build 2, from 2026-08-17. iOS is on build 14.~~
 Both platforms have been rebuilt since. Current state:
 
-    ANDROID  build 5  (d613f71, 2026-08-23)  — in sync
-    IOS      build 17 (31e6c27, 2026-08-23)  — in sync
+    ANDROID  build 9  (316582a, 2026-08-24)  — in sync
+    IOS      build 17 (31e6c27, 2026-08-23)  — behind, and cannot be rebuilt
+                                               until 1 Sep (see §1.4)
 
-**Both platforms carry the client crash reporter**, so from here a render
-crash on either reaches the console's Errors tab instead of vanishing.
-This is the first time since 2026-08-17 that neither platform is behind.
+**Both platforms carry the client crash reporter.** Only Android carries
+the video-evidence fix, and iOS cannot until the build quota resets.
 
 ### 1.6 The Play closed-test clock is the real calendar risk
 
@@ -105,10 +126,21 @@ be compressed by working harder.
 
 `docs/RELEASING.md` §3: Google requires newer **personal** developer
 accounts to run a closed test with **~12 testers over 14 continuous days**
-before production access is granted at all. `secrets/play-service-account
-.json` does not exist in this working tree, so no build has ever been
-submitted to a Play track from here — which suggests that clock has not
-started.
+before production access is granted at all.
+
+**Play account created 2026-08-24** (project owner), which clears the
+prerequisite. Two things still stand between here and a running clock:
+
+- `secrets/play-service-account.json` does not exist yet. See
+  `docs/RELEASING.md` for the two-console setup — it is deliberately the
+  owner's own job, because the output is a live release credential.
+- The submit has to go to the **closed** track (`alpha`), not `internal`.
+  Internal testing installs in minutes and starts no clock at all, which
+  is the easy and expensive mistake here. `eas.json` now carries a
+  `closed` submit profile for exactly this.
+
+Android build 8 already carries everything and is ready to go to a track
+the moment the credential exists.
 
 **If it has not, Google Play cannot ship next week**, whatever state the
 code reaches. That is not a reason to slow anything down; it is a reason
@@ -174,6 +206,62 @@ whether that is the posture to go out on.
 
 ---
 
+## 2.5 The eight-day window (24–31 August)
+
+iOS cannot build until 1 September (§1.4). That is a constraint, but for
+one category of work it is the opposite — **mobile changes are free this
+week**. They could not reach an iOS tester before 1 September whatever we
+did, so batching them costs nothing, and this is the cheapest week of the
+year to ask for app changes. Android can still build and install, so they
+can even be tested.
+
+### What is actually open, checked rather than assumed (2026-08-24)
+
+- **`ACTION_PLAN.md` "Next Up": zero unchecked items.** The queue is done.
+- **`BACKLOG.md`: 25 entries, none buildable without a decision.** The
+  three that needed no decision were built on 2026-08-23. What remains is
+  9 owner decisions, 7 new-initiative-sized ideas, and items needing
+  outside input.
+- **Production's error log holds no live defect.** Six 5xx rows in its
+  entire history, every one the "OAuth provider not configured" path —
+  already fixed and deployed (`microsoft/login` now answers 503, and the
+  sign-in page draws only configured providers). The most recent of the
+  six is a probe from this investigation.
+- The 1,190 step-up 401s look alarming in a total and are not: they are a
+  burst on 10–11 August while the Planning tab was being built. Eleven
+  rows since. Real, worth fixing eventually, not worth a week.
+
+**So there is no queue of known bugs to clear before 1 September.** That
+is the honest finding, and it changes what the week is for.
+
+### What is worth doing with it
+
+1. ~~Fix the build version stamp.~~ **DONE 2026-08-24** (`316582a`), and
+   proven the only way it could be: Android build 9 was downloaded and
+   `base/assets/app.config` — the file `expo-constants` actually reads at
+   runtime — inspected inside the shipped `.aab`. It carries
+   `"appVersion": "production-316582a"`, the real commit, and the old
+   literal `"production"` is gone from the JS bundle entirely.
+
+   The first iOS build on 1 September will therefore report its own
+   commit rather than the word "production", and so will every crash
+   report from it.
+2. **Prove the bug-report flow end to end.** `bug_report` is empty. The
+   console's own copy says it best: an empty queue and a broken reporting
+   flow look identical. File one from the app before launch, not after.
+3. **The two security-reviewer passes.** `client-errors` and `contact`
+   are both new unauthenticated write endpoints added 2026-08-23, and
+   CLAUDE.md makes that review blocking. Neither has had one.
+4. **Turn decisions into decision-ready drafts.** Nine backlog items are
+   blocked on an owner call. Several could be an ADR draft with the
+   trade-offs laid out, so 1 September is spent building rather than
+   deciding.
+
+None of these is a launch blocker. The launch blockers are in §1 and §2
+and are, without exception, things only the project owner can do.
+
+---
+
 ## 3. Not blocking, worth knowing
 
 - **Helm chart** — still the one unchecked Fas 4 item. The plain manifests
@@ -182,6 +270,19 @@ whether that is the posture to go out on.
   the one mobile check whose failures are crashes rather than opinions.
   Promoting it to required is a GitHub branch-protection setting, not a
   repo change.
+- **The bounce mailbox is configured and working in production**, checked
+  2026-08-24 against the running pod rather than the manifests: all six
+  `BOUNCE_IMAP_*` values reach the process, one replica claims the hourly
+  run and the other stands down, and `error_log_entry` holds zero
+  job-source rows in its entire history — so `drainMailbox` has never
+  thrown, which means IMAP is authenticating. (A CI log warning that says
+  otherwise is the test environment, where the values are deliberately
+  unset.)
+
+  It had to be inferred from the *absence* of error rows, because an empty
+  poll logged nothing. Fixed the same day: it now logs one line per run
+  naming the mailbox it polled, so silence is evidence rather than
+  ambiguity — the same fix its sibling reminder job got on 2026-08-23.
 - **The monthly sharing-consent reminder has never fired in production.**
   It is ADR-0030 Decision 5's only recurring control. With consent
   currently revoked it will not fire at all until sharing is switched back
@@ -227,6 +328,9 @@ the problem:
 Nothing on this list is a rewrite. The blockers are **a lawyer's sign-off
 on the legal documents**, **two store forms**, **build capacity**, and — for
 Play specifically — **the 14-day closed-test
-clock** (§1.6). The lawyer is the long pole for iOS. The closed-test clock
-is the long pole for Android, and unlike everything else here it cannot be
-shortened by doing the work faster, only by starting it sooner.
+clock** (§1.6). Two of those are calendar rather than
+code, and between them they decide the date: the **iOS build quota** does
+not reset until 1 September (§1.4), and the **Play closed-test clock**
+needs 14 continuous days that have not started (§1.6). Neither shortens by
+working faster. Upgrading the EAS plan is the only lever that moves the
+iOS date at all.

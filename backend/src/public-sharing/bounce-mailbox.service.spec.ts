@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { BounceMailboxService } from './bounce-mailbox.service';
 import { buildConsentMessageId, CORRELATION_HEADER } from '../mail/dsn.parser';
 
@@ -201,5 +202,74 @@ describe('BounceMailboxService: what a message is allowed to prove', () => {
     const outcome = await process(service, hardBounce());
 
     expect(outcome).toMatchObject({ attributed: 0, unattributed: 1 });
+  });
+});
+
+/**
+ * The heartbeat.
+ *
+ * This poll is the only thing in the system that can observe a bounce,
+ * and a bounce is what disables a consent behind a dead parent address
+ * (ADR-0030 Decision 5). It used to log only when the mailbox had
+ * messages — the rare case — so a healthy empty poll and a cron that had
+ * stopped firing produced identical output: none.
+ *
+ * Found in production on 2026-08-24, where every hour one replica logged
+ * "another replica already claimed this run" and the winner logged
+ * nothing at all. It was working; that had to be inferred from the
+ * absence of error rows, which is not a thing to reason about under
+ * pressure.
+ */
+describe('BounceMailboxService: the heartbeat', () => {
+  function pollWithEmptyMailbox() {
+    const { service } = build({
+      config: { ...CONFIGURED, BOUNCE_IMAP_MAILBOX: 'INBOX' },
+    });
+    // The IMAP conversation is out of scope for this spec (see the file
+    // docstring), so the drain is stubbed at its own boundary — an empty
+    // mailbox is exactly a zero summary.
+    (
+      service as unknown as { drainMailbox: () => Promise<unknown> }
+    ).drainMailbox = jest.fn().mockResolvedValue({
+      messages: 0,
+      dsns: 0,
+      permanent: 0,
+      attributed: 0,
+      unattributed: 0,
+      skipped: 0,
+      stuck: 0,
+      disabled: 0,
+    });
+    return service;
+  }
+
+  it('logs a line on an empty poll, so silence means something is wrong', async () => {
+    const logged: string[] = [];
+    const spy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation((message: unknown) => {
+        logged.push(String(message));
+      });
+
+    await pollWithEmptyMailbox().pollBounceMailbox();
+
+    spy.mockRestore();
+    expect(logged.some((line) => line.includes('mailbox empty'))).toBe(true);
+  });
+
+  it('names which mailbox it polled, because the wrong inbox also looks empty', async () => {
+    const logged: string[] = [];
+    const spy = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation((message: unknown) => {
+        logged.push(String(message));
+      });
+
+    await pollWithEmptyMailbox().pollBounceMailbox();
+
+    spy.mockRestore();
+    expect(
+      logged.some((line) => line.includes('bounces@skillstreak.xyz/INBOX')),
+    ).toBe(true);
   });
 });

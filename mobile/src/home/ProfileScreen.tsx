@@ -46,6 +46,7 @@ import { TrainingReminderCard } from './TrainingReminderCard';
 import { PtRelationshipsScreen } from './PtRelationshipsScreen';
 import { BugReportScreen } from './bugReport/BugReportScreen';
 import { BugReportSentScreen } from './bugReport/BugReportSentScreen';
+import { APP_VERSION } from '../appVersion';
 
 interface ProfileScreenProps {
   screenName: string;
@@ -835,8 +836,9 @@ export function ProfileScreen({
           }
         />
 
-        {/* The running build, stamped at image-build time (see
-            site/Dockerfile's EXPO_PUBLIC_APP_VERSION). Deliberately the
+        {/* The running build. On a native build this is
+            `<profile>-<short sha>` from app.config.js; on the web export
+            it is site/Dockerfile's stamp. Deliberately the
             last thing on the screen and deliberately plain: nobody is
             looking for it until something is wrong, and then it is the
             first thing worth asking for. A version the app reports about
@@ -925,8 +927,7 @@ export function ProfileScreen({
   );
 }
 
-/** "dev" for a local run; CI stamps the release tag or the short SHA. */
-const APP_VERSION = process.env.EXPO_PUBLIC_APP_VERSION ?? 'dev';
+
 
 /* The published policy. A fixed public URL rather than an env var: it is
    the same document in every environment, it is not environment-specific
