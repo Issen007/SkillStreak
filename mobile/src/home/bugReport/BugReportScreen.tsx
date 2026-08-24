@@ -15,6 +15,7 @@ import type {
   BugReportScreen as BugReportScreenId,
   PlayerLocale,
 } from '../../api/types';
+import { APP_VERSION } from '../../appVersion';
 
 /** §9.2's hard cap. The input is *capped*, not validated-then-rejected —
  * a nine-year-old typing into a box that silently stops is a far better
@@ -47,7 +48,7 @@ const SCREENS: readonly BugReportScreenId[] = [
 
 /** Stamped at image-build time, same source as the version line on the
  * Profile screen itself. 'dev' for a local run. */
-const APP_VERSION = process.env.EXPO_PUBLIC_APP_VERSION ?? 'dev';
+
 
 function currentPlatform(): BugReportPlatform {
   if (Platform.OS === 'ios') return 'ios';

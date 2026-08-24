@@ -8,15 +8,13 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:3000",
-        "EXPO_PUBLIC_APP_VERSION": "dev"
+        "EXPO_PUBLIC_API_URL": "http://localhost:3000"
       }
     },
     "internal": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.55.71",
-        "EXPO_PUBLIC_APP_VERSION": "internal"
+        "EXPO_PUBLIC_API_URL": "http://192.168.55.71"
       },
       "android": {
         "buildType": "apk"
@@ -25,8 +23,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.skillstreak.xyz",
-        "EXPO_PUBLIC_APP_VERSION": "preview"
+        "EXPO_PUBLIC_API_URL": "https://api.skillstreak.xyz"
       },
       "android": {
         "buildType": "apk"
@@ -38,8 +35,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.skillstreak.xyz",
-        "EXPO_PUBLIC_APP_VERSION": "production"
+        "EXPO_PUBLIC_API_URL": "https://api.skillstreak.xyz"
       }
     }
   },
