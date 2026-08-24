@@ -112,7 +112,7 @@ Combined with §1.6, that means **neither store ships in the week of
 ~~Latest Android build is build 2, from 2026-08-17. iOS is on build 14.~~
 Both platforms have been rebuilt since. Current state:
 
-    ANDROID  build 8  (dd53c84, 2026-08-23)  — in sync
+    ANDROID  build 9  (316582a, 2026-08-24)  — in sync
     IOS      build 17 (31e6c27, 2026-08-23)  — behind, and cannot be rebuilt
                                                until 1 Sep (see §1.4)
 
@@ -236,15 +236,16 @@ is the honest finding, and it changes what the week is for.
 
 ### What is worth doing with it
 
-1. **Fix the build version stamp — and do it now, specifically because
-   iOS is frozen.** `eas.json` sets `EXPO_PUBLIC_APP_VERSION` to the
-   literal string `"production"`, so the profile screen's version line
-   reads "production" and every crash report's `client_app_version` says
-   the same. That defeats the column's whole purpose ("only since build
-   14") and blunts the check that exists because production once served
-   an internal-test image. It needs a real build to verify, iOS cannot
-   build, **and Android can** — so this week it can be fixed and proven,
-   and the first iOS build on 1 September gets it right.
+1. ~~Fix the build version stamp.~~ **DONE 2026-08-24** (`316582a`), and
+   proven the only way it could be: Android build 9 was downloaded and
+   `base/assets/app.config` — the file `expo-constants` actually reads at
+   runtime — inspected inside the shipped `.aab`. It carries
+   `"appVersion": "production-316582a"`, the real commit, and the old
+   literal `"production"` is gone from the JS bundle entirely.
+
+   The first iOS build on 1 September will therefore report its own
+   commit rather than the word "production", and so will every crash
+   report from it.
 2. **Prove the bug-report flow end to end.** `bug_report` is empty. The
    console's own copy says it best: an empty queue and a broken reporting
    flow look identical. File one from the app before launch, not after.
