@@ -1106,6 +1106,25 @@ export class TrainingPlanNotFoundException extends AppException {
 }
 
 /** Every training-plan generator rejection, whatever the cause. */
+/**
+ * ADR-0035 — a draft was asked to become a trainer post before it had any
+ * text to become one from.
+ *
+ * 409 rather than 400: nothing about the request is malformed, the draft
+ * is simply in the wrong state and will very likely be in the right one
+ * in twenty seconds. The client can retry the identical request, which is
+ * exactly what a conflict means and what a bad request does not.
+ */
+export class TrainingPlanNotReadyException extends AppException {
+  constructor() {
+    super(
+      'training_plan_not_ready',
+      'This session is still being written. Try again in a moment.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
 export class TrainingPlanWorkerUnauthorizedException extends AppException {
   constructor() {
     super(

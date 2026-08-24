@@ -8,7 +8,10 @@ import {
 } from './entities/training-plan-draft.entity';
 import { DrillLibraryService } from '../drills/drill-library.service';
 import { RequestTrainingPlanDto } from './dto/request-training-plan.dto';
-import { TrainingPlanNotFoundException } from '../common/errors/exceptions';
+import {
+  TrainingPlanNotFoundException,
+  TrainingPlanNotReadyException,
+} from '../common/errors/exceptions';
 
 /** What a coach sees. Never the lease id, never the raw failure. */
 export interface TrainingPlanView {
@@ -203,6 +206,39 @@ export class TrainingPlansService {
     });
     if (!draft) throw new TrainingPlanNotFoundException();
     return toView(draft);
+  }
+
+  /**
+   * ADR-0035 Decision 1/2 — confirms a draft is the caller's own and is
+   * finished, so the post created from it can carry honest provenance.
+   *
+   * Returns the row rather than a boolean: the caller needs the draft's
+   * id to record on the post, and asking twice would leave a window
+   * where the draft is deleted between the check and the write.
+   *
+   * `ready` only. A `queued`/`generating` draft has no text yet, and a
+   * `failed` one has nothing worth a reviewer's time — submitting either
+   * would put an empty post into the queue that guards children's
+   * screens, which is the queue least worth filling with noise.
+   */
+  async findSubmittableOwned(
+    staffAccountId: string,
+    id: string,
+  ): Promise<TrainingPlanDraft> {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      throw new TrainingPlanNotFoundException();
+    }
+    const draft = await this.draftRepository.findOne({
+      where: { id, staffAccountId },
+    });
+    // Same exception for "not yours" as for "does not exist" — a distinct
+    // error would confirm the existence of another account's draft, and
+    // this route is reachable by any pt-role account.
+    if (!draft) throw new TrainingPlanNotFoundException();
+    if (draft.status !== TrainingPlanStatus.READY) {
+      throw new TrainingPlanNotReadyException();
+    }
+    return draft;
   }
 
   /**

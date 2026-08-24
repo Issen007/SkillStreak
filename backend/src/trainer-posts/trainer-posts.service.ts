@@ -46,6 +46,21 @@ export interface TrainerPostAuthorView extends TrainerPostPublicView {
   status: TrainerPostStatus;
   rejectionReason: string | null;
   createdAt: string;
+  /**
+   * ADR-0035 Decision 3 — did this text start as a model draft.
+   *
+   * **On the author/reviewer view and deliberately NOT on
+   * `TrainerPostPublicView`.** The public view is what children read, and
+   * ADR-0035 leaves what a child is told to ux-designer and the project
+   * owner rather than settling it by default here. Adding the field to
+   * the reader's payload would settle it, quietly, in the direction
+   * nobody argued for.
+   *
+   * A boolean, not the draft id: the reviewer needs "read this one more
+   * carefully", and a uuid on that screen is noise that also invites
+   * someone to build a join the review does not need.
+   */
+  machineDrafted: boolean;
 }
 
 function toPublicView(post: TrainerPost): TrainerPostPublicView {
@@ -67,6 +82,7 @@ function toAuthorView(post: TrainerPost): TrainerPostAuthorView {
     status: post.status,
     rejectionReason: post.rejectionReason,
     createdAt: post.createdAt.toISOString(),
+    machineDrafted: post.sourceTrainingPlanDraftId !== null,
   };
 }
 
@@ -148,6 +164,15 @@ export class TrainerPostsService {
   async create(
     authorStaffAccountId: string,
     dto: CreateTrainerPostDto,
+    /**
+     * ADR-0035 Decision 3 — set when this post's text began as a model
+     * draft. An optional parameter rather than a field on the DTO,
+     * deliberately: it must be established by the server from a draft it
+     * has just verified the caller owns, never accepted from the request
+     * body. A caller that could set it could also *clear* it, and mark
+     * machine-drafted text as hand-written to a reviewer.
+     */
+    sourceTrainingPlanDraftId: string | null = null,
   ): Promise<TrainerPostAuthorView> {
     const input = {
       title: dto.title.trim(),
@@ -163,9 +188,15 @@ export class TrainerPostsService {
         locale: dto.locale ?? 'sv',
         ageBand: dto.ageBand ?? null,
         focus: dto.focus ?? null,
+        sourceTrainingPlanDraftId,
         // Always pending. There is no argument an author can pass that
         // publishes their own post, which is the point of the enum
         // having no author-controlled transition to `published`.
+        //
+        // ADR-0035 leans on exactly this: a machine-drafted post enters
+        // the same queue as any other and is published only by an
+        // explicit operator action. That is why Tier A reverses no ADR —
+        // there is still an adult between the model and the child.
         status: TrainerPostStatus.PENDING_REVIEW,
       }),
     );

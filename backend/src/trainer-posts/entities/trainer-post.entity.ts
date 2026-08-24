@@ -114,6 +114,31 @@ export class TrainerPost {
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
+  /**
+   * ADR-0035 Decision 3 — non-null means this post's text began as a
+   * model draft rather than as something a trainer typed.
+   *
+   * The column exists for the **reviewer**, not for bookkeeping: a person
+   * working through a queue reads human-written and machine-drafted text
+   * differently, and should be able to tell which is which. The operator
+   * review is the only control between this table and a child's screen,
+   * and hiding the distinction would degrade it.
+   *
+   * `ON DELETE SET NULL` (see the migration): ADR-0028 Decision 7's sweep
+   * deletes old drafts, and a published post must outlive its source.
+   *
+   * What a child reader is told — if anything — is deliberately NOT
+   * decided by this column's existence. ADR-0035 leaves that to
+   * ux-designer and the project owner, and notes that silence is also a
+   * choice.
+   */
+  @Column({
+    name: 'source_training_plan_draft_id',
+    type: 'uuid',
+    nullable: true,
+  })
+  sourceTrainingPlanDraftId!: string | null;
+
   @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
   publishedAt!: Date | null;
 }

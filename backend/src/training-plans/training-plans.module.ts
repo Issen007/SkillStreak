@@ -12,6 +12,7 @@ import { TrainingPlansService } from './training-plans.service';
 import { TrainingPlanRetentionService } from './training-plan-retention.service';
 import { ErrorLogModule } from '../error-log/error-log.module';
 import { RedisModule } from '../redis/redis.module';
+import { TrainerPostsModule } from '../trainer-posts/trainer-posts.module';
 
 /**
  * The coach training-plan generator (ADR-0028 Phase 1).
@@ -32,6 +33,11 @@ import { RedisModule } from '../redis/redis.module';
     // that came before it.
     ErrorLogModule,
     RedisModule,
+    // ADR-0035 Decision 1 — a verified draft becomes a `TrainerPost` and
+    // goes through the operator review that already exists, rather than
+    // this module growing a second review pipeline beside it. One
+    // direction only: trainer-posts knows nothing about training plans.
+    TrainerPostsModule,
   ],
   controllers: [
     TrainingPlansController,
