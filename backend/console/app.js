@@ -715,12 +715,38 @@
   /* One tip in the review queue. The body is rendered as escaped plain
    * text in a <pre> — it is text a stranger wrote and is about to be put
    * in front of children, so it is never parsed as markup. */
+  /* ADR-0035 Decision 3 — say when the text started as a model draft.
+   *
+   * The whole reason the provenance column exists. A reviewer working a
+   * queue reads human-written and machine-drafted text differently and
+   * should: a person writing from experience gets things wrong in ways
+   * that look wrong, and a model gets them wrong in ways that read
+   * fluently. Hiding the distinction would degrade the one control
+   * standing between this table and a child's screen.
+   *
+   * Rendered as a marker plus a sentence about what to actually do,
+   * rather than a bare label. "Machine-drafted" on its own tells a
+   * reviewer a fact and not a task, and at 9pm on a Sunday a fact is
+   * easy to skim past. */
+  function draftedMarker(post) {
+    if (!post.machineDrafted) return '';
+    return '<p style="margin:0 0 8px;font-size:13px;' +
+      'border-left:3px solid var(--accent);padding-left:8px">' +
+      '<strong>Drafted by the plan generator</strong>, then edited and ' +
+      'submitted by the trainer above &mdash; who is accountable for it ' +
+      'either way. Worth reading for the things a model gets confidently ' +
+      'wrong: an exercise that does not suit the age band, a number of ' +
+      'repetitions nobody would set, equipment a team will not have.' +
+      '</p>';
+  }
+
   function reviewCard(post, isPending) {
     return '<div class="card">' +
       '<h3 style="margin:0 0 4px;font-size:15px">' + esc(post.title) + '</h3>' +
       '<p class="muted" style="margin:0 0 8px">' + esc(post.authorByline) +
         (post.ageBand ? ' · ' + esc(ageBandLabel(post.ageBand)) : '') +
         (post.focus ? ' · ' + esc(focusLabel(post.focus)) : '') + '</p>' +
+      draftedMarker(post) +
       '<pre style="white-space:pre-wrap;font:inherit;margin:0 0 12px">' +
         esc(post.body) + '</pre>' +
       // Offered to the reviewer too, and arguably this is where it earns
@@ -2586,6 +2612,12 @@
             '<p class="muted" style="margin:0">Every tip is read here ' +
             'before players can see it. There is no automatic check — ' +
             'you are it.</p>' +
+            (pending.filter(function (p) { return p.machineDrafted; }).length
+              ? '<p class="muted" style="margin:8px 0 0">' +
+                pending.filter(function (p) { return p.machineDrafted; }).length +
+                ' of ' + pending.length + ' waiting started as a machine ' +
+                'draft. Each is marked below.</p>'
+              : '') +
             '<p id="reviewMsg" class="muted" style="margin:8px 0 0"></p>' +
           '</div>' +
           '<h3 style="margin:20px 0 8px;font-size:16px">Waiting for review</h3>' +
