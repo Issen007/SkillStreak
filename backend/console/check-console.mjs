@@ -15,6 +15,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -24,6 +25,30 @@ const html = readFileSync(join(here, 'index.html'), 'utf8');
 
 const failures = [];
 const note = (message) => failures.push(message);
+
+/**
+ * Does `app.js` parse at all.
+ *
+ * The obvious check, and it was missing — added 2026-08-24 after this
+ * script reported "Console checks passed" on a file with a function
+ * declaration inside an object literal. Every structural check below
+ * works on the source as TEXT, so a file that cannot run passes all of
+ * them cheerfully, which is worse than having no check: it ends the
+ * investigation.
+ *
+ * `new vm.Script` compiles without executing, so this needs no browser
+ * globals and cannot have side effects. It is the same move
+ * `site/tools/check-site-build.mjs` already makes for the marketing
+ * page's inline scripts; the console simply never got it.
+ */
+function checkParses() {
+  try {
+    new vm.Script(source, { filename: 'app.js' });
+  } catch (error) {
+    note(`app.js does not parse: ${error.message}`);
+  }
+}
+checkParses();
 
 /** Every `id: 'x'` inside the NAV declaration. */
 function navIds() {
@@ -157,6 +182,6 @@ if (failures.length) {
 }
 
 console.log(
-  `Console checks passed: ${nav.length} nav tabs, ${views.length} views, ` +
-    `${emitted.size} classes.`,
+  `Console checks passed: app.js parses, ${nav.length} nav tabs, ` +
+    `${views.length} views, ${emitted.size} classes.`,
 );
