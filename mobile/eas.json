@@ -55,6 +55,12 @@
         "serviceAccountKeyPath": "../secrets/play-service-account.json",
         "track": "internal"
       }
+    },
+    "closed": {
+      "android": {
+        "serviceAccountKeyPath": "../secrets/play-service-account.json",
+        "track": "alpha"
+      }
     }
   }
 }

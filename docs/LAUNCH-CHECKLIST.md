@@ -126,10 +126,21 @@ be compressed by working harder.
 
 `docs/RELEASING.md` §3: Google requires newer **personal** developer
 accounts to run a closed test with **~12 testers over 14 continuous days**
-before production access is granted at all. `secrets/play-service-account
-.json` does not exist in this working tree, so no build has ever been
-submitted to a Play track from here — which suggests that clock has not
-started.
+before production access is granted at all.
+
+**Play account created 2026-08-24** (project owner), which clears the
+prerequisite. Two things still stand between here and a running clock:
+
+- `secrets/play-service-account.json` does not exist yet. See
+  `docs/RELEASING.md` for the two-console setup — it is deliberately the
+  owner's own job, because the output is a live release credential.
+- The submit has to go to the **closed** track (`alpha`), not `internal`.
+  Internal testing installs in minutes and starts no clock at all, which
+  is the easy and expensive mistake here. `eas.json` now carries a
+  `closed` submit profile for exactly this.
+
+Android build 8 already carries everything and is ready to go to a track
+the moment the credential exists.
 
 **If it has not, Google Play cannot ship next week**, whatever state the
 code reaches. That is not a reason to slow anything down; it is a reason
