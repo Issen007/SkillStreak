@@ -270,6 +270,19 @@ and are, without exception, things only the project owner can do.
   the one mobile check whose failures are crashes rather than opinions.
   Promoting it to required is a GitHub branch-protection setting, not a
   repo change.
+- **The bounce mailbox is configured and working in production**, checked
+  2026-08-24 against the running pod rather than the manifests: all six
+  `BOUNCE_IMAP_*` values reach the process, one replica claims the hourly
+  run and the other stands down, and `error_log_entry` holds zero
+  job-source rows in its entire history — so `drainMailbox` has never
+  thrown, which means IMAP is authenticating. (A CI log warning that says
+  otherwise is the test environment, where the values are deliberately
+  unset.)
+
+  It had to be inferred from the *absence* of error rows, because an empty
+  poll logged nothing. Fixed the same day: it now logs one line per run
+  naming the mailbox it polled, so silence is evidence rather than
+  ambiguity — the same fix its sibling reminder job got on 2026-08-23.
 - **The monthly sharing-consent reminder has never fired in production.**
   It is ADR-0030 Decision 5's only recurring control. With consent
   currently revoked it will not fire at all until sharing is switched back

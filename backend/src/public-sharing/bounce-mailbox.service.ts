@@ -96,6 +96,23 @@ export class BounceMailboxService {
   }
 
   /**
+   * Which mailbox the heartbeat says it polled.
+   *
+   * The user and mailbox, never the host and never the password — enough
+   * that an operator reading "mailbox empty" can tell WHICH mailbox was
+   * empty, which is the difference between the line being reassuring and
+   * it being noise. A heartbeat naming nothing would confirm the cron
+   * fired and still leave "but is it pointed at the right inbox?" open,
+   * and pointing at the wrong inbox looks exactly like no bounces.
+   */
+  private mailboxDescription(): string {
+    const user = this.configService.get<string>('BOUNCE_IMAP_USER') ?? '?';
+    const mailbox =
+      this.configService.get<string>('BOUNCE_IMAP_MAILBOX') ?? 'INBOX';
+    return `${user}/${mailbox}`;
+  }
+
+  /**
    * Hourly rather than daily.
    *
    * A bounce is the input to a control that disables a live consent, and
@@ -149,6 +166,29 @@ export class BounceMailboxService {
         });
       }
 
+      // **One line per run, empty mailbox or not.**
+      //
+      // This used to log only when `summary.messages > 0`, which is the
+      // rare case — an empty mailbox is the normal, healthy state, and it
+      // produced no output at all. So "polled, nothing there" and "the
+      // cron stopped firing" were the same observation: silence.
+      //
+      // That matters more here than it looks. This poll is the only thing
+      // in the system that can observe a bounce, and a bounce is what
+      // disables a consent behind a dead parent address (ADR-0030
+      // Decision 5). While it is quietly not running, that control is not
+      // running either, and nothing anywhere says so.
+      //
+      // Found 2026-08-24 by reading production logs: every hour one
+      // replica logged "another replica already claimed this run" and the
+      // winner logged nothing whatsoever. It was in fact working — no job
+      // has ever recorded a failure, so `drainMailbox` has never thrown —
+      // but that had to be inferred from the ABSENCE of error rows, which
+      // is not a thing anyone should have to reason about at 3am.
+      //
+      // The sibling PublicSharingReminderService got exactly this fix on
+      // 2026-08-23 for exactly this reason. The two jobs are one control
+      // between them and only one of them was made observable.
       if (summary.messages > 0) {
         this.logger.log(
           `Bounce intake: ${summary.messages} message(s), ` +
@@ -159,6 +199,10 @@ export class BounceMailboxService {
             `${summary.skipped} skipped, ` +
             `${summary.stuck} stuck, ` +
             `${summary.disabled} consent(s) disabled.`,
+        );
+      } else {
+        this.logger.log(
+          `Bounce intake: mailbox empty (${this.mailboxDescription()}).`,
         );
       }
     } catch (error) {
