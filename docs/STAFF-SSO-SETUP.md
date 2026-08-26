@@ -48,6 +48,17 @@ Outlook and who may sign in with either.
 4. **Certificates & secrets → New client secret.** Copy the **Value**,
    not the Secret ID — they sit next to each other and the ID is the one
    that silently does not work.
+
+   **This is not a hypothetical warning.** It happened on the first
+   attempt, 2026-08-26, and cost an afternoon. The tell, if you want to
+   check what you pasted without revealing it: a Secret **ID** is a
+   36-character UUID (`8-4-4-4-12` hex with dashes); a secret **Value** is
+   around 40 characters of mixed case with `~`, `.` and `-` in it, and is
+   never a UUID. If your stored secret looks like a UUID, it is the wrong
+   field.
+
+   Azure shows the Value once. If you navigated away, you cannot retrieve
+   it — delete that secret and create a new one.
 5. Scopes are `openid email profile`, which are default and need no admin
    consent. Nothing to configure.
 
