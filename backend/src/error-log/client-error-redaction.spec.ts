@@ -72,4 +72,35 @@ describe('redactClientText', () => {
     expect(redacted).not.toContain('6f9619ff');
     expect(redacted).toContain('at renderClip (ClipCard.tsx:42:9)');
   });
+
+  /**
+   * Found by the 2026-08-26 security review, not by writing this file.
+   *
+   * The path-anchored pattern above missed the shape that matters most:
+   * the team invite link the app builds and shares is
+   * `<site>/?code=ABCD2345`. And a team invite code is worse than the
+   * mailed codes this scrubber was written for — `Team.invite_code` has
+   * no expiry and no single-use semantics, so it is a durable credential
+   * for joining a team.
+   */
+  it('removes a team invite code from a query string, not just a path', () => {
+    const real =
+      'Network request failed: GET https://skillstreak.xyz/?code=GSK2777S';
+
+    const redacted = redactClientText(real);
+
+    expect(redacted).not.toContain('GSK2777S');
+    expect(redacted).toContain('?code=(code redacted)');
+  });
+
+  it('removes a token query parameter too', () => {
+    expect(
+      redactClientText('https://skillstreak.xyz/x?foo=1&token=ABCD2345'),
+    ).toBe('https://skillstreak.xyz/x?foo=1&token=(code redacted)');
+  });
+
+  it('leaves an ordinary query value alone', () => {
+    const ordinary = 'GET /api/v1/teams?limit=20&sort=name';
+    expect(redactClientText(ordinary)).toBe(ordinary);
+  });
 });

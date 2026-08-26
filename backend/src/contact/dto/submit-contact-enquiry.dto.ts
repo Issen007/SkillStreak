@@ -18,6 +18,29 @@ const trimmed = ({ value }: TransformFnParams): unknown =>
   typeof value === 'string' ? value.trim() : value;
 
 /**
+ * Trim, and additionally strip CR/LF from anything that reaches a mail
+ * HEADER rather than a body.
+ *
+ * `name` and `organisation` are interpolated into the message subject.
+ * `trim()` removes leading and trailing whitespace and leaves an interior
+ * `\r\n` untouched, so `"Anna\r\nBcc: victim@example.net"` survives it —
+ * the textbook header-injection shape.
+ *
+ * **It is not currently exploitable**, checked rather than assumed during
+ * the 2026-08-26 review: nodemailer RFC-2047-encodes the subject, so the
+ * CRLF becomes a space inside an encoded word and no second header is
+ * emitted. Verified by sending through a stream transport and reading the
+ * raw headers.
+ *
+ * This exists anyway, because that defence belongs to a dependency rather
+ * than to us. A transport swap, or a future field that reaches a header
+ * through a path nodemailer does not encode, would reopen it silently. A
+ * newline in a person's name is worth nothing to keep.
+ */
+const headerSafe = ({ value }: TransformFnParams): unknown =>
+  typeof value === 'string' ? value.replace(/[\r\n]+/g, ' ').trim() : value;
+
+/**
  * A sponsorship or partnership enquiry from the public site.
  *
  * Adult-facing by construction: nothing on the child-facing surfaces links
@@ -30,7 +53,7 @@ export class SubmitContactEnquiryDto {
   @IsString()
   @MinLength(1)
   @MaxLength(120)
-  @Transform(trimmed)
+  @Transform(headerSafe)
   name!: string;
 
   @IsEmail()
@@ -41,7 +64,7 @@ export class SubmitContactEnquiryDto {
   @IsOptional()
   @IsString()
   @MaxLength(160)
-  @Transform(trimmed)
+  @Transform(headerSafe)
   organisation?: string;
 
   @IsString()
