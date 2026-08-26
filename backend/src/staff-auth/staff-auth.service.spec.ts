@@ -1,7 +1,10 @@
+import { errors as oidcErrors } from 'openid-client';
 import {
   StaffAccountRevokedException,
   StaffOAuthCallbackRejectedException,
   StaffOAuthPendingAuthInvalidException,
+  StaffOAuthProviderRejectedException,
+  StaffOAuthResponseInvalidException,
   StaffOAuthStateMismatchException,
 } from '../common/errors/exceptions';
 import {
@@ -671,6 +674,69 @@ describe('StaffAuthService', () => {
       expect(staffAccountRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ revokedAt }),
       );
+    });
+  });
+
+  /**
+   * Which callback failure it was.
+   *
+   * Added after a real Microsoft misconfiguration on 2026-08-26 produced a
+   * generic `oauth_callback_rejected` and an error-log row containing
+   * nothing else. The provider had explained itself — "AADSTS7000215:
+   * Invalid client secret provided" — and a bare `catch {}` dropped it, so
+   * the cause was found by inspecting the shape of the stored secret
+   * instead. That is not a procedure anyone should need.
+   *
+   * These assert the CLASS, because that is what reaches
+   * `error_log_entry.error_name` and the admin console. The message stays
+   * generic on the wire and the last test pins that down.
+   */
+  describe('completeLogin: telling the two callback failures apart', () => {
+    function rejectCallbackWith(error: unknown) {
+      const built = buildService();
+      built.pendingStaffAuthService.verify.mockResolvedValue({
+        provider: StaffAuthProvider.GOOGLE,
+        state: 'expected-state',
+        nonce: 'expected-nonce',
+        codeVerifier: 'expected-verifier',
+      });
+      built.client.callback.mockRejectedValue(error);
+      return built.service.completeLogin(
+        StaffAuthProvider.GOOGLE,
+        'pending-cookie',
+        { state: 'expected-state', code: 'auth-code' },
+      );
+    }
+
+    it('reports a provider refusal distinctly — it is almost always our config', async () => {
+      await expect(
+        rejectCallbackWith(
+          new oidcErrors.OPError({
+            error: 'invalid_client',
+            error_description: 'AADSTS7000215: Invalid client secret provided.',
+          }),
+        ),
+      ).rejects.toBeInstanceOf(StaffOAuthProviderRejectedException);
+    });
+
+    it('reports a response that did not validate distinctly — usually a stale tab', async () => {
+      await expect(
+        rejectCallbackWith(
+          new oidcErrors.RPError({ message: 'nonce mismatch' }),
+        ),
+      ).rejects.toBeInstanceOf(StaffOAuthResponseInvalidException);
+    });
+
+    // Both stay one thing on the wire. Telling an unauthenticated caller
+    // that our client secret is wrong describes our configuration to them
+    // for nothing in return.
+    it('keeps one generic code for both', async () => {
+      const thrown: unknown = await rejectCallbackWith(
+        new oidcErrors.OPError({ error: 'invalid_client' }),
+      ).catch((e: unknown) => e);
+
+      expect(thrown).toBeInstanceOf(StaffOAuthCallbackRejectedException);
+      expect((thrown as { code: string }).code).toBe('oauth_callback_rejected');
     });
   });
 });

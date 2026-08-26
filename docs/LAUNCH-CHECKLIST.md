@@ -262,6 +262,36 @@ and are, without exception, things only the project owner can do.
 
 ---
 
+## 2.6 Trainer sign-in coverage — Google only, and capped
+
+Verified against production 2026-08-24:
+`GET /api/v1/staff-auth/providers` returns `{"providers":["google"]}`.
+Apple and Microsoft are empty in the live Secret and their buttons
+correctly answer 503 rather than offering something broken.
+
+Two consequences for opening trainer signup:
+
+- **A trainer without a Google account cannot sign in at all.** Outlook
+  is common in Swedish clubs, so this is real coverage, not an edge case.
+- **The Google consent screen is believed to still be in Testing mode**
+  (~100 users, effectively a manual allowlist — see the owner's own to-do
+  list in `BACKLOG.md`). If so, even a Google-holding trainer cannot sign
+  in until their address is added by hand. **This is worth confirming
+  before launch**, because from the trainer's side it fails silently.
+
+**No code is needed for Microsoft or Apple.** All three providers are
+implemented, CI passes all eight keys into the cluster Secret, and the
+deployment maps them into the pod — checked, not assumed. Only the
+secrets have never been set. Steps are in `docs/STAFF-SSO-SETUP.md`.
+
+Worth doing before any new auth mechanism is built: it is the largest
+coverage gain available for portal work alone, and ADR-0023 Part B's
+"SSO only, no custom password, no custom email-OTP MFA" was the project
+owner's own recorded decision, so replacing it is a reversal rather than
+a gap.
+
+---
+
 ## 3. Not blocking, worth knowing
 
 - **Helm chart** — still the one unchecked Fas 4 item. The plain manifests

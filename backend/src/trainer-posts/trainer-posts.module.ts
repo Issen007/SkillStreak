@@ -34,5 +34,10 @@ import { TrainerPostsService } from './trainer-posts.service';
     TrainerFeedController,
   ],
   providers: [TrainerPostsService],
+  // Exported for TrainingPlansModule (ADR-0035 Decision 1), which hands a
+  // verified draft into this module's existing review queue. The service
+  // only — the controllers stay private, so importing this never means
+  // importing an endpoint.
+  exports: [TrainerPostsService],
 })
 export class TrainerPostsModule {}

@@ -239,4 +239,68 @@ describe('TrainerPostsService', () => {
       );
     });
   });
+
+  /**
+   * ADR-0035 Decision 3 — provenance reaches the reviewer and stops
+   * there.
+   *
+   * The third test is the one that matters. `TrainerPostPublicView` is
+   * what children read, and the ADR deliberately leaves "what is a child
+   * told about machine-drafted text" open for ux-designer and the
+   * project owner. Leaking the flag into the reader's payload would
+   * settle that question quietly, by accident, in the direction nobody
+   * argued for.
+   */
+  describe('machine-drafted provenance (ADR-0035)', () => {
+    /** `save.mock.calls` is `any[]`; narrowed once so the assertions
+     *  below are actually type-checked rather than silently `any`. */
+    const savedPost = (): Partial<TrainerPost> => {
+      const calls = save.mock.calls as unknown as Partial<TrainerPost>[][];
+      return calls[0][0];
+    };
+
+    it('marks a post machine-drafted when it came from a plan draft', async () => {
+      const view = await service.create(AUTHOR, valid, 'draft-9');
+
+      expect(view.machineDrafted).toBe(true);
+      expect(savedPost().sourceTrainingPlanDraftId).toBe('draft-9');
+    });
+
+    it('marks a hand-written post as not machine-drafted', async () => {
+      const view = await service.create(AUTHOR, valid);
+
+      expect(view.machineDrafted).toBe(false);
+      expect(savedPost().sourceTrainingPlanDraftId).toBeNull();
+    });
+
+    it('still enters the review queue, exactly like any other post', async () => {
+      // The whole reason Tier A reverses no ADR: machine-drafted text
+      // gets no shortcut past the operator.
+      await service.create(AUTHOR, valid, 'draft-9');
+
+      expect(savedPost().status).toBe(TrainerPostStatus.PENDING_REVIEW);
+    });
+
+    it('never puts provenance in the payload children read', async () => {
+      find.mockResolvedValue([
+        {
+          id: POST_ID,
+          ...valid,
+          locale: 'sv',
+          ageBand: null,
+          focus: null,
+          status: TrainerPostStatus.PUBLISHED,
+          publishedAt: new Date('2026-08-24T10:00:00Z'),
+          createdAt: new Date('2026-08-24T09:00:00Z'),
+          rejectionReason: null,
+          sourceTrainingPlanDraftId: 'draft-9',
+        },
+      ]);
+
+      const [publicView] = await service.listPublished();
+
+      expect(publicView).not.toHaveProperty('machineDrafted');
+      expect(publicView).not.toHaveProperty('sourceTrainingPlanDraftId');
+    });
+  });
 });

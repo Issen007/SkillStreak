@@ -7,10 +7,17 @@ import { Repository } from 'typeorm';
 import {
   StaffAccountRevokedException,
   StaffOAuthCallbackRejectedException,
+  StaffOAuthProviderRejectedException,
+  StaffOAuthResponseInvalidException,
   StaffOAuthPendingAuthInvalidException,
   StaffOAuthStateMismatchException,
 } from '../common/errors/exceptions';
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
+// `OPError` means the identity provider itself returned an error rather
+// than our own validation failing — the one distinction that separates
+// "our client secret is wrong" from "that tab was stale".
+import { errors as oidcErrors } from 'openid-client';
+const { OPError } = oidcErrors;
 import { readAdminEmailAllowList } from './admin-email-allow-list.util';
 import {
   StaffAccount,
@@ -206,12 +213,36 @@ export class StaffAuthService {
         nonce: pending.nonce,
       });
       claims = tokenSet.claims();
-    } catch {
-      // openid-client itself rejects a nonce mismatch, an expired/replayed
-      // authorization code, or a PKCE verifier mismatch here (RPError/
-      // OPError) — surfaced uniformly, never echoing the library's own
-      // error text to the client.
-      throw new StaffOAuthCallbackRejectedException();
+    } catch (error) {
+      // openid-client rejects a nonce mismatch, an expired/replayed
+      // authorization code, or a PKCE verifier mismatch here (RPError),
+      // and surfaces a provider-side refusal at the token exchange as an
+      // OPError. The client still gets one generic message either way and
+      // never the library's own error text.
+      //
+      // **This used to be a bare `catch {}` and the difference cost a
+      // real afternoon.** On 2026-08-26 a first Microsoft sign-in failed,
+      // and the only record anywhere was an `error_log_entry` row
+      // containing the generic wire message — the underlying
+      // "AADSTS7000215: Invalid client secret provided" was caught and
+      // dropped. The cause was eventually found by inspecting the *shape*
+      // of the stored secret (a 36-character UUID, i.e. Azure's Secret ID
+      // rather than its Value), which is not a procedure anyone should
+      // need for a misconfiguration the provider had already explained.
+      //
+      // So the reason is logged server-side, and the class carries the
+      // split into `error_log_entry.error_name` where the admin console
+      // shows it. An OPError is nearly always our configuration; an
+      // RPError is nearly always a stale tab.
+      const isProviderRejection = error instanceof OPError;
+      this.logger.warn(
+        `${provider} OAuth callback rejected (` +
+          `${isProviderRejection ? 'provider refused' : 'response did not validate'}): ` +
+          (error instanceof Error ? error.message : String(error)),
+      );
+      throw isProviderRejection
+        ? new StaffOAuthProviderRejectedException()
+        : new StaffOAuthResponseInvalidException();
     }
 
     // A step-up flow is only satisfied by a genuinely fresh

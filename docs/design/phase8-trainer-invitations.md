@@ -162,6 +162,80 @@ grant it.
 
 ---
 
+## Channel 4 — the trainer asks first (raised by the project owner, 2026-08-26)
+
+*"That should be something the trainer can generate in advance and
+recommend to their future teams."*
+
+Raised after signing in as a brand-new trainer and hitting
+`drill_library_requires_team_link` — which is the gate working, and also
+the whole new-trainer experience: sign in, and every useful tab is shut
+until somebody else acts. A trainer approaching a club has nothing to
+hand them.
+
+**This does not break Decision A2, and the section above is why.** The
+invariant is that children are never the browsable side, not that a
+trainer must be passive. A trainer handing a club their own reference
+exposes no child and lets no adult search anything.
+
+But **the deciding act must stay with the team**, and that is the detail
+that separates a good version from a bad one:
+
+- **Bad: a trainer-generated code the captain redeems.** The link is
+  created by the captain typing what an adult told them to type. The
+  captain is a child, and a child following an instruction is compliance,
+  not a decision. It also inverts today's meaning, where generating a
+  code is the team affirmatively deciding it wants a trainer *before*
+  anything exists.
+- **Good: a trainer-generated invitation the team accepts.** The same
+  invitation object channels 1-3 already converge on, created from the
+  other end. The trainer hands over a reference; the captain sees a
+  pending request naming who it is and what they would be able to see,
+  and accepts or declines. Nothing exists until the team says yes, and a
+  decline is recorded rather than silent.
+
+The second is barely more work than the first once the invitation object
+exists, and it is the difference between a team choosing and a child
+complying.
+
+### What still has to be answered
+
+**Verification, and it bites harder here than anywhere else in this
+document.** The section above says an unknown trainer is exactly where
+"is this person actually a coach?" matters and nothing in the system
+answers it. A trainer-initiated request is that case by construction: the
+trainer arrives first, so the club's own knowledge cannot be assumed the
+way it can when a captain has already decided to invite someone.
+
+Two honest mitigations already in place, worth stating so this is not
+read as more dangerous than it is: a team link alone still exposes almost
+nothing (team aggregates, screen names, consent status), and every piece
+of a child's data still needs that family's separate approval.
+
+So the scope that is safe now, and the scope that is not:
+
+- **Safe now: a known trainer approaching a club that already knows
+  them.** The reference is a business card, and the out-of-band vouching
+  that makes today's flow safe still happens — it just happens in a
+  conversation rather than through the direction of a code.
+- **Not yet: a stranger with a link.** That is the directory case wearing
+  different clothes, and it needs the verification work first.
+
+Nothing in the mechanism distinguishes those two, which means the
+distinction has to be carried by how the invitation is delivered and by
+what the captain is shown before accepting — a `ux-designer` question,
+not a schema one.
+
+### Needs
+
+An **ADR-0023 amendment** (this changes A2's mechanics, not just its
+plumbing), then **security-reviewer**, blocking, per CLAUDE.md. Best
+built alongside channel 2, since both need the same invitation object and
+the same accept/decline screen — building either alone means building it
+twice.
+
+---
+
 ## What is not decided
 
 - Whether declining should tell the team *who* declined, or only that the

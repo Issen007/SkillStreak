@@ -126,6 +126,19 @@
    * listed falls back to the raw code, which is ugly but honest: inventing
    * reassuring copy for an error we did not anticipate is worse. */
   var ERROR_COPY = {
+    /* The first thing a newly signed-in trainer sees, and until
+     * 2026-08-26 it read "Something went wrong
+     * (drill_library_requires_team_link)" — which to a floorball coach
+     * means the app is broken, not that they have one step left. The
+     * server's own message was already fine; this table simply had no
+     * entry, so the generic fallback won.
+     *
+     * Phrased as the next action rather than the rule. "Requires a team
+     * link" is our vocabulary; "ask your captain for a code" is theirs. */
+    drill_library_requires_team_link:
+      'A team needs to invite you before this opens. Ask the captain for ' +
+      'an 8-character code, then redeem it under My teams — the invitation ' +
+      'always travels from the team to you, never the other way.',
     pt_invite_code_invalid:
       'That code is not valid. Codes are 8 characters and can only be used ' +
       'once — ask the captain for a fresh one.',
@@ -715,12 +728,154 @@
   /* One tip in the review queue. The body is rendered as escaped plain
    * text in a <pre> — it is text a stranger wrote and is about to be put
    * in front of children, so it is never parsed as markup. */
+  /* ADR-0035 Decision 3 — say when the text started as a model draft.
+   *
+   * The whole reason the provenance column exists. A reviewer working a
+   * queue reads human-written and machine-drafted text differently and
+   * should: a person writing from experience gets things wrong in ways
+   * that look wrong, and a model gets them wrong in ways that read
+   * fluently. Hiding the distinction would degrade the one control
+   * standing between this table and a child's screen.
+   *
+   * Rendered as a marker plus a sentence about what to actually do,
+   * rather than a bare label. "Machine-drafted" on its own tells a
+   * reviewer a fact and not a task, and at 9pm on a Sunday a fact is
+   * easy to skim past. */
+  function draftedMarker(post) {
+    if (!post.machineDrafted) return '';
+    return '<p style="margin:0 0 8px;font-size:13px;' +
+      'border-left:3px solid var(--accent);padding-left:8px">' +
+      '<strong>Drafted by the plan generator</strong>, then edited and ' +
+      'submitted by the trainer above &mdash; who is accountable for it ' +
+      'either way. Worth reading for the things a model gets confidently ' +
+      'wrong: an exercise that does not suit the age band, a number of ' +
+      'repetitions nobody would set, equipment a team will not have.' +
+      '</p>';
+  }
+
+  /* ADR-0035 — turn a finished plan into a tip, for review.
+   *
+   * **The body is pre-filled with the model's text and is editable, and
+   * both halves of that are deliberate.** A blank box would be honest
+   * about authorship and would in practice be filled by pasting the same
+   * text unchanged, having read it no more closely. Pre-filling puts the
+   * words in front of the trainer in a box that invites changing them,
+   * which is the behaviour actually wanted.
+   *
+   * What the pre-fill cannot do is make anyone read. So `wireSubmitAsPost`
+   * notices when nothing was changed and asks a second time — the same
+   * two-tap pattern this console already uses for deletes, and for the
+   * same reason: the cost of one extra click is trivial next to the cost
+   * of the thing it makes you notice.
+   *
+   * Age band and focus default from the plan because the plan was
+   * generated for them; a trainer who wants different values can say so,
+   * but re-picking what they already told the generator is friction with
+   * nothing behind it. */
+  function submitAsPostCard(plan) {
+    return '<div class="card">' +
+      '<h3 style="margin:0 0 4px;font-size:15px">Turn this into a tip</h3>' +
+      '<p class="muted" style="margin:0 0 12px">Tips are read by every ' +
+      'player in the app, not just your team. An admin reads it before ' +
+      'anyone sees it, and they will be told it started as a machine ' +
+      'draft &mdash; but your name is on it, so edit it until it is ' +
+      'something you would say.</p>' +
+      '<p class="muted" style="margin:0 0 12px">No links, email addresses ' +
+      'or phone numbers.</p>' +
+      '<label for="sapTitle">Title</label>' +
+      '<input id="sapTitle" maxlength="120" autocomplete="off" ' +
+        'placeholder="Fem minuter teknik hemma">' +
+      '<label for="sapByline">How readers see you</label>' +
+      '<input id="sapByline" maxlength="80" autocomplete="off" ' +
+        'placeholder="Anna, tränare i Uppsala">' +
+      '<label for="sapBody">The tip</label>' +
+      '<textarea id="sapBody" rows="10" maxlength="4000">' +
+        esc(plan.generatedPlan || '') + '</textarea>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">' +
+        '<span><label for="sapAge">Age group</label>' +
+        '<select id="sapAge"><option value="">—</option>' +
+          DRILL_AGE_BANDS.map(function (b) {
+            return '<option value="' + esc(b) + '"' +
+              (b === plan.ageBand ? ' selected' : '') + '>' +
+              esc(ageBandLabel(b)) + '</option>';
+          }).join('') + '</select></span>' +
+        '<span><label for="sapFocus">Focus</label>' +
+        '<select id="sapFocus"><option value="">—</option>' +
+          DRILL_FOCUSES.map(function (f) {
+            return '<option value="' + esc(f) + '"' +
+              (f === plan.focus ? ' selected' : '') + '>' +
+              esc(focusLabel(f)) + '</option>';
+          }).join('') + '</select></span>' +
+      '</div>' +
+      '<p style="margin-top:12px">' +
+        '<button id="sapGo" class="primary">Send for review</button></p>' +
+      '<p id="sapMsg" class="muted"></p>' +
+      '</div>';
+  }
+
+  function wireSubmitAsPost(plan) {
+    var button = document.getElementById('sapGo');
+    if (!button) return;
+    var original = String(plan.generatedPlan || '').trim();
+
+    button.onclick = function () {
+      var msg = document.getElementById('sapMsg');
+      var body = {
+        title: document.getElementById('sapTitle').value.trim(),
+        authorByline: document.getElementById('sapByline').value.trim(),
+        body: document.getElementById('sapBody').value.trim(),
+        ageBand: document.getElementById('sapAge').value || undefined,
+        focus: document.getElementById('sapFocus').value || undefined,
+        locale: effectiveLang()
+      };
+
+      if (body.title.length < 4 || body.body.length < 20 ||
+          body.authorByline.length < 2) {
+        msg.className = 'err';
+        msg.textContent = 'A title, a byline and a few sentences, please.';
+        button.removeAttribute('data-armed');
+        button.textContent = 'Send for review';
+        return;
+      }
+
+      /* Nothing was changed. Not blocked — a plan can be right as
+       * written, and refusing would be this console deciding it knows
+       * better than the trainer. Asked once, because the difference
+       * between "I read it and it was good" and "I did not read it"
+       * is invisible from here and enormous to the child at the end. */
+      if (body.body === original && !button.getAttribute('data-armed')) {
+        button.setAttribute('data-armed', '1');
+        button.textContent = 'Send it unchanged';
+        msg.className = 'muted';
+        msg.textContent = 'This is the generated text, word for word. ' +
+          'If you have read it and it is right, send it — your name goes ' +
+          'on it either way.';
+        return;
+      }
+
+      msg.className = 'muted';
+      msg.textContent = 'Sending…';
+      button.disabled = true;
+      api.post('/api/v1/training-plans/' + encodeURIComponent(plan.id) +
+               '/submit-as-post', body)
+        .then(function () { go('posts'); })
+        .catch(function (err) {
+          msg.className = 'err';
+          msg.textContent = errorMessage(err);
+          button.disabled = false;
+          button.removeAttribute('data-armed');
+          button.textContent = 'Send for review';
+        });
+    };
+  }
+
   function reviewCard(post, isPending) {
     return '<div class="card">' +
       '<h3 style="margin:0 0 4px;font-size:15px">' + esc(post.title) + '</h3>' +
       '<p class="muted" style="margin:0 0 8px">' + esc(post.authorByline) +
         (post.ageBand ? ' · ' + esc(ageBandLabel(post.ageBand)) : '') +
         (post.focus ? ' · ' + esc(focusLabel(post.focus)) : '') + '</p>' +
+      draftedMarker(post) +
       '<pre style="white-space:pre-wrap;font:inherit;margin:0 0 12px">' +
         esc(post.body) + '</pre>' +
       // Offered to the reviewer too, and arguably this is where it earns
@@ -2415,7 +2570,10 @@
               'Written by ' + esc(p.modelId || '—') + ' from ' +
               esc(String(p.corpusVersion || '').split(':')[0] || '0') +
               ' drills. A draft — read it before you use it.</p></div>'
-            : '');
+            : '') +
+          (p.status === 'ready' ? submitAsPostCard(p) : '');
+
+        if (p.status === 'ready') wireSubmitAsPost(p);
       }).catch(function (e) { fail(view, e); });
     },
 
@@ -2586,6 +2744,12 @@
             '<p class="muted" style="margin:0">Every tip is read here ' +
             'before players can see it. There is no automatic check — ' +
             'you are it.</p>' +
+            (pending.filter(function (p) { return p.machineDrafted; }).length
+              ? '<p class="muted" style="margin:8px 0 0">' +
+                pending.filter(function (p) { return p.machineDrafted; }).length +
+                ' of ' + pending.length + ' waiting started as a machine ' +
+                'draft. Each is marked below.</p>'
+              : '') +
             '<p id="reviewMsg" class="muted" style="margin:8px 0 0"></p>' +
           '</div>' +
           '<h3 style="margin:20px 0 8px;font-size:16px">Waiting for review</h3>' +
@@ -3170,7 +3334,21 @@
 
   function fail(view, e) {
     if (e && e.unauthenticated) return start();
-    view.innerHTML = '<p class="err">' + esc(errorMessage(e)) + '</p>';
+
+    /* One error gets a way out rather than only an explanation.
+     *
+     * A trainer who has just signed in for the first time hits this on
+     * three tabs, and the fix is one screen away — so send them there
+     * instead of making them find it. `data-go` is handled by the
+     * delegated click listener above, so this needs no wiring.
+     *
+     * Deliberately only this code: a button on an arbitrary failure is
+     * a guess about what the reader should do next, and a wrong guess is
+     * worse than none. */
+    var action = errorCode(e) === 'drill_library_requires_team_link'
+      ? '<p><button class="primary" data-go="teams">Go to My teams</button></p>'
+      : '';
+    view.innerHTML = '<p class="err">' + esc(errorMessage(e)) + '</p>' + action;
   }
 
   el('logout').onclick = function () {

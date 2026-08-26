@@ -133,6 +133,7 @@ the answer was "no".
 | [docs/DEVELOPER.md](docs/DEVELOPER.md) | The codebase, explained — start here if you are going to work in it |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Running it locally |
 | [docs/RELEASING.md](docs/RELEASING.md) | Releases, app store submission, costs |
+| [docs/STAFF-SSO-SETUP.md](docs/STAFF-SSO-SETUP.md) | Turning on Microsoft/Apple sign-in for trainers |
 | [docs/api/phase1-contract.md](docs/api/phase1-contract.md) | The API contract between app and backend |
 | [docs/design/](docs/design/) | Style guide and screen flows |
 | [k8s/](k8s/) | Kubernetes manifests |

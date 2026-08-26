@@ -804,6 +804,43 @@ export class StaffOAuthCallbackRejectedException extends AppException {
   }
 }
 
+/**
+ * The two ways the OAuth callback fails, as distinct classes.
+ *
+ * Added 2026-08-26, after a real Microsoft misconfiguration produced
+ * `oauth_callback_rejected` and an `error_log_entry` row whose entire
+ * content was the generic wire message. The cause — Microsoft rejecting
+ * a bad client secret — was discarded by a bare `catch {}` and existed
+ * nowhere afterwards. The failure was diagnosed by inspecting the shape
+ * of the stored secret instead, which is not a procedure anyone should
+ * need.
+ *
+ * **The wire contract is deliberately unchanged**, exactly as with
+ * `StaffSessionMissing/Expired/Invalid`: both keep the
+ * `oauth_callback_rejected` code and the same generic message, and the
+ * distinction lives only in `error_log_entry.error_name`, which the admin
+ * console already shows. An unauthenticated caller learning whether our
+ * client secret is wrong tells them something about our configuration
+ * for nothing in return.
+ */
+
+/**
+ * The provider itself returned an error at the token exchange — an
+ * `OPError`. In practice: a wrong client secret, a revoked or expired
+ * one, or a grant the app registration does not permit. **This one is
+ * almost always our configuration, not the user**, which is why it is
+ * worth telling apart from the one below.
+ */
+export class StaffOAuthProviderRejectedException extends StaffOAuthCallbackRejectedException {}
+
+/**
+ * The response came back but did not validate — an `RPError`: a nonce or
+ * state mismatch, a replayed or expired authorization code, a PKCE
+ * verifier that does not match. Usually a stale tab, a back button, or a
+ * genuinely replayed callback rather than a misconfiguration.
+ */
+export class StaffOAuthResponseInvalidException extends StaffOAuthCallbackRejectedException {}
+
 // ADR-0013 Decision 4 — PlayersService.transferCaptaincy's new rejection:
 // a captain can no longer hand off onto a teammate who is themselves
 // already mid-erasure (requested or grace_period), closing the gap where
@@ -1106,6 +1143,25 @@ export class TrainingPlanNotFoundException extends AppException {
 }
 
 /** Every training-plan generator rejection, whatever the cause. */
+/**
+ * ADR-0035 — a draft was asked to become a trainer post before it had any
+ * text to become one from.
+ *
+ * 409 rather than 400: nothing about the request is malformed, the draft
+ * is simply in the wrong state and will very likely be in the right one
+ * in twenty seconds. The client can retry the identical request, which is
+ * exactly what a conflict means and what a bad request does not.
+ */
+export class TrainingPlanNotReadyException extends AppException {
+  constructor() {
+    super(
+      'training_plan_not_ready',
+      'This session is still being written. Try again in a moment.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
 export class TrainingPlanWorkerUnauthorizedException extends AppException {
   constructor() {
     super(
