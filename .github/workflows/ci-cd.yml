@@ -382,6 +382,7 @@ jobs:
             ':(exclude)mobile/**/*.md'
           )
           BEHIND=0
+          DEFERRALS=0
           for PLATFORM in $PLATFORMS; do
             BUILT_COMMIT=$(python3 -c "import json;print(json.load(open('$MARKER'))['builds']['$PLATFORM']['commit'])")
             BUILT_NUMBER=$(python3 -c "import json;print(json.load(open('$MARKER'))['builds']['$PLATFORM'].get('buildNumber',''))")
@@ -432,6 +433,7 @@ jobs:
             fi
 
             if [ "$DEFERRED" = yes ]; then
+              DEFERRALS=$((DEFERRALS + 1))
               WHY=$(python3 -c "import json;print(json.load(open('$MARKER'))['builds']['$PLATFORM'].get('buildsUnavailableReason','no reason recorded'))")
               echo "::warning::$PLATFORM is behind by $N commit(s) and cannot be built until $UNTIL ($WHY). Reported, not failed."
               echo ""
@@ -456,7 +458,16 @@ jobs:
           done
 
           if [ "$BEHIND" -eq 0 ]; then
-            echo "Every recorded platform is in sync."
+            # Say which of the two green outcomes this is. "Every platform
+            # is in sync" while one of them is three commits behind and
+            # merely deferred is a summary that contradicts the warning
+            # printed above it — and a check whose last line overstates
+            # its own result is how a deferral gets read as a pass.
+            if [ "$DEFERRALS" -gt 0 ]; then
+              echo "$DEFERRALS platform(s) behind but deferred; the rest are in sync."
+            else
+              echo "Every recorded platform is in sync."
+            fi
             exit 0
           fi
           echo ""
