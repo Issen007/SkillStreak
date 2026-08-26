@@ -123,6 +123,22 @@ that deploy has to restart the pods.
 An SMTP password was once correct in GitHub and absent from the cluster
 for three deploys because that order was assumed rather than checked.
 
+**And a green deploy did not used to mean restarted pods.** Found doing
+this for Microsoft on 2026-08-26: `kubectl apply` only rolls a Deployment
+whose *spec* changed, and on a same-commit run the image tag does not. So
+the dispatch run applied the new Secret, left both pods running two-day-old
+processes with an empty `MICROSOFT_OAUTH_CLIENT_ID`, and `rollout status`
+reported success — of the old ReplicaSet, which was indeed healthy. It
+took a manual `kubectl rollout restart deployment/api`.
+
+The deploy job now restarts `api` and `site` unconditionally, so this
+should not recur. If you are ever deploying a config change from a branch
+that predates that fix, restart by hand:
+
+```bash
+kubectl --context=skillstreak -n skillstreak rollout restart deployment/api
+```
+
 After the next merge to `main`, verify against the running API rather
 than the portal:
 
@@ -138,3 +154,30 @@ than broken.
 
 A provider that is listed but misconfigured fails at the callback, not at
 the button. Test each one by actually signing in.
+
+---
+
+## Microsoft: done 2026-08-26
+
+Secrets set, deployed, pods rolled, verified:
+
+```
+GET /api/v1/staff-auth/providers  ->  {"providers":["google","microsoft"]}
+GET /api/v1/staff-auth/microsoft/login  ->  302 to
+    login.microsoftonline.com/common/oauth2/v2.0/authorize
+    redirect_uri=https://api.skillstreak.xyz/api/v1/staff-auth/microsoft/callback
+    scope=openid email profile   response_type=code
+```
+
+Following that redirect returns Microsoft's own sign-in page, HTTP 200,
+**with no `AADSTS` error** — which is the useful signal: a wrong client id
+gives `AADSTS700016` and a mismatched redirect URI gives `AADSTS50011`,
+both on that page rather than at our callback.
+
+What that does **not** prove is a completed round trip, because finishing
+one means a real person entering a real Microsoft password. The remaining
+failure modes all surface at the callback rather than the button: a
+wrong client *secret*, or an account type the registration excludes. Sign
+in once for real before telling a trainer it works.
+
+Apple is still unset — its four secrets have never been created.

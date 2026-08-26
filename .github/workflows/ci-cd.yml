@@ -999,6 +999,39 @@ jobs:
           kubectl apply -f k8s/api-deployment.yaml
           kubectl apply -f k8s/site-deployment.yaml
 
+      # Make the pods actually pick up config, not just the image.
+      #
+      # `kubectl apply` above only rolls a Deployment when its *spec*
+      # changes, and on a same-commit run the image tag does not — so a
+      # deploy triggered purely to ship a changed Secret or ConfigMap
+      # applies the new values and leaves every pod running the old ones.
+      # Pods read env at start; nothing re-reads a Secret.
+      #
+      # That is not a hypothetical. `workflow_dispatch` exists on this
+      # workflow *specifically* for "a GitHub secret update" (see its own
+      # comment at the top), and on 2026-08-26 a dispatch run for exactly
+      # that reported a green deploy while `MICROSOFT_OAUTH_CLIENT_ID`
+      # stayed empty in both running pods — the Secret had it, the
+      # processes did not, and `rollout status` cheerfully confirmed the
+      # two-day-old ReplicaSet was healthy. It needed a manual
+      # `rollout restart`. This is the same shape as the SMTP password
+      # that was correct in GitHub and absent from the cluster for three
+      # deploys.
+      #
+      # Restarting unconditionally is deliberate over trying to detect
+      # whether anything changed. On an ordinary deploy the image changed
+      # too, and Kubernetes coalesces both into one rolling update rather
+      # than two, so the cost is nothing. On a config-only deploy it is
+      # the entire point.
+      #
+      # Only api and site: postgres, redis and minio read no application
+      # config and restarting a database to no purpose is how a quiet
+      # deploy becomes an incident.
+      - name: Roll api and site so config changes take effect
+        run: |
+          kubectl rollout restart deployment/api -n skillstreak
+          kubectl rollout restart deployment/site -n skillstreak
+
       - name: Verify Rollout Status
         run: |
           kubectl rollout status deployment/postgres -n skillstreak
