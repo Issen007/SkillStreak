@@ -126,6 +126,19 @@
    * listed falls back to the raw code, which is ugly but honest: inventing
    * reassuring copy for an error we did not anticipate is worse. */
   var ERROR_COPY = {
+    /* The first thing a newly signed-in trainer sees, and until
+     * 2026-08-26 it read "Something went wrong
+     * (drill_library_requires_team_link)" — which to a floorball coach
+     * means the app is broken, not that they have one step left. The
+     * server's own message was already fine; this table simply had no
+     * entry, so the generic fallback won.
+     *
+     * Phrased as the next action rather than the rule. "Requires a team
+     * link" is our vocabulary; "ask your captain for a code" is theirs. */
+    drill_library_requires_team_link:
+      'A team needs to invite you before this opens. Ask the captain for ' +
+      'an 8-character code, then redeem it under My teams — the invitation ' +
+      'always travels from the team to you, never the other way.',
     pt_invite_code_invalid:
       'That code is not valid. Codes are 8 characters and can only be used ' +
       'once — ask the captain for a fresh one.',
@@ -3321,7 +3334,21 @@
 
   function fail(view, e) {
     if (e && e.unauthenticated) return start();
-    view.innerHTML = '<p class="err">' + esc(errorMessage(e)) + '</p>';
+
+    /* One error gets a way out rather than only an explanation.
+     *
+     * A trainer who has just signed in for the first time hits this on
+     * three tabs, and the fix is one screen away — so send them there
+     * instead of making them find it. `data-go` is handled by the
+     * delegated click listener above, so this needs no wiring.
+     *
+     * Deliberately only this code: a button on an arbitrary failure is
+     * a guess about what the reader should do next, and a wrong guess is
+     * worse than none. */
+    var action = errorCode(e) === 'drill_library_requires_team_link'
+      ? '<p><button class="primary" data-go="teams">Go to My teams</button></p>'
+      : '';
+    view.innerHTML = '<p class="err">' + esc(errorMessage(e)) + '</p>' + action;
   }
 
   el('logout').onclick = function () {
