@@ -16,6 +16,7 @@ import { ClipRetentionService } from './clip-retention.service';
 import { ClipReport } from './entities/clip-report.entity';
 import { VideoClip } from './entities/video-clip.entity';
 import { ObjectStorageService } from './object-storage.service';
+import { StaffAuthModule } from '../staff-auth/staff-auth.module';
 import { AdminPublicClipReviewController } from './admin-public-clip-review.controller';
 import { AdminPublicClipReviewService } from './admin-public-clip-review.service';
 import { VideoClipsController } from './video-clips.controller';
@@ -57,6 +58,12 @@ import { VideoProcessingService } from './video-processing.service';
     ]),
     AuthModule,
     PlayersModule,
+    // For AdminAuthGuard on the public-clip review queue. Without it the
+    // guard cannot resolve StaffAuthGuard and the WHOLE APP fails to
+    // boot — which is exactly what happened on the first push: every
+    // unit test passed, because they construct services directly and
+    // never build the module graph, and every e2e failed at once.
+    StaffAuthModule,
     PlayerPrivateInfoModule,
     TeamsModule,
     RedisModule,
