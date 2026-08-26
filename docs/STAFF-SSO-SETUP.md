@@ -185,10 +185,33 @@ Following that redirect returns Microsoft's own sign-in page, HTTP 200,
 gives `AADSTS700016` and a mismatched redirect URI gives `AADSTS50011`,
 both on that page rather than at our callback.
 
-What that does **not** prove is a completed round trip, because finishing
-one means a real person entering a real Microsoft password. The remaining
-failure modes all surface at the callback rather than the button: a
-wrong client *secret*, or an account type the registration excludes. Sign
-in once for real before telling a trainer it works.
+**A real sign-in completed at 08:23** — a `microsoft` staff account row
+exists with email and display name populated, and no callback error has
+been recorded since. Done.
+
+### It took two attempts, and the first one is the lesson
+
+The first attempt failed with `oauth_callback_rejected` because
+`MICROSOFT_OAUTH_CLIENT_SECRET` held Azure's Secret **ID** rather than its
+**Value** — see the warning in the Microsoft section above, which existed
+and still did not survive contact with two adjacent columns.
+
+Worth knowing for next time: the shape check catches it without anyone
+revealing a secret. 36 characters and UUID-shaped is the ID; ~40
+characters of mixed case with punctuation is the Value.
+
+### The role a new account gets
+
+Every account is created `pt` unless its email is in `ADMIN_EMAILS`,
+which currently holds one address. So **signing in with a second identity
+gives you a trainer account, not an admin one** — the Microsoft sign-in
+above produced `role=pt`. That is correct behaviour and is worth
+expecting rather than debugging: if you want that identity to be an
+admin, add its address to the `ADMIN_EMAILS` secret and redeploy.
+
+The role is also refreshed from the allow-list on every Google/Microsoft
+login, so adding the address is enough — no database edit.
+
+---
 
 Apple is still unset — its four secrets have never been created.
