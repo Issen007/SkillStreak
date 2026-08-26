@@ -214,4 +214,37 @@ login, so adding the address is enough — no database edit.
 
 ---
 
-Apple is still unset — its four secrets have never been created.
+## Apple: configured 2026-08-26
+
+All four secrets set, deployed, pods rolled by the deploy itself (the CI
+fix landed in between). Verified:
+
+```
+GET /api/v1/staff-auth/providers -> {"providers":["google","microsoft","apple"]}
+GET /api/v1/staff-auth/apple/login -> 302 to appleid.apple.com/auth/authorize
+    client_id=xyz.skillstreak.signin          <- the Services ID, not the bundle id
+    redirect_uri=https://api.skillstreak.xyz/api/v1/staff-auth/apple/callback
+    scope=openid email name   response_mode=form_post
+```
+
+Following that reaches Apple's own sign-in page, HTTP 200, no
+`invalid_client` or `redirect_uri_mismatch`.
+
+**The shapes were checked in the cluster before anyone attempted a
+sign-in**, which is the habit worth keeping from the Microsoft round —
+there, a wrong value was only discovered by a failed login and a
+subsequent hunt. Nothing about the check reveals a value:
+
+```
+APPLE_OAUTH_CLIENT_ID  22 chars, not the bundle id
+APPLE_TEAM_ID          matches mobile/eas.json
+APPLE_KEY_ID           10 chars, as Apple issues
+APPLE_PRIVATE_KEY      PEM markers present, literal \n escapes present,
+                       real newlines absent   <- the documented trap, avoided
+```
+
+Still unproven until a person signs in: the private key actually *signs* a
+client secret Apple accepts. That happens at the token exchange, and a bad
+key fails there rather than at the button. `StaffOAuthProviderRejectedException`
+now names that case in the error log, so a failure will say which half
+broke.
