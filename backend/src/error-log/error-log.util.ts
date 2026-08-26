@@ -219,6 +219,23 @@ const MAILED_CODE_IN_PATH =
   /\/[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}(?![0-9A-Za-z-])/g;
 
 /**
+ * The same 8-character alphabet, but as a `?code=`/`&token=` query value.
+ *
+ * Added 2026-08-26 by a security review of the client-error ingest, which
+ * found the path-anchored pattern above insufficient: the team invite link
+ * the app builds and shares is `<site>/?code=ABCD2345`, so a code in a
+ * query string sailed straight past it.
+ *
+ * That one matters more than the mailed codes this was written for.
+ * `Team.invite_code` is a plain unique column with **no expiry and no
+ * single-use semantics** — a durable credential for joining a team, not a
+ * short-lived link. A copy sitting in `error_log_entry` outlives whatever
+ * error produced it.
+ */
+const CODE_IN_QUERY =
+  /([?&](?:code|token)=)[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}(?![0-9A-Za-z-])/gi;
+
+/**
  * The narrow scrubber for text this codebase did not write.
  *
  * Server errors are authored here: a known set of exception classes with
@@ -252,5 +269,6 @@ const MAILED_CODE_IN_PATH =
 export function redactClientText(text: string): string {
   return text
     .replace(UUID_ANYWHERE, '(id redacted)')
-    .replace(MAILED_CODE_IN_PATH, '/(code redacted)');
+    .replace(MAILED_CODE_IN_PATH, '/(code redacted)')
+    .replace(CODE_IN_QUERY, '$1(code redacted)');
 }

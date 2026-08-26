@@ -1,4 +1,13 @@
-import { IsIn, IsOptional, IsString, Length } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Length,
+  Max,
+  Min,
+} from 'class-validator';
 import {
   DRILL_AGE_BANDS,
   DRILL_FOCUSES,
@@ -35,6 +44,21 @@ export class CreateTrainerPostDto {
   @IsOptional()
   @IsIn([...DRILL_FOCUSES])
   focus?: string;
+
+  /**
+   * Minutes, for a post that is a drill rather than a prose tip.
+   *
+   * Bounded the same way `CreateTrainingLogDto` bounds its own duration —
+   * a loose sanity check against garbage, not a product rule about how
+   * long a session may be. 180 is already implausible for a 9-year-old's
+   * drill and leaves no room to type a year into the field.
+   */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(180)
+  durationMinutes?: number;
 }
 
 export class RejectTrainerPostDto {

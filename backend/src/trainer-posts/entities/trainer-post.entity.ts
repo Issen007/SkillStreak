@@ -60,6 +60,16 @@ export class TrainerPost {
   @Column({ type: 'varchar', length: 32, nullable: true })
   focus!: string | null;
 
+  /**
+   * How long this takes to do, in minutes.
+   *
+   * The field that makes a post a drill rather than a tip (owner's ask,
+   * 2026-08-26). Nullable because a tip that is not a timed session has
+   * no honest answer, and because every row predating it has none.
+   */
+  @Column({ name: 'duration_minutes', type: 'smallint', nullable: true })
+  durationMinutes!: number | null;
+
   @Column({
     type: 'enum',
     enum: TrainerPostStatus,

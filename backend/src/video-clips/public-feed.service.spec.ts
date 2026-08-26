@@ -1,5 +1,9 @@
 import { Repository } from 'typeorm';
-import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
+import {
+  PublicClipReviewStatus,
+  VideoClip,
+  VideoClipStatus,
+} from './entities/video-clip.entity';
 import {
   PUBLIC_FEED_PAGE_SIZE,
   PublicFeedService,
@@ -74,12 +78,35 @@ function buildService() {
   return { service, captured, qb };
 }
 
-describe('PublicFeedService: the four gates', () => {
+describe('PublicFeedService: the gates', () => {
   it('requires the child to have published the clip', async () => {
     const { service, captured } = buildService();
     await service.list('viewer-1');
 
     expect(captured.sql).toContain('clip.published_publicly_at IS NOT NULL');
+  });
+
+  /**
+   * Gate 5 — docs/design/clip-safety.md layer 3. A person watched this.
+   *
+   * **This test exists because removing the clause it guards passed all
+   * twenty-one of the others.** The single line that makes operator
+   * review real was unguarded: the spec had a case for each of the four
+   * original gates and none for the fifth, so deleting it looked exactly
+   * like a clean test run.
+   *
+   * Asserts equality against `approved` rather than "not rejected",
+   * because a NULL status must be excluded too and SQL's NULL semantics
+   * are the classic way a negative filter quietly lets rows through.
+   */
+  it('requires an operator to have approved it', async () => {
+    const { service, captured } = buildService();
+    await service.list('viewer-1');
+
+    expect(captured.sql).toContain('clip.public_review_status = :approved');
+    expect(captured.params).toMatchObject({
+      approved: PublicClipReviewStatus.APPROVED,
+    });
   });
 
   it('joins the parent consent as an INNER JOIN on active', async () => {
@@ -217,7 +244,13 @@ function buildWrites(overrides: Record<string, unknown> = {}) {
 }
 
 describe('PublicFeedService.publish', () => {
-  it('publishes the uploader’s own clip when consent is active', async () => {
+  /**
+   * docs/design/clip-safety.md layer 3 — consent is necessary and no
+   * longer sufficient. This used to assert the clip went straight into
+   * the feed; it now asserts it enters a queue, which is the whole point
+   * of the change.
+   */
+  it('queues the uploader’s own clip for review when consent is active', async () => {
     const { service, clips, clip } = buildWrites();
 
     const result = await service.publish('player-1', clip.id);
@@ -225,7 +258,33 @@ describe('PublicFeedService.publish', () => {
     expect(result).toEqual({ clipId: clip.id, publishedPublicly: true });
     expect(clips.update).toHaveBeenCalledWith(
       { id: clip.id, uploaderPlayerId: 'player-1' },
-      { publishedPubliclyAt: expect.any(Date) as Date },
+      {
+        publishedPubliclyAt: expect.any(Date) as Date,
+        publicReviewStatus: PublicClipReviewStatus.PENDING,
+      },
+    );
+  });
+
+  /**
+   * A clip's bytes never change — there is no edit route and the file is
+   * written once at upload. So a re-publish after an un-publish is the
+   * same video a person already watched, and sending it round again costs
+   * the operator time and the child a wait, to re-establish a fact that
+   * has not changed.
+   */
+  it('does not re-queue a clip an operator already approved', async () => {
+    const { service, clips, clip } = buildWrites();
+    clip.publicReviewStatus = PublicClipReviewStatus.APPROVED;
+    clip.publishedPubliclyAt = null;
+
+    await service.publish('player-1', clip.id);
+
+    expect(clips.update).toHaveBeenCalledWith(
+      { id: clip.id, uploaderPlayerId: 'player-1' },
+      {
+        publishedPubliclyAt: expect.any(Date) as Date,
+        publicReviewStatus: PublicClipReviewStatus.APPROVED,
+      },
     );
   });
 

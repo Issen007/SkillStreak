@@ -14,7 +14,11 @@ import { ClipReactionType } from './entities/clip-reaction.entity';
 import { ClipReport, ClipReportReason } from './entities/clip-report.entity';
 import { ObjectStorageService } from './object-storage.service';
 import { CLIP_PLAYBACK_URL_EXPIRES_SECONDS } from './video-clip.constants';
-import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
+import {
+  PublicClipReviewStatus,
+  VideoClip,
+  VideoClipStatus,
+} from './entities/video-clip.entity';
 
 /** One card in the public feed. Deliberately small — see the class doc. */
 export interface PublicFeedItem {
@@ -176,7 +180,22 @@ export class PublicFeedService {
     if (!clip.publishedPubliclyAt) {
       await this.clips.update(
         { id: clip.id, uploaderPlayerId: requesterId },
-        { publishedPubliclyAt: new Date() },
+        {
+          publishedPubliclyAt: new Date(),
+          // docs/design/clip-safety.md layer 3 — the child's request now
+          // enters a queue rather than the feed.
+          //
+          // **An already-approved clip stays approved.** A clip's bytes
+          // never change: there is no edit route, and the file is written
+          // once at upload. So a re-publish after an un-publish is the
+          // same video a person already watched, and sending it round
+          // again would cost the operator time and the child a wait to
+          // re-establish a fact that has not changed.
+          publicReviewStatus:
+            clip.publicReviewStatus === PublicClipReviewStatus.APPROVED
+              ? PublicClipReviewStatus.APPROVED
+              : PublicClipReviewStatus.PENDING,
+        },
       );
     }
     return { clipId, publishedPublicly: true };
@@ -534,6 +553,17 @@ export class PublicFeedService {
         'player.avatar_id AS "avatarId"',
       ])
       .where('clip.published_publicly_at IS NOT NULL')
+      // Gate 5 — docs/design/clip-safety.md layer 3. A person watched
+      // this. Consent answers "may this child's video be shared"; it
+      // cannot answer "is this particular video fit to show strangers",
+      // and no parent should have to watch through our eyes to make it.
+      //
+      // An equality check rather than `!= 'rejected'`: a NULL status must
+      // not be visible either, and NULL comparisons in SQL are the
+      // classic way a negative filter quietly lets rows through.
+      .andWhere('clip.public_review_status = :approved', {
+        approved: PublicClipReviewStatus.APPROVED,
+      })
       .andWhere('clip.status = :published', {
         published: VideoClipStatus.PUBLISHED,
       })

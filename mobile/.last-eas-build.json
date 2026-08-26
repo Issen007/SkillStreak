@@ -15,8 +15,20 @@
     "",
     "Not authoritative, and honest about that: nothing stops a human editing",
     "this file without building. Adding an EXPO_TOKEN secret would let the",
-    "CI job query EAS directly and remove that gap — see the job's own",
-    "comment in .github/workflows/ci-cd.yml."
+    "CI job query EAS directly and remove that gap \u2014 see the job's own",
+    "comment in .github/workflows/ci-cd.yml.",
+    "",
+    "A platform may carry `buildsUnavailableUntil` (a date) and",
+    "`buildsUnavailableReason`. While that date is in the future, CI",
+    "reports its drift as a warning instead of failing \u2014 because a",
+    "platform that CANNOT be built has no action behind a red check,",
+    "and permanent red is exactly what taught everyone to ignore",
+    "expo-doctor.",
+    "",
+    "It expires by itself. Past the date the exemption stops applying",
+    "and the check fails again with nobody doing anything, so this",
+    "cannot rot into a permanent mute \u2014 which would be worse than the",
+    "red it replaces, because it would fail silently."
   ],
   "builds": {
     "ANDROID": {
@@ -31,7 +43,9 @@
       "commit": "31e6c276b6e0bac740c2c9af9dce195f14999464",
       "profile": "production",
       "buildNumber": "17",
-      "finishedAt": "2026-08-23"
+      "finishedAt": "2026-08-23",
+      "buildsUnavailableUntil": "2026-09-01",
+      "buildsUnavailableReason": "EAS free-plan iOS build quota exhausted; resets 1 September"
     }
   }
 }

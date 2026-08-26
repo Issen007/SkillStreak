@@ -382,6 +382,7 @@ jobs:
             ':(exclude)mobile/**/*.md'
           )
           BEHIND=0
+          DEFERRALS=0
           for PLATFORM in $PLATFORMS; do
             BUILT_COMMIT=$(python3 -c "import json;print(json.load(open('$MARKER'))['builds']['$PLATFORM']['commit'])")
             BUILT_NUMBER=$(python3 -c "import json;print(json.load(open('$MARKER'))['builds']['$PLATFORM'].get('buildNumber',''))")
@@ -400,6 +401,49 @@ jobs:
 
             COMMITS=$(git log --oneline "$BUILT_COMMIT"..HEAD -- mobile/ "${EXCLUDES[@]}")
             N=$(echo "$COMMITS" | grep -c . || true)
+
+            # A platform that CANNOT be built right now is reported, not
+            # failed — but only until a date it names itself.
+            #
+            # The iOS EAS quota runs out monthly. When it does, this job
+            # goes red on every single run and stays red until the reset,
+            # for a reason nobody can act on: no build can clear it. That
+            # is precisely the "permanent red teaches everyone to ignore
+            # it" failure that killed expo-doctor as a signal, and it had
+            # already made the merge button orange on three consecutive
+            # PRs.
+            #
+            # **Self-expiring, and that is the whole design.** The
+            # exemption lives in the marker file as a DATE. Past it the
+            # exemption simply stops applying and the job fails again with
+            # no action from anyone — so this cannot decay into a
+            # permanent mute, which would be worse than the permanent red
+            # it replaces because it would fail silent instead of loud.
+            #
+            # The drift is still printed in full either way. What changes
+            # is whether it blocks, never whether it is visible.
+            UNTIL=$(python3 -c "import json;print(json.load(open('$MARKER'))['builds']['$PLATFORM'].get('buildsUnavailableUntil',''))")
+            DEFERRED=no
+            if [ -n "$UNTIL" ]; then
+              if python3 -c "import datetime,sys;sys.exit(0 if datetime.date.today() < datetime.date.fromisoformat('$UNTIL') else 1)"; then
+                DEFERRED=yes
+              else
+                echo "::warning::$PLATFORM's build-unavailable window ended on $UNTIL. Remove buildsUnavailableUntil from $MARKER."
+              fi
+            fi
+
+            if [ "$DEFERRED" = yes ]; then
+              DEFERRALS=$((DEFERRALS + 1))
+              WHY=$(python3 -c "import json;print(json.load(open('$MARKER'))['builds']['$PLATFORM'].get('buildsUnavailableReason','no reason recorded'))")
+              echo "::warning::$PLATFORM is behind by $N commit(s) and cannot be built until $UNTIL ($WHY). Reported, not failed."
+              echo ""
+              echo "$COMMITS"
+              echo ""
+              echo "This becomes a failure again on $UNTIL with no action needed."
+              echo ""
+              continue
+            fi
+
             BEHIND=$((BEHIND + 1))
 
             echo "::error::$PLATFORM is behind: $N mobile commit(s) are in no installed $PLATFORM build."
@@ -414,7 +458,16 @@ jobs:
           done
 
           if [ "$BEHIND" -eq 0 ]; then
-            echo "Every recorded platform is in sync."
+            # Say which of the two green outcomes this is. "Every platform
+            # is in sync" while one of them is three commits behind and
+            # merely deferred is a summary that contradicts the warning
+            # printed above it — and a check whose last line overstates
+            # its own result is how a deferral gets read as a pass.
+            if [ "$DEFERRALS" -gt 0 ]; then
+              echo "$DEFERRALS platform(s) behind but deferred; the rest are in sync."
+            else
+              echo "Every recorded platform is in sync."
+            fi
             exit 0
           fi
           echo ""

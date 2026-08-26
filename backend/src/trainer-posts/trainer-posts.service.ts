@@ -38,6 +38,8 @@ export interface TrainerPostPublicView {
   locale: string;
   ageBand: string | null;
   focus: string | null;
+  /** Minutes, when the post is a drill rather than a prose tip. */
+  durationMinutes: number | null;
   publishedAt: string | null;
 }
 
@@ -72,6 +74,7 @@ function toPublicView(post: TrainerPost): TrainerPostPublicView {
     locale: post.locale,
     ageBand: post.ageBand,
     focus: post.focus,
+    durationMinutes: post.durationMinutes,
     publishedAt: post.publishedAt ? post.publishedAt.toISOString() : null,
   };
 }
@@ -188,6 +191,7 @@ export class TrainerPostsService {
         locale: dto.locale ?? 'sv',
         ageBand: dto.ageBand ?? null,
         focus: dto.focus ?? null,
+        durationMinutes: dto.durationMinutes ?? null,
         sourceTrainingPlanDraftId,
         // Always pending. There is no argument an author can pass that
         // publishes their own post, which is the point of the enum
