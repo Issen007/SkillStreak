@@ -16,6 +16,8 @@ import { ClipRetentionService } from './clip-retention.service';
 import { ClipReport } from './entities/clip-report.entity';
 import { VideoClip } from './entities/video-clip.entity';
 import { ObjectStorageService } from './object-storage.service';
+import { AdminPublicClipReviewController } from './admin-public-clip-review.controller';
+import { AdminPublicClipReviewService } from './admin-public-clip-review.service';
 import { VideoClipsController } from './video-clips.controller';
 import { VideoClipsService } from './video-clips.service';
 import { VideoProcessingService } from './video-processing.service';
@@ -64,12 +66,13 @@ import { VideoProcessingService } from './video-processing.service';
     ErrorLogModule,
     ModerationModule,
   ],
-  controllers: [VideoClipsController],
+  controllers: [VideoClipsController, AdminPublicClipReviewController],
   providers: [
     VideoClipsService,
     ObjectStorageService,
     VideoProcessingService,
     ClipRetentionService,
+    AdminPublicClipReviewService,
   ],
   // ObjectStorageService only, added for
   // docs/adr/0013-account-erasure.md — AccountErasureModule reuses

@@ -38,6 +38,16 @@ export enum VideoClipTaggingStatus {
 // NEVER accepted from a client on any endpoint (docs/api/phase3-contract.md
 // implementer note) — it's also never returned in any response; clients
 // only ever see presigned uploadUrl/playbackUrl.
+/**
+ * docs/design/clip-safety.md layer 3 — whether an operator has watched
+ * this clip. NULL means nobody ever asked for it to be public.
+ */
+export enum PublicClipReviewStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
 @Entity('video_clip')
 @Index('IDX_video_clip_team_status_created_at', [
   'teamId',
@@ -206,4 +216,44 @@ export class VideoClip {
     nullable: true,
   })
   publishedPubliclyAt!: Date | null;
+
+  /**
+   * Whether a person has watched this before strangers can.
+   *
+   * `published_publicly_at` says the CHILD asked; this says an operator
+   * agreed. The feed requires both, and keeping them separate is
+   * deliberate — un-publish, consent revocation and the retention sweep
+   * all key on the timestamp and must keep working untouched.
+   *
+   * Same four-column shape as `trainer_post`'s review, so the queue and
+   * the operator's habits are one thing rather than two that drift.
+   */
+  @Column({
+    name: 'public_review_status',
+    type: 'enum',
+    enum: PublicClipReviewStatus,
+    enumName: 'public_clip_review_status_enum',
+    nullable: true,
+  })
+  publicReviewStatus!: PublicClipReviewStatus | null;
+
+  @Column({ name: 'public_reviewed_at', type: 'timestamptz', nullable: true })
+  publicReviewedAt!: Date | null;
+
+  /** SET NULL: a reviewer leaving must not erase that a review happened. */
+  @Column({
+    name: 'public_reviewed_by_staff_account_id',
+    type: 'uuid',
+    nullable: true,
+  })
+  publicReviewedByStaffAccountId!: string | null;
+
+  /** Shown to the uploader so a refusal is actionable, never to viewers. */
+  @Column({
+    name: 'public_review_rejection_reason',
+    type: 'varchar',
+    length: 300,
+    nullable: true,
+  })
+  publicReviewRejectionReason!: string | null;
 }
