@@ -292,6 +292,42 @@ a gap.
 
 ---
 
+## 2.7 Clip safety — the gate before public sharing goes back on
+
+Raised by the project owner 2026-08-26, pointing at the
+Instagram/Snapchat/TikTok incidents and wanting to be clear before launch
+rather than after. Full reasoning in `docs/design/clip-safety.md`.
+
+**Not a launch blocker, because public sharing is currently switched
+off.** It becomes one the moment it is switched back on.
+
+The short version:
+
+- **The architecture is already most of the answer** — closed bubbles,
+  parental consent to upload, a second revocable consent to publish
+  beyond the team, a 60-second cap, and one report hiding a clip
+  instantly. Those exist because of decisions taken long before this
+  question was asked.
+- **Three risks being small does not fix**: a child uploading sexual
+  content of themselves (the most likely serious incident in a 9-13 app),
+  a child uploading content of another child, and someone using the
+  platform as storage for known material.
+- **The highest-value fix needs no AI**: put a human in front of the
+  public path. Volume is a few clips a week and `trainer_post`'s
+  operator-review queue already does exactly this job. Nothing would
+  reach a stranger that nobody had watched.
+- **Known-CSAM hash matching is the one thing not to self-build and not
+  to skip**, and it collides with ADR-0028's "self-hosted only" — a
+  decision made about tagging, for GDPR reasons, where the trade is
+  different. There is no self-hosted substitute: the hash databases are
+  the product. Refusing is a legitimate choice; refusing by accident is
+  not.
+- **The DSA applies**, and the procedure for the day something is found
+  is worth writing before it is needed. Both want the same lawyer's hour
+  as the privacy policy in §1.1.
+
+---
+
 ## 3. Not blocking, worth knowing
 
 - **Helm chart** — still the one unchecked Fas 4 item. The plain manifests
