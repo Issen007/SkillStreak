@@ -17,6 +17,9 @@ import { ClipReport } from './entities/clip-report.entity';
 import { VideoClip } from './entities/video-clip.entity';
 import { ObjectStorageService } from './object-storage.service';
 import { StaffAuthModule } from '../staff-auth/staff-auth.module';
+import { AdminClipModerationController } from './admin-clip-moderation.controller';
+import { AdminClipModerationService } from './admin-clip-moderation.service';
+import { ClipModerationDecision } from './entities/clip-moderation-decision.entity';
 import { AdminPublicClipReviewController } from './admin-public-clip-review.controller';
 import { AdminPublicClipReviewService } from './admin-public-clip-review.service';
 import { VideoClipsController } from './video-clips.controller';
@@ -51,6 +54,7 @@ import { VideoProcessingService } from './video-processing.service';
     TypeOrmModule.forFeature([
       VideoClip,
       ClipReport,
+      ClipModerationDecision,
       TeamChatBlock,
       TeamChatMessage,
       TeamCoach,
@@ -73,13 +77,18 @@ import { VideoProcessingService } from './video-processing.service';
     ErrorLogModule,
     ModerationModule,
   ],
-  controllers: [VideoClipsController, AdminPublicClipReviewController],
+  controllers: [
+    VideoClipsController,
+    AdminPublicClipReviewController,
+    AdminClipModerationController,
+  ],
   providers: [
     VideoClipsService,
     ObjectStorageService,
     VideoProcessingService,
     ClipRetentionService,
     AdminPublicClipReviewService,
+    AdminClipModerationService,
   ],
   // ObjectStorageService only, added for
   // docs/adr/0013-account-erasure.md — AccountErasureModule reuses
