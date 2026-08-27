@@ -160,10 +160,21 @@ thing to revisit if the feature succeeds.
 
 ### Layer 4 — report and take down
 
-Mostly built: one report hides a clip immediately. What is missing is the
-back half — `backend/src/moderation/` is an empty module shell, so there
-is no queue where reported clips are triaged, no record of what was
-decided, and no way to restore something reported in error.
+**Built 2026-08-27.** One report still hides a clip immediately; there is
+now a queue behind it, decisions are recorded against an operator, and a
+clip reported in error can be put back — which until then made a report a
+one-way door any teammate could operate.
+
+*(An earlier draft of this section said `backend/src/moderation/` was an
+empty module shell. That was wrong: it holds the chat-moderation DI
+binding and always did. The gap was the clip-report queue, which lived
+nowhere.)*
+
+Decisions are a separate table rather than columns on the clip, because a
+clip can be reported, dismissed, and reported again by someone else with
+a better reason — each is a distinct judgement and the earlier one must
+survive. The queue asks for reports *newer than the last decision*, so a
+re-report reopens it.
 
 ### Layer 5 — the part that is process, not code
 
@@ -199,8 +210,7 @@ Easy to skip and the part most likely to cause real trouble.
    defensible.
 3. **Layer 1 — decide on hash matching**, and record the decision as an
    ADR-0028 amendment whichever way it goes.
-4. **Layer 4 — finish the moderation queue**, so a report has somewhere to
-   land and a decision leaves a trace.
+4. ~~Layer 4 — finish the moderation queue.~~ **Done 2026-08-27.**
 5. **Layer 2 — the safety classifier**, last. It is the most work, the
    most false positives, and the least value while the public path already
    has a human on it.

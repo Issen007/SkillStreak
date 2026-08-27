@@ -207,6 +207,7 @@
       { id: 'plans', label: 'Session planner', ico: '🧠' },
       { id: 'posts', label: 'My tips', ico: '✍️' },
       { id: 'postReview', label: 'Tip review', ico: '🔎' },
+      { id: 'reportedClips', label: 'Reported clips', ico: '🚩' },
       { id: 'tagging', label: 'AI health', ico: '🏷️' }
     ],
     pt: [
@@ -867,6 +868,57 @@
           button.textContent = 'Send for review';
         });
     };
+  }
+
+  function reportedClipCard(row) {
+    return '<div class="card">' +
+      '<h3 style="margin:0 0 4px;font-size:15px">' +
+        esc(row.uploaderScreenName) + ' &middot; ' + esc(row.teamName) + '</h3>' +
+      '<p class="muted" style="margin:0 0 10px">' +
+        esc(row.reportCount) + ' report(s) &middot; ' +
+        esc((row.reasons || []).join(', ')) + ' &middot; first reported ' +
+        esc(String(row.firstReportedAt).slice(0, 16).replace('T', ' ')) +
+      '</p>' +
+      /* Watching it is the job. A decision made from the reason codes
+       * alone is a guess wearing a uniform. */
+      '<video controls preload="none" playsinline style="max-width:320px;' +
+        'width:100%;border-radius:8px" src="' + esc(row.playbackUrl) + '"></video>' +
+      '<p style="margin:10px 0 0">' +
+        '<input style="max-width:280px" ' +
+          'data-note-for="' + esc(row.clipId) + '" placeholder="Note (optional)"> ' +
+        '<button data-dismiss-clip="' + esc(row.clipId) + '">Put it back</button> ' +
+        '<button class="primary" data-uphold-clip="' + esc(row.clipId) + '">Keep hidden</button>' +
+      '</p></div>';
+  }
+
+  function wireModerationButtons(view) {
+    [['data-uphold-clip', 'uphold'], ['data-dismiss-clip', 'dismiss']].forEach(
+      function (pair) {
+        Array.prototype.forEach.call(
+          view.querySelectorAll('[' + pair[0] + ']'),
+          function (button) {
+            button.onclick = function () {
+              var clipId = button.getAttribute(pair[0]);
+              var noteEl = view.querySelector('[data-note-for="' + clipId + '"]');
+              var msg = document.getElementById('modMsg');
+              button.disabled = true;
+              msg.className = 'muted';
+              msg.textContent = 'Saving…';
+              api.post(
+                '/api/v1/admin/reported-clips/' + encodeURIComponent(clipId) +
+                  '/' + pair[1],
+                noteEl && noteEl.value.trim() ? { note: noteEl.value.trim() } : {}
+              ).then(function () { go('reportedClips'); })
+               .catch(function (err) {
+                 msg.className = 'err';
+                 msg.textContent = errorMessage(err);
+                 button.disabled = false;
+               });
+            };
+          }
+        );
+      }
+    );
   }
 
   function reviewCard(post, isPending) {
@@ -2302,6 +2354,43 @@
       });
     },
 
+
+    /* docs/design/clip-safety.md layer 4 — the back half of
+     * report-and-take-down.
+     *
+     * The front half has worked since ADR-0010 Decision 4: one report
+     * hides a clip instantly, no threshold, no quorum. Until this screen
+     * there was no back half at all — no queue, no record of any
+     * decision, and no way to put back a clip reported in error, which
+     * made "report" a one-way door any teammate could operate.
+     *
+     * Reasons and a count are shown because they change the reading: one
+     * report for "not training related" and four for "bullying" deserve
+     * different attention, and a flat list hides the difference.
+     *
+     * The reporter is never shown. That is `clip_report`'s own guarantee
+     * and it is not relaxed for an operator — a child who fears the
+     * person they are reporting must not have that calculation change. */
+    reportedClips: function (view) {
+      api.get('/api/v1/admin/reported-clips/pending').then(function (rows) {
+        view.innerHTML =
+          '<h2>Reported clips</h2>' +
+          '<div class="card"><p class="muted" style="margin:0">' +
+          'A report hides a clip immediately, before anyone looks. This is ' +
+          'where that gets a second opinion. <strong>Dismiss</strong> puts ' +
+          'it back in its team feed; <strong>uphold</strong> leaves it ' +
+          'hidden. Either way the decision is recorded against your ' +
+          'account.</p>' +
+          '<p id="modMsg" class="muted" style="margin:8px 0 0"></p></div>' +
+          (rows.length
+            ? rows.map(reportedClipCard).join('')
+            : '<div class="card"><p class="muted">Nothing waiting. A quiet ' +
+              'queue and a broken one look the same, so it is worth ' +
+              'reporting a clip yourself occasionally to be sure.</p></div>');
+
+        wireModerationButtons(view);
+      }).catch(function (e) { fail(view, e); });
+    },
 
     /* The clip-tagging panel (Open Question 5, decided 2026-08-12).
      *
