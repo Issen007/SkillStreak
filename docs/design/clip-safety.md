@@ -187,11 +187,13 @@ Easy to skip and the part most likely to cause real trouble.
   have micro/small-enterprise exemptions — **check which apply rather
   than assuming none do**. This wants a lawyer's hour, alongside the
   privacy-policy review already on the launch checklist.
-- **Know what to do the day it happens, before it happens.** If CSAM is
-  found: preserve it, do not download it, do not forward it, do not
-  "check" it by sharing it with anyone. Report to Polisen; in Sweden
-  ECPAT's hotline is the established route and is part of INHOPE. Deleting
-  it before reporting can destroy evidence.
+- **Know what to do the day it happens, before it happens.** Written up
+  2026-08-27 as `docs/INCIDENT-ILLEGAL-CONTENT.md`: preserve, do not
+  download, do not forward, do not "check" it by showing anyone —
+  possessing CSAM is itself an offence in Sweden, so the person trying to
+  help commits one. Hide it, do not delete it, hold any pending account
+  erasure, write down what you know, then call 114 14. ECPAT Sverige's
+  hotline is the INHOPE route and does not replace the police.
 - **One person is the on-call route.** Write down who, and what they do in
   the first hour. A one-operator project needs this more than a large one,
   not less.
@@ -205,9 +207,11 @@ Easy to skip and the part most likely to cause real trouble.
 1. **Layer 3 — operator review before a clip goes public.** Cheap, needs
    no model, reuses machinery that exists, and closes the highest-risk
    path outright. Do this first.
-2. **Layer 5 — the written procedure and the legal read.** Costs an
-   afternoon and a lawyer's hour, and is what makes everything else
-   defensible.
+2. **Layer 5** — ~~the written procedure~~ **done**
+   (`docs/INCIDENT-ILLEGAL-CONTENT.md`); the legal read is still open and
+   is what makes everything else defensible. That document ends with five
+   specific questions for the lawyer rather than a general "check
+   compliance".
 3. **Layer 1 — decide on hash matching**, and record the decision as an
    ADR-0028 amendment whichever way it goes.
 4. ~~Layer 4 — finish the moderation queue.~~ **Done 2026-08-27.**

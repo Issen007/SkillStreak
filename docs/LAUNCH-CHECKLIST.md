@@ -322,9 +322,21 @@ The short version:
   different. There is no self-hosted substitute: the hash databases are
   the product. Refusing is a legitimate choice; refusing by accident is
   not.
-- **The DSA applies**, and the procedure for the day something is found
-  is worth writing before it is needed. Both want the same lawyer's hour
-  as the privacy policy in §1.1.
+- **The procedure for the day something is found is written**
+  (`docs/INCIDENT-ILLEGAL-CONTENT.md`, 2026-08-27) — what to do in the
+  first hour, in order, and why downloading a copy "to be sure" is itself
+  an offence.
+- **The DSA legal read is still open**, and that document ends with five
+  specific questions rather than a general "check compliance": whether
+  SkillStreak is an online platform or only a hosting service; whether the
+  micro-enterprise exemption applies and covers Article 28; whether the
+  in-app report satisfies Article 16; what an Article 17 statement of
+  reasons must look like for a child; and whether Sweden adds a duty
+  beyond Article 18. Same lawyer's hour as the privacy policy in §1.1.
+- **Three small things do not exist yet and are named there**: a public
+  way to report without an account, a published point of contact for
+  authorities, and any parent-facing copy saying what happens when
+  something is reported.
 
 ---
 
