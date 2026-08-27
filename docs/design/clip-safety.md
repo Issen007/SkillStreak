@@ -107,17 +107,69 @@ Realistic options:
 - **PhotoDNA (Microsoft)** — the original, licensed, requires an
   agreement; PhotoDNA for Video exists.
 
-**This collides head-on with ADR-0028 Decision 1 ("self-hosted only, no
-external AI service").** That decision was made about *tagging*, for GDPR
-reasons, and it is a good decision there. Here the trade is different: the
-alternative to a third party is **no known-CSAM detection at all**, and no
-self-hosted substitute exists — the hash databases are the product, and
-they are deliberately not distributed.
+#### DECIDED 2026-08-27 — not now, and these are the triggers
 
-That is a decision for the project owner, and it should be recorded as an
-ADR-0028 amendment either way. Refusing is a legitimate choice; refusing
-*by accident*, because an existing decision said "self-hosted" about
-something else, is not.
+**Project owner's call: no hash matching for launch.** Written out in
+full, because declining a safety control is only defensible if the
+reasoning is recorded and revisited. Otherwise it is indistinguishable
+from never having thought about it.
+
+**The reasoning is threat model, not cost.** Hash lists detect *known*
+material. Redistributing it through SkillStreak would need a captain's
+invite code, an approved parental consent, and an audience of about
+fifteen teammates, any one of whom can hide the clip instantly with one
+tap. That is a very bad distribution channel, and easier ones are
+everywhere.
+
+The realistic serious incident here is a child filming something they
+should not, of themselves or a teammate. **That material is novel by
+definition and no hash list contains it.** So this control is aimed at
+the risk this app is least exposed to and does nothing about the one it
+carries.
+
+**What is being accepted, stated plainly**: if somebody does use this
+platform to store or pass on known material, nothing here notices
+automatically. What would catch it is a teammate reporting it and an
+operator reviewing anything that goes public — both real, both human,
+neither instant.
+
+**The counter-argument, which is not weak**: if the threat model above is
+wrong, hash matching is the cheapest insurance against the worst outcome,
+and *"we had no known-CSAM detection"* is a bad sentence to say to a
+regulator however good the analysis behind it was. That is the risk being
+taken, deliberately.
+
+**Reopen this when any of these becomes true.** Meeting one means
+revisiting the decision, not noting it in passing:
+
+- **Public sharing opens beyond the current allow-list.** It is enabled
+  today for a single team via `PUBLIC_SHARING_ENABLED_TEAM_IDS`. Every
+  argument above rests on the audience being known teammates; widening
+  that is the moment it stops holding.
+- **Any stranger-to-stranger surface appears** — a public feed of
+  children's clips, cross-team video, direct messaging.
+- **Any real incident at all** involving uploaded media.
+- **The drill-library video question is answered "yes"**
+  (`BACKLOG.md`), since that puts video into a deliberately cross-team
+  surface.
+
+**ADR-0028 Decision 1 stands and needs no amendment**, because nothing is
+being adopted. The question was asked and answered no, which leaves that
+decision intact rather than reversing it. Recorded here so nobody
+re-litigates it from scratch.
+
+**If it is ever adopted, adopt the local shape.** Compute PDQ hashes of
+sampled frames on our own infrastructure — the frame sampler already
+exists for clip-tagging — and match against a hash list held locally. No
+child's video leaves; only a list comes inbound. That preserves ADR-0028's
+actual concern rather than its literal wording, and is a materially
+different proposition from posting clips to a vendor API. Obtaining a list
+needs an agreement: IWF has tiered fees, C3P runs Project Arachnid Shield,
+and NCMEC's list is generally for US-based providers.
+
+*(Cloudflare's free CSAM tool was considered and does not apply here:
+clips are served from Safespring object storage, not proxied through
+Cloudflare.)*
 
 ### Layer 2 — automated classification of new material
 
@@ -212,12 +264,20 @@ Easy to skip and the part most likely to cause real trouble.
    is what makes everything else defensible. That document ends with five
    specific questions for the lawyer rather than a general "check
    compliance".
-3. **Layer 1 — decide on hash matching**, and record the decision as an
-   ADR-0028 amendment whichever way it goes.
-4. ~~Layer 4 — finish the moderation queue.~~ **Done 2026-08-27.**
-5. **Layer 2 — the safety classifier**, last. It is the most work, the
-   most false positives, and the least value while the public path already
-   has a human on it.
+3. ~~Layer 4 — finish the moderation queue.~~ **Done 2026-08-27.**
+4. **Layer 2 — the safety classifier.** Moved ahead of layer 1 by the
+   project owner, 2026-08-27, on the reasoning the layer 1 decision turns
+   on: **a classifier targets novel material, which is the risk this app
+   actually carries.** Hash matching targets known material, which it
+   barely carries at all.
+
+   This ordering is a correction. An earlier draft of this document put
+   hash matching third and the classifier last — ranked by how
+   externally-recognisable each control is rather than by which threat it
+   meets. That was the wrong axis.
+5. ~~Layer 1 — hash matching.~~ **Declined for now, with triggers** — see
+   the layer 1 section above.
 
 Nothing here blocks the store launch, because public sharing is currently
-switched off. **Layer 3 should be built before it is switched back on.**
+switched off. **Layer 3 should be built before it is switched back on**,
+and it now is.

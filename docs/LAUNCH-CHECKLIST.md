@@ -316,12 +316,23 @@ The short version:
   public path. Volume is a few clips a week and `trainer_post`'s
   operator-review queue already does exactly this job. Nothing would
   reach a stranger that nobody had watched.
-- **Known-CSAM hash matching is the one thing not to self-build and not
-  to skip**, and it collides with ADR-0028's "self-hosted only" — a
-  decision made about tagging, for GDPR reasons, where the trade is
-  different. There is no self-hosted substitute: the hash databases are
-  the product. Refusing is a legitimate choice; refusing by accident is
-  not.
+- **Known-CSAM hash matching: decided 2026-08-27, not for launch.** The
+  reasoning is threat model rather than cost — hash lists catch *known*
+  material, and this app's realistic risk is a child filming something
+  novel, which no list contains. Redistributing known material here would
+  need an invite code, a parental consent, and an audience of fifteen
+  teammates who can hide it in one tap.
+
+  **Recorded with triggers** in `docs/design/clip-safety.md`, because
+  declining a safety control is only defensible if it is written down and
+  revisited: reopen if public sharing widens past the current one-team
+  allow-list, if any stranger-to-stranger surface appears, on any real
+  incident, or if drill-library video is approved. ADR-0028 stands
+  unamended, since nothing was adopted.
+- **The classifier moved ahead of hash matching** in the same decision. It
+  targets novel material, which is the risk actually carried here. The
+  earlier ordering ranked controls by how externally recognisable they
+  are rather than by which threat they meet.
 - **The procedure for the day something is found is written**
   (`docs/INCIDENT-ILLEGAL-CONTENT.md`, 2026-08-27) — what to do in the
   first hour, in order, and why downloading a copy "to be sure" is itself
