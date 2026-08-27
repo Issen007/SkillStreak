@@ -316,15 +316,38 @@ The short version:
   public path. Volume is a few clips a week and `trainer_post`'s
   operator-review queue already does exactly this job. Nothing would
   reach a stranger that nobody had watched.
-- **Known-CSAM hash matching is the one thing not to self-build and not
-  to skip**, and it collides with ADR-0028's "self-hosted only" — a
-  decision made about tagging, for GDPR reasons, where the trade is
-  different. There is no self-hosted substitute: the hash databases are
-  the product. Refusing is a legitimate choice; refusing by accident is
-  not.
-- **The DSA applies**, and the procedure for the day something is found
-  is worth writing before it is needed. Both want the same lawyer's hour
-  as the privacy policy in §1.1.
+- **Known-CSAM hash matching: decided 2026-08-27, not for launch.** The
+  reasoning is threat model rather than cost — hash lists catch *known*
+  material, and this app's realistic risk is a child filming something
+  novel, which no list contains. Redistributing known material here would
+  need an invite code, a parental consent, and an audience of fifteen
+  teammates who can hide it in one tap.
+
+  **Recorded with triggers** in `docs/design/clip-safety.md`, because
+  declining a safety control is only defensible if it is written down and
+  revisited: reopen if public sharing widens past the current one-team
+  allow-list, if any stranger-to-stranger surface appears, on any real
+  incident, or if drill-library video is approved. ADR-0028 stands
+  unamended, since nothing was adopted.
+- **The classifier moved ahead of hash matching** in the same decision. It
+  targets novel material, which is the risk actually carried here. The
+  earlier ordering ranked controls by how externally recognisable they
+  are rather than by which threat they meet.
+- **The procedure for the day something is found is written**
+  (`docs/INCIDENT-ILLEGAL-CONTENT.md`, 2026-08-27) — what to do in the
+  first hour, in order, and why downloading a copy "to be sure" is itself
+  an offence.
+- **The DSA legal read is still open**, and that document ends with five
+  specific questions rather than a general "check compliance": whether
+  SkillStreak is an online platform or only a hosting service; whether the
+  micro-enterprise exemption applies and covers Article 28; whether the
+  in-app report satisfies Article 16; what an Article 17 statement of
+  reasons must look like for a child; and whether Sweden adds a duty
+  beyond Article 18. Same lawyer's hour as the privacy policy in §1.1.
+- **Three small things do not exist yet and are named there**: a public
+  way to report without an account, a published point of contact for
+  authorities, and any parent-facing copy saying what happens when
+  something is reported.
 
 ---
 
