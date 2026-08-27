@@ -13,6 +13,45 @@ per CLAUDE.md. This processes children's media and creates a new durable
 category of machine-authored judgement about a child; both halves of that
 sentence are why.
 
+### DEFERRED 2026-08-27 — the design stands, the build waits for evidence
+
+**Project owner's decision, taken on this ADR's own open question 3.**
+Layers 3 and 4 shipped this week and neither has met a real incident.
+Building a source that *generates its own queue items*, before anyone
+knows what the queues look like when humans fill them, would be sizing a
+control against a guess — and this ADR already admits every threshold in
+it is one.
+
+**The design is not deferred, only the implementation.** Everything below
+was decided and stays decided; what waits is writing the service. That
+distinction matters, because the expensive part of this was the
+reasoning — particularly Decision 3's "must not write `clip_report` rows"
+and Decision 4's CASCADE, both of which are easy to get wrong under time
+pressure and neither of which will need re-deriving.
+
+**What has to be true before this is reopened** — the point of waiting is
+to gather exactly this:
+
+- **Public sharing is back on.** Layer 3's queue cannot see anything while
+  `PUBLIC_SHARING_ENABLED_TEAM_IDS` holds one team and consent is
+  revoked. Until then there is no traffic to learn from, by construction.
+- **Both queues have run for a real period with real teams**, long enough
+  to answer the only question that decides this: **how much operator time
+  do the human-filled queues already take?** If they are already at the
+  limit of one person, adding a self-generating source makes things
+  worse, not safer — it buries the human reports, which carry more signal.
+- **Or an incident happens that a classifier would plausibly have
+  caught.** That is evidence too, and it outranks the volume argument.
+
+**Recorded rather than left implicit**, because "we decided to wait" and
+"nobody got round to it" look identical in six months, and only one of
+them is defensible.
+
+**What is accepted meanwhile**: clips that stay inside a team get no
+automated review at all. What stands in for it is fifteen teammates who
+can hide a clip with one tap, and an operator queue behind that. For the
+public path, layer 3 already puts a human in front of every clip.
+
 ## Context
 
 ### What exists, and what it deliberately refuses
