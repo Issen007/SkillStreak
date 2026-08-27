@@ -271,6 +271,13 @@ Easy to skip and the part most likely to cause real trouble.
    actually carries.** Hash matching targets known material, which it
    barely carries at all.
 
+   **Designed 2026-08-27 as ADR-0036**, which ends with three open
+   questions rather than a build plan — including whether to build it yet
+   at all. Layers 3 and 4 shipped this week and neither has met a real
+   incident; there is a real argument for letting them run first and
+   learning what the queue looks like before adding a source that
+   generates its own items.
+
    This ordering is a correction. An earlier draft of this document put
    hash matching third and the classifier last — ranked by how
    externally-recognisable each control is rather than by which threat it
