@@ -1030,21 +1030,69 @@ address belongs to a parent, someone who knows the child's real age
 learns that sharing was enabled, and a parent who knows their child is
 twelve will react.
 
-**This turns entirely on a fact that is now load-bearing and still
-unconfirmed**: for an account that self-verified at 13-15, is
-`player_private_info.parent_contact` a parent's address or the player's
-own? The column name says parent. If it is in practice the player's own,
-this control notifies only the person who typed the false age, and is
-worth nothing. **Confirm before building.**
+**Traced 2026-08-31, and the answer kills it.** Both onboarding branches
+write `dto.parentContact` into the same column; only the label differs.
+Under 13 the app asks for *"Förälders eller vårdnadshavares e-post"*. At
+13+ it asks for *"Din e-post eller mobilnummer"* — **the player's own**.
+The column name is a leftover from when there was one branch.
+
+So notifying "the contact on file" would email the person who typed the
+age, including the twelve-year-old who typed 2010. Not a weak control: one
+that notifies the subject of its own suspicion. **Rejected.**
+
+### DECIDED 2026-08-31 — accept the residual risk, and name it
+
+Project owner's call, after the trace above removed the last candidate
+control.
+
+**What is accepted, in plain words.** A child who enters a false birth
+year reaching 16 can enable public sharing of their own clips with **no
+parent involved at any point**. No parent address is ever collected for
+such an account, so there is nobody to notify — not for this, not for
+anything, ever. The only thing that might catch it is the outlier flag.
+
+**Why this is tolerable now, and it is not "because it is unlikely".**
+
+- **Layer 3 stands in front of it.** Since 2026-08-27 no clip reaches a
+  stranger without an operator watching it
+  (`docs/design/clip-safety.md`). So the failure is not "a twelve-year-old
+  publishes to strangers unchecked" — it is "publishes with human review
+  but without parental consent". That is a real consent failure and a
+  materially smaller safety one, and the distinction is the reason this is
+  acceptable rather than reckless.
+- **The outlier flag catches the common shape.** A twelve-year-old
+  claiming 16 among real twelve-year-olds is exactly the anomaly it looks
+  for.
+- **Public sharing is currently off entirely** — one team on the
+  allow-list, consent revoked. Nothing is exposed today.
+
+**The gaps that remain, with nothing behind them:** a whole team entering
+false years together, and a genuinely mixed-age roster a faker blends
+into. Neither is closed and neither is closeable without verified
+identity, which the backlog's account-linking entry already parks as its
+own decision.
+
+**Reopen on any of these:**
+
+- Public sharing widening beyond the current one-team allow-list.
+- The outlier flag firing on a real case — the first true positive is
+  evidence about the rate, which nobody has.
+- Scale at which the operator no longer knows the teams personally, since
+  that is what the whole interim posture rests on (Decision 9's triggers).
+- Any incident involving a misstated age.
 
 ### Still open
 
-- **The notification in point 2**, pending that fact.
-- **Whether operator confirmation applies at current scale.** It is the
-  only confirmation that works today, and it expires with the rest of the
-  interim posture under Decision 9's triggers.
-- **What the terms actually say** about a false age — the lawyer's
-  wording rather than this document's.
+- **What the terms say about a false age** — the lawyer's wording rather
+  than this document's, and now carrying more weight, since it is the only
+  remaining response to a child who lies about their year.
+- **Renaming `parent_contact`**, which no longer describes what it holds
+  for 13+ accounts. Cosmetic until someone trusts the name.
+
+### Before any of Decision 12 is built
+
+A **CLAUDE.md amendment**, since the non-negotiable reads *"their own
+parent"* with no exception, and a **blocking security-reviewer pass**.
 - **What the terms actually say** about a false age, which is the lawyer's
   wording rather than this document's.
 
