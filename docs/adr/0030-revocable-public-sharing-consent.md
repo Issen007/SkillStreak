@@ -2,6 +2,11 @@
 
 ## Status
 
+
+**Decision 12 proposed 2026-08-31** — self-consent above the
+digital-consent age, which would reverse Decision 10. Not decided; see the
+end of this file.
+
 **Security-reviewer pass, 2026-08-17 — NOT a sign-off.** The consent
 lifecycle was built (`backend/src/public-sharing/`) and reviewed. The
 review returned **eight blocking findings and five advisory**, and its
@@ -818,3 +823,104 @@ due 2026-09-16, not with this commit.
    was collected for, and whether the Swedish 13-year age of digital
    consent — which the app's 8 locales already outrun — changes the
    answer for non-Swedish users.
+
+---
+
+## Decision — 12 (PROPOSED 2026-08-31): self-consent above the digital-consent age — opt-in only, and it reverses Decision 10
+
+**Status: proposed, not decided.** Raised by the project owner
+2026-08-31: *"for people who is older then a age of EU says we can share
+content without asking our parents for permissions. Then it will be
+automatic availible but we can put the option to disable that option."*
+
+**This reverses Decision 10**, made two weeks earlier and quoting the
+owner's own words: *"Yes, sharing needs a parent even for the 13+
+self-verified accounts."* Recorded here rather than silently superseded —
+changing your mind is fine, doing it without seeing the earlier argument
+is not.
+
+### The half of Decision 10 that no longer holds
+
+Decision 10's central argument was mechanical rather than moral:
+
+> An account with no parent contact has no recipient for [the monthly
+> reminder], so admitting that cohort would have meant unsupervised
+> publication outside the team — not a weaker control, but none.
+
+**That assumed the reminder must reach a parent.** It need not, if the
+consent is the player's own. `player_private_info.parent_contact` is
+non-nullable and a self-verified account already receives its own
+verification mail, so a recipient exists — it is the player. A monthly
+"your clips are still public, here is how to stop" sent to a
+seventeen-year-old who chose to publish is a real control, not an absent
+one.
+
+So Decision 10's strongest argument is weaker than it looked, and the
+proposal deserves a serious hearing rather than a reflex no. **Confirm
+before building** that a self-verified account's stored contact is in fact
+the player's own address and not a parent's — the column name says parent
+and the semantics may differ per cohort.
+
+### The half that stands, and it is fatal to "automatic"
+
+**"Automatically available with an option to disable" is a pre-ticked box,
+and a pre-ticked box is not consent.** GDPR Article 4(11) requires a clear
+affirmative action; Recital 32 rules out silence, pre-ticked boxes and
+inactivity by name, and the CJEU said the same in *Planet49*.
+
+This codebase already knows it. `site/index.html`'s signup form carries
+the reasoning in a comment, for two marketing checkboxes. Defaulting a
+teenager's video to publishable outside their team is the same mistake in
+a place where the cost is incomparably higher.
+
+**Whatever else is decided, the switch starts off.**
+
+### The second problem, which no amount of copy fixes
+
+`player.birth_year` is self-declared and **nothing verifies it**. Today
+that is tolerable, because the number only decides whether a parent is
+asked for the *account* — Decision 10 means it cannot unlock publication.
+
+This proposal would make that unverified number the thing that lets a
+child publish video of themselves to strangers with no adult ever
+involved. A twelve-year-old enters 2005 and the system cannot tell.
+BACKLOG.md already states the rule this breaks: *"The age bar cannot be
+the safety control."*
+
+Under Decision 10 a child wanting to bypass a parent must at least supply
+a plausible address and receive mail at it — weak, and named as weak in
+Decision 10 itself, but not nothing. This proposal removes even that.
+
+### The shape that gets what was asked for
+
+1. **Self-consent for players at or above `SELF_VERIFICATION_MIN_AGE_YEARS`**,
+   granted by the player, recorded in the same `public_sharing_consent`
+   row, revocable identically. A seventeen-year-old stops needing a parent
+   to share their own training video, which is the real and reasonable
+   ask.
+2. **Opt-in, never default.** Same affirmative act as every other consent
+   here.
+3. **The monthly reminder goes to the player**, and the
+   delivery-failure auto-disable (Decision 5) applies unchanged — so the
+   design keeps its only recurring control rather than losing it.
+4. **Decide the age deliberately, and do not assume 13.** Article 8's
+   thirteen is about a service processing a child's data. Publishing
+   video of a child's face to strangers is a different act with a
+   different risk, and a higher bar for it is lawful and defensible. 15,
+   16 or 18 are all arguable; 13 is the floor for the wrong question.
+
+### What is still open, and it is the owner's call
+
+- **Which age**, per point 4.
+- **Whether the unverified birth year is acceptable** as the gate for
+  this, given it currently gates nothing that matters. If it is not, this
+  needs an age signal with something behind it, which is the identity
+  question the backlog's account-linking entry already parks.
+
+### Needs
+
+An explicit **CLAUDE.md amendment** — its non-negotiable names *"their own
+parent"*, and this changes that sentence for one cohort — plus a
+**blocking security-reviewer pass**, per the standing rule for anything
+touching child media or consent.
+

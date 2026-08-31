@@ -16,7 +16,19 @@ import { fonts } from '../../theme/fonts';
 // see create-player.dto.ts's identical comment for why a fixed year drifts.
 // Widened 2026-07-26 from 26 to 56 (matches create-player.dto.ts) — see
 // that file's comment for why.
-const OLDEST_ALLOWED_AGE_YEARS = 56;
+// **Kept in step with backend/src/onboarding/dto/create-player.dto.ts by
+// hand, and the cost of that showed on 2026-08-31.** This is a picker, not
+// a text field, so the bound is not a validation message a person can read
+// — it decides which years exist to choose from. A tester born before 1970
+// found his year simply absent and reported that the app said he was "too
+// old". It never said that. It offered him a list that stopped short of
+// him, which is worse, because there is nothing to argue with.
+//
+// Widened here to match the backend's 120 the same day. If these two ever
+// disagree again, the app is the one a person meets: a narrower list here
+// silently excludes people the server would have accepted, and a wider one
+// offers a year that is then rejected after they have picked it.
+const OLDEST_ALLOWED_AGE_YEARS = 120;
 const YOUNGEST_ALLOWED_AGE_YEARS = 4;
 const MIN_BIRTH_YEAR = new Date().getFullYear() - OLDEST_ALLOWED_AGE_YEARS;
 const MAX_BIRTH_YEAR = new Date().getFullYear() - YOUNGEST_ALLOWED_AGE_YEARS;
