@@ -77,7 +77,12 @@ omission:
 - **No IP address stored**, in the app or the site's counters.
 - **No contacts, no calendar, no microphone or camera beyond an explicit
   clip recording, no browsing history, no purchases** (there are none), **no
-  financial info**, **no crash SDK**.
+  financial info**.
+- **No crash SDK** — still true, and no longer the whole story. The app
+  reports its own crashes to our own API as of 2026-08-23, which is
+  first-party rather than an SDK but **is** Play's "Crash logs" data type.
+  See the warning in the form-order section below; it must be ticked, and
+  ticked as not linked to the user.
 - **EXIF and GPS are stripped from every uploaded clip** by a mandatory
   remux before it is stored (ADR-0010).
 
@@ -117,9 +122,143 @@ something the schema deliberately does not hold.
 
 ---
 
+## Play Console, in the order the form asks
+
+Added 2026-08-27 to be worked through top to bottom. Play's form is a
+short intro, then a large checklist of data types, then three or four
+questions about each type you ticked.
+
+### ⚠️ One answer changed after this document was drafted
+
+**The app now sends crash reports.** `POST /api/v1/client-errors` was
+built 2026-08-23, a day after the table above; the app posts
+`platform`, `appVersion`, `errorName`, `message` and `stack` when it
+crashes. In Play's taxonomy that is **Crash logs**, which is its own data
+type and was not on this form's list.
+
+The note above saying "no crash SDK" is still literally true — it is
+first-party, not an SDK — but a reviewer reads the *data type*, not the
+mechanism. Tick Crash logs.
+
+**And tick it as NOT linked to the user**, which is unusual here and is
+correct: `error_log_entry` has no `player_id` or `team_id` column by
+construction (ADR-0022 Decision 6), the endpoint is unauthenticated so no
+identity is ever sent, and UUIDs and mailed codes are scrubbed out of the
+text before it is stored. It is the one thing in this app genuinely not
+tied to a person.
+
+### 1. Data collection and security
+
+| Question | Answer |
+|---|---|
+| Does your app collect or share any of the required user data types? | **Yes** |
+| Is all of the user data collected by your app encrypted in transit? | **Yes** — TLS everywhere, HSTS on both hosts |
+| Do you provide a way for users to request that their data is deleted? | **Yes** — in-app, Profile → delete account, with mailed confirm and cancel |
+
+### 2. Data types — what to tick, and what to leave alone
+
+**Personal info**
+- ✅ **Name** — optional; `player_private_info.real_name`, encrypted. A
+  screen name is the default and a real name is never shown to other
+  players.
+- ✅ **Email address** — the **parent's** (`parent_contact`, encrypted)
+  and adults' (`staff_account.email`). Not the child's.
+- ✅ **User IDs** — `player.id`, internal only.
+- ✅ **Other info** — `player.birth_year`. **Year only, never a full
+  date.** Play has no exact slot for it; this is the honest home, with a
+  note. Ticking "date of birth" would over-declare something the schema
+  deliberately does not hold.
+- ❌ Address, phone, race/ethnicity, political or religious beliefs,
+  sexual orientation.
+
+**Health and fitness**
+- ✅ **Fitness info** — `training_log_entry`. **The easiest one to miss**:
+  a training log is a record of physical activity, and thinking of it as
+  "app activity" instead is exactly the mismatch a reviewer notices.
+- ❌ Health info.
+
+**Messages**
+- ✅ **Other in-app messages** — `team_chat_message.content`.
+- ❌ Emails, SMS.
+
+**Photos and videos**
+- ✅ **Videos** — `video_clip` plus object storage.
+- ❌ **Photos.** There is no photo capture anywhere; `EvidenceTier.SELFIE`
+  exists in the enum and is deliberately unreachable (ADR-0025
+  Decision 5).
+
+**App activity**
+- ✅ **Other user-generated content** — clip captions, `bug_report`
+  descriptions.
+- ❌ App interactions, in-app search history, installed apps, other
+  actions. ADR-0020's usage metrics are aggregate-only and computed
+  server-side from data already declared above, so they add no collection.
+
+**App info and performance**
+- ✅ **Crash logs** — see the warning above. **Not linked.**
+- ✅ **Diagnostics** — `bug_report.app_version/.platform/.os_version/
+  .screen/.locale`, sent with a bug report the player chose to file.
+- ❌ Other app performance data.
+
+**Leave every one of these unticked, and each is a design decision rather
+than an oversight:**
+
+- ❌ **Location** — approximate or precise, never, anywhere. No
+  `expo-location`, no geolocation call, and EXIF/GPS is stripped from
+  every clip by a mandatory remux before storage (ADR-0010).
+- ❌ **Device or other IDs** — no advertising id, no device id, no
+  installation id. **This is the most valuable answer on the form** and
+  the easiest to lose by adding one library.
+- ❌ Financial info, audio files, files and docs, calendar, contacts, web
+  browsing history.
+
+**Audio deserves a sentence**, because a clip has a soundtrack: Play's
+"Audio files" means voice or sound recordings collected as such. A video's
+own audio track is part of the video and is declared there. ADR-0027's
+music feature is not built.
+
+### 3. For each type you ticked
+
+Same answers throughout unless noted:
+
+| Question | Answer |
+|---|---|
+| Collected or shared? | **Collected**, never shared. Hosting, object storage and the SMTP relay are processors acting on instruction — declare them in the privacy policy, not by ticking "shared". |
+| Processed ephemerally? | **No** for everything stored. |
+| Required or optional? | **Optional** for name, videos, messages, user-generated content, diagnostics and crash logs. See the judgement call below for fitness. |
+| Purpose | **App functionality** for all of it. Not analytics, not advertising, not personalisation. |
+| Linked to the user? | **Yes**, except **crash logs → No**. |
+
+**One judgement call to make deliberately: is fitness data required or
+optional?** The app runs without logging anything — you can join a team,
+read the feed and never log a session — so "optional" is defensible and is
+what this document recommends. But logging is the product, and a reviewer
+could reasonably read it as required. Either answer is arguable; pick one
+knowingly rather than by clicking through.
+
+### 4. Also asked, and answer plainly
+
+**Is any data collected from children?** **Yes.** This is a child-directed
+app for 9–13-year-olds. Declaring otherwise is untrue and more dangerous
+than the rules it would dodge.
+
+**Retention.** Clips 90 days, bug reports 90, error logs 90, account data
+until the account is deleted. Each is a constant enforced by a scheduled
+sweep, not an intention.
+
+---
+
 ## Re-check before submitting
 
 This was true on 2026-08-22. Anything that adds an SDK, a push token, an
 analytics call or a new column changes an answer here — most of all
 anything that would turn "Data used to track you: None" into something
 else, which is the single most valuable answer on the form.
+
+**That rule fired within a day and is worth recording as proof it works.**
+The client crash reporter shipped 2026-08-23, added two columns to
+`error_log_entry`, and turned Play's **Crash logs** from an untickable box
+into a required one. Nothing about it was careless — it was designed,
+reviewed and deliberately built to hold no child identifier — and it still
+changed this form. Re-read this document against `git log` before
+submitting, not from memory.

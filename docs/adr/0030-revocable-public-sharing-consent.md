@@ -2,6 +2,12 @@
 
 ## Status
 
+
+**Decision 12, 2026-08-31** — self-consent at 16 and above, opt-in, which
+narrows Decision 10 rather than deleting it (under 16 is unchanged). The
+shape is decided; implementation waits on a CLAUDE.md amendment and a
+blocking security review. See the end of this file.
+
 **Security-reviewer pass, 2026-08-17 — NOT a sign-off.** The consent
 lifecycle was built (`backend/src/public-sharing/`) and reviewed. The
 review returned **eight blocking findings and five advisory**, and its
@@ -818,3 +824,282 @@ due 2026-09-16, not with this commit.
    was collected for, and whether the Swedish 13-year age of digital
    consent — which the app's 8 locales already outrun — changes the
    answer for non-Swedish users.
+
+---
+
+## Decision — 12 (PROPOSED 2026-08-31): self-consent above the digital-consent age — opt-in only, and it reverses Decision 10
+
+**Status: proposed, not decided.** Raised by the project owner
+2026-08-31: *"for people who is older then a age of EU says we can share
+content without asking our parents for permissions. Then it will be
+automatic availible but we can put the option to disable that option."*
+
+**This reverses Decision 10**, made two weeks earlier and quoting the
+owner's own words: *"Yes, sharing needs a parent even for the 13+
+self-verified accounts."* Recorded here rather than silently superseded —
+changing your mind is fine, doing it without seeing the earlier argument
+is not.
+
+### The half of Decision 10 that no longer holds
+
+Decision 10's central argument was mechanical rather than moral:
+
+> An account with no parent contact has no recipient for [the monthly
+> reminder], so admitting that cohort would have meant unsupervised
+> publication outside the team — not a weaker control, but none.
+
+**That assumed the reminder must reach a parent.** It need not, if the
+consent is the player's own. `player_private_info.parent_contact` is
+non-nullable and a self-verified account already receives its own
+verification mail, so a recipient exists — it is the player. A monthly
+"your clips are still public, here is how to stop" sent to a
+seventeen-year-old who chose to publish is a real control, not an absent
+one.
+
+So Decision 10's strongest argument is weaker than it looked, and the
+proposal deserves a serious hearing rather than a reflex no. **Confirm
+before building** that a self-verified account's stored contact is in fact
+the player's own address and not a parent's — the column name says parent
+and the semantics may differ per cohort.
+
+### The half that stands, and it is fatal to "automatic"
+
+**"Automatically available with an option to disable" is a pre-ticked box,
+and a pre-ticked box is not consent.** GDPR Article 4(11) requires a clear
+affirmative action; Recital 32 rules out silence, pre-ticked boxes and
+inactivity by name, and the CJEU said the same in *Planet49*.
+
+This codebase already knows it. `site/index.html`'s signup form carries
+the reasoning in a comment, for two marketing checkboxes. Defaulting a
+teenager's video to publishable outside their team is the same mistake in
+a place where the cost is incomparably higher.
+
+**Whatever else is decided, the switch starts off.**
+
+### The second problem, which no amount of copy fixes
+
+`player.birth_year` is self-declared and **nothing verifies it**. Today
+that is tolerable, because the number only decides whether a parent is
+asked for the *account* — Decision 10 means it cannot unlock publication.
+
+This proposal would make that unverified number the thing that lets a
+child publish video of themselves to strangers with no adult ever
+involved. A twelve-year-old enters 2005 and the system cannot tell.
+BACKLOG.md already states the rule this breaks: *"The age bar cannot be
+the safety control."*
+
+Under Decision 10 a child wanting to bypass a parent must at least supply
+a plausible address and receive mail at it — weak, and named as weak in
+Decision 10 itself, but not nothing. This proposal removes even that.
+
+### The shape that gets what was asked for
+
+1. **Self-consent for players at or above `SELF_VERIFICATION_MIN_AGE_YEARS`**,
+   granted by the player, recorded in the same `public_sharing_consent`
+   row, revocable identically. A seventeen-year-old stops needing a parent
+   to share their own training video, which is the real and reasonable
+   ask.
+2. **Opt-in, never default.** Same affirmative act as every other consent
+   here.
+3. **The monthly reminder goes to the player**, and the
+   delivery-failure auto-disable (Decision 5) applies unchanged — so the
+   design keeps its only recurring control rather than losing it.
+4. **Decide the age deliberately, and do not assume 13.** Article 8's
+   thirteen is about a service processing a child's data. Publishing
+   video of a child's face to strangers is a different act with a
+   different risk, and a higher bar for it is lawful and defensible. 15,
+   16 or 18 are all arguable; 13 is the floor for the wrong question.
+
+### Decided 2026-08-31 by the project owner
+
+**The age is 16**, not Article 8's 13. Under 16, sharing needs a parent
+exactly as Decision 10 requires; at 16 and above the player may consent
+for themselves. Consistent with the backlog's account-linking entry, which
+already chose 16 for player-to-trainer linking — so the app has one "old
+enough to act for yourself" age rather than two that will drift.
+
+**The switch is unlocked, not flipped.** At 16 the capability becomes
+available with no parent in the loop, and the player turns it on
+themselves. A 16-year-old who never touches the setting shares nothing.
+This is what makes it consent rather than a pre-ticked box.
+
+### Age integrity — the owner's proposals, and what each one costs
+
+Raised together 2026-08-31, because a self-declared year that now unlocks
+publication needs something behind it.
+
+**1. The birth year is immutable — adopted, and already true.** No update
+path exists in the API and the profile screen renders it as text, not a
+field. So this is a property to *state and defend* rather than build.
+
+**But it cannot be immutable without exception, and this is the one
+correction that matters.** GDPR Article 16 gives every data subject the
+right to have inaccurate personal data rectified. A picker mis-tap that
+can never be corrected is a permanent inaccuracy the subject has a legal
+right to fix — and it is a young child's data.
+
+The shape that satisfies both: **immutable to the user, correctable by the
+operator on request, with the correction recorded.** Anti-gaming survives
+(a child cannot quietly bump their own year to reach 16) and Article 16
+survives with it. A correction that crosses the 16 boundary should
+additionally revoke any self-consent it retroactively invalidates.
+
+**2. Say in the terms that the age must be true — adopted, with a caveat
+worth stating.** A term requiring truthful age is standard and worth
+having. It does **not** transfer responsibility: under GDPR the controller
+remains responsible for the processing whatever the child typed, and a
+term is not a defence to processing a 12-year-old's data as if they were
+16. It supports good faith; it does not discharge the duty. Write it,
+and do not rely on it.
+
+**3. Flag teams with implausible ages — adopted, and it needs no AI.**
+This is a scheduled SQL query, not a model: compare each player's year
+against their team's median and flag outliers. Saying so is worth more
+than building anything, because "an AI agent for it" is weeks and a
+`HAVING` clause is an afternoon.
+
+**Flag the outlier, not the spread.** A team evenly spanning 2010–2016 is
+just a wide team; a team of 2014s with one 2005 is the thing worth
+seeing. Raw spread would fire on the first and miss the shape of the
+second.
+
+**4. Five years maximum spread — NOT adopted as a rule.** It would break
+real teams. Players 9–13 already span four years, and the backlog records
+that *"sixteen- and seventeen-year-old assistant coaches are completely
+normal in Swedish youth floorball"* — so a legitimate roster reaches seven
+or eight years routinely. A hard cap would reject those teams and teach
+everyone that the rule is wrong.
+
+Keep it as a **threshold for flagging**, generous enough that firing means
+something. Start around eight years and tune on real teams, in exactly the
+way ADR-0036 says a classifier threshold must be tuned rather than
+guessed.
+
+**5. Notify other members' parents about an older person — NOT adopted,
+and this one should not be built as described.** It discloses one child's
+age to a dozen other families, automatically, on a signal that is wrong
+most of the time. The commonest cause of an older player on a youth roster
+is the legitimate one above — and the notification would out a real
+seventeen-year-old assistant to every family in the team, repeatedly, for
+doing nothing.
+
+**Route it to the operator instead**, which is the same shape as every
+other control in this codebase: the machine flags, a human decides, and
+the human decides whether any family needs telling. If a genuine problem
+is found, telling parents is then a considered act by a person rather than
+an automatic disclosure by a query.
+
+### Coach confirmation does not work, and the reason generalises
+
+Raised by the project owner 2026-08-31: a team that hires a professional
+trainer gets an adult *who has never met the children*. That trainer
+cannot confirm anyone's age, and will not know it until well after the
+relationship starts.
+
+**It is worse than that, and worth stating plainly: this app contains no
+adult who reliably knows the children's real ages.**
+
+- The **captain is a child** (ADR-0028 Decision 5 states it outright).
+- A **PT is a stranger by design.** ADR-0023 built the role so that a team
+  link on its own exposes screen names and consent status and nothing
+  else — a PT can see *who exists to ask*, never who anyone is. Not
+  knowing the children is the feature.
+- Phase 2's kapten pivot removed adult accounts entirely.
+
+So Decision 10's interim mitigation — *"confirmed by the team's coach or
+the operator"* — has a weak half and a strong half, and only now is it
+clear which is which. **The coach half does not hold.** The operator half
+does, at current scale, because the operator knows the beta teams
+personally; it is already labelled interim and it does not scale.
+
+### What actually reaches someone who knows
+
+**1. The outlier flag already covers the main abuse shape**, and this is
+the useful realisation. A twelve-year-old who types 2010 to unlock sharing
+*is* an age outlier in a team of real twelve-year-olds — which is exactly
+what the adopted flag looks for. The detector and this problem are the
+same problem, and it was already adopted for other reasons.
+
+Where it does not help: a whole team faking together, or a genuinely
+mixed-age roster the faker blends into. Those are real gaps and neither is
+closed here.
+
+**2. Notify the contact on file when a 16+ self-consent is switched on.**
+Not approval — that would undo the decision above. Visibility. If the
+address belongs to a parent, someone who knows the child's real age
+learns that sharing was enabled, and a parent who knows their child is
+twelve will react.
+
+**Traced 2026-08-31, and the answer kills it.** Both onboarding branches
+write `dto.parentContact` into the same column; only the label differs.
+Under 13 the app asks for *"Förälders eller vårdnadshavares e-post"*. At
+13+ it asks for *"Din e-post eller mobilnummer"* — **the player's own**.
+The column name is a leftover from when there was one branch.
+
+So notifying "the contact on file" would email the person who typed the
+age, including the twelve-year-old who typed 2010. Not a weak control: one
+that notifies the subject of its own suspicion. **Rejected.**
+
+### DECIDED 2026-08-31 — accept the residual risk, and name it
+
+Project owner's call, after the trace above removed the last candidate
+control.
+
+**What is accepted, in plain words.** A child who enters a false birth
+year reaching 16 can enable public sharing of their own clips with **no
+parent involved at any point**. No parent address is ever collected for
+such an account, so there is nobody to notify — not for this, not for
+anything, ever. The only thing that might catch it is the outlier flag.
+
+**Why this is tolerable now, and it is not "because it is unlikely".**
+
+- **Layer 3 stands in front of it.** Since 2026-08-27 no clip reaches a
+  stranger without an operator watching it
+  (`docs/design/clip-safety.md`). So the failure is not "a twelve-year-old
+  publishes to strangers unchecked" — it is "publishes with human review
+  but without parental consent". That is a real consent failure and a
+  materially smaller safety one, and the distinction is the reason this is
+  acceptable rather than reckless.
+- **The outlier flag catches the common shape.** A twelve-year-old
+  claiming 16 among real twelve-year-olds is exactly the anomaly it looks
+  for.
+- **Public sharing is currently off entirely** — one team on the
+  allow-list, consent revoked. Nothing is exposed today.
+
+**The gaps that remain, with nothing behind them:** a whole team entering
+false years together, and a genuinely mixed-age roster a faker blends
+into. Neither is closed and neither is closeable without verified
+identity, which the backlog's account-linking entry already parks as its
+own decision.
+
+**Reopen on any of these:**
+
+- Public sharing widening beyond the current one-team allow-list.
+- The outlier flag firing on a real case — the first true positive is
+  evidence about the rate, which nobody has.
+- Scale at which the operator no longer knows the teams personally, since
+  that is what the whole interim posture rests on (Decision 9's triggers).
+- Any incident involving a misstated age.
+
+### Still open
+
+- **What the terms say about a false age** — the lawyer's wording rather
+  than this document's, and now carrying more weight, since it is the only
+  remaining response to a child who lies about their year.
+- **Renaming `parent_contact`**, which no longer describes what it holds
+  for 13+ accounts. Cosmetic until someone trusts the name.
+
+### Before any of Decision 12 is built
+
+A **CLAUDE.md amendment**, since the non-negotiable reads *"their own
+parent"* with no exception, and a **blocking security-reviewer pass**.
+- **What the terms actually say** about a false age, which is the lawyer's
+  wording rather than this document's.
+
+### Needs
+
+An explicit **CLAUDE.md amendment** — its non-negotiable names *"their own
+parent"*, and this changes that sentence for one cohort — plus a
+**blocking security-reviewer pass**, per the standing rule for anything
+touching child media or consent.
+

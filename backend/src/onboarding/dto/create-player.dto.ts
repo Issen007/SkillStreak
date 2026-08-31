@@ -13,19 +13,34 @@ import { PlayerLocale } from '../../common/locale/player-locale.enum';
 import { trimString } from '../../common/validation/trim-string.transform';
 import { IsEmailOrPhone } from './is-email-or-phone.validator';
 
-// Sane birth-year range: oldest plausible active youth player vs. today.
+// Sane birth-year range: a garbage filter, nothing more.
 // Loose on purpose (this is a coarse sanity check, not age gating logic) —
 // per ADR-0002, only the year is ever collected, never a full DOB.
 //
 // Both bounds are rolling offsets from the current year, not fixed
 // calendar years — a fixed MIN_BIRTH_YEAR silently drifts wider every year
 // that passes, so the only way for this range to need zero manual
-// updates, ever, is for both ends to move with today. Widened 2026-07-26
-// from 26 to 56 (2000-2026 -> 1970-2026 as of today) — coaches/parents
-// creating their own test/adult accounts were hitting the old floor;
-// still a coarse sanity check, not age-gating logic (parental consent
-// applies regardless of birth year either way, per ADR-0002 addendum §2).
-const OLDEST_ALLOWED_AGE_YEARS = 56;
+// updates, ever, is for both ends to move with today.
+//
+// **Widened twice now for the same reason, which is the interesting
+// part.** 2026-07-26: 26 -> 56, because coaches and parents making their
+// own accounts hit the floor. 2026-08-31: 56 -> 120, because a tester born
+// before 1970 hit it again and reported that the app told him he was "too
+// old" — which it does not mean and should never have implied.
+//
+// Twice is a pattern, so this is now set where no living person can ever
+// hit it rather than at the next plausible-looking number. 120 is past the
+// verified human maximum and still rejects the thing this exists to
+// reject: a mistyped 1826 or 19999. Picked over "no limit at all" because
+// an unbounded smallint accepts year 3 and year 30000, and over 200
+// because beyond ~120 it stops filtering anything.
+//
+// **It has never been age-gating logic and must not become it.** Parental
+// consent applies regardless of birth year (ADR-0002 addendum §2), and
+// `birth_year` is self-declared with nothing verifying it — so no
+// permission may ever hang off this number. See ADR-0030's amendment for
+// where that came up in earnest.
+const OLDEST_ALLOWED_AGE_YEARS = 120;
 const YOUNGEST_ALLOWED_AGE_YEARS = 4;
 const MIN_BIRTH_YEAR = new Date().getUTCFullYear() - OLDEST_ALLOWED_AGE_YEARS;
 const MAX_BIRTH_YEAR = new Date().getUTCFullYear() - YOUNGEST_ALLOWED_AGE_YEARS;

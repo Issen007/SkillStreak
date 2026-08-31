@@ -57,7 +57,21 @@ link is fine as it stands. The link is deliberately *not* pre-gated — a
 gate built against a decision nobody has made yet is as likely to be wrong
 as right. Whichever way §2.1 goes, revisit this line.
 
-### 1.3 The store declarations — **drafted 2026-08-22, still to be entered**
+### 1.3 The store declarations — **drafted, form-ordered, still to be entered**
+
+**These now block the Play closed test, not just the launch.** Play will
+not release to *any* track, including a closed one, until Data Safety, the
+content rating questionnaire and Target audience & content are complete.
+So the 14-day clock in §1.6 cannot start until this hour is spent — which
+makes it the first thing to do, not a launch-week task.
+
+`STORE-DATA-SAFETY.md` now carries a walkthrough in the console's own form
+order, added 2026-08-27, including one answer that changed after the
+original draft: **the app reports its own crashes as of 2026-08-23**, so
+Play's *Crash logs* must be ticked — and ticked as **not linked to the
+user**, which is unusually favourable and is correct, because
+`error_log_entry` has no player column by construction.
+
 
 Neither Apple's App Privacy nor Play's Data Safety form has been submitted.
 The answers now exist in [`STORE-DATA-SAFETY.md`](STORE-DATA-SAFETY.md),
