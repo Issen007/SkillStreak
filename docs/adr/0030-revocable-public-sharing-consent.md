@@ -3,9 +3,10 @@
 ## Status
 
 
-**Decision 12 proposed 2026-08-31** — self-consent above the
-digital-consent age, which would reverse Decision 10. Not decided; see the
-end of this file.
+**Decision 12, 2026-08-31** — self-consent at 16 and above, opt-in, which
+narrows Decision 10 rather than deleting it (under 16 is unchanged). The
+shape is decided; implementation waits on a CLAUDE.md amendment and a
+blocking security review. See the end of this file.
 
 **Security-reviewer pass, 2026-08-17 — NOT a sign-off.** The consent
 lifecycle was built (`backend/src/public-sharing/`) and reviewed. The
@@ -909,13 +910,94 @@ Decision 10 itself, but not nothing. This proposal removes even that.
    different risk, and a higher bar for it is lawful and defensible. 15,
    16 or 18 are all arguable; 13 is the floor for the wrong question.
 
-### What is still open, and it is the owner's call
+### Decided 2026-08-31 by the project owner
 
-- **Which age**, per point 4.
-- **Whether the unverified birth year is acceptable** as the gate for
-  this, given it currently gates nothing that matters. If it is not, this
-  needs an age signal with something behind it, which is the identity
-  question the backlog's account-linking entry already parks.
+**The age is 16**, not Article 8's 13. Under 16, sharing needs a parent
+exactly as Decision 10 requires; at 16 and above the player may consent
+for themselves. Consistent with the backlog's account-linking entry, which
+already chose 16 for player-to-trainer linking — so the app has one "old
+enough to act for yourself" age rather than two that will drift.
+
+**The switch is unlocked, not flipped.** At 16 the capability becomes
+available with no parent in the loop, and the player turns it on
+themselves. A 16-year-old who never touches the setting shares nothing.
+This is what makes it consent rather than a pre-ticked box.
+
+### Age integrity — the owner's proposals, and what each one costs
+
+Raised together 2026-08-31, because a self-declared year that now unlocks
+publication needs something behind it.
+
+**1. The birth year is immutable — adopted, and already true.** No update
+path exists in the API and the profile screen renders it as text, not a
+field. So this is a property to *state and defend* rather than build.
+
+**But it cannot be immutable without exception, and this is the one
+correction that matters.** GDPR Article 16 gives every data subject the
+right to have inaccurate personal data rectified. A picker mis-tap that
+can never be corrected is a permanent inaccuracy the subject has a legal
+right to fix — and it is a young child's data.
+
+The shape that satisfies both: **immutable to the user, correctable by the
+operator on request, with the correction recorded.** Anti-gaming survives
+(a child cannot quietly bump their own year to reach 16) and Article 16
+survives with it. A correction that crosses the 16 boundary should
+additionally revoke any self-consent it retroactively invalidates.
+
+**2. Say in the terms that the age must be true — adopted, with a caveat
+worth stating.** A term requiring truthful age is standard and worth
+having. It does **not** transfer responsibility: under GDPR the controller
+remains responsible for the processing whatever the child typed, and a
+term is not a defence to processing a 12-year-old's data as if they were
+16. It supports good faith; it does not discharge the duty. Write it,
+and do not rely on it.
+
+**3. Flag teams with implausible ages — adopted, and it needs no AI.**
+This is a scheduled SQL query, not a model: compare each player's year
+against their team's median and flag outliers. Saying so is worth more
+than building anything, because "an AI agent for it" is weeks and a
+`HAVING` clause is an afternoon.
+
+**Flag the outlier, not the spread.** A team evenly spanning 2010–2016 is
+just a wide team; a team of 2014s with one 2005 is the thing worth
+seeing. Raw spread would fire on the first and miss the shape of the
+second.
+
+**4. Five years maximum spread — NOT adopted as a rule.** It would break
+real teams. Players 9–13 already span four years, and the backlog records
+that *"sixteen- and seventeen-year-old assistant coaches are completely
+normal in Swedish youth floorball"* — so a legitimate roster reaches seven
+or eight years routinely. A hard cap would reject those teams and teach
+everyone that the rule is wrong.
+
+Keep it as a **threshold for flagging**, generous enough that firing means
+something. Start around eight years and tune on real teams, in exactly the
+way ADR-0036 says a classifier threshold must be tuned rather than
+guessed.
+
+**5. Notify other members' parents about an older person — NOT adopted,
+and this one should not be built as described.** It discloses one child's
+age to a dozen other families, automatically, on a signal that is wrong
+most of the time. The commonest cause of an older player on a youth roster
+is the legitimate one above — and the notification would out a real
+seventeen-year-old assistant to every family in the team, repeatedly, for
+doing nothing.
+
+**Route it to the operator instead**, which is the same shape as every
+other control in this codebase: the machine flags, a human decides, and
+the human decides whether any family needs telling. If a genuine problem
+is found, telling parents is then a considered act by a person rather than
+an automatic disclosure by a query.
+
+### Still open
+
+- **The interim coach-confirmation question.** Decision 10's mitigation —
+  a coach who knows the roster confirms — was offered as an option here
+  and superseded by the proposals above. Worth deciding whether it also
+  applies to a 16+ self-consent at current scale, since the coach knows
+  the real ages and the flagging job does not.
+- **What the terms actually say** about a false age, which is the lawyer's
+  wording rather than this document's.
 
 ### Needs
 
