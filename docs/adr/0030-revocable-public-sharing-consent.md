@@ -989,13 +989,62 @@ the human decides whether any family needs telling. If a genuine problem
 is found, telling parents is then a considered act by a person rather than
 an automatic disclosure by a query.
 
+### Coach confirmation does not work, and the reason generalises
+
+Raised by the project owner 2026-08-31: a team that hires a professional
+trainer gets an adult *who has never met the children*. That trainer
+cannot confirm anyone's age, and will not know it until well after the
+relationship starts.
+
+**It is worse than that, and worth stating plainly: this app contains no
+adult who reliably knows the children's real ages.**
+
+- The **captain is a child** (ADR-0028 Decision 5 states it outright).
+- A **PT is a stranger by design.** ADR-0023 built the role so that a team
+  link on its own exposes screen names and consent status and nothing
+  else — a PT can see *who exists to ask*, never who anyone is. Not
+  knowing the children is the feature.
+- Phase 2's kapten pivot removed adult accounts entirely.
+
+So Decision 10's interim mitigation — *"confirmed by the team's coach or
+the operator"* — has a weak half and a strong half, and only now is it
+clear which is which. **The coach half does not hold.** The operator half
+does, at current scale, because the operator knows the beta teams
+personally; it is already labelled interim and it does not scale.
+
+### What actually reaches someone who knows
+
+**1. The outlier flag already covers the main abuse shape**, and this is
+the useful realisation. A twelve-year-old who types 2010 to unlock sharing
+*is* an age outlier in a team of real twelve-year-olds — which is exactly
+what the adopted flag looks for. The detector and this problem are the
+same problem, and it was already adopted for other reasons.
+
+Where it does not help: a whole team faking together, or a genuinely
+mixed-age roster the faker blends into. Those are real gaps and neither is
+closed here.
+
+**2. Notify the contact on file when a 16+ self-consent is switched on.**
+Not approval — that would undo the decision above. Visibility. If the
+address belongs to a parent, someone who knows the child's real age
+learns that sharing was enabled, and a parent who knows their child is
+twelve will react.
+
+**This turns entirely on a fact that is now load-bearing and still
+unconfirmed**: for an account that self-verified at 13-15, is
+`player_private_info.parent_contact` a parent's address or the player's
+own? The column name says parent. If it is in practice the player's own,
+this control notifies only the person who typed the false age, and is
+worth nothing. **Confirm before building.**
+
 ### Still open
 
-- **The interim coach-confirmation question.** Decision 10's mitigation —
-  a coach who knows the roster confirms — was offered as an option here
-  and superseded by the proposals above. Worth deciding whether it also
-  applies to a 16+ self-consent at current scale, since the coach knows
-  the real ages and the flagging job does not.
+- **The notification in point 2**, pending that fact.
+- **Whether operator confirmation applies at current scale.** It is the
+  only confirmation that works today, and it expires with the rest of the
+  interim posture under Decision 9's triggers.
+- **What the terms actually say** about a false age — the lawyer's
+  wording rather than this document's.
 - **What the terms actually say** about a false age, which is the lawyer's
   wording rather than this document's.
 
