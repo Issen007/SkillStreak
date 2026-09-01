@@ -1732,12 +1732,13 @@
      * the crosshair never steals its own hover. */
     var hit = '<rect class="ch-hit" x="0" y="0" width="' + CHART_W +
       '" height="' + CHART_H + '" fill="transparent"/>';
-    var hover = '<g class="ch-hover" opacity="0" pointer-events="none">' +
+    /* Only geometry and the opacity the script toggles are attributes
+     * here; every colour and the pointer-events opt-out live in
+     * index.html, so the two files do not each hold half the answer. */
+    var hover = '<g class="ch-hover" opacity="0">' +
       '<line class="ch-cross" y1="' + CHART_PAD.top + '" y2="' +
-        (CHART_PAD.top + innerH) + '" stroke="var(--accent)" ' +
-        'stroke-width="1" opacity="0.45"/>' +
-      '<circle class="ch-mark" r="4.5" fill="var(--accent)" ' +
-        'stroke="var(--surface)" stroke-width="2"/>' +
+        (CHART_PAD.top + innerH) + '"/>' +
+      '<circle class="ch-mark" r="4.5"/>' +
       '</g>';
 
     var svg = '<svg viewBox="0 0 ' + CHART_W + ' ' + CHART_H + '" width="100%" ' +
