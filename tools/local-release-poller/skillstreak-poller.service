@@ -5,7 +5,19 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-# Absolute path assumed to match this machine's real checkout location —
-# update both this and skillstreak-poller.timer's install step if the repo
-# ever lives somewhere else.
-ExecStart=/home/chrisp/SkillStreak/tools/local-release-poller/poll-and-deploy.sh
+# Absolute path — systemd gives a unit no way to find its own checkout, so
+# this has to name one. It names ubuntu01's, the only machine that runs
+# this timer. Anywhere else, override it rather than editing this line:
+#
+#   systemctl --user edit skillstreak-poller.service
+#   [Service]
+#   ExecStart=
+#   ExecStart=/your/path/tools/local-release-poller/poll-and-deploy.sh
+#
+# (the empty ExecStart= first is required — it clears this one instead of
+# appending a second command). See this directory's README.
+#
+# Corrected 2026-09-01: this said /home/chrisp/SkillStreak, a checkout that
+# no longer exists. The timer had been running off a drop-in override the
+# whole time, so nothing broke, and nothing pointed at the stale line either.
+ExecStart=/home/chrisp/Github/Other/SkillStreak/tools/local-release-poller/poll-and-deploy.sh
