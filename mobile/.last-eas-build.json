@@ -15,37 +15,35 @@
     "",
     "Not authoritative, and honest about that: nothing stops a human editing",
     "this file without building. Adding an EXPO_TOKEN secret would let the",
-    "CI job query EAS directly and remove that gap \u2014 see the job's own",
+    "CI job query EAS directly and remove that gap — see the job's own",
     "comment in .github/workflows/ci-cd.yml.",
     "",
     "A platform may carry `buildsUnavailableUntil` (a date) and",
     "`buildsUnavailableReason`. While that date is in the future, CI",
-    "reports its drift as a warning instead of failing \u2014 because a",
+    "reports its drift as a warning instead of failing — because a",
     "platform that CANNOT be built has no action behind a red check,",
     "and permanent red is exactly what taught everyone to ignore",
     "expo-doctor.",
     "",
     "It expires by itself. Past the date the exemption stops applying",
     "and the check fails again with nobody doing anything, so this",
-    "cannot rot into a permanent mute \u2014 which would be worse than the",
+    "cannot rot into a permanent mute — which would be worse than the",
     "red it replaces, because it would fail silently."
   ],
   "builds": {
     "ANDROID": {
-      "buildId": "16e220e6-7288-453d-a1d7-75bacc69352f",
-      "commit": "316582aae38cb3219ac3f5ce771a8b2af511cecb",
+      "buildId": "4e87f748-fc9d-48ef-8aab-7e867fd80cb3",
+      "commit": "78595c770d8104a42ae060e0b565bf11fe0aa6f4",
       "profile": "production",
-      "buildNumber": "9",
-      "finishedAt": "2026-08-24"
+      "buildNumber": "10",
+      "finishedAt": "2026-09-01"
     },
     "IOS": {
-      "buildId": "a9c0c4be-78b7-4b9f-bceb-5ba390546147",
-      "commit": "31e6c276b6e0bac740c2c9af9dce195f14999464",
+      "buildId": "1235d85c-99d0-4152-9996-a279b48496dd",
+      "commit": "78595c770d8104a42ae060e0b565bf11fe0aa6f4",
       "profile": "production",
-      "buildNumber": "17",
-      "finishedAt": "2026-08-23",
-      "buildsUnavailableUntil": "2026-09-01",
-      "buildsUnavailableReason": "EAS free-plan iOS build quota exhausted; resets 1 September"
+      "buildNumber": "20",
+      "finishedAt": "2026-09-01"
     }
   }
 }

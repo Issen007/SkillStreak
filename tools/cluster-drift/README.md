@@ -27,7 +27,7 @@ cannot start hiding behind an old pod that still works.
 tools/cluster-drift/check-drift.sh
 
 # against ubuntu01, over ssh
-ssh 192.168.55.30 "cd ~/SkillStreak && KUBECTL='microk8s kubectl' \
+ssh 192.168.55.30 "cd ~/Github/Other/SkillStreak && KUBECTL='microk8s kubectl' \
   tools/cluster-drift/check-drift.sh"
 ```
 

@@ -140,7 +140,13 @@
     "close": "Sulje",
     "errorGeneric": "Se ei onnistunut juuri nyt. Yritä hetken kuluttua uudelleen.",
     "errorRevoked": "Jakaminen on kytketty pois päältä tililtäsi. Kysy huoltajaltasi.",
-    "errorTooSoon": "Kysyit juuri. Odota hetki ja yritä uudelleen."
+    "errorTooSoon": "Kysyit juuri. Odota hetki ja yritä uudelleen.",
+    "errorNeedsParentContact": "Meillä ei ole huoltajasi osoitetta. Lisää se Profiili-kohdassa, niin voit kysyä.",
+    "errorMailFailed": "Emme voineet lähettää sähköpostia juuri nyt. Yritä hetken kuluttua uudelleen.",
+    "errorMailRejected": "Sähköposti ei mennyt perille huoltajasi osoitteeseen. Tarkista osoite Profiili-kohdassa.",
+    "errorContactChanging": "Sähköpostiosoitetta ollaan juuri vaihtamassa. Odota, kunnes se on valmis, niin voit kysyä.",
+    "errorAlreadyOn": "Jakaminen on jo päällä tililläsi.",
+    "errorNotAvailable": "Jakaminen joukkueen ulkopuolelle ei ole vielä käytössä joukkueellasi."
   },
   "publicFeed": {
     "tabArchive": "Arkisto",

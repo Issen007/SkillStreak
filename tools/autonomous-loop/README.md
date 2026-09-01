@@ -104,7 +104,7 @@ about what could go wrong while you're not watching.
 ## Running it for real
 
 ```bash
-cd ~/SkillStreak/tools/autonomous-loop
+cd ~/Github/Other/SkillStreak/tools/autonomous-loop
 tmux new -s skillstreak-loop
 python3 run_loop.py
 # Ctrl+B then D to detach — the loop keeps running.

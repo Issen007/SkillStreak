@@ -5,13 +5,19 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-# Absolute path assumed to match this machine's real checkout location —
-# update both this and skillstreak-uptime.timer's install step if the repo
-# ever lives somewhere else (same caveat as tools/local-release-poller/).
-ExecStart=/home/chrisp/SkillStreak/tools/uptime-monitor/check-health.sh
+# Absolute path — systemd gives a unit no way to find its own checkout, so
+# this has to name one. Anywhere the repo lives elsewhere, add a drop-in
+# (`systemctl --user edit skillstreak-uptime.service`, an empty
+# `ExecStart=` then the real one) rather than editing this line — same
+# caveat, and same recipe, as tools/local-release-poller/.
+#
+# Corrected 2026-09-01 from /home/chrisp/SkillStreak, a checkout that was
+# deleted that day. This timer is not currently installed anywhere, so the
+# stale path broke nothing — it would just have failed on first install.
+ExecStart=/home/chrisp/Github/Other/SkillStreak/tools/uptime-monitor/check-health.sh
 # Real SMTP credentials — never committed, see .env.example in this
 # directory. `EnvironmentFile=-` (leading `-`) means "don't fail the unit
 # if this file doesn't exist yet" — the health checks still run and log
 # without it, alert emails are just skipped (see check-health.sh's own
 # send_alert guard).
-EnvironmentFile=-/home/chrisp/SkillStreak/tools/uptime-monitor/.env
+EnvironmentFile=-/home/chrisp/Github/Other/SkillStreak/tools/uptime-monitor/.env

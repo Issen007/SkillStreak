@@ -640,6 +640,41 @@ export class RedisService {
     return count <= maxPerDay;
   }
 
+  /**
+   * Give back a claim that bought nothing.
+   *
+   * Both of these are claimed *before* the consent mail is sent, so that
+   * probing the validity checks costs the caller their quota rather than
+   * being free. When the mail then fails at SMTP handoff, no mail exists
+   * to have been rate-limited: charging for it would leave a child locked
+   * out for 15 minutes, or for the rest of the day, by an outage on our
+   * side. Refunding cannot be abused for the same reason — it only ever
+   * runs on the path where nothing was sent.
+   *
+   * Deliberately separate methods rather than one `refundRequest()`: the
+   * daily cap is the anti-drip control and the cooldown is the anti-burst
+   * one, and a future caller may well want to return one without the
+   * other.
+   */
+  async releasePublicSharingRequestCooldown(playerId: string): Promise<void> {
+    await this.client.del(publicSharingRequestCooldownKey(playerId));
+  }
+
+  /**
+   * Undo one `tryClaimPublicSharingRequestDailyCap` increment.
+   *
+   * Floors at zero rather than trusting the counter: the key expires 24h
+   * after its first increment, so a refund arriving after that expiry
+   * would otherwise create a fresh key at -1 and hand the player an extra
+   * request tomorrow. It also leaves the TTL alone — refunding must not
+   * extend the window it is refunding into.
+   */
+  async refundPublicSharingRequestDailyCap(playerId: string): Promise<void> {
+    const key = publicSharingRequestDailyKey(playerId);
+    const count = await this.client.decr(key);
+    if (count < 0) await this.client.del(key);
+  }
+
   /** Per-reporter cooldown for clip reports (ADR-0010 Decision 4). */
   async tryClaimClipReportCooldown(
     playerId: string,

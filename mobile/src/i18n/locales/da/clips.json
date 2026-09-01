@@ -140,7 +140,13 @@
     "close": "Luk",
     "errorGeneric": "Det virkede ikke lige nu. Prøv igen om lidt.",
     "errorRevoked": "Deling er slået fra for din konto lige nu. Spørg din forælder.",
-    "errorTooSoon": "Du spurgte lige. Vent lidt, og prøv igen."
+    "errorTooSoon": "Du spurgte lige. Vent lidt, og prøv igen.",
+    "errorNeedsParentContact": "Vi har ikke din forælders adresse. Tilføj en under Profil, så kan du spørge.",
+    "errorMailFailed": "Vi kunne ikke sende mailen lige nu. Prøv igen om lidt.",
+    "errorMailRejected": "Mailen nåede ikke frem til din forælders adresse. Tjek adressen under Profil.",
+    "errorContactChanging": "I er ved at skifte e-mailadresse. Vent til det er færdigt, så kan du spørge.",
+    "errorAlreadyOn": "Deling er allerede slået til for din konto.",
+    "errorNotAvailable": "Deling uden for holdet er ikke slået til for dit hold endnu."
   },
   "publicFeed": {
     "tabArchive": "Arkiv",

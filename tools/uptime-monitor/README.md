@@ -69,9 +69,10 @@ one-time `loginctl enable-linger` step it needs to survive logout/reboot;
 not repeated here.
 
 ```bash
+REPO=~/Github/Other/SkillStreak     # wherever this checkout actually is
 mkdir -p ~/.config/systemd/user
-ln -sf ~/SkillStreak/tools/uptime-monitor/skillstreak-uptime.service ~/.config/systemd/user/
-ln -sf ~/SkillStreak/tools/uptime-monitor/skillstreak-uptime.timer ~/.config/systemd/user/
+ln -sf "$REPO"/tools/uptime-monitor/skillstreak-uptime.service ~/.config/systemd/user/
+ln -sf "$REPO"/tools/uptime-monitor/skillstreak-uptime.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now skillstreak-uptime.timer
 ```

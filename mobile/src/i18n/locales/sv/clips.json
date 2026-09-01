@@ -140,7 +140,13 @@
     "close": "Stäng",
     "errorGeneric": "Det gick inte just nu. Försök igen om en stund.",
     "errorRevoked": "Delning är avstängd för ditt konto just nu. Fråga din förälder.",
-    "errorTooSoon": "Du frågade nyss. Vänta en liten stund och försök igen."
+    "errorTooSoon": "Du frågade nyss. Vänta en liten stund och försök igen.",
+    "errorNeedsParentContact": "Vi har ingen adress till din förälder. Lägg till en under Profil, så kan du fråga.",
+    "errorMailFailed": "Vi kunde inte skicka mejlet just nu. Försök igen om en stund.",
+    "errorMailRejected": "Mejlet gick inte fram till din förälders adress. Kolla adressen under Profil.",
+    "errorContactChanging": "Ni håller på att byta e-postadress. Vänta tills det är klart, så kan du fråga.",
+    "errorAlreadyOn": "Delning är redan på för ditt konto.",
+    "errorNotAvailable": "Delning utanför laget är inte igång för ditt lag än."
   },
   "publicFeed": {
     "tabArchive": "Arkiv",

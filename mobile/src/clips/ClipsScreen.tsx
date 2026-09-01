@@ -86,6 +86,67 @@ interface ReportConfirmationState {
  * paginated via an explicit "Visa fler Shorts" button, never auto-loaded on
  * scroll (see the flow doc's playback-mechanics and pagination judgment
  * calls). */
+
+/**
+ * ADR-0030 — which sentence a failed "ask my parent" gets.
+ *
+ * Every branch here is a refusal the API distinguishes by `error.code`.
+ * The mapping is deliberately exhaustive rather than defaulting early:
+ * the case that matters most, `public_sharing_needs_parent_contact`, is
+ * the one a child cannot resolve by retrying, and it spent its whole
+ * life indistinguishable from the cooldown.
+ *
+ * Two of these branches are not refusals at all but the mail itself
+ * failing, which used to reach here as a *success*: the API returned
+ * `{requested: true}` whether or not SMTP had accepted anything, so the
+ * sheet flipped to "we've emailed your parent" over a mail that was
+ * never sent. Falling either of them through to `errorGeneric` would put
+ * a child back to guessing.
+ *
+ * The code strings are pinned on the server side by
+ * backend/src/public-sharing/public-sharing.controller.spec.ts, so a
+ * rename breaks a test there rather than silently dropping this switch
+ * through to `errorGeneric` — mobile has no test runner to catch it.
+ */
+type ShareErrorKey =
+  | 'clipShareSheet.errorGeneric'
+  | 'clipShareSheet.errorTooSoon'
+  | 'clipShareSheet.errorNeedsParentContact'
+  | 'clipShareSheet.errorMailFailed'
+  | 'clipShareSheet.errorMailRejected'
+  | 'clipShareSheet.errorContactChanging'
+  | 'clipShareSheet.errorAlreadyOn'
+  | 'clipShareSheet.errorNotAvailable';
+
+export function shareRequestErrorKey(err: unknown): ShareErrorKey {
+  if (!(err instanceof ApiError)) return 'clipShareSheet.errorGeneric';
+  switch (err.code) {
+    case 'public_sharing_request_cooldown':
+    case 'public_sharing_request_daily_cap':
+      return 'clipShareSheet.errorTooSoon';
+    case 'public_sharing_needs_parent_contact':
+      return 'clipShareSheet.errorNeedsParentContact';
+    // Added 2026-09-01. Before this the mail result was discarded server
+    // side, so both of these arrived as a success and the sheet said "Vi
+    // har skickat ett mejl" over a mail that no server had accepted.
+    // They stay two branches because the child's next move differs: one
+    // is worth retrying and the other never will be until the address on
+    // file changes.
+    case 'public_sharing_request_mail_failed':
+      return 'clipShareSheet.errorMailFailed';
+    case 'public_sharing_request_mail_rejected':
+      return 'clipShareSheet.errorMailRejected';
+    case 'public_sharing_blocked_pending_contact_change':
+      return 'clipShareSheet.errorContactChanging';
+    case 'public_sharing_already_active':
+      return 'clipShareSheet.errorAlreadyOn';
+    case 'public_sharing_not_available_for_team':
+      return 'clipShareSheet.errorNotAvailable';
+    default:
+      return 'clipShareSheet.errorGeneric';
+  }
+}
+
 export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenProps) {
   const { t } = useTranslation('clips');
   const [hasSeenIntro, setHasSeenIntroState] = useState<boolean | null>(null);
@@ -374,15 +435,15 @@ export function ClipsScreen({ teamId, viewerPlayerId, onOpened }: ClipsScreenPro
       await requestPublicSharing();
       await fetchSharingStatus();
     } catch (err) {
-      // The server refuses a second request inside its 15-minute cooldown
-      // (and past three a day) with a 400. Now that asking again is a
-      // button a child can press, "something went wrong" would be a lie
-      // about the one case they are most likely to hit.
-      setShareError(
-        err instanceof ApiError && err.status === 400
-          ? t('clipShareSheet.errorTooSoon')
-          : t('clipShareSheet.errorGeneric'),
-      );
+      // One message per refusal, keyed off `error.code`.
+      //
+      // This used to read `err.status === 400 ? errorTooSoon :
+      // errorGeneric`, back when the API collapsed all six refusals into
+      // one 400. "Du frågade nyss" was then shown to a child whose
+      // account has no parent address at all — advice to wait for
+      // something waiting cannot fix, and the reason this screen looked
+      // broken rather than blocked.
+      setShareError(t(shareRequestErrorKey(err)));
     } finally {
       setShareSubmitting(false);
     }

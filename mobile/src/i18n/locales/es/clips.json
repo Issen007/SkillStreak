@@ -140,7 +140,13 @@
     "close": "Cerrar",
     "errorGeneric": "Eso no funcionó ahora mismo. Inténtalo de nuevo en un momento.",
     "errorRevoked": "Ahora mismo compartir está desactivado en tu cuenta. Pregúntale a tu madre o padre.",
-    "errorTooSoon": "Acabas de preguntar. Espera un poco e inténtalo de nuevo."
+    "errorTooSoon": "Acabas de preguntar. Espera un poco e inténtalo de nuevo.",
+    "errorNeedsParentContact": "No tenemos la dirección de tu madre o padre. Añade una en Perfil y luego podrás preguntar.",
+    "errorMailFailed": "No pudimos enviar el correo ahora mismo. Inténtalo de nuevo en un momento.",
+    "errorMailRejected": "El correo no llegó a la dirección de tu madre o padre. Comprueba la dirección en Perfil.",
+    "errorContactChanging": "Se está cambiando tu dirección de correo. Espera a que termine y luego podrás preguntar.",
+    "errorAlreadyOn": "Compartir ya está activado en tu cuenta.",
+    "errorNotAvailable": "Compartir fuera del equipo todavía no está activado para tu equipo."
   },
   "publicFeed": {
     "tabArchive": "Archivo",

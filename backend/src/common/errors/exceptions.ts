@@ -400,6 +400,146 @@ export class PublicSharingNotConsentedException extends AppException {
   }
 }
 
+/*
+ * ADR-0030 — why asking a parent has its own error family.
+ *
+ * `POST /me/public-sharing/request` can refuse for six unrelated reasons.
+ * Until 2026-09-01 the service threw a plain `Error` for each and the
+ * controller collapsed every one into a single 400, which the app then
+ * rendered as "Du frågade nyss" — wait a moment and try again.
+ *
+ * For one of the six that message is true. For the rest it is a lie, and
+ * for `PublicSharingNeedsParentContactException` it is a permanent dead
+ * end: a self-verified account has no parent address on file, so the
+ * child is told to wait for something that waiting cannot fix, and
+ * nothing surfaces the real reason to them or to an operator.
+ *
+ * These mirror the PT consent family below deliberately — same flow
+ * shape, same refusals, and that one was already typed. The two should
+ * not drift.
+ */
+
+/** The team is not in PUBLIC_SHARING_ENABLED_TEAM_IDS. */
+export class PublicSharingNotAvailableForTeamException extends AppException {
+  constructor() {
+    // Not 404: the feature exists and the caller is authenticated, it is
+    // simply not switched on for their team. The app already hides the
+    // entry point in this state, so reaching here means the rollout
+    // changed under a screen that was open.
+    super(
+      'public_sharing_not_available_for_team',
+      'Public sharing is not enabled for this player’s team.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+/** Decision 2: an active consent is revoked, never overwritten. */
+export class PublicSharingAlreadyActiveException extends AppException {
+  constructor() {
+    super(
+      'public_sharing_already_active',
+      'Public-sharing consent is already active for this player.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+/** Finding 3: the address on file is mid-change; approval would follow it. */
+export class PublicSharingBlockedPendingContactChangeException extends AppException {
+  constructor() {
+    super(
+      'public_sharing_blocked_pending_contact_change',
+      'A contact-email change is pending for this player — try again once it resolves.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+/**
+ * Decision 10: there is no parent address to write to.
+ *
+ * The one refusal in this family that a child can neither wait out nor
+ * retry, which is exactly why it needed its own code. A self-verified
+ * account must add a parent contact before sharing can be asked for at
+ * all.
+ */
+export class PublicSharingNeedsParentContactException extends AppException {
+  constructor() {
+    super(
+      'public_sharing_needs_parent_contact',
+      'Public sharing needs a parent contact on file; this account has none.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+/** Finding 8, burst half: the 15-minute cooldown. */
+export class PublicSharingRequestCooldownException extends AppException {
+  constructor() {
+    super(
+      'public_sharing_request_cooldown',
+      'A public-sharing consent request was sent recently — wait before asking again.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+/**
+ * The parent's address was refused by the mail server at handoff.
+ *
+ * A dead end like `needs_parent_contact`, not a wait like the cooldown,
+ * which is why it carries that one's status rather than the transient
+ * failure's below: retrying sends the same message to the same refused
+ * address, forever. The address on file has to change first.
+ */
+export class PublicSharingRequestMailRejectedException extends AppException {
+  constructor() {
+    super(
+      'public_sharing_request_mail_rejected',
+      'The parent contact address was refused by the mail server.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+/**
+ * The consent mail could not be handed to SMTP at all.
+ *
+ * Until 2026-09-01 this outcome was invisible: `request()` mailed
+ * best-effort, discarded the result, and returned `{requested: true}`
+ * either way, so the app said *"Vi har skickat ett mejl"* whether or not
+ * anything reached a mail server. A child then waited for a mail that was
+ * never sent, and no operator saw anything either — the only trace was a
+ * `logger.warn`.
+ *
+ * 502 rather than 500: the request was valid and this service did its
+ * part; the thing that failed is upstream of it. It is also the honest
+ * signal for the case where SMTP is simply not configured, which is an
+ * operator problem the child cannot do anything about but should still
+ * not be lied to about.
+ */
+export class PublicSharingRequestMailFailedException extends AppException {
+  constructor() {
+    super(
+      'public_sharing_request_mail_failed',
+      'The consent email could not be handed to the mail server.',
+      HttpStatus.BAD_GATEWAY,
+    );
+  }
+}
+
+/** Finding 8, drip half: the per-day cap. */
+export class PublicSharingRequestDailyCapException extends AppException {
+  constructor() {
+    super(
+      'public_sharing_request_daily_cap',
+      'Too many public-sharing consent requests for this player today.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
 export class ClipAlreadyReportedException extends AppException {
   constructor() {
     super(

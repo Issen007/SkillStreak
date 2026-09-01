@@ -46,12 +46,30 @@ step 3 above, which doesn't pull image layers.
 ## Installing the timer (user-level, no root needed)
 
 ```bash
+REPO=~/Github/Other/SkillStreak     # wherever this checkout actually is
 mkdir -p ~/.config/systemd/user
-ln -sf ~/SkillStreak/tools/local-release-poller/skillstreak-poller.service ~/.config/systemd/user/
-ln -sf ~/SkillStreak/tools/local-release-poller/skillstreak-poller.timer ~/.config/systemd/user/
+ln -sf "$REPO"/tools/local-release-poller/skillstreak-poller.service ~/.config/systemd/user/
+ln -sf "$REPO"/tools/local-release-poller/skillstreak-poller.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now skillstreak-poller.timer
 ```
+
+The unit's `ExecStart=` is an absolute path — systemd gives a unit no way
+to find its own checkout — and it names `~/Github/Other/SkillStreak` on
+ubuntu01. If yours is elsewhere, don't edit the committed unit; add a
+drop-in, which is what ubuntu01 itself does:
+
+```bash
+systemctl --user edit skillstreak-poller.service
+# then, in the editor:
+#   [Service]
+#   ExecStart=
+#   ExecStart=/your/path/tools/local-release-poller/poll-and-deploy.sh
+systemctl --user daemon-reload
+```
+
+The empty `ExecStart=` is required: without it systemd *appends* a second
+command rather than replacing the first.
 
 Check it's running and see recent output:
 
@@ -143,3 +161,60 @@ before looking anywhere else:
 microk8s kubectl -n skillstreak get deploy api \
   -o jsonpath='{range .spec.template.spec.containers[0].env[*]}{.name}{"\n"}{end}' | sort
 ```
+
+`tools/cluster-drift/check-drift.sh` does that comparison and more, and is
+the faster first move:
+
+```bash
+KUBECTL='kubectl --context=microk8s' tools/cluster-drift/check-drift.sh
+```
+
+**This poller only ever patches an image tag.** It never applies a
+manifest. So *any* field that changes in `k8s/` — a port, a probe, a
+resource limit — reaches production via CI and reaches this cluster only
+when a human patches it. Bumping the image is what makes that gap fatal:
+the new image expects the new manifest and gets the old one.
+
+## The two failures of 2026-09-01, both silent
+
+Read these before debugging a stuck internal cluster; between them they
+cost about two and a half weeks of the internal environment.
+
+**1. The poller pointed at an IP the node no longer had.** 4997
+consecutive failures — roughly 17 days at one run per five minutes — all
+of them `dial tcp 192.168.55.164:16443: connect: no route to host`.
+Nothing was wrong with the poller, the cluster, or the network.
+`~/.kube/config`'s `microk8s-cluster` entry still named `192.168.55.164`;
+ubuntu01 is `192.168.55.30`, and microk8s had regenerated its CA as well.
+The cluster was up and serving the whole time.
+
+The tell is that the failure is at *connect*, before any Kubernetes
+concept appears. `microk8s config` prints the node's real current values;
+the fix was `kubectl config set-cluster microk8s-cluster --server=... 
+--certificate-authority=... --embed-certs=true` plus the matching
+`set-credentials admin`, and nothing else. Compare those two before
+assuming the cluster is down:
+
+```bash
+microk8s config | grep server:                    # what the node thinks
+kubectl config view -o jsonpath='{.clusters[?(@.name=="microk8s-cluster")].cluster.server}'
+```
+
+**2. Then the first successful deploy in 17 days broke the site.** The
+site container moved from port 80 to 8080 (it runs as a non-root user)
+sometime inside that window. `k8s/site-deployment.yaml` and production
+both moved with it; this cluster's live Deployment and Service did not,
+because — see above — the poller only ever changes the image tag. The new
+image listened on 8080, the probes kept asking port 80, and the container
+was killed on every `failureThreshold` forever while its own nginx log
+printed a clean, cheerful startup every time.
+
+`check-drift.sh` names this one in one line. It was fixed by patching the
+live objects — `containerPort`, both probe ports, and the Service's
+`marketing` `targetPort`, all 80 → 8080 — and deliberately **not** by
+applying `k8s/site-deployment.yaml`, which carries production's URLs.
+
+**Neither failure was undetectable; both were unread.** The status file
+below recorded failure #1 durably, every five minutes, for 17 days.
+Whatever you add next, add a thing that *arrives* somewhere, not one more
+thing that waits to be looked at.

@@ -12,8 +12,17 @@ import { VideoClip } from '../video-clips/entities/video-clip.entity';
 import { generateHumanCode } from '../common/crypto/human-code.util';
 import { decryptPii, encryptPii } from '../common/crypto/pii-encryption.util';
 import { buildConsentMessageId, CORRELATION_HEADER } from '../mail/dsn.parser';
-import { MailService } from '../mail/mail.service';
+import { MailSendResult, MailService } from '../mail/mail.service';
 import { RedisService } from '../redis/redis.service';
+import {
+  PublicSharingAlreadyActiveException,
+  PublicSharingBlockedPendingContactChangeException,
+  PublicSharingNeedsParentContactException,
+  PublicSharingRequestCooldownException,
+  PublicSharingRequestDailyCapException,
+  PublicSharingRequestMailFailedException,
+  PublicSharingRequestMailRejectedException,
+} from '../common/errors/exceptions';
 import { Player } from '../players/entities/player.entity';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
 import {
@@ -21,6 +30,20 @@ import {
   PublicSharingConsentStatus,
   PublicSharingRevokedReason,
 } from './entities/public-sharing-consent.entity';
+
+/**
+ * What `sendBestEffort` observed, widened past `MailSendResult`.
+ *
+ * `MailService` only ever reports what SMTP said, so its `reason` covers
+ * the two things a mail server can do. Two more failures live in this
+ * file's own wrapper — a row with no recipient stored, and a transport
+ * error thrown before any SMTP conversation happened — and they are
+ * distinct from `all_rejected`, which is the only reason that means "this
+ * address will be refused again tomorrow".
+ */
+type ConsentMailOutcome = Omit<MailSendResult, 'reason'> & {
+  reason?: MailSendResult['reason'] | 'no_recipient' | 'transport_error';
+};
 
 /** Decision 1: the approval link expires; 14 days matches the PT flow. */
 export const REVIEW_CODE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
@@ -182,10 +205,7 @@ export class PublicSharingConsentService {
     // demonstrable and Decision 9's monthly review needs in order to ask
     // "has any parent actually disabled this?".
     if (existing?.status === PublicSharingConsentStatus.ACTIVE) {
-      throw new Error(
-        'public-sharing consent is already active for this player — it ' +
-          'must be revoked before a new request (ADR-0030 Decision 2)',
-      );
+      throw new PublicSharingAlreadyActiveException();
     }
 
     // Finding 3. A pending contact change means the address on file is
@@ -194,10 +214,7 @@ export class PublicSharingConsentService {
     // player redirects their own parental approval to themselves. PT
     // refuses for the same reason.
     if (await this.playerPrivateInfoService.hasPendingContactChange(playerId)) {
-      throw new Error(
-        'a parent contact change is pending — public-sharing consent ' +
-          'cannot be requested until it settles or is cancelled',
-      );
+      throw new PublicSharingBlockedPendingContactChangeException();
     }
 
     // Decisions 1 and 10. A self-verified 13+ account has no parent
@@ -207,11 +224,7 @@ export class PublicSharingConsentService {
     const parentContact =
       await this.playerPrivateInfoService.getParentContact(playerId);
     if (!parentContact) {
-      throw new Error(
-        'public-sharing consent needs a parent contact — a self-verified ' +
-          'account must add one before sharing can be enabled (ADR-0030 ' +
-          'Decision 10)',
-      );
+      throw new PublicSharingNeedsParentContactException();
     }
 
     // Finding 8. Claimed after the validity checks and before anything is
@@ -226,17 +239,12 @@ export class PublicSharingConsentService {
     const cooled =
       await this.redisService.tryClaimPublicSharingRequestCooldown(playerId);
     if (!cooled) {
-      throw new Error(
-        'a public-sharing consent request was already sent recently — ' +
-          'wait before asking again',
-      );
+      throw new PublicSharingRequestCooldownException();
     }
     const underCap =
       await this.redisService.tryClaimPublicSharingRequestDailyCap(playerId);
     if (!underCap) {
-      throw new Error(
-        'too many public-sharing consent requests for this player today',
-      );
+      throw new PublicSharingRequestDailyCapException();
     }
 
     const { code, expiresAt } = generateHumanCode(REVIEW_CODE_TTL_MS);
@@ -273,7 +281,17 @@ export class PublicSharingConsentService {
     row.lastReminderFailureToken = null;
     await this.consents.save(row);
 
-    await this.sendBestEffort(
+    // **Not best-effort here, unlike every other mail in this file.**
+    // Elsewhere the mail reports a decision that is already made and
+    // durable, so losing it costs a notification. On this path the mail
+    // *is* the request: the approval link's only exit from this process
+    // is the parent's inbox (see this method's own Finding 1 above), so a
+    // mail that never left means a request that never happened. Returning
+    // `{requested: true}` anyway is what made the reported "asking my
+    // parent doesn't work" indistinguishable from working — the sheet
+    // flipped to "Vi har skickat ett mejl" either way, and the only trace
+    // of the truth was a logger.warn nobody was reading.
+    const mail = await this.sendBestEffort(
       parentContact,
       'SkillStreak: godkänn delning utanför laget',
       `${await this.screenNameOf(playerId)} vill kunna dela sina egna ` +
@@ -282,7 +300,30 @@ export class PublicSharingConsentService {
         `Om du inte gör något händer ingenting. Länken slutar gälla om ` +
         `14 dagar.`,
     );
+    if (!mail.handedOff) {
+      // Refund first, then throw. Both limits were claimed above to price
+      // the *mail*; no mail exists, so a child must not be held off for
+      // 15 minutes — or locked out for the day — by our own outage. This
+      // cannot be turned into an amplifier: the refund only ever runs on
+      // the branch where SMTP accepted nothing.
+      await this.redisService.releasePublicSharingRequestCooldown(playerId);
+      await this.redisService.refundPublicSharingRequestDailyCap(playerId);
+      // A refused recipient is a dead end and a transport failure is a
+      // retry, so they get different codes — the same distinction Finding
+      // 1's six codes were split for. `all_rejected` means this address will
+      // be refused again on every future attempt until it changes.
+      if (mail.reason === 'all_rejected') {
+        throw new PublicSharingRequestMailRejectedException();
+      }
+      throw new PublicSharingRequestMailFailedException();
+    }
 
+    // The PENDING_REVIEW row above is deliberately left in place, not
+    // rolled back. It holds a code no one received, which is inert — and
+    // the next successful request overwrites it — whereas unwinding it
+    // would have to guess what to restore the row to, and would delete
+    // the record of a request from the one flow whose history Article
+    // 7(1) requires be demonstrable.
     return { requested: true, expiresAt };
   }
 
@@ -603,7 +644,7 @@ export class PublicSharingConsentService {
     row.lastReminderToken = token;
     row.lastReminderAt = now;
 
-    const sent = await this.sendBestEffort(
+    const { handedOff: sent } = await this.sendBestEffort(
       this.recipientOf(row),
       'SkillStreak: delning utanför laget är fortfarande påslagen',
       `Delning utanför laget är fortfarande påslagen för ` +
@@ -902,18 +943,23 @@ export class PublicSharingConsentService {
    * Mail failures must not roll back a consent decision that has already
    * been persisted — the same best-effort posture as PT's.
    *
-   * The boolean it returns is still only an SMTP *handoff* result, not
-   * delivery. For a reminder it is one of two evidence paths; the other,
-   * and the one Decision 5 was written for, arrives asynchronously via
+   * What it returns is still only an SMTP *handoff* result, not delivery.
+   * For a reminder it is one of two evidence paths; the other, and the
+   * one Decision 5 was written for, arrives asynchronously via
    * `BounceMailboxService`.
+   *
+   * Reports the `reason` alongside the boolean rather than collapsing to
+   * one, because `request()` above tells a child two different things
+   * depending on which it was: a refused address is theirs to fix and a
+   * transport failure is ours.
    */
   private async sendBestEffort(
     to: string | null,
     subject: string,
     text: string,
     correlation?: { messageId: string; headers: Record<string, string> },
-  ): Promise<boolean> {
-    if (!to) return false;
+  ): Promise<ConsentMailOutcome> {
+    if (!to) return { handedOff: false, rejected: [], reason: 'no_recipient' };
     try {
       // Plain text only for now: these are short, and an HTML body would
       // need the same escaping and template review the consent-page
@@ -930,11 +976,11 @@ export class PublicSharingConsentService {
           `Public-sharing consent mail not handed off (${result.reason}).`,
         );
       }
-      return result.handedOff;
+      return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Public-sharing consent mail failed: ${message}`);
-      return false;
+      return { handedOff: false, rejected: [], reason: 'transport_error' };
     }
   }
 }
