@@ -1168,7 +1168,7 @@
       esc(title) + '</h3>' +
       lineChart(weeks.map(function (w) {
         return { day: w.weekStart || w.week || '', value: w.count ?? 0 };
-      }), title + ' per week') + '</div>';
+      }), title + ' per week', title.toLowerCase(), 'week') + '</div>';
   }
 
   /**
@@ -1629,19 +1629,85 @@
     return Math.ceil(value / magnitude) * magnitude;
   }
 
-  function lineChart(points, label) {
-    if (!points.length) return '<p class="muted">No data yet.</p>';
-    var max = niceMax(Math.max.apply(null, points.map(function (p) { return p.value; })) || 1);
+  /* ---- hover readout -------------------------------------------------
+   *
+   * Each dot already carried a <title>, and it was close to useless. A
+   * native tooltip only appears when the pointer is inside the mark, the
+   * mark is r=2.5 in a 640-unit viewBox, and at 90 days the points sit
+   * about 6.7 units apart — so the target was smaller than the gap
+   * between targets, and reading a day's number meant hunting for it.
+   *
+   * This is a nearest-x crosshair instead: the pointer only has to be
+   * CLOSEST to a day, never on it, so every pixel of the chart resolves
+   * to some day. The <title> stays for anything reading the SVG
+   * directly, and every number is also written out as text in the table
+   * under each chart — a value that can only be reached by hovering is
+   * not reachable at all on a touchscreen or by keyboard.
+   */
+  function chartGeometry(max, count) {
     var innerW = CHART_W - CHART_PAD.left - CHART_PAD.right;
     var innerH = CHART_H - CHART_PAD.top - CHART_PAD.bottom;
-    var stepX = points.length > 1 ? innerW / (points.length - 1) : 0;
+    var stepX = count > 1 ? innerW / (count - 1) : 0;
+    return {
+      innerW: innerW,
+      innerH: innerH,
+      stepX: stepX,
+      x: function (index) { return CHART_PAD.left + index * stepX; },
+      y: function (value) {
+        return CHART_PAD.top + innerH - (value / max) * innerH;
+      },
+      /* Nearest index to a viewBox x, clamped. Round, not floor: the
+       * halfway point between two days should belong to the nearer one. */
+      indexAt: function (vx) {
+        if (!stepX) return 0;
+        return Math.max(0, Math.min(count - 1,
+          Math.round((vx - CHART_PAD.left) / stepX)));
+      }
+    };
+  }
+
+  /* "2026-09-01" -> "Mon 1 Sep". Noon UTC on purpose: parsing a bare date
+   * gives midnight UTC, which in a negative-offset locale renders as the
+   * previous day — the chart would name one day and its tooltip another.
+   *
+   * `period` exists because two of these charts are weekly (Statistics'
+   * clips and chat), where the x value is a week START. Rendering that
+   * the same way would put "Mon 25 Aug" over a bar meaning the whole week
+   * of the 25th, which reads as a single quiet Monday. */
+  function dayLabel(day, period) {
+    var date = new Date(String(day) + 'T12:00:00Z');
+    if (isNaN(date.getTime())) return String(day);
+    var text = date.toLocaleDateString('en-GB', {
+      weekday: 'short', day: 'numeric', month: 'short'
+    });
+    return period === 'week' ? 'Week of ' + text : text;
+  }
+
+  /* The same numbers as text. Collapsed, because 90 rows should not push
+   * the next chart off the screen, but present — this is what a keyboard
+   * or screen-reader user reads, and what answers "was that 8 or 9?"
+   * without trusting a pixel. */
+  function chartNumbers(points, unit, period) {
+    return '<details class="chart-numbers"><summary>Show the numbers</summary>' +
+      '<div class="chart-numbers-scroll"><table><thead><tr><th>' +
+      (period === 'week' ? 'Week' : 'Day') + '</th><th>' +
+      esc(unit ? unit.charAt(0).toUpperCase() + unit.slice(1) : 'Value') +
+      '</th></tr></thead><tbody>' +
+      points.map(function (point) {
+        return '<tr><td>' + esc(dayLabel(point.day, period)) + '</td><td>' +
+          esc(point.value) + '</td></tr>';
+      }).join('') +
+      '</tbody></table></div></details>';
+  }
+
+  function lineChart(points, label, unit, period) {
+    if (!points.length) return '<p class="muted">No data yet.</p>';
+    var max = niceMax(Math.max.apply(null, points.map(function (p) { return p.value; })) || 1);
+    var geo = chartGeometry(max, points.length);
+    var innerH = geo.innerH;
 
     var coords = points.map(function (point, index) {
-      return {
-        x: CHART_PAD.left + index * stepX,
-        y: CHART_PAD.top + innerH - (point.value / max) * innerH,
-        point: point
-      };
+      return { x: geo.x(index), y: geo.y(point.value), point: point };
     });
 
     var path = coords.map(function (c, i) {
@@ -1652,15 +1718,31 @@
       (CHART_PAD.top + innerH) + ' Z';
 
     /* <title> per point rather than a hover script: it is the browser's own
-     * tooltip, works on keyboard focus, and needs no event wiring. */
+     * tooltip, works on keyboard focus, and needs no event wiring. Kept as
+     * the floor under the crosshair below, not as the whole answer. */
     var dots = coords.map(function (c) {
       return '<circle cx="' + c.x.toFixed(1) + '" cy="' + c.y.toFixed(1) +
         '" r="2.5" fill="var(--accent)"><title>' + esc(c.point.day) + ': ' +
         esc(c.point.value) + '</title></circle>';
     }).join('');
 
-    return '<svg viewBox="0 0 ' + CHART_W + ' ' + CHART_H + '" width="100%" ' +
-      'role="img" aria-label="' + esc(label) + '" style="display:block">' +
+    /* Covers the whole chart, not just the plot box, so the pointer still
+     * resolves to a day in the margins rather than the readout blinking
+     * out near the edges. pointer-events on the layer above it are off, so
+     * the crosshair never steals its own hover. */
+    var hit = '<rect class="ch-hit" x="0" y="0" width="' + CHART_W +
+      '" height="' + CHART_H + '" fill="transparent"/>';
+    var hover = '<g class="ch-hover" opacity="0" pointer-events="none">' +
+      '<line class="ch-cross" y1="' + CHART_PAD.top + '" y2="' +
+        (CHART_PAD.top + innerH) + '" stroke="var(--accent)" ' +
+        'stroke-width="1" opacity="0.45"/>' +
+      '<circle class="ch-mark" r="4.5" fill="var(--accent)" ' +
+        'stroke="var(--surface)" stroke-width="2"/>' +
+      '</g>';
+
+    var svg = '<svg viewBox="0 0 ' + CHART_W + ' ' + CHART_H + '" width="100%" ' +
+      'role="img" tabindex="0" aria-label="' + esc(label) +
+      '. Use the arrow keys to read each day." style="display:block">' +
       '<line x1="' + CHART_PAD.left + '" y1="' + (CHART_PAD.top + innerH) +
         '" x2="' + (CHART_W - CHART_PAD.right) + '" y2="' + (CHART_PAD.top + innerH) +
         '" stroke="var(--line)"/>' +
@@ -1669,13 +1751,176 @@
       '<path d="' + area + '" fill="var(--accent)" opacity="0.12"/>' +
       '<path d="' + path + '" fill="none" stroke="var(--accent)" stroke-width="2"/>' +
       dots +
+      hover +
+      hit +
       '<text x="' + CHART_PAD.left + '" y="' + (CHART_H - 6) + '" font-size="10" fill="var(--muted)">' +
         esc(points[0].day) + '</text>' +
       '<text x="' + (CHART_W - CHART_PAD.right) + '" y="' + (CHART_H - 6) +
         '" font-size="10" fill="var(--muted)" text-anchor="end">' +
         esc(points[points.length - 1].day) + '</text>' +
       '</svg>';
+
+    /* The points ride along on the element so the delegated handler below
+     * needs no registry to clean up — re-rendering innerHTML takes the
+     * data with it, the same reason the click handler is delegated. */
+    return '<div class="chart" data-chart data-max="' + esc(max) +
+      '" data-unit="' + esc(unit || '') + '" data-period="' +
+      esc(period || 'day') + '" data-points="' +
+      esc(JSON.stringify(points.map(function (p) {
+        return { d: p.day, v: p.value };
+      }))) + '">' + svg + '</div>' + chartNumbers(points, unit, period);
   }
+
+  /* ---- chart hover, delegated ----------------------------------------
+   *
+   * Delegated on #view for the same reason the click handler is: every
+   * view re-renders by assigning innerHTML, and a listener bound to a
+   * chart element would be dead the moment its tab was redrawn.
+   *
+   * `pointermove` rather than per-point `mouseover`, because the whole
+   * point is that the pointer never has to reach a point.
+   */
+  var chartTip = null;
+
+  function tipElement() {
+    if (!chartTip) {
+      chartTip = document.createElement('div');
+      chartTip.className = 'charttip';
+      chartTip.hidden = true;
+      document.body.appendChild(chartTip);
+    }
+    return chartTip;
+  }
+
+  function hideChartTip() {
+    if (chartTip) chartTip.hidden = true;
+    var open = document.querySelectorAll('[data-chart] .ch-hover');
+    for (var i = 0; i < open.length; i += 1) {
+      open[i].setAttribute('opacity', '0');
+    }
+  }
+
+  function chartPoints(wrap) {
+    try {
+      return JSON.parse(wrap.getAttribute('data-points') || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /* index -> crosshair moved, tooltip filled and placed. */
+  function showChartPoint(wrap, index) {
+    var points = chartPoints(wrap);
+    if (!points.length) return;
+    var svg = wrap.querySelector('svg');
+    var rect = svg.getBoundingClientRect();
+    if (!rect.width) return;
+
+    var max = Number(wrap.getAttribute('data-max')) || 1;
+    var geo = chartGeometry(max, points.length);
+    index = Math.max(0, Math.min(points.length - 1, index));
+    var point = points[index];
+    var x = geo.x(index);
+    var y = geo.y(point.v);
+
+    var hover = wrap.querySelector('.ch-hover');
+    hover.setAttribute('opacity', '1');
+    var cross = hover.querySelector('.ch-cross');
+    cross.setAttribute('x1', x.toFixed(1));
+    cross.setAttribute('x2', x.toFixed(1));
+    var mark = hover.querySelector('.ch-mark');
+    mark.setAttribute('cx', x.toFixed(1));
+    mark.setAttribute('cy', y.toFixed(1));
+
+    /* textContent throughout: the day and the unit come off an API
+     * response, and a tooltip built by string concatenation is an
+     * injection sink for whatever the server decides to send. */
+    var tip = tipElement();
+    tip.textContent = '';
+    var dayRow = document.createElement('div');
+    dayRow.className = 'charttip-day';
+    dayRow.textContent = dayLabel(point.d, wrap.getAttribute('data-period'));
+    var valueRow = document.createElement('div');
+    valueRow.className = 'charttip-val';
+    var strong = document.createElement('strong');
+    strong.textContent = String(point.v);
+    valueRow.appendChild(strong);
+    var unit = wrap.getAttribute('data-unit');
+    if (unit) {
+      var span = document.createElement('span');
+      span.textContent = ' ' + unit;
+      valueRow.appendChild(span);
+    }
+    tip.appendChild(dayRow);
+    tip.appendChild(valueRow);
+    tip.hidden = false;
+
+    /* Clamped to the viewport, and flipped below the point when there is
+     * no room above — otherwise the readout for a busy day, which sits
+     * near the top of the chart, is the one that falls off the screen. */
+    var px = rect.left + (x / CHART_W) * rect.width;
+    var py = rect.top + (y / CHART_H) * rect.height;
+    var left = Math.min(
+      Math.max(4, px - tip.offsetWidth / 2),
+      window.innerWidth - tip.offsetWidth - 4
+    );
+    var top = py - tip.offsetHeight - 12;
+    if (top < 4) top = py + 16;
+    tip.style.left = Math.round(left) + 'px';
+    tip.style.top = Math.round(top) + 'px';
+    wrap.setAttribute('data-active-index', index);
+  }
+
+  function chartUnder(target) {
+    return target && target.closest ? target.closest('[data-chart]') : null;
+  }
+
+  el('view').addEventListener('pointermove', function (event) {
+    var wrap = chartUnder(event.target);
+    if (!wrap) { hideChartTip(); return; }
+    var svg = wrap.querySelector('svg');
+    var rect = svg.getBoundingClientRect();
+    if (!rect.width) return;
+    var points = chartPoints(wrap);
+    var max = Number(wrap.getAttribute('data-max')) || 1;
+    var vx = (event.clientX - rect.left) * (CHART_W / rect.width);
+    showChartPoint(wrap, chartGeometry(max, points.length).indexAt(vx));
+  });
+
+  /* Capture, because pointerleave does not bubble. */
+  el('view').addEventListener('pointerleave', hideChartTip, true);
+  window.addEventListener('scroll', hideChartTip, true);
+
+  /* Keyboard gets the same readout, not a lesser one: focus the chart and
+   * step through it. Home/End because on a 90-day range arrowing to the
+   * far end is 89 keypresses. */
+  el('view').addEventListener('keydown', function (event) {
+    var wrap = chartUnder(event.target);
+    if (!wrap) return;
+    var points = chartPoints(wrap);
+    if (!points.length) return;
+    var current = Number(wrap.getAttribute('data-active-index'));
+    if (!isFinite(current)) current = 0;
+    var next = null;
+    if (event.key === 'ArrowRight') next = current + 1;
+    else if (event.key === 'ArrowLeft') next = current - 1;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = points.length - 1;
+    else if (event.key === 'Escape') { hideChartTip(); return; }
+    if (next === null) return;
+    event.preventDefault();
+    showChartPoint(wrap, next);
+  });
+
+  el('view').addEventListener('focusin', function (event) {
+    var wrap = chartUnder(event.target);
+    /* Opens on the most recent day, which is the one being looked for. */
+    if (wrap) showChartPoint(wrap, chartPoints(wrap).length - 1);
+  });
+
+  el('view').addEventListener('focusout', function (event) {
+    if (chartUnder(event.target)) hideChartTip();
+  });
 
   function barChart(entries, label) {
     if (!entries.length) return '<p class="muted">No clicks recorded yet.</p>';
@@ -1943,12 +2188,12 @@
               esc(activePeak) + '</strong></p>' +
             '<p style="margin:0 0 4px;font-size:13px"><strong>Active players per day</strong> ' +
               '<span class="muted">— logged at least one session</span></p>' +
-            lineChart(data.activePerDay, 'Active players per day') +
+            lineChart(data.activePerDay, 'Active players per day', 'active players') +
           '</div>' +
 
           '<div class="card">' +
             '<p style="margin:0 0 4px;font-size:13px"><strong>New accounts per day</strong></p>' +
-            lineChart(data.signupsPerDay, 'New player accounts per day') +
+            lineChart(data.signupsPerDay, 'New player accounts per day', 'new accounts') +
           '</div>' +
 
           '<div class="card">' +
@@ -1966,7 +2211,7 @@
               ? '<p style="margin:18px 0 4px;font-size:13px"><strong>' +
                 esc(LINK_LABEL[data.linkClicks[0].link] || data.linkClicks[0].link) +
                 '</strong> <span class="muted">— the most clicked, per day</span></p>' +
-                lineChart(data.linkClicks[0].daily, 'Clicks per day for the most clicked link')
+                lineChart(data.linkClicks[0].daily, 'Clicks per day for the most clicked link', 'clicks')
               : '') +
           '</div>' +
 
@@ -1983,7 +2228,7 @@
             '</p>' +
             '<p style="margin:0 0 4px;font-size:13px"><strong>Page views per day</strong> ' +
               '<span class="muted">— both languages</span></p>' +
-            lineChart(site.viewsPerDay, 'Website page views per day') +
+            lineChart(site.viewsPerDay, 'Website page views per day', 'page views') +
           '</div>' +
 
           '<div class="card">' +
