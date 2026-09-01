@@ -140,7 +140,11 @@
     "close": "Lukk",
     "errorGeneric": "Det gikk ikke akkurat nå. Prøv igjen om litt.",
     "errorRevoked": "Deling er slått av for kontoen din akkurat nå. Spør forelderen din.",
-    "errorTooSoon": "Du spurte nettopp. Vent litt og prøv igjen."
+    "errorTooSoon": "Du spurte nettopp. Vent litt og prøv igjen.",
+    "errorNeedsParentContact": "Vi har ikke adressen til forelderen din. Legg til en under Profil, så kan du spørre.",
+    "errorContactChanging": "Dere holder på å bytte e-postadresse. Vent til det er ferdig, så kan du spørre.",
+    "errorAlreadyOn": "Deling er allerede slått på for kontoen din.",
+    "errorNotAvailable": "Deling utenfor laget er ikke slått på for laget ditt ennå."
   },
   "publicFeed": {
     "tabArchive": "Arkiv",

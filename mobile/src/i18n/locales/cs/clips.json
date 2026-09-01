@@ -140,7 +140,11 @@
     "close": "Zavřít",
     "errorGeneric": "Teď se to nepovedlo. Zkus to za chvíli znovu.",
     "errorRevoked": "Sdílení je pro tvůj účet vypnuté. Zeptej se rodiče.",
-    "errorTooSoon": "Právě ses ptal. Chvíli počkej a zkus to znovu."
+    "errorTooSoon": "Právě ses ptal. Chvíli počkej a zkus to znovu.",
+    "errorNeedsParentContact": "Nemáme adresu tvého rodiče. Přidej ji v Profilu a pak se můžeš zeptat.",
+    "errorContactChanging": "Právě se mění tvoje e-mailová adresa. Počkej, až to bude hotové, a pak se můžeš zeptat.",
+    "errorAlreadyOn": "Sdílení už je pro tvůj účet zapnuté.",
+    "errorNotAvailable": "Sdílení mimo tým zatím není pro tvůj tým zapnuté."
   },
   "publicFeed": {
     "tabArchive": "Archiv",

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -16,6 +15,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Repository } from 'typeorm';
 import { CurrentPlayerId } from '../auth/current-player-id.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PublicSharingNotAvailableForTeamException } from '../common/errors/exceptions';
 import { Player } from '../players/entities/player.entity';
 import {
   PublicFeedItem,
@@ -104,23 +104,16 @@ export class PublicSharingController {
       // Refused before any mail is sent. Emailing a parent to approve a
       // feature their child's team cannot use would be asking for consent
       // to nothing, and would be the app's own doing rather than theirs.
-      throw new BadRequestException(
-        'Public sharing is not available for this team.',
-      );
+      throw new PublicSharingNotAvailableForTeamException();
     }
-    try {
-      return await this.consent.request(playerId);
-    } catch (error) {
-      // The service throws a plain Error for "already active" and for the
-      // pending-contact-change window. Both are the caller's state rather
-      // than a server fault, so neither should surface as a 500 — and the
-      // message is not echoed back, since it describes internal rules.
-      throw new BadRequestException(
-        error instanceof Error && error.message.includes('already active')
-          ? 'Sharing is already switched on for this account.'
-          : 'Sharing cannot be requested right now.',
-      );
-    }
+    // No try/catch. Until 2026-09-01 this method wrapped the call and
+    // turned every refusal into one 400, which the app rendered as "you
+    // asked a moment ago" — true for the cooldown and false for the other
+    // five, including the one a child cannot resolve by waiting (no
+    // parent contact on file). The service now throws AppExceptions that
+    // already carry the right status and a stable `error.code`, so
+    // catching them here could only lose that again.
+    return await this.consent.request(playerId);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -223,7 +223,9 @@ describe('PublicSharingConsentService: granting', () => {
     // control, so an account with no recipient for it would have none.
     const { service, repo } = build(null);
 
-    await expect(service.request('p1')).rejects.toThrow(/parent contact/i);
+    await expect(service.request('p1')).rejects.toMatchObject({
+      code: 'public_sharing_needs_parent_contact',
+    });
     expect(repo.rows).toHaveLength(0);
   });
 
@@ -972,7 +974,9 @@ describe('PublicSharingConsentService: security-review findings', () => {
     // control, waits out the grace period, and approves their own consent.
     const { service, repo } = build('parent@example.se', true);
 
-    await expect(service.request('p1')).rejects.toThrow(/contact change/i);
+    await expect(service.request('p1')).rejects.toMatchObject({
+      code: 'public_sharing_blocked_pending_contact_change',
+    });
     expect(repo.rows).toHaveLength(0);
   });
 
@@ -993,7 +997,9 @@ describe('PublicSharingConsentService: security-review findings', () => {
     await service.request('p1');
     await service.approveByReviewCode(reviewCodeOf());
 
-    await expect(service.request('p1')).rejects.toThrow(/already active/i);
+    await expect(service.request('p1')).rejects.toMatchObject({
+      code: 'public_sharing_already_active',
+    });
     expect(await service.isActiveFor('p1')).toBe(true);
   });
 
@@ -1042,7 +1048,9 @@ describe('PublicSharingConsentService: request rate limiting', () => {
     const { service, redisService, repo } = build();
     redisService.tryClaimPublicSharingRequestCooldown.mockResolvedValue(false);
 
-    await expect(service.request('p1')).rejects.toThrow(/recently/i);
+    await expect(service.request('p1')).rejects.toMatchObject({
+      code: 'public_sharing_request_cooldown',
+    });
     // Nothing written and nothing mailed — a refused request must leave
     // the existing consent state, and the parent's link, untouched.
     expect(repo.rows).toHaveLength(0);
@@ -1052,7 +1060,9 @@ describe('PublicSharingConsentService: request rate limiting', () => {
     const { service, redisService } = build();
     redisService.tryClaimPublicSharingRequestDailyCap.mockResolvedValue(false);
 
-    await expect(service.request('p1')).rejects.toThrow(/too many/i);
+    await expect(service.request('p1')).rejects.toMatchObject({
+      code: 'public_sharing_request_daily_cap',
+    });
   });
 
   it('sends no mail when a limit refuses the request', async () => {
@@ -1070,7 +1080,9 @@ describe('PublicSharingConsentService: request rate limiting', () => {
     // fails before either claim.
     const { service, redisService } = build(null);
 
-    await expect(service.request('p1')).rejects.toThrow(/parent contact/i);
+    await expect(service.request('p1')).rejects.toMatchObject({
+      code: 'public_sharing_needs_parent_contact',
+    });
     expect(
       redisService.tryClaimPublicSharingRequestCooldown,
     ).not.toHaveBeenCalled();

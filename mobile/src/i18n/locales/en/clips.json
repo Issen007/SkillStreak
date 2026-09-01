@@ -140,7 +140,11 @@
     "close": "Close",
     "errorGeneric": "That didn't work just now. Try again in a moment.",
     "errorRevoked": "Sharing is switched off for your account right now. Ask your parent.",
-    "errorTooSoon": "You just asked. Wait a little while and try again."
+    "errorTooSoon": "You just asked. Wait a little while and try again.",
+    "errorNeedsParentContact": "We don't have your parent's address. Add one under Profile, then you can ask.",
+    "errorContactChanging": "Your email address is being changed right now. Wait until that's done, then you can ask.",
+    "errorAlreadyOn": "Sharing is already switched on for your account.",
+    "errorNotAvailable": "Sharing outside the team isn't switched on for your team yet."
   },
   "publicFeed": {
     "tabArchive": "Archive",

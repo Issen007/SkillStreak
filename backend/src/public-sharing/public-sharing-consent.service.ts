@@ -14,6 +14,13 @@ import { decryptPii, encryptPii } from '../common/crypto/pii-encryption.util';
 import { buildConsentMessageId, CORRELATION_HEADER } from '../mail/dsn.parser';
 import { MailService } from '../mail/mail.service';
 import { RedisService } from '../redis/redis.service';
+import {
+  PublicSharingAlreadyActiveException,
+  PublicSharingBlockedPendingContactChangeException,
+  PublicSharingNeedsParentContactException,
+  PublicSharingRequestCooldownException,
+  PublicSharingRequestDailyCapException,
+} from '../common/errors/exceptions';
 import { Player } from '../players/entities/player.entity';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
 import {
@@ -182,10 +189,7 @@ export class PublicSharingConsentService {
     // demonstrable and Decision 9's monthly review needs in order to ask
     // "has any parent actually disabled this?".
     if (existing?.status === PublicSharingConsentStatus.ACTIVE) {
-      throw new Error(
-        'public-sharing consent is already active for this player — it ' +
-          'must be revoked before a new request (ADR-0030 Decision 2)',
-      );
+      throw new PublicSharingAlreadyActiveException();
     }
 
     // Finding 3. A pending contact change means the address on file is
@@ -194,10 +198,7 @@ export class PublicSharingConsentService {
     // player redirects their own parental approval to themselves. PT
     // refuses for the same reason.
     if (await this.playerPrivateInfoService.hasPendingContactChange(playerId)) {
-      throw new Error(
-        'a parent contact change is pending — public-sharing consent ' +
-          'cannot be requested until it settles or is cancelled',
-      );
+      throw new PublicSharingBlockedPendingContactChangeException();
     }
 
     // Decisions 1 and 10. A self-verified 13+ account has no parent
@@ -207,11 +208,7 @@ export class PublicSharingConsentService {
     const parentContact =
       await this.playerPrivateInfoService.getParentContact(playerId);
     if (!parentContact) {
-      throw new Error(
-        'public-sharing consent needs a parent contact — a self-verified ' +
-          'account must add one before sharing can be enabled (ADR-0030 ' +
-          'Decision 10)',
-      );
+      throw new PublicSharingNeedsParentContactException();
     }
 
     // Finding 8. Claimed after the validity checks and before anything is
@@ -226,17 +223,12 @@ export class PublicSharingConsentService {
     const cooled =
       await this.redisService.tryClaimPublicSharingRequestCooldown(playerId);
     if (!cooled) {
-      throw new Error(
-        'a public-sharing consent request was already sent recently — ' +
-          'wait before asking again',
-      );
+      throw new PublicSharingRequestCooldownException();
     }
     const underCap =
       await this.redisService.tryClaimPublicSharingRequestDailyCap(playerId);
     if (!underCap) {
-      throw new Error(
-        'too many public-sharing consent requests for this player today',
-      );
+      throw new PublicSharingRequestDailyCapException();
     }
 
     const { code, expiresAt } = generateHumanCode(REVIEW_CODE_TTL_MS);
