@@ -96,6 +96,13 @@ interface ReportConfirmationState {
  * the one a child cannot resolve by retrying, and it spent its whole
  * life indistinguishable from the cooldown.
  *
+ * Two of these branches are not refusals at all but the mail itself
+ * failing, which used to reach here as a *success*: the API returned
+ * `{requested: true}` whether or not SMTP had accepted anything, so the
+ * sheet flipped to "we've emailed your parent" over a mail that was
+ * never sent. Falling either of them through to `errorGeneric` would put
+ * a child back to guessing.
+ *
  * The code strings are pinned on the server side by
  * backend/src/public-sharing/public-sharing.controller.spec.ts, so a
  * rename breaks a test there rather than silently dropping this switch
@@ -105,6 +112,8 @@ type ShareErrorKey =
   | 'clipShareSheet.errorGeneric'
   | 'clipShareSheet.errorTooSoon'
   | 'clipShareSheet.errorNeedsParentContact'
+  | 'clipShareSheet.errorMailFailed'
+  | 'clipShareSheet.errorMailRejected'
   | 'clipShareSheet.errorContactChanging'
   | 'clipShareSheet.errorAlreadyOn'
   | 'clipShareSheet.errorNotAvailable';
@@ -117,6 +126,16 @@ export function shareRequestErrorKey(err: unknown): ShareErrorKey {
       return 'clipShareSheet.errorTooSoon';
     case 'public_sharing_needs_parent_contact':
       return 'clipShareSheet.errorNeedsParentContact';
+    // Added 2026-09-01. Before this the mail result was discarded server
+    // side, so both of these arrived as a success and the sheet said "Vi
+    // har skickat ett mejl" over a mail that no server had accepted.
+    // They stay two branches because the child's next move differs: one
+    // is worth retrying and the other never will be until the address on
+    // file changes.
+    case 'public_sharing_request_mail_failed':
+      return 'clipShareSheet.errorMailFailed';
+    case 'public_sharing_request_mail_rejected':
+      return 'clipShareSheet.errorMailRejected';
     case 'public_sharing_blocked_pending_contact_change':
       return 'clipShareSheet.errorContactChanging';
     case 'public_sharing_already_active':

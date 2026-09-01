@@ -485,6 +485,50 @@ export class PublicSharingRequestCooldownException extends AppException {
   }
 }
 
+/**
+ * The parent's address was refused by the mail server at handoff.
+ *
+ * A dead end like `needs_parent_contact`, not a wait like the cooldown,
+ * which is why it carries that one's status rather than the transient
+ * failure's below: retrying sends the same message to the same refused
+ * address, forever. The address on file has to change first.
+ */
+export class PublicSharingRequestMailRejectedException extends AppException {
+  constructor() {
+    super(
+      'public_sharing_request_mail_rejected',
+      'The parent contact address was refused by the mail server.',
+      HttpStatus.CONFLICT,
+    );
+  }
+}
+
+/**
+ * The consent mail could not be handed to SMTP at all.
+ *
+ * Until 2026-09-01 this outcome was invisible: `request()` mailed
+ * best-effort, discarded the result, and returned `{requested: true}`
+ * either way, so the app said *"Vi har skickat ett mejl"* whether or not
+ * anything reached a mail server. A child then waited for a mail that was
+ * never sent, and no operator saw anything either — the only trace was a
+ * `logger.warn`.
+ *
+ * 502 rather than 500: the request was valid and this service did its
+ * part; the thing that failed is upstream of it. It is also the honest
+ * signal for the case where SMTP is simply not configured, which is an
+ * operator problem the child cannot do anything about but should still
+ * not be lied to about.
+ */
+export class PublicSharingRequestMailFailedException extends AppException {
+  constructor() {
+    super(
+      'public_sharing_request_mail_failed',
+      'The consent email could not be handed to the mail server.',
+      HttpStatus.BAD_GATEWAY,
+    );
+  }
+}
+
 /** Finding 8, drip half: the per-day cap. */
 export class PublicSharingRequestDailyCapException extends AppException {
   constructor() {

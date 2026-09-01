@@ -142,6 +142,8 @@
     "errorRevoked": "Teilen ist für dein Konto gerade ausgeschaltet. Frag deine Eltern.",
     "errorTooSoon": "Du hast gerade gefragt. Warte kurz und versuch es noch einmal.",
     "errorNeedsParentContact": "Wir haben keine Adresse von deinen Eltern. Füge unter Profil eine hinzu, dann kannst du fragen.",
+    "errorMailFailed": "Wir konnten die E-Mail gerade nicht senden. Versuch es gleich noch einmal.",
+    "errorMailRejected": "Die E-Mail ist nicht bei der Adresse deiner Eltern angekommen. Prüf die Adresse unter Profil.",
     "errorContactChanging": "Deine E-Mail-Adresse wird gerade geändert. Warte, bis das fertig ist, dann kannst du fragen.",
     "errorAlreadyOn": "Teilen ist für dein Konto schon eingeschaltet.",
     "errorNotAvailable": "Teilen außerhalb des Teams ist für dein Team noch nicht freigeschaltet."

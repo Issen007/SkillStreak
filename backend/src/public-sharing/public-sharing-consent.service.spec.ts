@@ -143,6 +143,8 @@ function build(
   const redisService = {
     tryClaimPublicSharingRequestCooldown: jest.fn(() => Promise.resolve(true)),
     tryClaimPublicSharingRequestDailyCap: jest.fn(() => Promise.resolve(true)),
+    releasePublicSharingRequestCooldown: jest.fn(() => Promise.resolve()),
+    refundPublicSharingRequestDailyCap: jest.fn(() => Promise.resolve()),
   };
   // Runs the callback inline against the same fake repository, which is
   // all these tests need — the lock itself is a database behaviour and
@@ -1085,6 +1087,116 @@ describe('PublicSharingConsentService: request rate limiting', () => {
     });
     expect(
       redisService.tryClaimPublicSharingRequestCooldown,
+    ).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The half of the 2026-09-01 bug that splitting the refusal codes did not
+ * reach.
+ *
+ * `request()` mailed best-effort and discarded the result, so every one
+ * of these cases returned `{requested: true}` and the app said *"Vi har
+ * skickat ett mejl"*. A child then waited for a mail that no server had
+ * ever accepted, with nothing to retry and nothing to report — which is
+ * exactly what "asking my parent for permission doesn't work" looks like
+ * from the outside.
+ *
+ * Written so that going back to a discarded result fails them: they
+ * assert the throw, its code, and that the price of the mail is given
+ * back. A test that only checked "it resolves" passed all along.
+ */
+describe('PublicSharingConsentService: a consent mail that never left', () => {
+  const MAIL_FAILURES: Array<[string, unknown, string]> = [
+    [
+      'SMTP is not configured at all',
+      { handedOff: false, rejected: [], reason: 'not_configured' },
+      'public_sharing_request_mail_failed',
+    ],
+    [
+      'the server refused every recipient',
+      {
+        handedOff: false,
+        rejected: ['parent@example.com'],
+        reason: 'all_rejected',
+      },
+      'public_sharing_request_mail_rejected',
+    ],
+  ];
+
+  it.each(MAIL_FAILURES)(
+    'refuses the request when %s',
+    async (_case, result, code) => {
+      const { service, mailService } = build();
+      mailService.sendMail.mockResolvedValue(result as never);
+
+      await expect(service.request('p1')).rejects.toMatchObject({ code });
+    },
+  );
+
+  it('refuses when the transport throws before any SMTP conversation', async () => {
+    const { service, mailService } = build();
+    mailService.sendMail.mockRejectedValue(new Error('ECONNREFUSED'));
+
+    // A thrown transport error is a retry, not a dead end, so it must not
+    // borrow the refused-address code — the two tell a child to do
+    // different things.
+    await expect(service.request('p1')).rejects.toMatchObject({
+      code: 'public_sharing_request_mail_failed',
+    });
+  });
+
+  it('gives back both limits, since no mail was sent to be limited', async () => {
+    const { service, mailService, redisService } = build();
+    mailService.sendMail.mockResolvedValue({
+      handedOff: false,
+      rejected: [],
+      reason: 'not_configured',
+    } as never);
+
+    await expect(service.request('p1')).rejects.toThrow();
+    // Both are claimed before the send, to price the mail. No mail
+    // exists, so holding a child off for fifteen minutes — or locking
+    // them out for the rest of the day — would be charging them for our
+    // own outage.
+    expect(
+      redisService.releasePublicSharingRequestCooldown,
+    ).toHaveBeenCalledWith('p1');
+    expect(
+      redisService.refundPublicSharingRequestDailyCap,
+    ).toHaveBeenCalledWith('p1');
+  });
+
+  it('keeps neither limit charged nor the row rolled back', async () => {
+    const { service, mailService, repo } = build();
+    mailService.sendMail.mockResolvedValue({
+      handedOff: false,
+      rejected: [],
+      reason: 'not_configured',
+    } as never);
+
+    await expect(service.request('p1')).rejects.toThrow();
+    // The pending row stays. It holds a code nobody received, which is
+    // inert and is overwritten by the next successful request — while
+    // unwinding it would have to guess what state to restore and would
+    // erase the record that a request was ever made, from the one flow
+    // whose history Article 7(1) requires be demonstrable.
+    expect(repo.rows).toHaveLength(1);
+  });
+
+  it('still resolves when the mail is handed off', async () => {
+    const { service, redisService } = build();
+
+    await expect(service.request('p1')).resolves.toMatchObject({
+      requested: true,
+    });
+    // The refund is strictly the failure path's. If it ran here too, the
+    // rate limits this endpoint depends on would not exist at all.
+    expect(
+      redisService.releasePublicSharingRequestCooldown,
+    ).not.toHaveBeenCalled();
+    expect(
+      redisService.refundPublicSharingRequestDailyCap,
     ).not.toHaveBeenCalled();
   });
 });

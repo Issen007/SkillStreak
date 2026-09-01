@@ -142,6 +142,8 @@
     "errorRevoked": "Le partage est désactivé pour ton compte. Demande à ton parent.",
     "errorTooSoon": "Tu viens de demander. Attends un moment et réessaie.",
     "errorNeedsParentContact": "Nous n'avons pas l'adresse de ton parent. Ajoute-la dans Profil, puis tu pourras demander.",
+    "errorMailFailed": "Nous n'avons pas pu envoyer l'e-mail. Réessaie dans un instant.",
+    "errorMailRejected": "L'e-mail n'est pas arrivé à l'adresse de ton parent. Vérifie l'adresse dans Profil.",
     "errorContactChanging": "Ton adresse e-mail est en train d'être modifiée. Attends que ce soit fini, puis tu pourras demander.",
     "errorAlreadyOn": "Le partage est déjà activé pour ton compte.",
     "errorNotAvailable": "Le partage en dehors de l'équipe n'est pas encore activé pour ton équipe."

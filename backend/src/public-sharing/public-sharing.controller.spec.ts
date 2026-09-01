@@ -6,17 +6,20 @@ import {
   PublicSharingNeedsParentContactException,
   PublicSharingRequestCooldownException,
   PublicSharingRequestDailyCapException,
+  PublicSharingRequestMailFailedException,
+  PublicSharingRequestMailRejectedException,
 } from '../common/errors/exceptions';
 import { PublicSharingController } from './public-sharing.controller';
 
 /**
- * `POST /me/public-sharing/request` refuses for six unrelated reasons, and
+ * `POST /me/public-sharing/request` refuses for eight unrelated reasons,
+ * and
  * until 2026-09-01 the client could not tell them apart: the controller
  * wrapped the service call in a try/catch that turned every one into a
  * single 400, and the app rendered any 400 as "Du frågade nyss" — wait a
  * moment and try again.
  *
- * That is true for exactly one of the six. For
+ * That is true for exactly one of them. For
  * `public_sharing_needs_parent_contact` it is a dead end no child can act
  * on: a self-verified account has no parent address, so waiting cannot
  * help and nothing said so.
@@ -59,7 +62,15 @@ describe('PublicSharingController: request refusals stay distinguishable', () =>
     return { controller, consent };
   };
 
-  // The table IS the assertion: six refusals, six codes, no two alike.
+  // The table IS the assertion: eight refusals, eight codes, no two alike.
+  //
+  // The last two arrived on 2026-09-01 with the other half of the same
+  // bug. Splitting the six refusals apart made every reason the service
+  // *checked* legible, and left the one it did not check invisible: the
+  // mail was sent best-effort and the result thrown away, so a child got
+  // "Vi har skickat ett mejl" whether or not anything reached SMTP. That
+  // is the failure a report of "asking my parent doesn't work" looks
+  // like from the outside, and no code distinguished it from success.
   const REFUSALS: Array<[string, () => Error, HttpStatus]> = [
     [
       'public_sharing_already_active',
@@ -85,6 +96,21 @@ describe('PublicSharingController: request refusals stay distinguishable', () =>
       'public_sharing_request_daily_cap',
       () => new PublicSharingRequestDailyCapException(),
       HttpStatus.TOO_MANY_REQUESTS,
+    ],
+    // 502, not 500: the request was valid and the service did its part.
+    [
+      'public_sharing_request_mail_failed',
+      () => new PublicSharingRequestMailFailedException(),
+      HttpStatus.BAD_GATEWAY,
+    ],
+    // 409 rather than 502, and the difference is the point: a refused
+    // address is a dead end the child's household has to fix, not
+    // something a retry can reach — so it shares a status with
+    // `needs_parent_contact` rather than with the failure above it.
+    [
+      'public_sharing_request_mail_rejected',
+      () => new PublicSharingRequestMailRejectedException(),
+      HttpStatus.CONFLICT,
     ],
   ];
 
@@ -118,9 +144,9 @@ describe('PublicSharingController: request refusals stay distinguishable', () =>
     const codes = new Set<string>();
     for (const [, make] of REFUSALS) codes.add((make() as AppException).code);
     codes.add('public_sharing_not_available_for_team');
-    // Six reasons, six codes. Collapsing any two of them back into one
-    // shared code is the regression this whole file exists for.
-    expect(codes.size).toBe(6);
+    // Eight reasons, eight codes. Collapsing any two of them back into
+    // one shared code is the regression this whole file exists for.
+    expect(codes.size).toBe(8);
   });
 
   it('a player with no team is refused rather than treated as allow-listed', async () => {
