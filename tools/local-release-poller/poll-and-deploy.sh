@@ -22,14 +22,21 @@
 # nothing to do with what the cluster runs. GHCR packages here are public,
 # so no registry credentials are needed either.
 #
-# Every kubectl call below is pinned to --context microk8s explicitly —
-# confirmed live 2026-07-30 that this machine's *ambient default* context
-# had drifted to "skillstreak" (the production cluster) for some stretch
-# of time, and every poll during that window silently redeployed
-# production with these prerelease-tagged images instead of touching this
-# script's actual target. Never rely on whatever `kubectl config
-# current-context` happens to be — always pin it here, since this script
-# runs unattended and nothing else double-checks its target cluster.
+# Every kubectl call below goes through `microk8s kubectl`, which reads
+# microk8s's OWN config on this node. Never the ambient `kubectl`:
+# confirmed live 2026-07-30 that this machine's default context had
+# drifted to "skillstreak" (the production cluster), and every poll during
+# that window silently redeployed production with these prerelease-tagged
+# images instead of touching this script's actual target.
+#
+# It used to pin `kubectl --context microk8s` instead, which was the right
+# instinct and the wrong handle. On 2026-09-02 `~/.kube/config` was
+# rebuilt from a set of per-cluster files and the `microk8s` context simply
+# was not among them — so the context this script names stopped existing,
+# through no change to this script and nothing anyone did wrong. A shared
+# kubeconfig is somebody else's file; `microk8s kubectl` cannot be edited
+# out from under this script, and cannot address any cluster but this
+# node's. Override with KUBECTL= for a machine where that is not true.
 #
 # Run manually to test, or via the systemd timer in this same directory
 # for the "always on, checks every few minutes" version (see this
@@ -45,7 +52,7 @@ REPO="Issen007/SkillStreak"
 # in .github/workflows/ci-cd.yml — they must agree on both branch and tag.
 BRANCH="review"
 NAMESPACE="skillstreak"
-KUBE_CONTEXT="microk8s"
+KUBECTL="${KUBECTL:-microk8s kubectl}"
 STATE_DIR="${STATE_DIR:-$HOME/.local/state/skillstreak-poller}"
 STATE_FILE="$STATE_DIR/current-sha"
 # A durable record of how this run went, so a failure is discoverable
@@ -107,6 +114,25 @@ trap 'report_failure "run failed at line $LINENO"' ERR
 
 mkdir -p "$STATE_DIR"
 
+# Preflight, and it runs on EVERY tick rather than only when there is
+# something to deploy.
+#
+# Added 2026-09-02, after the run that morning reported `ok` while the
+# script could not have deployed anything: the checks below short-circuit
+# on "already at <sha>" and return success without ever touching the
+# cluster, so a broken cluster connection stayed invisible for as long as
+# nobody pushed. That is worse than the 17-day outage this file already
+# documents, because that one at least said `fail` every five minutes.
+#
+# A cheap read, against the very object a deploy would patch — so what it
+# proves is exactly what the deploy needs, rather than something adjacent
+# to it that could pass while the real thing fails.
+$KUBECTL -n "$NAMESPACE" get deployment api >/dev/null 2>&1 || {
+  echo "Cannot reach the internal cluster with: $KUBECTL"
+  report_failure "cannot reach the internal cluster ($KUBECTL)"
+  exit 0
+}
+
 current_sha=""
 if [ -f "$STATE_FILE" ]; then
   current_sha="$(cat "$STATE_FILE")"
@@ -164,13 +190,13 @@ if ! docker manifest inspect "$site_image" >/dev/null 2>&1; then
 fi
 
 echo "Updating deployment/api -> ${api_image}"
-kubectl --context "$KUBE_CONTEXT" set image "deployment/api" "api=${api_image}" -n "$NAMESPACE"
+$KUBECTL set image "deployment/api" "api=${api_image}" -n "$NAMESPACE"
 echo "Updating deployment/site -> ${site_image}"
-kubectl --context "$KUBE_CONTEXT" set image "deployment/site" "site=${site_image}" -n "$NAMESPACE"
+$KUBECTL set image "deployment/site" "site=${site_image}" -n "$NAMESPACE"
 
 echo "Waiting for rollout..."
-kubectl --context "$KUBE_CONTEXT" rollout status "deployment/api" -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT"
-kubectl --context "$KUBE_CONTEXT" rollout status "deployment/site" -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT"
+$KUBECTL rollout status "deployment/api" -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT"
+$KUBECTL rollout status "deployment/site" -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT"
 
 echo "$latest_sha" > "$STATE_FILE"
 report_success "deployed ${latest_sha}"

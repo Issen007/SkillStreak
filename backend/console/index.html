@@ -325,6 +325,50 @@
     main { padding: 20px 16px 60px; }
   }
 
+  /* Chart hover readout. The tooltip is position:fixed and appended to
+     <body> rather than to the chart, so a card with overflow clipping
+     cannot cut it off; it is placed from viewport coordinates in app.js. */
+  /* pan-y so a finger dragging down the chart scrolls the page: the
+     pointermove readout must not swallow the gesture that gets you past
+     the chart on a phone. */
+  .chart { touch-action: pan-y; }
+  .chart svg { display: block; }
+  .chart svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  /* The whole-chart hover target. The crosshair reads as interactive
+     only if the cursor says so before you move. */
+  .ch-hit { cursor: crosshair; }
+  /* Presentation of the hover layer lives here rather than on SVG
+     attributes so there is one place to change it — and so
+     check-console.mjs can see that these classes are styled at all,
+     which is the whole point of that check. */
+  .ch-hover { pointer-events: none; }
+  .ch-cross { stroke: var(--accent); opacity: 0.45; stroke-width: 1; }
+  .ch-mark { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+  .charttip {
+    position: fixed; z-index: 60; pointer-events: none;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
+    padding: 7px 10px; line-height: 1.3; white-space: nowrap;
+  }
+  /* The number leads and the label follows: the reader already knows
+     which chart they are on and wants the value, so the value carries the
+     weight and the day sits above it as context. */
+  .charttip-day { color: var(--ink-2); font-size: 12px; }
+  .charttip-val strong { color: var(--ink); font-size: 18px; }
+  .charttip-val span { color: var(--ink-2); font-size: 13px; }
+
+  details.chart-numbers { margin-top: 10px; }
+  details.chart-numbers summary {
+    cursor: pointer; color: var(--accent); font-size: 13px; width: fit-content;
+  }
+  details.chart-numbers .chart-numbers-scroll {
+    max-height: 260px; overflow: auto; margin-top: 8px;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+  }
+  details.chart-numbers td:last-child, details.chart-numbers th:last-child {
+    text-align: right;
+  }
+
   /* Respect a stated preference for less motion — every transition here is
    * decoration, so there is nothing to lose by dropping them. */
   @media (prefers-reduced-motion: reduce) {

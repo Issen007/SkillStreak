@@ -218,3 +218,33 @@ applying `k8s/site-deployment.yaml`, which carries production's URLs.
 below recorded failure #1 durably, every five minutes, for 17 days.
 Whatever you add next, add a thing that *arrives* somewhere, not one more
 thing that waits to be looked at.
+
+## The third one, the next morning, and it reported success
+
+2026-09-02. `~/.kube/config` was rebuilt from a set of per-cluster files
+and the `microk8s` context was not among them. This script pinned
+`kubectl --context microk8s`, so its handle on the cluster stopped
+existing — no change to the script, nothing anyone did wrong.
+
+**It reported `ok`.** The run compares GitHub's `review` head against the
+state file and returns early on "already at `<sha>`" — before any kubectl
+call. So with nothing new to deploy, a script that could not have reached
+the cluster if it tried wrote a success line every five minutes. That is
+worse than the 17-day outage above, which at least said `fail`.
+
+Two changes, and they fix different halves:
+
+- **`microk8s kubectl`, not `kubectl --context microk8s`.** Pinning was
+  the right instinct and a shared kubeconfig was the wrong handle — it is
+  somebody else's file and it gets regenerated. `microk8s kubectl` reads
+  the node's own config, cannot be edited out from under this script, and
+  cannot address any cluster but this one. `KUBECTL=` overrides it.
+- **A preflight on every tick**, before the early return: one cheap read
+  of the very Deployment a deploy would patch. Reachability is now
+  asserted every five minutes rather than only when someone happens to
+  push, so this class of break can no longer hide behind a quiet day.
+
+The general lesson, which is the one worth carrying: **a health signal
+that is only computed on the busy path is not a health signal.** Success
+had been meaning "nothing to do" and was being read as "everything is
+fine".
