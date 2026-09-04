@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
-import { useTranslation } from 'react-i18next';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 
 import { OnboardingFlow } from './onboarding/OnboardingFlow';
 import { AppShell } from './AppShell';
@@ -8,25 +7,6 @@ import { getSessionToken } from './api/authStorage';
 import { colors } from './theme/colors';
 
 type RootStatus = 'checking-session' | 'onboarding' | 'home';
-
-/** Only the hosted try-it demo (site/nginx.conf's try.* vhost) needs this —
- * a real native install isn't the "public link, no account should be
- * real" risk this guards against. Kept here rather than in site/'s own
- * static wrapper since it's the same Expo web export either way, not a
- * separate build. Shown before a language has necessarily been picked
- * (it wraps every `RootStatus`, including `checking-session`), so it uses
- * whatever `i18n.language` already resolved to (the device guess) rather
- * than depending on the player having reached Screen O0 — `common` since
- * this is app-wide chrome, not feature-scoped copy. */
-function TestModeBanner() {
-  const { t } = useTranslation('common');
-  if (Platform.OS !== 'web') return null;
-  return (
-    <View style={styles.testBanner}>
-      <Text style={styles.testBannerText}>{t('testModeBanner')}</Text>
-    </View>
-  );
-}
 
 /** Top-level screen-state machine: not a navigation library, just "are we
  * onboarding or in the app" — appropriate for this app's size per
@@ -58,21 +38,18 @@ export function AppRoot() {
   if (status === 'checking-session') {
     body = (
       <View style={styles.centered}>
-        <TestModeBanner />
         <ActivityIndicator color={colors.flame} size="large" />
       </View>
     );
   } else if (status === 'onboarding') {
     body = (
       <View style={styles.fill}>
-        <TestModeBanner />
         <OnboardingFlow onComplete={handleOnboardingComplete} />
       </View>
     );
   } else {
     body = (
       <View style={styles.fill}>
-        <TestModeBanner />
         <AppShell onSessionInvalid={handleSessionInvalid} />
       </View>
     );
@@ -117,16 +94,5 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: 480,
-  },
-  testBanner: {
-    backgroundColor: '#FFB800',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  testBannerText: {
-    color: '#1B1B3A',
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
   },
 });
