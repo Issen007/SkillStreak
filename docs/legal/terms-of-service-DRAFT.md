@@ -360,9 +360,22 @@ directly; there is not yet a formal "we will notify you N days before a
 change" process defined — that's one more thing a real legal review
 should decide, not something this draft invents.
 
-**Contact:** [to be filled in by the project owner — there is currently
-no dedicated legal/privacy contact email defined for this project; do not
-invent one here].
+**Who offers this service, and under whose law**
+
+SkillStreak is operated by:
+
+**IssTech AB**
+Kungsfågelvägen 13
+184 61 Åkersberga
+Sweden
+VAT SE556692764501
+
+**Contact:** privacy@skillstreak.xyz
+
+These terms are governed by Swedish law. If you believe your personal data
+has been handled wrongly, you may contact us at the address above and you
+may also complain to Integritetsskyddsmyndigheten (IMY), Sweden's data
+protection authority — the second route does not depend on the first.
 
 ---
 
@@ -371,10 +384,11 @@ invent one here].
 This draft deliberately does **not** guess at the following. They are
 real gaps, not oversights:
 
-1. **Governing law / jurisdiction.** This document does not state which
-   country's law governs it, or where a dispute would be handled. That
-   depends on where the app's operating entity is legally established,
-   which isn't something a UX designer should decide.
+1. ~~**Governing law / jurisdiction.**~~ **Answered 2026-09-04:** the
+   operating entity is IssTech AB, a Swedish company, so Swedish law
+   governs and Sweden is the forum. Stated in section 10. Struck through
+   rather than deleted so anyone who remembers this as open can see it
+   closed.
 2. **Age of consent outside Sweden.** Section 1.3's "13 and over can
    self-approve" rule matches Sweden's actual legal minimum today (the
    only jurisdiction this has been checked against, per
@@ -388,15 +402,16 @@ real gaps, not oversights:
    This document, and the app's actual behavior, currently only implement
    Sweden's rule — this is a real, unresolved gap for any family using
    this app from outside Sweden, not just a documentation nuance.
-3. **Which entity is actually "offering" this service.** This draft talks
-   about "this app" throughout rather than naming a specific company,
-   because no legal entity has been specified for this project in
-   anything this draft was written against. A real Terms of Service needs
-   a named responsible party.
-4. **A formal complaints/DPA-authority contact.** GDPR-facing documents
-   like this typically name a specific supervisory authority a user can
-   escalate to (e.g. Sweden's IMY) — not included here since it depends
-   on the jurisdiction question above.
+3. ~~**Which entity is actually "offering" this service.**~~ **Answered
+   2026-09-04: IssTech AB**, named with its registered address and VAT
+   number in section 10. Note what this does *not* settle — a company
+   rather than a private individual is the cleaner arrangement for
+   processing children's data across several clubs, but whether this
+   particular structure is the right one is still a question for a
+   lawyer, not a closed one.
+4. ~~**A formal complaints/DPA-authority contact.**~~ **Answered
+   2026-09-04:** Sweden's IMY, which follows from the jurisdiction above
+   and is now named in section 10.
 5. **Data retention for entities not covered by ADR-0013's erasure
    flow** — e.g. exactly how long an *unapproved* (never-consented)
    account's minimal onboarding data is kept if a parent never responds
