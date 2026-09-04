@@ -31,9 +31,11 @@
 
 ## 0. What this app is, right now
 
-SkillStreak (a **working title** — the final app name is still an open
-decision, see `docs/PROJECT.md`'s banner) is a real, live beta app built
-for youth floorball (innebandy) teams. It is currently running on a real
+SkillStreak is a real, live beta app built for youth floorball
+(innebandy) teams. (The name was an open decision when this draft was
+written and was settled on 2026-08-10; the bundle identifier
+`xyz.skillstreak.app` encodes it and is permanent from first store
+publish.) It is currently running on a real
 Kubernetes cluster with real users, not a prototype or a mockup — but it
 is still **beta / early access software**, actively changing, and this
 Terms of Service should be read with that in mind (see Section 3).
@@ -60,6 +62,43 @@ only for clips the player uploaded themselves. The parent can withdraw
 that consent at any time, which removes the clips from view again.
 Everything else — chat, training logs, real names, and other children's
 clips — remains team-only with no exception.
+
+---
+
+## 0a. Where this service is offered
+
+**DRAFT — this section states an intention that is not yet enforced
+anywhere, and the wording needs a lawyer. See the note at the end of it.**
+
+SkillStreak is operated from Sweden by IssTech AB and is offered to
+floorball teams in **Sweden and the wider EEA**. It is built around
+Swedish and EU law — the GDPR, and Swedish implementing law for the
+questions the GDPR leaves to member states. It is not directed at users
+outside the EEA, and it is not designed for, or checked against, the
+children's-privacy regimes of other regions.
+
+These terms are governed by Swedish law (Section 10).
+
+**What that clause does and does not do**, stated plainly because it is
+commonly misunderstood and getting it wrong is worse than saying nothing:
+
+- It settles which law governs *this agreement* and where a dispute is
+  heard.
+- It does **not** switch off the law of the country a user actually lives
+  in. Consumer protections in an EU/EEA member state apply to residents
+  of that state whatever a contract says, and a term drafted to strip
+  them can itself be an unfair term. Outside the EEA the same is true in
+  substance: a service that is in fact offered to children in another
+  country is generally subject to that country's children's-privacy law —
+  the United States' COPPA being the obvious example — regardless of a
+  choice-of-law clause.
+
+**So the control that actually works is not this section — it is not
+offering the service there.** App Store and Play Console both restrict
+availability by country, and that restriction, not a paragraph, is what
+keeps another jurisdiction's rules from applying. This section describes
+the intended market; the store settings are what make it true. Until
+those are set, treat this as a statement of intent rather than a fact.
 
 ---
 
@@ -389,7 +428,20 @@ real gaps, not oversights:
    governs and Sweden is the forum. Stated in section 10. Struck through
    rather than deleted so anyone who remembers this as open can see it
    closed.
-2. **Age of consent outside Sweden.** Section 1.3's "13 and over can
+2. **Restricting the service to the EEA — is the store setting enough?**
+   Added 2026-09-04 at the project owner's request, and the reason it is
+   a question rather than a task: the owner's intent is that users
+   outside Europe cannot "continue with their own laws". A choice-of-law
+   clause does not achieve that, so Section 0a says so and points at
+   store-level country restriction instead. What a lawyer should confirm
+   is whether restricting availability in App Store Connect and Play
+   Console is sufficient to avoid being "directed at" children elsewhere
+   — particularly the United States, where COPPA turns on whether a
+   service is in fact directed at or knowingly collecting from children
+   under 13, not on where the operator is. A web build reachable from
+   anywhere (try.skillstreak.xyz) may complicate that answer.
+
+3. **Age of consent outside Sweden.** Section 1.3's "13 and over can
    self-approve" rule matches Sweden's actual legal minimum today (the
    only jurisdiction this has been checked against, per
    `docs/adr/0002-data-model.md`'s addendum). The app now supports 8
@@ -402,17 +454,17 @@ real gaps, not oversights:
    This document, and the app's actual behavior, currently only implement
    Sweden's rule — this is a real, unresolved gap for any family using
    this app from outside Sweden, not just a documentation nuance.
-3. ~~**Which entity is actually "offering" this service.**~~ **Answered
+4. ~~**Which entity is actually "offering" this service.**~~ **Answered
    2026-09-04: IssTech AB**, named with its registered address and VAT
    number in section 10. Note what this does *not* settle — a company
    rather than a private individual is the cleaner arrangement for
    processing children's data across several clubs, but whether this
    particular structure is the right one is still a question for a
    lawyer, not a closed one.
-4. ~~**A formal complaints/DPA-authority contact.**~~ **Answered
+5. ~~**A formal complaints/DPA-authority contact.**~~ **Answered
    2026-09-04:** Sweden's IMY, which follows from the jurisdiction above
    and is now named in section 10.
-5. **Data retention for entities not covered by ADR-0013's erasure
+6. **Data retention for entities not covered by ADR-0013's erasure
    flow** — e.g. exactly how long an *unapproved* (never-consented)
    account's minimal onboarding data is kept if a parent never responds
    at all. Not designed anywhere in this codebase yet.
