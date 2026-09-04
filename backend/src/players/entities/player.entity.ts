@@ -6,6 +6,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { PlayerLocale } from '../../common/locale/player-locale.enum';
+import { Jurisdiction } from '../../common/age/article8-age';
 import { ParentalConsentStatus } from '../player-consent-status.enum';
 import { TeamJoinStatus } from '../team-join-status.enum';
 
@@ -21,6 +22,33 @@ export class Player {
 
   @Column({ name: 'team_id', type: 'uuid' })
   teamId!: string;
+
+  /**
+   * The country whose GDPR Article 8 self-consent age applies to this
+   * player, copied from their team when the account is created.
+   *
+   * Denormalised from `team.jurisdiction` on purpose. Every place that
+   * asks "may this child consent for themselves?" already holds a
+   * Player and none of them hold a Team — threading a lookup through all
+   * eight would have meant new repository injections in five services
+   * for a value that never changes for a given account.
+   *
+   * It is also the more honest home for it: the team's column records
+   * where the club is, while this records the law a specific consent
+   * decision was made under. Correcting a club's country should not
+   * retroactively change the rule an existing family already consented
+   * beneath — that is a migration someone decides to run, not a silent
+   * consequence of an edit.
+   *
+   * Null resolves to the strictest age, never to Sweden's.
+   */
+  @Column({
+    name: 'jurisdiction',
+    type: 'varchar',
+    length: 2,
+    nullable: true,
+  })
+  jurisdiction!: Jurisdiction | null;
 
   @Column({ name: 'screen_name', type: 'varchar' })
   screenName!: string;

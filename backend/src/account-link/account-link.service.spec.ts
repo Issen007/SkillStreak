@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
+import { Jurisdiction } from '../common/age/article8-age';
 import {
   AccountLinkNotAllowedException,
   AccountLinkService,
@@ -20,6 +21,7 @@ const thisYear = new Date().getUTCFullYear();
 function build(
   opts: {
     birthYear?: number;
+    jurisdiction?: Jurisdiction | null;
     existingLink?: object | null;
     claimAffected?: number;
     challengePlayerId?: string | null;
@@ -53,6 +55,12 @@ function build(
     findOne: jest.fn().mockResolvedValue({
       id: PLAYER,
       birthYear: opts.birthYear ?? thisYear - 20,
+      // Explicit, because the age this invariant turns on is GDPR Article
+      // 8's and that is 13 to 16 by country. A fixture with no
+      // jurisdiction gets the strictest age, which is correct behaviour
+      // and would make "allows exactly 13" fail for the right reason.
+      jurisdiction:
+        opts.jurisdiction === undefined ? Jurisdiction.SE : opts.jurisdiction,
     }),
   };
   const service = new AccountLinkService(
@@ -80,6 +88,30 @@ describe('Invariant 5 — under 13 cannot obtain a challenge, server-side', () =
 
     await expect(service.createChallenge(PLAYER)).resolves.toHaveProperty(
       'token',
+    );
+  });
+
+  it('refuses exactly 13 in Germany, where the age is 16', () => {
+    // Same player, same birth year, different country — the invariant is
+    // "old enough to consent for themselves where they are", not "13".
+    const { service } = build({
+      birthYear: thisYear - 13,
+      jurisdiction: Jurisdiction.DE,
+    });
+
+    return expect(service.createChallenge(PLAYER)).rejects.toBeInstanceOf(
+      AccountLinkNotAllowedException,
+    );
+  });
+
+  it('refuses when the jurisdiction is unknown, rather than assuming Sweden', () => {
+    const { service } = build({
+      birthYear: thisYear - 13,
+      jurisdiction: null,
+    });
+
+    return expect(service.createChallenge(PLAYER)).rejects.toBeInstanceOf(
+      AccountLinkNotAllowedException,
     );
   });
 });

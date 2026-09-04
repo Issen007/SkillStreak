@@ -99,15 +99,22 @@ export class OnboardingService {
       throw new InviteCodeNotFoundException();
     }
 
-    // Age-band self-verification (13+, Swedish GDPR Art. 8's actual legal
-    // minimum) — resolved 2026-07-27 per docs/adr/0002-data-model.md
-    // addendum §2's 2026-07-27 update. Below 13, unchanged: a parent must
-    // approve via the third-person consent-request email. At 13+, the
-    // player verifies their own account instead — same underlying
-    // mechanism (a token + email link + approve), different audience and
-    // copy (see self-verification-email.template.ts /
+    // Age-band self-verification — the age is GDPR Article 8's, which is
+    // 13 to 16 depending on the country, NOT a single number. Below it, a
+    // parent must approve via the third-person consent-request email; at
+    // or above it the player verifies their own account instead — same
+    // underlying mechanism (a token + email link + approve), different
+    // audience and copy (see self-verification-email.template.ts /
     // consent-page.templates.ts's render*SelfVerification* functions).
-    const selfVerification = isSelfVerificationAge(dto.birthYear);
+    //
+    // **A team being created right now has no jurisdiction yet**, so this
+    // resolves to null and therefore to the strictest age: the first
+    // player on a brand-new team asks a parent regardless of age, until
+    // someone states which country the club is in. That is the safe
+    // direction to be wrong in, and the alternative — inheriting Sweden's
+    // 13 because the app was written in Sweden — is the bug this replaces.
+    const jurisdiction = existingTeam?.jurisdiction ?? null;
+    const selfVerification = isSelfVerificationAge(dto.birthYear, jurisdiction);
     const consentMethod = selfVerification
       ? ConsentMethod.SELF_EMAIL_LINK
       : ConsentMethod.EMAIL_LINK;
@@ -125,6 +132,12 @@ export class OnboardingService {
           screenName: dto.screenName,
           avatarId: dto.avatarId,
           birthYear: dto.birthYear,
+          // Copied from the team, so the rule this account consented
+          // under is fixed at creation and does not move if the club's
+          // country is corrected later. `team`, not `existingTeam` — a
+          // team created in this same transaction has none yet, which
+          // resolves to the strictest age rather than to Sweden's.
+          jurisdiction: team.jurisdiction ?? null,
           // The ONLY place isCaptain is ever set true at shell-creation
           // time — true if and only if this exact request just created the
           // team (ADR-0009 Decision 2/7).

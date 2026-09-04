@@ -159,7 +159,10 @@ export class PlayersController {
         screenName: player.screenName,
         avatarId: player.avatarId,
         consentStatus: player.parentalConsentStatus,
-        isSelfVerification: isSelfVerificationAge(player.birthYear),
+        isSelfVerification: isSelfVerificationAge(
+          player.birthYear,
+          player.jurisdiction,
+        ),
         teamJoinStatus: player.teamJoinStatus,
         locale: player.locale,
       },
