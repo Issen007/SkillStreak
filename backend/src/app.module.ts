@@ -14,6 +14,7 @@ import { TrainingPlansModule } from './training-plans/training-plans.module';
 import { TrainerPostsModule } from './trainer-posts/trainer-posts.module';
 import { PrCampaignsModule } from './pr-campaigns/pr-campaigns.module';
 import { BugReportsModule } from './bug-reports/bug-reports.module';
+import { ImprovementSuggestionsModule } from './improvement-suggestions/improvement-suggestions.module';
 import { EventRegistrationsModule } from './event-registrations/event-registrations.module';
 import { RedisThrottlerStorage } from './common/throttler/redis-throttler-storage.service';
 import { RedisThrottlerStorageModule } from './common/throttler/redis-throttler-storage.module';
@@ -160,6 +161,7 @@ import { WeeklyGoalModule } from './weekly-goal/weekly-goal.module';
     TrainingPlansModule,
     TrainerPostsModule,
     BugReportsModule,
+    ImprovementSuggestionsModule,
     EventRegistrationsModule,
     // docs/adr/0022-admin-control-center.md Decisions 4/6/7 — the admin
     // control center's read/triage surface (/api/v1/admin/*), entirely

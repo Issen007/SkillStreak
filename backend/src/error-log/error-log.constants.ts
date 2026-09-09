@@ -58,6 +58,16 @@ export const ERROR_LOG_JOB_NAMES = {
   usageMetricsReport: 'usage-metrics:report',
   errorLogRetention: 'error-log:retention',
   bugReportRetention: 'bug-report:retention',
+  /** ADR-0037's 90-day sweep over child-authored improvement suggestions. */
+  improvementSuggestionRetention: 'improvement-suggestion:retention',
+  /**
+   * ADR-0037's weekly counts-only digest. A failure here is ordinary job
+   * noise rather than a data-protection event — nothing lapses while it is
+   * down, the queue simply goes unread — but it is worth a row, because a
+   * digest that silently stopped arriving looks exactly like a week with
+   * no suggestions.
+   */
+  improvementSuggestionDigest: 'improvement-suggestion:digest',
   /** ADR-0028 Decision 7's 365-day sweep for generated training plans. */
   trainingPlanRetention: 'training-plan:retention',
   eventRegistrationRetention: 'event-registration:retention',

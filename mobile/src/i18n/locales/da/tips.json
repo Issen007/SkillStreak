@@ -4,5 +4,27 @@
   "loading": "Henter tips…",
   "failed": "Kunne ikke hente tips lige nu. Træk ned for at prøve igen.",
   "empty": "Ingen tips endnu. Kig forbi en anden dag.",
-  "end": "Det var alle tips for nu."
+  "end": "Det var alle tips for nu.",
+  "idea": {
+    "cardTitle": "Har du en idé?",
+    "cardBody": "Er der noget, du synes mangler i appen? Skriv, hvad du tænker — vi læser det.",
+    "cardCta": "Send en idé",
+    "heading": "Din idé",
+    "sub": "Skriv, hvad der ville gøre appen bedre. Vi læser alt, men vi kan ikke svare.",
+    "label": "Din idé",
+    "placeholder": "Jeg kunne godt tænke mig, at…",
+    "counter": "{{used}}/{{max}} tegn",
+    "tooLong": "Teksten er for lang. Gør den lidt kortere.",
+    "disclosureTitle": "Det her sender vi",
+    "disclosureSent": "Vi får din tekst, hvilket sprog du læser appen på, og hvilken version af appen du har.",
+    "disclosureNotSent": "Vi får ikke at vide, hvor du er, hvilken telefon du har, eller hvad du hedder i virkeligheden.",
+    "disclosureWho": "Kun vi, der laver appen, læser den. Ingen på dit hold kan se den.",
+    "submit": "Send idéen",
+    "cancel": "Annullér",
+    "rateLimited": "Du har allerede sendt et par idéer i dag. Prøv igen i morgen.",
+    "genericError": "Det kunne ikke sendes lige nu. Prøv igen.",
+    "successHeading": "Tak for idéen!",
+    "successBody": "Vi læser den. Du får ikke svar her i appen, men gode idéer kan dukke op i appen senere.",
+    "successCta": "Færdig"
+  }
 }

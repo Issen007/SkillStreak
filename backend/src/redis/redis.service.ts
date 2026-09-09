@@ -125,6 +125,18 @@ function bugReportDailyCapKey(playerId: string): string {
   return `bug-report:${playerId}:daily-cap`;
 }
 
+// docs/adr/0037-in-app-improvement-suggestions.md — the same two-key
+// burst+daily shape as bug-report above, under its own key prefix so the
+// two queues cannot rate-limit each other. A child who has just filed a
+// bug report has not thereby used up their ideas.
+function improvementSuggestionCooldownKey(playerId: string): string {
+  return `improvement-suggestion:${playerId}:cooldown`;
+}
+
+function improvementSuggestionDailyCapKey(playerId: string): string {
+  return `improvement-suggestion:${playerId}:daily-cap`;
+}
+
 function ptConsentRequestDailyCapKey(ptStaffAccountId: string): string {
   return `pt-consent-request:${ptStaffAccountId}:daily-cap`;
 }
@@ -308,6 +320,15 @@ const PT_CONSENT_REQUEST_DAILY_CAP_MAX_PER_WINDOW = 10;
 const BUG_REPORT_COOLDOWN_SECONDS = 60;
 const BUG_REPORT_DAILY_CAP_WINDOW_SECONDS = 60 * 60 * 24;
 const BUG_REPORT_DAILY_CAP_MAX_PER_WINDOW = 5;
+
+// ADR-0037 — deliberately the same three numbers as bug reports above,
+// not tuned separately. The reasoning transfers intact: 60 seconds rather
+// than 5 minutes so a child with two ideas in one sitting can send both
+// (an unsent idea is the failure mode that costs this project something),
+// and 5/day as the sustained ceiling the app's own copy already assumes.
+const IMPROVEMENT_SUGGESTION_COOLDOWN_SECONDS = 60;
+const IMPROVEMENT_SUGGESTION_DAILY_CAP_WINDOW_SECONDS = 60 * 60 * 24;
+const IMPROVEMENT_SUGGESTION_DAILY_CAP_MAX_PER_WINDOW = 5;
 
 @Injectable()
 export class RedisService {
@@ -848,6 +869,42 @@ export class RedisService {
     windowSeconds: number = BUG_REPORT_DAILY_CAP_WINDOW_SECONDS,
   ): Promise<boolean> {
     const key = bugReportDailyCapKey(playerId);
+    const count = await this.client.incr(key);
+    if (count === 1) {
+      await this.client.expire(key, windowSeconds);
+    }
+    return count <= maxPerWindow;
+  }
+
+  /** ADR-0037's submission endpoint. Bounds burst rate only — see
+   * tryClaimImprovementSuggestionDailyCap for sustained volume. Lives in
+   * Redis, not in-process memory, for the reason every other limiter in
+   * this file does: with k8s/api-deployment.yaml running multiple
+   * replicas, a per-pod counter would multiply the real ceiling by the
+   * replica count. */
+  async tryClaimImprovementSuggestionCooldown(
+    playerId: string,
+    ttlSeconds: number = IMPROVEMENT_SUGGESTION_COOLDOWN_SECONDS,
+  ): Promise<boolean> {
+    const result = await this.client.set(
+      improvementSuggestionCooldownKey(playerId),
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
+    return result === 'OK';
+  }
+
+  /** Same fixed-window shape as tryClaimBugReportDailyCap — the burst
+   * cooldown above alone would still allow ~1,440 rows per player per day
+   * into the operator's queue. */
+  async tryClaimImprovementSuggestionDailyCap(
+    playerId: string,
+    maxPerWindow: number = IMPROVEMENT_SUGGESTION_DAILY_CAP_MAX_PER_WINDOW,
+    windowSeconds: number = IMPROVEMENT_SUGGESTION_DAILY_CAP_WINDOW_SECONDS,
+  ): Promise<boolean> {
+    const key = improvementSuggestionDailyCapKey(playerId);
     const count = await this.client.incr(key);
     if (count === 1) {
       await this.client.expire(key, windowSeconds);

@@ -44,3 +44,28 @@ export function getDeviceDefaultLocale(): PlayerLocale {
   }
   return 'sv';
 }
+
+/**
+ * Narrows an arbitrary i18next language tag to one of the app's own
+ * locales, falling back to `sv` for anything outside the set.
+ *
+ * Used where a screen has to *tell the server* which language the child is
+ * reading, but has no loaded player profile to read `player.locale` from
+ * (the Tips tab, which deliberately loads neither a team nor a profile).
+ * `i18n.language` is the honest answer to that question anyway: it is set
+ * from the saved player locale on load, and if the child switched language
+ * mid-session it reflects what they are actually looking at.
+ *
+ * Same "language, not location" posture as getDeviceDefaultLocale above —
+ * a region subtag is stripped rather than read (`de-AT` → `de`), never
+ * kept as a signal about where the device is.
+ */
+export function asPlayerLocale(language: string | undefined): PlayerLocale {
+  const code = language?.toLowerCase().split('-')[0];
+  if (!code) return 'sv';
+  if (code === 'no' || code === 'nb') return 'nb';
+  if ((SUPPORTED_LOCALES as readonly string[]).includes(code)) {
+    return code as PlayerLocale;
+  }
+  return 'sv';
+}

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BugReportsModule } from '../bug-reports/bug-reports.module';
 import { ErrorLogModule } from '../error-log/error-log.module';
+import { ImprovementSuggestionsModule } from '../improvement-suggestions/improvement-suggestions.module';
 import { Player } from '../players/entities/player.entity';
 import { StaffAuthModule } from '../staff-auth/staff-auth.module';
 import { Team } from '../teams/entities/team.entity';
@@ -9,6 +10,7 @@ import { UsageMetricsModule } from '../usage-metrics/usage-metrics.module';
 import { AdminBugReportsService } from './admin-bug-reports.service';
 import { AdminController } from './admin.controller';
 import { AdminErrorLogService } from './admin-error-log.service';
+import { AdminImprovementSuggestionsService } from './admin-improvement-suggestions.service';
 import { AdminPlanningDocsService } from './admin-planning-docs.service';
 import { AdminSessionService } from './admin-session.service';
 
@@ -28,6 +30,8 @@ import { AdminSessionService } from './admin-session.service';
  *   config the console interpolates) and the `ErrorLogEntry` repository.
  * - `BugReportsModule` exports the `BugReport` repository; the player-facing
  *   `POST` stays over there, behind `JwtAuthGuard`.
+ * - `ImprovementSuggestionsModule` does the same for ADR-0037's
+ *   `ImprovementSuggestion` repository, on the same terms.
  * - `StaffAuthModule` re-exports `AdminAuthGuard` and the `StaffAccount`
  *   repository the guard and the session endpoint both need.
  *
@@ -55,12 +59,14 @@ import { AdminSessionService } from './admin-session.service';
     UsageMetricsModule,
     ErrorLogModule,
     BugReportsModule,
+    ImprovementSuggestionsModule,
   ],
   controllers: [AdminController],
   providers: [
     AdminSessionService,
     AdminErrorLogService,
     AdminBugReportsService,
+    AdminImprovementSuggestionsService,
     AdminPlanningDocsService,
   ],
 })

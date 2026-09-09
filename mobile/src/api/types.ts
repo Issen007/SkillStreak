@@ -1044,6 +1044,30 @@ export interface SubmitBugReportResponse {
 }
 
 /* -------------------------------------------------------------------------
+ * Improvement suggestions (Tips-fliken) — docs/adr/0037-in-app-improvement-
+ * suggestions.md. A player's own "the app would be better if…", routed to
+ * the operator's console queue and to no peer.
+ * ---------------------------------------------------------------------- */
+
+/** Note what is absent, and deliberately more than a bug report leaves
+ * out: no player id (the server takes it from the session), no platform,
+ * no OS version, nothing about the device at all. The backend DTO rejects
+ * any field not listed here rather than dropping it silently. */
+export interface SubmitImprovementSuggestionRequest {
+  /** Required — trimmed by the server, and empty after trimming is a 400.
+   * Unlike a bug report's description there is no picker to fall back on,
+   * so a suggestion with no words is nothing. */
+  body: string;
+  appVersion: string;
+  locale: PlayerLocale;
+}
+
+export interface SubmitImprovementSuggestionResponse {
+  id: string;
+  createdAt: string;
+}
+
+/* -------------------------------------------------------------------------
  * Public feed (Utforska) — ADR-0019, screens F1–F3 in
  * docs/design/phase6-public-feed-flows.md.
  * ---------------------------------------------------------------------- */

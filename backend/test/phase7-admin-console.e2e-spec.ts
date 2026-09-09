@@ -10,6 +10,7 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { BugReport } from '../src/bug-reports/entities/bug-report.entity';
+import { ImprovementSuggestion } from '../src/improvement-suggestions/entities/improvement-suggestion.entity';
 import { AppExceptionFilter } from '../src/common/errors/http-exception.filter';
 import { STAFF_SESSION_COOKIE_NAME } from '../src/staff-auth/staff-cookies';
 import { StaffSessionTokenService } from '../src/staff-auth/staff-session-token.service';
@@ -69,7 +70,7 @@ function restoreEnv(name: string, previous: string | undefined) {
   }
 }
 
-describe('Fas 7: admin console + bug reports (e2e)', () => {
+describe('Fas 7: admin console + bug reports + ADR-0037 ideas (e2e)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let inviteCode: string;
@@ -129,9 +130,10 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
   });
 
   afterAll(async () => {
-    // bug_report.player_id is ON DELETE CASCADE and player.team_id cascades
-    // from the team, so deleting the team removes this suite's rows the same
-    // way a real account erasure would.
+    // bug_report.player_id and improvement_suggestion.player_id are both ON
+    // DELETE CASCADE, and player.team_id cascades from the team, so deleting
+    // the team removes this suite's rows the same way a real account erasure
+    // would.
     await dataSource.getRepository(Team).delete({ id: teamId });
     await dataSource.getRepository(StaffAccount).delete({ email: ADMIN_EMAIL });
     await app.close();
@@ -176,6 +178,7 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
       ['get', '/api/v1/admin/usage-metrics'],
       ['get', '/api/v1/admin/errors'],
       ['get', '/api/v1/admin/bug-reports'],
+      ['get', '/api/v1/admin/improvement-suggestions'],
       ['get', '/api/v1/admin/planning/roadmap'],
       ['get', '/api/v1/admin/planning/ideas'],
       ['get', '/api/v1/admin/planning/security-issues'],
@@ -209,6 +212,17 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
     it('PATCH /api/v1/admin/bug-reports/:id returns 401 before validating the body', async () => {
       const response = await request(app.getHttpServer())
         .patch(`/api/v1/admin/bug-reports/${randomUUID()}`)
+        .send({ status: 'not-a-status', note: 'freeform' })
+        .expect(401);
+
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'staff_unauthorized',
+      );
+    });
+
+    it('PATCH /api/v1/admin/improvement-suggestions/:id returns 401 before validating the body', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/api/v1/admin/improvement-suggestions/${randomUUID()}`)
         .send({ status: 'not-a-status', note: 'freeform' })
         .expect(401);
 
@@ -328,6 +342,126 @@ describe('Fas 7: admin console + bug reports (e2e)', () => {
         .post('/api/v1/bug-reports')
         .set('Authorization', `Bearer ${player.sessionToken}`)
         .send(validSubmission({ description: undefined, osVersion: undefined }))
+        .expect(201);
+    });
+  });
+
+  // docs/adr/0037-in-app-improvement-suggestions.md — the Tips tab's
+  // "send us an idea" form, end to end against real Postgres and real
+  // Redis. Same posture as the bug-report block above; what differs is
+  // that the body is required and the capture allow-list is narrower.
+  describe('POST /api/v1/improvement-suggestions', () => {
+    function validIdea(overrides: Record<string, unknown> = {}) {
+      return {
+        body: 'man borde kunna välja egen färg på laget',
+        appVersion: '1.4.2',
+        locale: 'sv',
+        ...overrides,
+      };
+    }
+
+    it('requires a player session', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/improvement-suggestions')
+        .send(validIdea())
+        .expect(401);
+    });
+
+    it('stores exactly the allow-listed fields, status open', async () => {
+      const player = await createPlayer();
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/improvement-suggestions')
+        .set('Authorization', `Bearer ${player.sessionToken}`)
+        .send(validIdea())
+        .expect(201);
+
+      const created = response.body as { id: string; createdAt: string };
+      const stored = await dataSource
+        .getRepository(ImprovementSuggestion)
+        .findOneOrFail({ where: { id: created.id } });
+
+      expect(stored).toMatchObject({
+        playerId: player.playerId,
+        body: 'man borde kunna välja egen färg på laget',
+        appVersion: '1.4.2',
+        locale: 'sv',
+        status: 'open',
+      });
+    });
+
+    // Required, unlike a bug report's description — and trimmed first, so
+    // whitespace is a 400 rather than a blank row in the operator's queue.
+    it.each(['', '   '])('rejects a body of %j', async (body) => {
+      const player = await createPlayer();
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/improvement-suggestions')
+        .set('Authorization', `Bearer ${player.sessionToken}`)
+        .send(validIdea({ body }))
+        .expect(400);
+
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'validation_error',
+      );
+    });
+
+    // CLAUDE.md's non-negotiable at the boundary: the DTO has no location
+    // field, and forbidNonWhitelisted turns that into a 400 rather than a
+    // silent drop. Same for anything else not on the allow-list.
+    it.each([
+      { latitude: 59.33, longitude: 18.06 },
+      { platform: 'ios' },
+      { status: 'closed' },
+    ])('rejects the undeclared fields %j outright', async (extra) => {
+      const player = await createPlayer();
+
+      await request(app.getHttpServer())
+        .post('/api/v1/improvement-suggestions')
+        .set('Authorization', `Bearer ${player.sessionToken}`)
+        .send(validIdea(extra))
+        .expect(400);
+    });
+
+    // The real Redis burst cooldown, under its own key prefix — a bug
+    // report and an idea must not rate-limit each other.
+    it('rate-limits a second immediate submission, independently of bug reports', async () => {
+      const player = await createPlayer();
+
+      await request(app.getHttpServer())
+        .post('/api/v1/bug-reports')
+        .set('Authorization', `Bearer ${player.sessionToken}`)
+        .send(validSubmission())
+        .expect(201);
+
+      // The bug-report cooldown is now held; the idea must still go through.
+      await request(app.getHttpServer())
+        .post('/api/v1/improvement-suggestions')
+        .set('Authorization', `Bearer ${player.sessionToken}`)
+        .send(validIdea())
+        .expect(201);
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/improvement-suggestions')
+        .set('Authorization', `Bearer ${player.sessionToken}`)
+        .send(validIdea({ body: 'och en mörkt läge' }))
+        .expect(429);
+
+      expect((response.body as ApiErrorBody).error.code).toBe(
+        'improvement_suggestion_rate_limited',
+      );
+    });
+
+    // ADR-0037 Decision 4, the project owner's call: deliberately NOT
+    // consent-gated. A freshly created player is `pending` parental
+    // consent, and this call must still succeed — that is the point.
+    it('accepts a suggestion from a player whose parental consent is still pending', async () => {
+      const player = await createPlayer();
+
+      await request(app.getHttpServer())
+        .post('/api/v1/improvement-suggestions')
+        .set('Authorization', `Bearer ${player.sessionToken}`)
+        .send(validIdea())
         .expect(201);
     });
   });

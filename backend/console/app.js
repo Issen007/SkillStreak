@@ -202,6 +202,7 @@
       { id: 'campaigns', label: 'Campaigns', ico: '📣' },
       { id: 'errors', label: 'Errors', ico: '⚠️' },
       { id: 'bugs', label: 'Bug reports', ico: '🐛' },
+      { id: 'ideas', label: 'Ideas', ico: '💡' },
       { id: 'planning', label: 'Planning', ico: '🗺️' },
       { id: 'drills', label: 'Drill library', ico: '📗' },
       { id: 'plans', label: 'Session planner', ico: '🧠' },
@@ -223,7 +224,7 @@
    * navigated out of the app". */
   var ROUTE_TAB = {
     team: 'teams', player: 'teams', graphs: 'graphs', drill: 'drills',
-    drillGroups: 'drills', plan: 'plans', bugs: 'bugs',
+    drillGroups: 'drills', plan: 'plans', bugs: 'bugs', ideas: 'ideas',
     // Reached from both "My tips" and "Tip review"; highlights the
     // authoring tab, since that is where the preview is used most.
     playerPreview: 'posts'
@@ -1049,12 +1050,16 @@
 
   /* ---- bug triage ----------------------------------------------------- */
 
-  var BUG_STATUSES = ['open', 'triaged', 'closed'];
-  var BUG_STATUS_LABEL = { open: 'Open', triaged: 'Triaged', closed: 'Closed' };
-  var BUG_STATUS_CLASS = { open: 'warn', triaged: 'accent', closed: 'ok' };
+  /* One vocabulary for both triage queues (bug reports and ADR-0037's
+   * ideas): the two tables declare their own Postgres enums, but the
+   * three values and their meanings are the same, and the console should
+   * not draw them differently. */
+  var TRIAGE_STATUSES = ['open', 'triaged', 'closed'];
+  var TRIAGE_STATUS_LABEL = { open: 'Open', triaged: 'Triaged', closed: 'Closed' };
+  var TRIAGE_STATUS_CLASS = { open: 'warn', triaged: 'accent', closed: 'ok' };
 
   function countSuffix(counts) {
-    var total = BUG_STATUSES.reduce(function (sum, st) {
+    var total = TRIAGE_STATUSES.reduce(function (sum, st) {
       return sum + (typeof counts[st] === 'number' ? counts[st] : 0);
     }, 0);
     return total ? ' (' + total + ')' : '';
@@ -1075,14 +1080,62 @@
         '</span>' : '') +
       '</td><td class="muted">' + esc(row.platform) + ' ' + esc(row.appVersion) +
       (row.osVersion ? '<br>' + esc(row.osVersion) : '') + '</td><td>' +
-      '<span class="badge ' + (BUG_STATUS_CLASS[row.status] || '') + '">' +
+      '<span class="badge ' + (TRIAGE_STATUS_CLASS[row.status] || '') + '">' +
       esc(row.status) + '</span></td><td style="text-align:right;white-space:nowrap">' +
-      BUG_STATUSES.filter(function (st) { return st !== row.status; })
+      TRIAGE_STATUSES.filter(function (st) { return st !== row.status; })
         .map(function (st) {
           return '<button data-bug="' + esc(row.id) + '" data-status="' +
-            st + '">' + esc(BUG_STATUS_LABEL[st]) + '</button> ';
+            st + '">' + esc(TRIAGE_STATUS_LABEL[st]) + '</button> ';
         }).join('') +
       '</td></tr>';
+  }
+
+  /* ADR-0037's Ideas queue. Every string here is untrusted — the body is
+   * whatever a child typed, and screenName/teamName have no charset
+   * validation anywhere in backend/src — so all of it goes through esc(),
+   * including inside the title attribute. */
+  function ideaRow(row) {
+    var author = row.author
+      ? esc(row.author.screenName) + '<br><span class="muted">' +
+        esc(row.author.teamName) + '</span>'
+      /* Their row is gone — an erasure takes their suggestions with it,
+       * so this is a referential edge rather than an error. */
+      : '<span class="muted">no longer on the app</span>';
+
+    return '<tr><td>' + esc((row.createdAt || '').slice(0, 10)) + '</td><td>' +
+      author + '</td><td>' + esc(row.body) +
+      '</td><td class="muted">' + esc(row.locale) + '<br>' +
+      esc(row.appVersion) + '</td><td>' +
+      '<span class="badge ' + (TRIAGE_STATUS_CLASS[row.status] || '') + '">' +
+      esc(row.status) + '</span></td><td style="text-align:right;white-space:nowrap">' +
+      TRIAGE_STATUSES.filter(function (st) { return st !== row.status; })
+        .map(function (st) {
+          return '<button data-idea="' + esc(row.id) + '" data-status="' +
+            st + '">' + esc(TRIAGE_STATUS_LABEL[st]) + '</button> ';
+        }).join('') +
+      '</td></tr>';
+  }
+
+  function wireIdeaButtons(view, filter) {
+    Array.prototype.forEach.call(
+      view.querySelectorAll('[data-idea]'),
+      function (button) {
+        button.onclick = function () {
+          var was = button.textContent;
+          button.disabled = true;
+          button.textContent = '…';
+          api.patch('/api/v1/admin/improvement-suggestions/' +
+                    encodeURIComponent(button.getAttribute('data-idea')),
+                    { status: button.getAttribute('data-status') })
+            .then(function () { go(filter ? 'ideas/' + filter : 'ideas'); })
+            .catch(function (e) {
+              button.disabled = false;
+              button.textContent = was;
+              alertInline(button, errorMessage(e));
+            });
+        };
+      }
+    );
   }
 
   function wireBugButtons(view, filter) {
@@ -2530,7 +2583,7 @@
      * audit trail, and a mis-clicked "Closed" that cannot be undone from
      * the UI sends that operator straight back to psql. */
     bugs: function (view, filterArg) {
-      var status = BUG_STATUSES.indexOf(filterArg) >= 0 ? filterArg : '';
+      var status = TRIAGE_STATUSES.indexOf(filterArg) >= 0 ? filterArg : '';
       api.get('/api/v1/admin/bug-reports' +
               (status ? '?status=' + encodeURIComponent(status) : ''))
         .then(function (r) {
@@ -2543,10 +2596,10 @@
               '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
                 '<button data-go="bugs"' + (status ? '' : ' class="primary"') +
                 '>All' + countSuffix(counts) + '</button>' +
-                BUG_STATUSES.map(function (st) {
+                TRIAGE_STATUSES.map(function (st) {
                   return '<button data-go="bugs/' + st + '"' +
                     (st === status ? ' class="primary"' : '') + '>' +
-                    esc(BUG_STATUS_LABEL[st]) +
+                    esc(TRIAGE_STATUS_LABEL[st]) +
                     (typeof counts[st] === 'number' ? ' (' + esc(counts[st]) + ')' : '') +
                     '</button>';
                 }).join('') +
@@ -2563,6 +2616,53 @@
             '</div>';
 
           wireBugButtons(view, status);
+        }).catch(function (e) { fail(view, e); });
+    },
+
+    /* ADR-0037's Ideas queue — player-written requests for enhancement.
+     * Same three states and the same unrestricted transitions as bug
+     * reports above; a different table only because a suggestion has no
+     * category and no screen to pick.
+     *
+     * The weekly digest mail carries counts and never text, so this page
+     * is the only place the words themselves are ever read. */
+    ideas: function (view, filterArg) {
+      var status = TRIAGE_STATUSES.indexOf(filterArg) >= 0 ? filterArg : '';
+      api.get('/api/v1/admin/improvement-suggestions' +
+              (status ? '?status=' + encodeURIComponent(status) : ''))
+        .then(function (r) {
+          var rows = r.suggestions || [];
+          var counts = r.countsByStatus || {};
+
+          view.innerHTML =
+            '<h2>Ideas from players</h2>' +
+            '<div class="card">' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+                '<button data-go="ideas"' + (status ? '' : ' class="primary"') +
+                '>All' + countSuffix(counts) + '</button>' +
+                TRIAGE_STATUSES.map(function (st) {
+                  return '<button data-go="ideas/' + st + '"' +
+                    (st === status ? ' class="primary"' : '') + '>' +
+                    esc(TRIAGE_STATUS_LABEL[st]) +
+                    (typeof counts[st] === 'number' ? ' (' + esc(counts[st]) + ')' : '') +
+                    '</button>';
+                }).join('') +
+              '</div>' +
+            '</div>' +
+            '<div class="card">' +
+              (rows.length
+                ? '<table><tr><th>When</th><th>Who</th><th>Idea</th>' +
+                  '<th>Build</th><th>Status</th><th></th></tr>' +
+                  rows.map(ideaRow).join('') + '</table>'
+                : '<p class="muted">Nothing here. An empty queue and a ' +
+                  'broken form look identical, so it is worth sending one ' +
+                  'from the app occasionally to be sure.</p>') +
+            '</div>' +
+            '<p class="muted">Suggestions are deleted 90 days after they ' +
+            'arrive. If one is worth keeping, write it into the backlog in ' +
+            'your own words — this table is not the roadmap.</p>';
+
+          wireIdeaButtons(view, status);
         }).catch(function (e) { fail(view, e); });
     },
 
