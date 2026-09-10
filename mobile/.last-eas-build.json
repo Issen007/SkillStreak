@@ -32,18 +32,18 @@
   ],
   "builds": {
     "ANDROID": {
-      "buildId": "98ddc8b7-138b-4c28-ac2a-6d42143746ab",
-      "commit": "d36d805ebee55ee8e25787ce4f2818656442edae",
+      "buildId": "f9c7a998-c110-4175-a238-14ab97a85822",
+      "commit": "4a5a7d63c532c5a888c10f35dd692de3243ca34b",
       "profile": "production",
-      "buildNumber": "13",
-      "finishedAt": "2026-09-02"
+      "buildNumber": "14",
+      "finishedAt": "2026-09-10"
     },
     "IOS": {
-      "buildId": "bb7e7699-5f7c-4a43-990d-7588e28e9b95",
-      "commit": "80d07f6d76b904a181c6e3bc8661e8e8ec4896b7",
+      "buildId": "0c4b2078-0470-4cd9-addf-4b0e21d9be22",
+      "commit": "4a5a7d63c532c5a888c10f35dd692de3243ca34b",
       "profile": "production",
-      "buildNumber": "21",
-      "finishedAt": "2026-09-01"
+      "buildNumber": "22",
+      "finishedAt": "2026-09-10"
     }
   }
 }
