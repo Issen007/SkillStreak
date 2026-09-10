@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { SecondaryLink } from '../../components/SecondaryLink';
 import { TextField } from '../../components/TextField';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -82,9 +83,10 @@ export function RA2RedeemCode({ onRedeemed, onRetryRequest }: RA2RedeemCodeProps
         disabled={code.trim().length === 0}
         loading={loading}
       />
-      <Text style={styles.backLink} onPress={onRetryRequest}>
-        {t('ra2.retryLink')}
-      </Text>
+      {/* Same fix, same reasoning as RA1's back link. This one matters
+          slightly more: a player reaches it when the mail has not
+          arrived, which is already the frustrating case. */}
+      <SecondaryLink label={t('ra2.retryLink')} onPress={onRetryRequest} />
     </ScreenContainer>
   );
 }
@@ -107,13 +109,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
     textAlign: 'center',
-  },
-  backLink: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-    color: colors.textMuted,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-    marginTop: 16,
   },
 });

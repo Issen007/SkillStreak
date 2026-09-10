@@ -34,6 +34,15 @@ export function SecondaryLink({ label, onPress, variant = 'muted' }: SecondaryLi
 const styles = StyleSheet.create({
   button: {
     paddingVertical: 10,
+    // 44pt is the platform minimum tap target, and it was defect 3 of the
+    // three the 2026-08-23 O1 pass named — fixed there by switching to a
+    // bordered button, which left every text-style link in the app still
+    // short of it. Padding alone gave ~37pt. Fixing it here rather than
+    // per-screen is what stops the next screen reintroducing it; the
+    // label stays vertically centred, so nothing moves visually except
+    // the invisible target growing by a few points.
+    minHeight: 44,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   pressed: {

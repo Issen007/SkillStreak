@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { SecondaryLink } from '../../components/SecondaryLink';
 import { TextField } from '../../components/TextField';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
@@ -84,9 +85,16 @@ export function RA1ReturningUser({ onSubmitted, onBack }: RA1ReturningUserProps)
         disabled={!canSubmit}
         loading={loading}
       />
-      <Text style={styles.backLink} onPress={onBack}>
-        {t('ra1.back')}
-      </Text>
+      {/* SecondaryLink, not a `Text` with `onPress` — the same three
+          defects the 2026-08-23 pass fixed on Screen O1's entry point,
+          which had been left standing on the screen that entry point
+          leads to. Two of them are not about looks: a `Text` carries no
+          `accessibilityRole`, so a screen reader announced this as text
+          rather than as something you can activate, and its tap target
+          was a single 14pt line on a screen used by nine-year-olds. The
+          way out of a screen you opened by mistake should not be the
+          hardest thing on it to hit. */}
+      <SecondaryLink label={t('ra1.back')} onPress={onBack} />
     </ScreenContainer>
   );
 }
@@ -106,13 +114,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
     textAlign: 'center',
-  },
-  backLink: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-    color: colors.textMuted,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-    marginTop: 16,
   },
 });
