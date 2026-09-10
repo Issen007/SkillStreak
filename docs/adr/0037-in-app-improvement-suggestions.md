@@ -150,6 +150,18 @@ reply channel — the operator moves a status and nothing writes back.
 - The admin console gains an "Ideas" section, with the same untrusted-text
   handling as the bug queue: the body and both identity fields are
   escaped everywhere they are rendered, `title=` attributes included.
+
+  **Checked in a browser on 2026-09-09**, against a local API and seeded
+  rows, because "it is escaped" is the kind of claim that reads as true
+  in a diff and is false on a page. A suggestion whose body was
+  `<script>alert("xss")</script> och en <b>mörkt läge</b> tack`, written
+  by a player whose screen name was set to
+  `<img src=x onerror="alert(1)">Ras` — a realistic carrier, since screen
+  names still have no charset validation anywhere in `backend/src` —
+  printed as literal text in both fields: no markup applied, no image
+  request, no dialog, nothing in the console. The status PATCH, the
+  filter chips and their table-wide counts were exercised in the same
+  pass.
 - `GET /api/v1/admin/improvement-suggestions` deliberately carries **no
   player id**, no filter by author, and no search. ADR-0022 Decision 5's
   named anti-pattern is a per-child view arriving through a table like
