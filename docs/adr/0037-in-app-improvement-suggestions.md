@@ -191,3 +191,10 @@ out, is parked in `docs/internal/BACKLOG.md` under "Idea submission"
 (that file is gitignored, so the short version is here: award as asked;
 recognise a good idea without touching the pool; or wait for real volume
 and observe the incentive rather than guess it).
+
+**Decided 2026-09-10: wait.** The project owner deferred it rather than
+choosing between the first two — until there is a real queue, how often
+ideas arrive and how often they deserve approving are both guesses, and
+those two numbers are what decide whether an award inflates the pool or
+is too rare to motivate anyone. The weekly digest is what will say when
+that changes, which is a second use for a mail built as a nudge.
