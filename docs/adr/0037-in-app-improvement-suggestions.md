@@ -178,3 +178,16 @@ the operator wants a way to mark an idea as "built" distinctly from
 "closed". Deliberately not guessed at now — three states is what the
 console already draws, and a fourth invented before anyone has triaged a
 real queue would be sizing a control against a guess.
+
+That question is not purely cosmetic, and whoever picks it up should know
+why. The project owner asked on 2026-08-05 for something this ADR did not
+build: *"if it gets approved we should then reward the team with 100p."*
+An award needs a state to hang off, so building it would answer the
+question above by force rather than from evidence — and it would put
+non-training points into a season pot whose every other point comes from
+`pointsForTrainingLog`, which is what makes the pool mean "how much this
+team trained". The decision, with the three defensible answers spelled
+out, is parked in `docs/internal/BACKLOG.md` under "Idea submission"
+(that file is gitignored, so the short version is here: award as asked;
+recognise a good idea without touching the pool; or wait for real volume
+and observe the incentive rather than guess it).
