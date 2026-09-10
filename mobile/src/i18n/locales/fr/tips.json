@@ -4,5 +4,27 @@
   "loading": "Chargement des conseils…",
   "failed": "Impossible de charger les conseils pour le moment. Tire vers le bas pour réessayer.",
   "empty": "Pas encore de conseils. Reviens un autre jour.",
-  "end": "C'est tout pour le moment."
+  "end": "C'est tout pour le moment.",
+  "idea": {
+    "cardTitle": "Tu as une idée ?",
+    "cardBody": "Il manque quelque chose dans l’appli ? Écris ce que tu penses — on le lit.",
+    "cardCta": "Envoyer une idée",
+    "heading": "Ton idée",
+    "sub": "Écris ce qui rendrait l’appli meilleure. On lit tout, mais on ne peut pas répondre.",
+    "label": "Ton idée",
+    "placeholder": "J’aimerais que…",
+    "counter": "{{used}}/{{max}} caractères",
+    "tooLong": "Le texte est trop long. Raccourcis-le un peu.",
+    "disclosureTitle": "Voilà ce qu’on envoie",
+    "disclosureSent": "On reçoit ton texte, la langue dans laquelle tu lis l’appli et la version de l’appli que tu as.",
+    "disclosureNotSent": "On ne sait pas où tu es, quel téléphone tu as, ni ton vrai nom.",
+    "disclosureWho": "Seuls nous, qui faisons l’appli, le lisons. Personne dans ton équipe ne le voit.",
+    "submit": "Envoyer l’idée",
+    "cancel": "Annuler",
+    "rateLimited": "Tu as déjà envoyé quelques idées aujourd’hui. Réessaie demain.",
+    "genericError": "L’envoi n’a pas fonctionné. Réessaie.",
+    "successHeading": "Merci pour l’idée !",
+    "successBody": "On la lit. Tu n’auras pas de réponse ici dans l’appli, mais les bonnes idées peuvent apparaître plus tard.",
+    "successCta": "Terminé"
+  }
 }

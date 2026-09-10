@@ -1,3 +1,4 @@
+import { Jurisdiction } from '../common/age/article8-age';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
@@ -36,6 +37,8 @@ export interface CreatePlayerShellInput {
   screenName: string;
   avatarId: string;
   birthYear: number;
+  /** Copied from the team; null resolves to the strictest Article 8 age. */
+  jurisdiction?: Jurisdiction | null;
   // docs/adr/0009-self-service-team-creation.md's Server-side algorithm —
   // true for exactly one call site (OnboardingService.createPlayer, only
   // when this exact request just created the team); every other existing
@@ -97,6 +100,7 @@ export class PlayersService {
       screenName: input.screenName,
       avatarId: input.avatarId,
       birthYear: input.birthYear,
+      jurisdiction: input.jurisdiction ?? null,
       parentalConsentStatus: ParentalConsentStatus.PENDING,
       isCaptain,
       // Added 2026-07-27: whoever's join created the team can't be

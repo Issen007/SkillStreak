@@ -61,6 +61,8 @@ import type {
   TrainerPost,
   SubmitBugReportRequest,
   SubmitBugReportResponse,
+  SubmitImprovementSuggestionRequest,
+  SubmitImprovementSuggestionResponse,
   ClipReactionType,
   PublicFeedPage,
   ViewerReactionResult,
@@ -709,6 +711,22 @@ export function submitBugReport(
     body,
     auth: true,
   });
+}
+
+/** ADR-0037 — the Tips tab's "send us an idea" form. Same authenticated,
+ * fire-once shape as submitBugReport above; the response carries no reply
+ * channel because the design has none. */
+export function submitImprovementSuggestion(
+  body: SubmitImprovementSuggestionRequest,
+): Promise<SubmitImprovementSuggestionResponse> {
+  return apiClient.request<SubmitImprovementSuggestionResponse>(
+    '/improvement-suggestions',
+    {
+      method: 'POST',
+      body,
+      auth: true,
+    },
+  );
 }
 
 /** Screen F1 — one page of the public feed. Keyset-paginated; pass the

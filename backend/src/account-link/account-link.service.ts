@@ -70,7 +70,10 @@ export class AccountLinkService {
       where: { id: playerId },
       select: { id: true, birthYear: true },
     });
-    if (!player || !isSelfVerificationAge(player.birthYear)) {
+    if (
+      !player ||
+      !isSelfVerificationAge(player.birthYear, player.jurisdiction)
+    ) {
       throw new AccountLinkNotAllowedException();
     }
     if (await this.links.findOne({ where: { playerId } })) {

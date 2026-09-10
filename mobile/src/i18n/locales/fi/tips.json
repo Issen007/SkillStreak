@@ -4,5 +4,27 @@
   "loading": "Ladataan vinkkejä…",
   "failed": "Vinkkejä ei voitu ladata juuri nyt. Vedä alas yrittääksesi uudelleen.",
   "empty": "Ei vielä vinkkejä. Katso uudelleen jonain toisena päivänä.",
-  "end": "Siinä olivat kaikki vinkit toistaiseksi."
+  "end": "Siinä olivat kaikki vinkit toistaiseksi.",
+  "idea": {
+    "cardTitle": "Onko sinulla idea?",
+    "cardBody": "Puuttuuko sovelluksesta jotain? Kirjoita ajatuksesi — me luemme sen.",
+    "cardCta": "Lähetä idea",
+    "heading": "Ideasi",
+    "sub": "Kirjoita, mikä tekisi sovelluksesta paremman. Luemme kaiken, mutta emme voi vastata.",
+    "label": "Ideasi",
+    "placeholder": "Toivoisin, että…",
+    "counter": "{{used}}/{{max}} merkkiä",
+    "tooLong": "Teksti on liian pitkä. Lyhennä sitä vähän.",
+    "disclosureTitle": "Tämän lähetämme",
+    "disclosureSent": "Saamme tekstisi, millä kielellä luet sovellusta ja mikä sovelluksen versio sinulla on.",
+    "disclosureNotSent": "Emme saa tietää, missä olet, mikä puhelin sinulla on tai mikä on oikea nimesi.",
+    "disclosureWho": "Sen lukevat vain me, jotka teemme sovellusta. Kukaan joukkueestasi ei näe sitä.",
+    "submit": "Lähetä idea",
+    "cancel": "Peruuta",
+    "rateLimited": "Olet jo lähettänyt muutaman idean tänään. Kokeile huomenna uudelleen.",
+    "genericError": "Lähettäminen ei onnistunut juuri nyt. Yritä uudelleen.",
+    "successHeading": "Kiitos ideasta!",
+    "successBody": "Luemme sen. Et saa vastausta täällä sovelluksessa, mutta hyvät ideat voivat näkyä sovelluksessa myöhemmin.",
+    "successCta": "Valmis"
+  }
 }

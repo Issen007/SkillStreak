@@ -283,6 +283,14 @@ class EnvironmentVariables {
   @IsOptional()
   BUG_REPORT_RETENTION_DAYS?: string;
 
+  // How long a player's improvement suggestion is kept before the daily
+  // sweep deletes it (default 90 — see
+  // DEFAULT_IMPROVEMENT_SUGGESTION_RETENTION_DAYS). Same knob shape and
+  // same @IsOptional()-alone reasoning as BUG_REPORT_RETENTION_DAYS above:
+  // this is child-authored free text, and it gets the same bound.
+  @IsOptional()
+  IMPROVEMENT_SUGGESTION_RETENTION_DAYS?: string;
+
   // How long a generated training plan is kept (default 365 — see
   // DEFAULT_TRAINING_PLAN_RETENTION_DAYS). Far longer than the windows
   // above on purpose: a session plan is an adult's own work product about

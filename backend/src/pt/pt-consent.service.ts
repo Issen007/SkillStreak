@@ -311,7 +311,7 @@ export class PtConsentService {
     await this.sendRequestEmailBestEffort(
       player.screenName,
       player.locale,
-      isSelfVerificationAge(player.birthYear),
+      isSelfVerificationAge(player.birthYear, player.jurisdiction),
       parentContact,
       consentTrainerName(saved, ptStaffAccount, 'okänd tränare'),
       consentTrainerEmail(saved, ptStaffAccount),
@@ -385,7 +385,7 @@ export class PtConsentService {
     await this.sendRequestEmailBestEffort(
       player.screenName,
       player.locale,
-      isSelfVerificationAge(player.birthYear),
+      isSelfVerificationAge(player.birthYear, player.jurisdiction),
       parentContact,
       consentTrainerName(row, ptStaffAccount, 'okänd tränare'),
       consentTrainerEmail(row, ptStaffAccount),

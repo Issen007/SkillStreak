@@ -127,8 +127,6 @@
         'clips can be shared further, but only while that child\'s own parent has said yes — and it can be switched off at any time.',
 
       /* --- banner + nav ------------------------------------------------ */
-      '🧪 Det här är bara ett TEST — skapa inte ett riktigt konto med riktiga uppgifter. Allt kan raderas när som helst.':
-        '🧪 This is only a TEST — do not create a real account with real details. Everything may be deleted at any time.',
       'Streak': 'Streak',
       'Laget': 'The team',
       'Trygghet': 'Safety',

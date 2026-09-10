@@ -1194,6 +1194,35 @@ export class BugReportNotFoundException extends AppException {
   }
 }
 
+export class ImprovementSuggestionRateLimitedException extends AppException {
+  constructor() {
+    // Same per-player burst-cooldown + daily-cap shape as
+    // BugReportRateLimitedException, and bounded by the same numbers — one
+    // rule for both free-text-to-operator surfaces, so a child who fills
+    // in one form is not surprised by the other. What is being bounded is
+    // queue spam against the single operator: submitting a suggestion
+    // emails no family and touches no other account.
+    super(
+      'improvement_suggestion_rate_limited',
+      'A few ideas were already sent from this account recently; try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+}
+
+export class ImprovementSuggestionNotFoundException extends AppException {
+  constructor() {
+    // A real, expected case rather than a defensive backstop: `player_id`
+    // is ON DELETE CASCADE, so an account erasure removes a suggestion
+    // while the operator may still have it open in the console.
+    super(
+      'improvement_suggestion_not_found',
+      'No improvement suggestion with this id exists.',
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
 /**
  * The drill library's own refusal, rather than reusing
  * PtNoActiveTeamLinkException.

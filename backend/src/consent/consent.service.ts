@@ -72,7 +72,10 @@ export class ConsentService {
     return player
       ? {
           screenName: player.screenName,
-          isSelfVerification: isSelfVerificationAge(player.birthYear),
+          isSelfVerification: isSelfVerificationAge(
+            player.birthYear,
+            player.jurisdiction,
+          ),
           locale: player.locale,
         }
       : null;
@@ -97,7 +100,10 @@ export class ConsentService {
         return null;
       }
 
-      const isSelfVerification = isSelfVerificationAge(player.birthYear);
+      const isSelfVerification = isSelfVerificationAge(
+        player.birthYear,
+        player.jurisdiction,
+      );
       await this.playerPrivateInfoService.recordConsentEvent(
         manager,
         player.id,
@@ -215,7 +221,8 @@ export class ConsentService {
         this.configService.get<string>('APP_PUBLIC_URL') ??
         DEFAULT_APP_PUBLIC_URL;
       const consentUrl = `${appPublicUrl}/api/v1/consent/${consentToken}`;
-      const email = isSelfVerificationAge(birthYear)
+      // The team is already loaded a line above, so this costs nothing.
+      const email = isSelfVerificationAge(birthYear, team?.jurisdiction ?? null)
         ? buildSelfVerificationEmail({
             screenName,
             teamName: team?.name ?? '',

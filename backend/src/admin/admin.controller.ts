@@ -27,6 +27,11 @@ import {
   AdminErrorLogService,
 } from './admin-error-log.service';
 import {
+  AdminImprovementSuggestionRow,
+  AdminImprovementSuggestionsResponse,
+  AdminImprovementSuggestionsService,
+} from './admin-improvement-suggestions.service';
+import {
   AdminSessionResponse,
   AdminSessionService,
 } from './admin-session.service';
@@ -43,9 +48,14 @@ import {
   DEFAULT_BUG_REPORT_PAGE_SIZE,
   ListBugReportsQueryDto,
 } from './dto/list-bug-reports-query.dto';
+import {
+  DEFAULT_IMPROVEMENT_SUGGESTION_PAGE_SIZE,
+  ListImprovementSuggestionsQueryDto,
+} from './dto/list-improvement-suggestions-query.dto';
 import { EmptyQueryDto } from './dto/empty-query.dto';
 import { ListErrorLogQueryDto } from './dto/list-error-log-query.dto';
 import { UpdateBugReportStatusDto } from './dto/update-bug-report-status.dto';
+import { UpdateImprovementSuggestionStatusDto } from './dto/update-improvement-suggestion-status.dto';
 
 /**
  * docs/adr/0022-admin-control-center.md Decisions 4, 6 and 7 — the admin
@@ -90,6 +100,7 @@ export class AdminController {
     private readonly usageMetricsService: UsageMetricsService,
     private readonly adminErrorLogService: AdminErrorLogService,
     private readonly adminBugReportsService: AdminBugReportsService,
+    private readonly adminImprovementSuggestionsService: AdminImprovementSuggestionsService,
     private readonly adminPlanningDocsService: AdminPlanningDocsService,
   ) {}
 
@@ -169,6 +180,44 @@ export class AdminController {
     @Body() dto: UpdateBugReportStatusDto,
   ): Promise<AdminBugReportRow> {
     return this.adminBugReportsService.updateStatus(bugReportId, dto.status);
+  }
+
+  /**
+   * ADR-0037's Ideas queue — the same shape as the bug-report queue above
+   * and, like it, returning screen name + team name and nothing else about
+   * the child who wrote it: never real_name, never parent_contact, and
+   * never the player id itself.
+   */
+  @Get('improvement-suggestions')
+  getImprovementSuggestions(
+    @Query() query: ListImprovementSuggestionsQueryDto,
+  ): Promise<AdminImprovementSuggestionsResponse> {
+    return this.adminImprovementSuggestionsService.list({
+      status: query.status,
+      limit: query.limit ?? DEFAULT_IMPROVEMENT_SUGGESTION_PAGE_SIZE,
+      offset: query.offset ?? 0,
+    });
+  }
+
+  /**
+   * Status only, any target status (not forward-only). 404 when the row is
+   * gone, which is a real case rather than a defensive one:
+   * `improvement_suggestion.player_id` is ON DELETE CASCADE, so an account
+   * erasure removes a suggestion the operator may still have open.
+   *
+   * `ParseUUIDPipe` because this is boundary input: without it a malformed
+   * id reaches Postgres as an invalid uuid cast and surfaces as a 500
+   * instead of the 400 it is.
+   */
+  @Patch('improvement-suggestions/:id')
+  updateImprovementSuggestionStatus(
+    @Param('id', ParseUUIDPipe) suggestionId: string,
+    @Body() dto: UpdateImprovementSuggestionStatusDto,
+  ): Promise<AdminImprovementSuggestionRow> {
+    return this.adminImprovementSuggestionsService.updateStatus(
+      suggestionId,
+      dto.status,
+    );
   }
 
   /**

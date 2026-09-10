@@ -46,12 +46,20 @@
 ## 1. Who we are
 
 SkillStreak is an app for youth floorball players, built by their coach.
-The controller of the personal data described here is the project owner.
+The controller of the personal data described here is:
 
-**To be completed before publication:** legal entity name, postal address,
-and a contact email address for data protection questions. A privacy
-policy with no reachable controller is not compliant, and this is the one
-gap the code cannot fill in.
+**IssTech AB**
+Kungsfågelvägen 13
+184 61 Åkersberga
+Sweden
+VAT SE556692764501
+
+Data protection questions, and any of the requests in section 13, go to
+**privacy@skillstreak.xyz**.
+
+Being a Swedish company also settles two things this document used to
+leave open: Swedish law applies, and the supervisory authority you can
+escalate to is Integritetsskyddsmyndigheten (IMY).
 
 ## 2. Who uses the app, and what that means here
 
@@ -320,9 +328,14 @@ rather than rhetorical:
 Under the GDPR you may request access, correction, deletion, restriction,
 portability, and may object to processing. For a child, a parent or
 guardian may exercise these rights. You may also complain to your national
-data protection authority — in Sweden, Integritetsskyddsmyndigheten (IMY).
+data protection authority — in Sweden, Integritetsskyddsmyndigheten (IMY),
+whose own complaint route is open to you whether or not you contact us
+first.
 
-**To be completed before publication:** the address these requests go to.
+Send a request to **privacy@skillstreak.xyz**, or by post to IssTech AB at
+the address in section 1. Tell us the player's screen name so the account
+can be found — a real name is not needed and most accounts do not have
+one.
 
 ---
 

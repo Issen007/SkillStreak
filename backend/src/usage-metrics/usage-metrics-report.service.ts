@@ -5,6 +5,7 @@ import { ERROR_LOG_JOB_NAMES } from '../error-log/error-log.constants';
 import { ErrorLogService } from '../error-log/error-log.service';
 import { MailService } from '../mail/mail.service';
 import { buildUsageReportEmail } from '../mail/templates/usage-report-email.template';
+import { resolveSingleReportRecipient } from '../common/mail/report-recipient.util';
 import { tryClaimScheduledJobRunOrSkip } from '../common/scheduling/scheduled-job-run.util';
 import { RedisService } from '../redis/redis.service';
 import { USAGE_REPORT_JOB_NAME } from './usage-metrics.constants';
@@ -17,14 +18,6 @@ import { resolveUsageReportCron } from './usage-report-cron.util';
 // through ConfigService, and why a malformed value degrades to the monthly
 // default instead of crashing boot.
 const CRON_DECISION = resolveUsageReportCron();
-
-// k8s/secret.yaml.example's fill-me-in marker, shared by every key in that
-// file. See recipient() for why this specific string has to be rejected.
-const SECRET_TEMPLATE_PLACEHOLDER = 'CHANGE_ME';
-
-// One address only: no comma/semicolon/whitespace anywhere, one `@`, and a
-// dotted domain. See recipient() for why this is deliberately coarse.
-const SINGLE_EMAIL_ADDRESS = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
 
 /**
  * docs/adr/0020-usage-analytics-product-metrics.md Decision 5 — the whole
@@ -130,49 +123,21 @@ export class UsageMetricsReportService implements OnModuleInit {
   }
 
   /**
-   * The one address this report may go to, or null — in which case the run
-   * no-ops. Three rejections, all degrading to that no-op and never
-   * throwing, all found by the code-critic/security-reviewer pass:
-   *
-   * 1. **Empty string**, treated exactly like unset: a k8s Secret key
-   *    created from an unset GitHub Actions secret arrives as '' (see
-   *    config/env.validation.spec.ts for the boot crash this same behaviour
-   *    caused elsewhere), and so does docker-compose's `${VAR:-}`.
-   * 2. **The literal placeholder** from k8s/secret.yaml.example. That file
-   *    is copied by hand to create the internal cluster's real Secret, so
-   *    "left at CHANGE_ME" is a genuinely likely live state — and
-   *    `CHANGE_ME` is truthy, so without this the job would compute a full
-   *    report over real child-derived data and hand it to the SMTP relay
-   *    addressed to nobody.
-   * 3. **Anything that isn't exactly one address.** nodemailer treats `to`
-   *    as a LIST, so a hand-typed "a@x.com, b@y.com" would silently fan
-   *    this report out to several mailboxes — Decision 4's "sole consumer:
-   *    the project owner" quietly stops being true, with nothing in the
-   *    logs to notice. Deliberately a coarse plausibility check (one `@`,
-   *    a dot in the domain, no separators/whitespace), not RFC 5321
-   *    validation: the job's only real question is "is this one address",
-   *    and anything stricter would start rejecting valid addresses.
+   * The one address this report may go to, or null — in which case the
+   * run no-ops. The three rejections this applies (empty string, the
+   * CHANGE_ME placeholder, anything that isn't exactly one address) and
+   * the reasoning behind each now live in
+   * common/mail/report-recipient.util.ts, shared with ADR-0037's weekly
+   * suggestion digest. Rejection 3 matters most here: ADR-0020 Decision
+   * 4's "sole consumer: the project owner" is what a comma-separated
+   * value would quietly stop being true of.
    */
   private recipient(): string | null {
-    const raw = this.configService
-      .get<string>('USAGE_REPORT_RECIPIENT_EMAIL')
-      ?.trim();
-    if (!raw) return null;
-
-    if (raw === SECRET_TEMPLATE_PLACEHOLDER) {
-      this.logger.warn(
-        `USAGE_REPORT_RECIPIENT_EMAIL is still the ${SECRET_TEMPLATE_PLACEHOLDER} placeholder from k8s/secret.yaml.example — treating it as unset and sending nothing.`,
-      );
-      return null;
-    }
-
-    if (!SINGLE_EMAIL_ADDRESS.test(raw)) {
-      this.logger.warn(
-        'USAGE_REPORT_RECIPIENT_EMAIL is not a single email address (this report goes to exactly one recipient — ADR-0020 Decision 4) — treating it as unset and sending nothing.',
-      );
-      return null;
-    }
-    return raw;
+    return resolveSingleReportRecipient({
+      value: this.configService.get<string>('USAGE_REPORT_RECIPIENT_EMAIL'),
+      envVarName: 'USAGE_REPORT_RECIPIENT_EMAIL',
+      logger: this.logger,
+    });
   }
 
   /** Shared across every scheduled job — see the util's docstring. */

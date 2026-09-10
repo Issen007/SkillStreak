@@ -4,5 +4,27 @@
   "loading": "Tipps werden geladen…",
   "failed": "Die Tipps konnten gerade nicht geladen werden. Zieh nach unten, um es erneut zu versuchen.",
   "empty": "Noch keine Tipps. Schau an einem anderen Tag wieder vorbei.",
-  "end": "Das sind vorerst alle Tipps."
+  "end": "Das sind vorerst alle Tipps.",
+  "idea": {
+    "cardTitle": "Hast du eine Idee?",
+    "cardBody": "Fehlt dir etwas in der App? Schreib auf, was du denkst — wir lesen es.",
+    "cardCta": "Idee senden",
+    "heading": "Deine Idee",
+    "sub": "Schreib, was die App besser machen würde. Wir lesen alles, können aber nicht antworten.",
+    "label": "Deine Idee",
+    "placeholder": "Ich hätte gern, dass…",
+    "counter": "{{used}}/{{max}} Zeichen",
+    "tooLong": "Der Text ist zu lang. Mach ihn etwas kürzer.",
+    "disclosureTitle": "Das schicken wir mit",
+    "disclosureSent": "Wir bekommen deinen Text, in welcher Sprache du die App liest und welche Version der App du hast.",
+    "disclosureNotSent": "Wir erfahren nicht, wo du bist, welches Handy du hast oder wie du wirklich heißt.",
+    "disclosureWho": "Nur wir, die die App machen, lesen sie. Niemand in deinem Team sieht sie.",
+    "submit": "Idee abschicken",
+    "cancel": "Abbrechen",
+    "rateLimited": "Du hast heute schon ein paar Ideen geschickt. Versuch es morgen wieder.",
+    "genericError": "Das Senden hat gerade nicht geklappt. Versuch es noch einmal.",
+    "successHeading": "Danke für die Idee!",
+    "successBody": "Wir lesen sie. Eine Antwort bekommst du hier in der App nicht, aber gute Ideen tauchen später vielleicht in der App auf.",
+    "successCta": "Fertig"
+  }
 }

@@ -4,5 +4,27 @@
   "loading": "Načítání tipů…",
   "failed": "Tipy se teď nepodařilo načíst. Zatáhni dolů a zkus to znovu.",
   "empty": "Zatím žádné tipy. Zkus to jindy.",
-  "end": "To jsou zatím všechny tipy."
+  "end": "To jsou zatím všechny tipy.",
+  "idea": {
+    "cardTitle": "Máš nápad?",
+    "cardBody": "Chybí ti v aplikaci něco? Napiš, co si myslíš — přečteme si to.",
+    "cardCta": "Poslat nápad",
+    "heading": "Tvůj nápad",
+    "sub": "Napiš, co by aplikaci vylepšilo. Čteme všechno, ale nemůžeme odpovídat.",
+    "label": "Tvůj nápad",
+    "placeholder": "Chtěl(a) bych, aby…",
+    "counter": "{{used}}/{{max}} znaků",
+    "tooLong": "Text je moc dlouhý. Trochu ho zkrať.",
+    "disclosureTitle": "Tohle posíláme",
+    "disclosureSent": "Dostaneme tvůj text, v jakém jazyce aplikaci čteš a jakou verzi aplikace máš.",
+    "disclosureNotSent": "Nedozvíme se, kde jsi, jaký máš telefon ani jak se doopravdy jmenuješ.",
+    "disclosureWho": "Čteme to jen my, kdo aplikaci děláme. Nikdo z tvého týmu to nevidí.",
+    "submit": "Odeslat nápad",
+    "cancel": "Zrušit",
+    "rateLimited": "Dnes jsi už pár nápadů poslal(a). Zkus to zítra.",
+    "genericError": "Teď se to nepodařilo odeslat. Zkus to znovu.",
+    "successHeading": "Díky za nápad!",
+    "successBody": "Přečteme si ho. Odpověď tady v aplikaci nedostaneš, ale dobré nápady se v aplikaci můžou později objevit.",
+    "successCta": "Hotovo"
+  }
 }

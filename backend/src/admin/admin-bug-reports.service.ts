@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import {
   BugReport,
   BugReportCategory,
@@ -12,6 +12,10 @@ import { BugReportNotFoundException } from '../common/errors/exceptions';
 import { PlayerLocale } from '../common/locale/player-locale.enum';
 import { Player } from '../players/entities/player.entity';
 import { Team } from '../teams/entities/team.entity';
+import {
+  ReporterIndex,
+  resolveReporterIndex,
+} from './admin-reporter-index.util';
 
 /**
  * One report as the triage queue renders it (docs/design/phase7-admin-
@@ -82,11 +86,6 @@ export interface AdminBugReportsResponse {
    */
   countsByStatus: Record<BugReportStatus, number>;
 }
-
-/** Screen name + team name for the reporters on one page, keyed by player
- * id. Built from two narrow, explicitly-`select`ed reads rather than a
- * TypeORM relation — see resolveReporters. */
-type ReporterIndex = Map<string, { screenName: string; teamName: string }>;
 
 /**
  * docs/adr/0022-admin-control-center.md Decision 7's triage side.
@@ -176,41 +175,15 @@ export class AdminBugReportsService {
     return toAdminBugReportRow(updated, reporters);
   }
 
-  /**
-   * Two narrow reads instead of a TypeORM relation, deliberately: `select`
-   * naming exactly three player columns and exactly two team columns is what
-   * keeps this path from ever widening into "the whole Player row" if
-   * someone later adds a column, and it makes the absence of any
-   * `player_private_info` read visible in one glance.
-   */
-  private async resolveReporters(reports: BugReport[]): Promise<ReporterIndex> {
-    const index: ReporterIndex = new Map();
-    const playerIds = [...new Set(reports.map((report) => report.playerId))];
-    if (playerIds.length === 0) return index;
-
-    const players = await this.playerRepository.find({
-      where: { id: In(playerIds) },
-      select: { id: true, screenName: true, teamId: true },
+  /** Delegates to the shared helper — see
+   * admin-reporter-index.util.ts for why the narrow `select` and the
+   * absent `player_private_info` repository are the point of it. */
+  private resolveReporters(reports: BugReport[]): Promise<ReporterIndex> {
+    return resolveReporterIndex({
+      playerRepository: this.playerRepository,
+      teamRepository: this.teamRepository,
+      playerIds: reports.map((report) => report.playerId),
     });
-    if (players.length === 0) return index;
-
-    const teamIds = [...new Set(players.map((player) => player.teamId))];
-    const teams = await this.teamRepository.find({
-      where: { id: In(teamIds) },
-      select: { id: true, name: true },
-    });
-    const teamNameById = new Map(teams.map((team) => [team.id, team.name]));
-
-    for (const player of players) {
-      index.set(player.id, {
-        screenName: player.screenName,
-        // Team name is included because reproduction genuinely depends on
-        // team shape (roster size, whether a pot is active) — §6.3. `''` is
-        // the degenerate "team row vanished" case, not a normal one.
-        teamName: teamNameById.get(player.teamId) ?? '',
-      });
-    }
-    return index;
   }
 
   private async countByStatus(): Promise<Record<BugReportStatus, number>> {
