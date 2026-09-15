@@ -8,15 +8,17 @@ import type { ImageSourcePropType } from 'react-native';
  * sample sheet), rendered by `<Avatar>` — which falls back to `emoji` for
  * any entry without an image.
  *
- * **`emoji` is not decoration and must not be removed.** Three of the
- * original twelve ids have no matching art, and players already have those
- * ids stored on their accounts:
+ * **`emoji` is not decoration and must not be removed.** Two of the
+ * original twelve ids still have no matching art, and players already
+ * have those ids stored on their accounts:
  *
- * - `owl` — the sheet's owl tile was rendered in its *selected* state, on
- *   a peach card that cannot be cleanly removed without risking the
- *   character itself (see brand/avatars/README.md).
  * - `shark` — the sheet has a dolphin. A different animal.
  * - `robot` — the sheet has a human racing driver. Also not the same.
+ *
+ * `owl` was a third until 2026-09-15, when the project owner supplied a
+ * render of the same tennis-playing owl in its normal state rather than
+ * the sheet's selected-on-peach tile. Same character, so the id keeps
+ * meaning what it always meant.
  *
  * Remapping any of those to the nearest-looking art would silently change
  * what an existing player's avatar *is*, which is their identity in the
@@ -46,8 +48,11 @@ export const AVATAR_CATALOG: AvatarOption[] = [
     emoji: '🐺',
     image: require('../../assets/avatars/wolf.png') as ImageSourcePropType,
   },
-  // No art — see the docstring above.
-  { avatarId: 'owl', emoji: '🦉' },
+  {
+    avatarId: 'owl',
+    emoji: '🦉',
+    image: require('../../assets/avatars/owl.png') as ImageSourcePropType,
+  },
   {
     avatarId: 'lion',
     emoji: '🦁',
