@@ -3,6 +3,43 @@
 23 characters sliced from `temp/images/avatar.png` (the project owner's
 sample sheet), backgrounds normalised to white.
 
+## 2026-09-15 — 15 of them replaced with transparent re-renders
+
+The project owner supplied individual renders of the same characters,
+one per sport, with **real transparency** — which is the third of the
+three asks this file and BACKLOG.md had been carrying. Replaced:
+`bear cheetah eagle fox gorilla hare lion lynx moose otter raccoon swan
+unicorn wolf`, plus **`owl`, which had no art at all** and now does, in
+its normal state rather than the sheet's selected-on-peach tile. That is
+exactly the fix the "Why 23 and not 24" section below predicted, and it
+is why that section now reads as history.
+
+**Every replacement is the same character the id already meant** — a
+better-drawn fox for `fox`, not a new animal. Nothing about what a
+player's stored `avatarId` *is* changed, which is the one property this
+directory's compatibility warning exists to protect.
+
+Shipped sizes went **down**: 0.93 MB → 0.52 MB across 24 files, because
+the re-renders quantise better than the sheet slices did (same 192-colour
+convention described below; measured mean error 1.4–2.1 / 255, invisible
+at any size the app draws an avatar). Masters here are the trimmed native
+crop capped at 512px — the sources themselves live only in the owner's
+upload and `temp/` is gitignored, so this directory is now the only copy.
+
+### Still missing after this pass
+
+- `shark` and `robot` — unchanged, still emoji-only. The new set contains
+  neither.
+- `tiger` — keeps its sheet slice. The new `baseball.png` render is a
+  **fox**, not the tiger that id means, so wiring it in would have
+  silently changed a player's character.
+- `panda` and `kangaroo` — re-renders exist (`skateboard.png`,
+  `vollyboll.png`) but were **not** used: both have an editor
+  transparency checkerboard baked in as opaque pixels (white, and grey
+  223 respectively). They need re-exporting with real alpha.
+- `dolphin dragon racer seal badger horse` — no new render supplied;
+  still sheet slices on white.
+
 **Re-sliced 2026-08-18 by `reslice-avatars.mjs` in this directory.** The
 first pass wrote 512×512 files from source tiles roughly 340px wide — an
 upscale — which the app then downscaled again to 256. That round trip
@@ -23,7 +60,7 @@ The grid was detected by colour-saturation clustering rather than
 hand-measured, so the crops are centred on each character rather than on
 an assumed pitch.
 
-## Why 23 and not 24
+## Why 23 and not 24 (historical — solved 2026-09-15, see above)
 
 The owl tile was rendered in the sheet's *selected* state — a peach
 highlight card instead of the white one every other tile has. Removing
