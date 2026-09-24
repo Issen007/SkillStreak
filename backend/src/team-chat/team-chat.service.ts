@@ -13,9 +13,7 @@ import {
   ChatReportRateLimitedException,
   ChatSendRateLimitedException,
   ClipNotFoundException,
-  ConsentRequiredException,
   SystemMessageNotReportableException,
-  TeamJoinApprovalRequiredException,
   TeamMismatchException,
 } from '../common/errors/exceptions';
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
@@ -44,6 +42,10 @@ import { DEFAULT_CHAT_MESSAGE_LIMIT } from './dto/list-chat-messages-query.dto';
 import { ReportChatMessageDto } from './dto/report-chat-message.dto';
 import { TeamChatBlock } from './entities/team-chat-block.entity';
 import {
+  assertConsentApproved,
+  assertTeamJoinApproved,
+} from '../players/player-access.util';
+import {
   ChatMessageAuthorType,
   ChatMessageStatus,
   SystemChatEventType,
@@ -63,20 +65,6 @@ const REASON_LABELS_SV: Record<ChatMessageReportReason, string> = {
   [ChatMessageReportReason.SPAM]: 'spam',
   [ChatMessageReportReason.OTHER]: 'övrigt',
 };
-
-function assertConsentApproved(status: ParentalConsentStatus): void {
-  if (status !== ParentalConsentStatus.APPROVED) {
-    throw new ConsentRequiredException();
-  }
-}
-
-// Added 2026-07-27 — a second, independent gate alongside
-// assertConsentApproved above (see TeamJoinApprovalRequiredException).
-function assertTeamJoinApproved(status: TeamJoinStatus): void {
-  if (status !== TeamJoinStatus.APPROVED) {
-    throw new TeamJoinApprovalRequiredException();
-  }
-}
 
 // docs/adr/0017-chat-clip-attachments.md Decision 5 — the nullable `clip`
 // block on both the send response and the list response. Nothing here is

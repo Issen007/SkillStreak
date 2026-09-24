@@ -1,5 +1,7 @@
 import { ClipNotFoundException } from '../common/errors/exceptions';
 import { PublicFeedService } from './public-feed.service';
+import { ParentalConsentStatus } from '../players/player-consent-status.enum';
+import { TeamJoinStatus } from '../players/team-join-status.enum';
 
 /**
  * Sparade — ADR-0019 Decision 6's re-validation rule.
@@ -23,6 +25,8 @@ function build(opts: {
   saved: string[];
   stillVisible: string[];
   allowListed?: boolean;
+  consent?: ParentalConsentStatus;
+  teamJoin?: TeamJoinStatus;
 }) {
   const rows = opts.stillVisible.map((id) => ({
     clipId: id,
@@ -43,6 +47,10 @@ function build(opts: {
   const players = {
     findOne: jest.fn().mockResolvedValue({
       teamId: opts.allowListed === false ? 'other-team' : TEAM,
+      // Viewer gates (2026-09-24): an approved, admitted viewer unless a
+      // test says otherwise.
+      parentalConsentStatus: opts.consent ?? ParentalConsentStatus.APPROVED,
+      teamJoinStatus: opts.teamJoin ?? TeamJoinStatus.APPROVED,
     }),
   };
   const bookmarks = {
