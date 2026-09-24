@@ -42,7 +42,9 @@ function genericRepo(overrides: Record<string, jest.Mock> = {}) {
     save: jest.fn((entity: unknown) => Promise.resolve(entity)),
     find: jest.fn().mockResolvedValue([]),
     findOne: jest.fn().mockResolvedValue(null),
-    update: jest.fn().mockResolvedValue(undefined),
+    // A realistic UpdateResult: the execution paths now read `affected`
+    // to tell "marked executed" from "someone cancelled mid-run".
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
     delete: jest.fn().mockResolvedValue(undefined),
     createQueryBuilder: jest.fn(),
     ...overrides,
@@ -63,7 +65,14 @@ function buildService(overrides: {
   const accountErasureRequestRepository = {
     create: jest.fn((entity: unknown) => entity),
     save: jest.fn((entity: unknown) => Promise.resolve(entity)),
-    findOne: jest.fn(),
+    // Default: the request is still in its grace period. The execution
+    // paths re-read it before touching anything irreversible (see
+    // stillDueOrSkip), so a stub that returns nothing models a request
+    // that was cancelled mid-run — which the dedicated tests below use
+    // deliberately, and which must NOT be the accidental default.
+    findOne: jest
+      .fn()
+      .mockResolvedValue({ id: 'req-1', status: 'grace_period' }),
     find: jest.fn().mockResolvedValue([]),
     createQueryBuilder: jest.fn(),
     ...overrides.accountErasureRequestRepository,
@@ -455,6 +464,99 @@ describe('AccountErasureService.cancel (authenticated, primary path)', () => {
     await expect(service.cancel('player-1')).rejects.toBeInstanceOf(
       ErasureRequestNotActiveException,
     );
+  });
+});
+
+/**
+ * The cancellation race — added 2026-09-24.
+ *
+ * `AccountErasureSweepService` reads the due rows once per run and then
+ * carries them, detached, through the whole batch. Nothing re-checked
+ * them, and the final status write was keyed on `id` alone. A family who
+ * cancelled after that read but before their own row was processed got
+ * `{cancelled: true}` and had their account deleted anyway — and the
+ * audit trail was overwritten to say `executed`, erasing the evidence
+ * that a cancellation had ever happened.
+ *
+ * The window spanned most of a run: teams are processed sequentially and
+ * each row does an S3 round-trip per clip.
+ */
+describe('AccountErasureService — a cancellation mid-run stops the erasure', () => {
+  const cancelledRow = {
+    id: 'erasure-1',
+    playerId: 'player-1',
+    teamId: 'team-1',
+    successorPlayerId: null,
+  } as never;
+
+  it('deletes nothing when the request was cancelled after the due-row read', async () => {
+    const { service, objectStorageService, videoClipRepository, dataSource } =
+      buildService({
+        accountErasureRequestRepository: {
+          // The re-read sees the cancellation.
+          findOne: jest
+            .fn()
+            .mockResolvedValue({ id: 'erasure-1', status: 'cancelled' }),
+        },
+        videoClipRepository: {
+          find: jest.fn().mockResolvedValue([{ storageKey: 'clips/a/b.mp4' }]),
+        },
+      });
+
+    await service.executeSingleErasure(cancelledRow, []);
+
+    // Nothing irreversible happened: no object deleted, no transaction.
+    expect(objectStorageService.deleteObjectIfExists).not.toHaveBeenCalled();
+    expect(videoClipRepository.find).not.toHaveBeenCalled();
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('marks executed only while the row is still in its grace period', async () => {
+    // One shared repo mock, so the status write is inspectable — the
+    // default builder hands out a fresh genericRepo() per getRepository
+    // call, which nothing can assert against afterwards.
+    const txRepo = genericRepo();
+    const { service } = buildService({
+      accountErasureRequestRepository: {
+        findOne: jest
+          .fn()
+          .mockResolvedValue({ id: 'erasure-1', status: 'grace_period' }),
+      },
+      manager: {
+        getRepository: jest.fn().mockReturnValue(txRepo),
+      },
+    });
+
+    await service.executeSingleErasure(cancelledRow, []);
+
+    // The criteria must carry the status, not just the id — otherwise a
+    // cancellation landing mid-transaction is relabelled `executed`.
+    const updateCalls = txRepo.update.mock.calls as unknown as Array<
+      [Record<string, unknown>, Record<string, unknown>]
+    >;
+    const statusWrite = updateCalls.find(
+      ([, patch]) => patch.status === 'executed',
+    );
+    expect(statusWrite).toBeDefined();
+    expect(statusWrite?.[0]).toMatchObject({ status: 'grace_period' });
+  });
+
+  it('does not delete a whole team when every request in the batch was cancelled', async () => {
+    const { service, objectStorageService, dataSource } = buildService({
+      accountErasureRequestRepository: {
+        findOne: jest
+          .fn()
+          .mockResolvedValue({ id: 'erasure-1', status: 'cancelled' }),
+      },
+      videoClipRepository: {
+        find: jest.fn().mockResolvedValue([{ storageKey: 'clips/a/b.mp4' }]),
+      },
+    });
+
+    await service.executeTeamCascade('team-1', [cancelledRow]);
+
+    expect(objectStorageService.deleteObjectIfExists).not.toHaveBeenCalled();
+    expect(dataSource.transaction).not.toHaveBeenCalled();
   });
 });
 
