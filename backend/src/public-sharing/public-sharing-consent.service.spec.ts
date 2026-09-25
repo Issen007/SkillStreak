@@ -28,9 +28,18 @@ function fakeRepo() {
   const matches = (row: PublicSharingConsent, where: Record<string, unknown>) =>
     Object.entries(where).every(([k, v]) => {
       const actual = (row as unknown as Record<string, unknown>)[k];
-      // The only operator the service uses is LessThanOrEqual, on a date.
+      // Two operators now: LessThanOrEqual on a date, and In on the
+      // status — the latter added 2026-09-24, when a player stopped
+      // having exactly one consent row and the service began asking for
+      // the LIVE one specifically. A double that ignored the status
+      // filter would quietly answer "here is some row of theirs", which
+      // is precisely the bug the change fixes.
       if (v && typeof v === 'object' && '_type' in v) {
-        const value = (v as unknown as { _value: Date })._value;
+        const op = v as unknown as { _type: string; _value: unknown };
+        if (op._type === 'in') {
+          return (op._value as unknown[]).includes(actual);
+        }
+        const value = op._value as Date;
         return actual instanceof Date && actual.getTime() <= value.getTime();
       }
       return actual === v;
@@ -204,8 +213,18 @@ function build(
   );
   // The codes never leave the service (finding 1), so tests read them
   // from the row exactly as the database would hold them.
-  const reviewCodeOf = () => repo.rows[0].reviewCode!;
-  const revokeCodeOf = () => repo.rows[0].revokeCode!;
+  // The LIVE cycle's codes. Since 2026-09-24 a player can have several
+  // consent rows (one per completed cycle), so `rows[0]` is "their first
+  // ever request", not "their current one" — a distinction that made
+  // these helpers silently hand out a revoked cycle's code.
+  const liveRow = () =>
+    repo.rows.find(
+      (r) =>
+        r.status === PublicSharingConsentStatus.PENDING_REVIEW ||
+        r.status === PublicSharingConsentStatus.ACTIVE,
+    ) ?? repo.rows[repo.rows.length - 1];
+  const reviewCodeOf = () => liveRow().reviewCode!;
+  const revokeCodeOf = () => liveRow().revokeCode!;
   return {
     service,
     repo,
@@ -911,26 +930,85 @@ describe('PublicSharingConsentService: security review 2026-08-19', () => {
     );
   });
 
+  // --- Consent history, 2026-09-24 ------------------------------------
+  it('keeps the previous cycle when a child asks again, instead of overwriting it', async () => {
+    // GDPR Art. 7(1): the controller must be able to DEMONSTRATE that
+    // consent was given. Before this, `public_sharing_consent` had a
+    // full unique index on player_id, so `request()` reused the one row
+    // and nulled approved_at, revoked_at and revoked_reason on the way.
+    // A child tapping "ask again" after a parent revoked destroyed the
+    // record that the parent had ever granted, ever withdrawn, or why —
+    // and ADR-0030 Decision 9's monthly review reads exactly those
+    // fields to ask "has any parent actually disabled this?".
+    const { service, repo, revokeCodeOf } = await activated();
+    const firstCycle = repo.rows[0];
+    const firstApprovedAt = firstCycle.approvedAt;
+    expect(firstApprovedAt).toBeInstanceOf(Date);
+
+    await service.revokeByRevokeCode(revokeCodeOf());
+    await service.request('p1');
+
+    // A second row, not a scrubbed first one.
+    expect(repo.rows).toHaveLength(2);
+    expect(firstCycle.approvedAt).toBe(firstApprovedAt);
+    expect(firstCycle.revokedAt).toBeInstanceOf(Date);
+    expect(firstCycle.revokedReason).toBe(
+      PublicSharingRevokedReason.PARENT_REVOKED,
+    );
+    expect(firstCycle.status).toBe(PublicSharingConsentStatus.REVOKED);
+
+    // And the new cycle is genuinely new: its own request timestamp,
+    // no inherited grant.
+    const secondCycle = repo.rows[1];
+    expect(secondCycle.status).toBe(PublicSharingConsentStatus.PENDING_REVIEW);
+    expect(secondCycle.approvedAt).toBeNull();
+    expect(secondCycle.revokedAt).toBeNull();
+  });
+
   // --- Finding 4 (advisory) ------------------------------------------
   it('clears the correlation token when a consent is re-requested', async () => {
     // Otherwise a straggling DSN about the PREVIOUS grant — possibly to
     // a different parent address entirely — is charged against the new
     // one, putting a freshly approved consent one report from revocation.
     const { service, repo, revokeCodeOf, reviewCodeOf } = await activated();
-    const row = repo.rows[0];
-    await service.sendReminder(row);
-    const staleToken = row.lastReminderToken!;
+    const oldCycle = repo.rows[0];
+    await service.sendReminder(oldCycle);
+    const staleToken = oldCycle.lastReminderToken!;
 
     await service.revokeByRevokeCode(revokeCodeOf());
     await service.request('p1');
     await service.approveByReviewCode(reviewCodeOf());
 
-    expect(row.lastReminderToken).not.toBe(staleToken);
-    expect(await service.recordReminderUndeliverable(staleToken)).toEqual({
-      matched: false,
-    });
-    expect(row.reminderFailureCount).toBe(0);
+    // Since 2026-09-24 a re-request starts a NEW row rather than
+    // resetting the old one, so the separation is structural: the stale
+    // token belongs to a revoked cycle that can never become active
+    // again, and the fresh grant has its own (still null until its first
+    // reminder). That is a stronger guarantee than the field-clearing
+    // this test originally asserted, which relied on one row being
+    // scrubbed correctly.
+    const newCycle = repo.rows[repo.rows.length - 1];
+    expect(repo.rows).toHaveLength(2);
+    expect(newCycle).not.toBe(oldCycle);
+    expect(newCycle.lastReminderToken).not.toBe(staleToken);
+    expect(newCycle.reminderFailureCount).toBe(0);
+
+    // The straggling DSN is attributed to the cycle it actually belongs
+    // to — matched, so the intake does not log it as unattributable —
+    // and not counted, because that consent is already revoked. It
+    // cannot touch the new grant.
+    expect(await service.recordReminderUndeliverable(staleToken)).toMatchObject(
+      { matched: true, counted: false },
+    );
+    expect(newCycle.reminderFailureCount).toBe(0);
+    expect(newCycle.status).toBe(PublicSharingConsentStatus.ACTIVE);
     expect(await service.isActiveFor('p1')).toBe(true);
+
+    // And the history the old design destroyed is still there.
+    expect(oldCycle.approvedAt).toBeInstanceOf(Date);
+    expect(oldCycle.revokedAt).toBeInstanceOf(Date);
+    expect(oldCycle.revokedReason).toBe(
+      PublicSharingRevokedReason.PARENT_REVOKED,
+    );
   });
 });
 

@@ -8,6 +8,8 @@ import {
   PUBLIC_FEED_PAGE_SIZE,
   PublicFeedService,
 } from './public-feed.service';
+import { ParentalConsentStatus } from '../players/player-consent-status.enum';
+import { TeamJoinStatus } from '../players/team-join-status.enum';
 
 /**
  * The four gates and the pagination contract.
@@ -25,8 +27,16 @@ import {
 // every fixture clip and viewer belongs to.
 const TEAM = 'team-1';
 const openAccess = { isEnabledForTeam: (id?: string | null) => id === TEAM };
+// An approved, captain-admitted viewer. Both statuses are required by
+// the viewer gates added 2026-09-24 (players/player-access.util.ts); a
+// stub without them models an account no sibling surface would serve,
+// and the dedicated tests below cover that case on purpose.
 const viewerRepo = {
-  findOne: jest.fn().mockResolvedValue({ teamId: TEAM }),
+  findOne: jest.fn().mockResolvedValue({
+    teamId: TEAM,
+    parentalConsentStatus: ParentalConsentStatus.APPROVED,
+    teamJoinStatus: TeamJoinStatus.APPROVED,
+  }),
 };
 
 function buildService() {

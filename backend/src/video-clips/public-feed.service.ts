@@ -7,6 +7,11 @@ import {
   PublicSharingNotConsentedException,
 } from '../common/errors/exceptions';
 import { Player } from '../players/entities/player.entity';
+import {
+  assertConsentApproved,
+  assertTeamJoinApproved,
+  maySeeTeamContent,
+} from '../players/player-access.util';
 import { PublicSharingAccessService } from '../public-sharing/public-sharing-access.service';
 import { PublicSharingConsentService } from '../public-sharing/public-sharing-consent.service';
 import { ClipBookmark } from './entities/clip-bookmark.entity';
@@ -124,9 +129,11 @@ export class PublicFeedService {
   constructor(
     @InjectRepository(VideoClip)
     private readonly clips: Repository<VideoClip>,
-    // Only ever read for the viewer's own `team_id`, to answer the
-    // rollout gate. Resolved here rather than passed in by the controller
-    // so that no caller can gate on a team the viewer is not in.
+    // Read for the viewer's own `team_id` (the rollout gate) and, since
+    // 2026-09-24, their own parental-consent and team-join status — the
+    // two gates every sibling media surface applies and this one was
+    // missing. Resolved here rather than passed in by the controller so
+    // that no caller can gate on a team or a status it supplied itself.
     @InjectRepository(Player)
     private readonly players: Repository<Player>,
     private readonly consentService: PublicSharingConsentService,
@@ -237,7 +244,7 @@ export class PublicFeedService {
 
   /**
    * Throws unless `clipId` is, right now, publicly visible **to this
-   * viewer** — the same four gates `list()` applies, for a single clip.
+   * viewer** — the same five gates `list()` applies, for a single clip.
    *
    * **This exists so reactions cannot drift away from the feed.** A
    * reaction endpoint that re-derived "is this public?" would be a second
@@ -260,10 +267,31 @@ export class PublicFeedService {
     // row, never from anything the caller supplied.
     const viewer = await this.players.findOne({
       where: { id: viewerId },
-      select: { teamId: true },
+      // parentalConsentStatus/teamJoinStatus added 2026-09-24: this
+      // selected only teamId, so the two viewer gates below could not
+      // have been checked even if someone had written them. See gate 0.
+      select: {
+        teamId: true,
+        parentalConsentStatus: true,
+        teamJoinStatus: true,
+      },
     });
     if (!this.access.isEnabledForTeam(viewer?.teamId)) {
       throw new ClipNotFoundException();
+    }
+
+    // Gate 0 — the VIEWER's own account, the two checks every sibling
+    // media surface makes and this one did not (players/player-access.util.ts
+    // explains how three private copies made that possible). A child whose
+    // parent has approved nothing, or whom no captain has admitted, must
+    // not act on another child's clip.
+    //
+    // These throw rather than degrading to "not found": save/react/report
+    // are writes the caller asked for, and silently dropping a write is
+    // worse than refusing it. The read paths degrade instead — see list().
+    if (viewer) {
+      assertConsentApproved(viewer.parentalConsentStatus);
+      assertTeamJoinApproved(viewer.teamJoinStatus);
     }
 
     const row = await this.clips
@@ -281,6 +309,16 @@ export class PublicFeedService {
       .andWhere('clip.published_publicly_at IS NOT NULL')
       .andWhere('clip.status = :published', {
         published: VideoClipStatus.PUBLISHED,
+      })
+      // Gate 5 — docs/design/clip-safety.md layer 3, added here
+      // 2026-09-24. `list()` has always had it; this path and listSaved
+      // did not, so an operator's rejection removed a clip from the feed
+      // while leaving it saveable, reactable and reportable — and a clip
+      // still PENDING review was reachable by id before any human saw
+      // it. Equality, not `!= 'rejected'`, so a NULL status is excluded
+      // too.
+      .andWhere('clip.public_review_status = :approved', {
+        approved: PublicClipReviewStatus.APPROVED,
       })
       // Gate 4 — a blocked uploader's clip is not visible, so it is not
       // reactable either.
@@ -357,7 +395,7 @@ export class PublicFeedService {
    * been reported off the feed, or been swept by retention. Rendering
    * from stored data would give a child a private copy of another child's
    * video that outlived their decision to withdraw it — precisely what
-   * the consent model exists to prevent. So this runs the same four gates
+   * the consent model exists to prevent. So this runs the same five gates
    * the feed does and drops whatever no longer passes.
    *
    * `missingCount` exists so the UI can say something happened without
@@ -378,11 +416,20 @@ export class PublicFeedService {
 
     const viewer = await this.players.findOne({
       where: { id: viewerId },
-      select: { teamId: true },
+      select: {
+        teamId: true,
+        parentalConsentStatus: true,
+        teamJoinStatus: true,
+      },
     });
     if (!this.access.isEnabledForTeam(viewer?.teamId)) {
       // Outside the allow-list the whole surface is gone, so every saved
       // row is "missing" in the only sense the UI cares about.
+      return { items: [], missingCount: saved.length };
+    }
+    // Same two viewer gates as list(), and the same degradation: a shelf
+    // of saved clips is a read, so it empties rather than erroring.
+    if (!viewer || !maySeeTeamContent(viewer)) {
       return { items: [], missingCount: saved.length };
     }
 
@@ -405,6 +452,16 @@ export class PublicFeedService {
       ])
       .where('clip.id IN (:...ids)', { ids })
       .andWhere('clip.published_publicly_at IS NOT NULL')
+      // Gate 5, added 2026-09-24. This query's own docstring said it ran
+      // "the same four gates the feed does" — accurate until clip-safety
+      // layer 3 made it five, after which an operator's rejection stopped
+      // reaching the saved shelf. reject() deliberately leaves
+      // published_publicly_at set, so nothing else here excluded it and
+      // every viewer who had saved the clip kept getting a fresh
+      // playback URL for it, indefinitely.
+      .andWhere('clip.public_review_status = :approved', {
+        approved: PublicClipReviewStatus.APPROVED,
+      })
       .andWhere('clip.status = :published', {
         published: VideoClipStatus.PUBLISHED,
       })
@@ -480,10 +537,34 @@ export class PublicFeedService {
       .orIgnore()
       .execute();
 
-    // Conditional on the clip still being public, so two reporters
-    // racing cannot both "un-publish" and have the second silently
-    // resurrect anything. Nothing else about the clip is touched.
-    await this.clips.update({ id: clipId }, { publishedPubliclyAt: null });
+    // Un-publish, and send the clip back to PENDING review.
+    //
+    // The review reset is the part added 2026-09-24, and it closes a real
+    // gap: `publish()` keeps an APPROVED clip approved across a
+    // re-publish (deliberately — the bytes cannot change, so re-reviewing
+    // identical video wastes the operator's time). That reasoning holds
+    // for an uploader who simply un-published, and fails for a clip a
+    // stranger reported: without this, the child could re-publish a
+    // reported clip straight back into the feed and no person would ever
+    // have looked at it. Now a re-publish re-enters the layer-3 queue.
+    //
+    // **Known residual, deliberately not solved here.** A report on a
+    // clip that is never re-published still reaches no human: the review
+    // queue selects `published_publicly_at IS NOT NULL`, so an
+    // un-published clip is invisible to it by design. The content is out
+    // of the feed, so the urgency is contained — but a reporter who saw
+    // something genuinely alarming is still telling only the database.
+    // Fixing that properly means deciding whether a stranger's report
+    // should raise an operator item on a clip that is no longer public,
+    // and that is a product call, not a refactor. Raised with the project
+    // owner 2026-09-24.
+    await this.clips.update(
+      { id: clipId },
+      {
+        publishedPubliclyAt: null,
+        publicReviewStatus: PublicClipReviewStatus.PENDING,
+      },
+    );
 
     return { clipId, reported: true };
   }
@@ -526,11 +607,32 @@ export class PublicFeedService {
     // honest thing to render for a team the rollout has not reached.
     const viewer = await this.players.findOne({
       where: { id: viewerId },
-      select: { teamId: true },
+      select: {
+        teamId: true,
+        parentalConsentStatus: true,
+        teamJoinStatus: true,
+      },
     });
     if (!this.access.isEnabledForTeam(viewer?.teamId)) {
       return { items: [], nextCursor: null };
     }
+
+    // The viewer's own two gates, added 2026-09-24. Before this, the
+    // rollout allow-list was the ONLY thing checked about a viewer, so a
+    // brand-new account — parental consent PENDING, captain approval
+    // PENDING, both of which every sibling surface refuses — could read
+    // other children's video here. That is the 2026-08-17 chat-embed gap
+    // on the one surface where clips leave the team bubble.
+    //
+    // Empty page rather than a throw, matching the allow-list branch
+    // directly above: this is a tab the app may open before it knows the
+    // answer, and "nothing here yet" is the honest render for a child
+    // whose parent has not replied. The write paths refuse loudly
+    // instead — see assertPubliclyVisibleTo.
+    if (!viewer || !maySeeTeamContent(viewer)) {
+      return { items: [], nextCursor: null };
+    }
+
     const take = Math.min(Math.max(limit, 1), MAX_PAGE_SIZE);
     const decoded = decodeCursor(cursor);
 

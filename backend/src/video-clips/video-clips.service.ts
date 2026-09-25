@@ -15,10 +15,8 @@ import {
   ClipReportRateLimitedException,
   ClipUploadRateLimitedException,
   CaptionRejectedByFilterException,
-  ConsentRequiredException,
   NotYourChallengeException,
   NotYourClipException,
-  TeamJoinApprovalRequiredException,
   UploadNotFoundException,
 } from '../common/errors/exceptions';
 import { isPostgresUniqueViolation } from '../common/errors/postgres-error.util';
@@ -27,7 +25,6 @@ import {
   buildClipReportParentEmail,
 } from '../mail/templates/clip-report-notification-email.template';
 import { MailService } from '../mail/mail.service';
-import { ParentalConsentStatus } from '../players/player-consent-status.enum';
 import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { PlayersService } from '../players/players.service';
 import { PlayerPrivateInfoService } from '../player-private-info/player-private-info.service';
@@ -52,6 +49,10 @@ import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
 import { ObjectStorageService } from './object-storage.service';
 import { VideoProcessingService } from './video-processing.service';
 import {
+  assertConsentApproved,
+  assertTeamJoinApproved,
+} from '../players/player-access.util';
+import {
   CLIP_DURATION_MISMATCH_TOLERANCE_SECONDS,
   CLIP_MAX_FILE_SIZE_BYTES,
   CLIP_PLAYBACK_URL_EXPIRES_SECONDS,
@@ -60,32 +61,9 @@ import {
   DEFAULT_CLIP_RETENTION_DAYS,
   extensionForMimeType,
 } from './video-clip.constants';
+import { positiveIntFromConfig } from '../error-log/error-log.util';
 
 const REPORT_UNIQUE_CONSTRAINT = 'UQ_clip_report_clip_reporter';
-
-function assertConsentApproved(status: ParentalConsentStatus): void {
-  if (status !== ParentalConsentStatus.APPROVED) {
-    throw new ConsentRequiredException();
-  }
-}
-
-// Added 2026-07-27 — a second, independent gate alongside
-// assertConsentApproved above (see TeamJoinApprovalRequiredException).
-// Mirrors that function's exact call sites rather than introducing new
-// gating scope. Both fire at all five: createUploadUrl, completeUpload,
-// listClips, listPendingChallenges and reportClip.
-//
-// The list used to name only three — completeUpload and
-// listPendingChallenges were added later and never appended. It read as
-// an authoritative inventory of where parental consent is enforced on
-// the clip surface, so anyone auditing that question would have checked
-// three methods and concluded two were ungated. Corrected by the comment
-// audit, 2026-08-17; keep it in step or drop the enumeration entirely.
-function assertTeamJoinApproved(status: TeamJoinStatus): void {
-  if (status !== TeamJoinStatus.APPROVED) {
-    throw new TeamJoinApprovalRequiredException();
-  }
-}
 
 export interface CreateUploadUrlResponse {
   clipId: string;
@@ -206,9 +184,31 @@ export class VideoClipsService {
     private readonly teamChatMessageRepository: Repository<TeamChatMessage>,
   ) {}
 
+  /**
+   * Parsed through `positiveIntFromConfig`, like every other retention
+   * window in this app (error log, bug reports, improvement suggestions,
+   * training plans, event registrations).
+   *
+   * It used to be `raw ? Number(raw) : DEFAULT`, which accepts what
+   * env.validation's `@IsNumberString()` accepts — including `"0"`,
+   * `"-1"` and `"0.5"`. This value becomes `expiresAt = createdAt +
+   * days`, and the sweep hard-deletes the S3 object and the row for
+   * anything with `expiresAt` in the past. So `CLIP_RETENTION_DAYS=0`
+   * gave every newly published clip an expiry of its own creation
+   * instant, and the next midnight sweep would have destroyed the
+   * children's video it covered — with no backup and no bucket
+   * versioning behind it. A negative value does the same to everything,
+   * at once.
+   *
+   * `positiveIntFromConfig` maps empty, non-numeric, zero, negative and
+   * fractional values to the default, which is what its own docstring
+   * says it exists for: "a NaN cutoff would delete every row or none".
+   */
   private retentionDays(): number {
-    const raw = this.configService.get<string>('CLIP_RETENTION_DAYS');
-    return raw ? Number(raw) : DEFAULT_CLIP_RETENTION_DAYS;
+    return positiveIntFromConfig(
+      this.configService.get<string>('CLIP_RETENTION_DAYS'),
+      DEFAULT_CLIP_RETENTION_DAYS,
+    );
   }
 
   /**

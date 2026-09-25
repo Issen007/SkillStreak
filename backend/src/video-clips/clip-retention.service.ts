@@ -10,6 +10,7 @@ import { RedisService } from '../redis/redis.service';
 import { VideoClip, VideoClipStatus } from './entities/video-clip.entity';
 import { ObjectStorageService } from './object-storage.service';
 import { DEFAULT_CLIP_PENDING_UPLOAD_TTL_MINUTES } from './video-clip.constants';
+import { positiveIntFromConfig } from '../error-log/error-log.util';
 
 // k8s/README.md's now-resolved "Scheduled-job races" note — a few minutes
 // is generous headroom for either sweep (both are simple find-then-delete
@@ -138,11 +139,18 @@ export class ClipRetentionService {
     await this.errorLogService.record({ source: 'job', jobName, error });
   }
 
+  /**
+   * Same total parser as every sibling window — see retentionDays() in
+   * video-clips.service.ts for why `raw ? Number(raw) : DEFAULT` was
+   * unsafe here. `CLIP_PENDING_UPLOAD_TTL_MINUTES=0` made every
+   * in-flight upload expired the moment it was created, so the hourly
+   * sweep deleted uploads out from under children mid-upload.
+   */
   private pendingUploadTtlMinutes(): number {
-    const raw = this.configService.get<string>(
-      'CLIP_PENDING_UPLOAD_TTL_MINUTES',
+    return positiveIntFromConfig(
+      this.configService.get<string>('CLIP_PENDING_UPLOAD_TTL_MINUTES'),
+      DEFAULT_CLIP_PENDING_UPLOAD_TTL_MINUTES,
     );
-    return raw ? Number(raw) : DEFAULT_CLIP_PENDING_UPLOAD_TTL_MINUTES;
   }
 
   private async sweepRows(rows: VideoClip[], label: string): Promise<void> {

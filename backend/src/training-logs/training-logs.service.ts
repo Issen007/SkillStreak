@@ -5,13 +5,8 @@ import {
   computeStreakUpdate,
   streakSaverCoveredDates,
 } from '../common/streak/streak.util';
-import {
-  ConsentRequiredException,
-  TeamJoinApprovalRequiredException,
-} from '../common/errors/exceptions';
+import {} from '../common/errors/exceptions';
 import { stockholmDateString } from '../common/time/stockholm-date.util';
-import { ParentalConsentStatus } from '../players/player-consent-status.enum';
-import { TeamJoinStatus } from '../players/team-join-status.enum';
 import { PlayersService } from '../players/players.service';
 import { RedisService } from '../redis/redis.service';
 import { TeamPoolService } from '../team-pool/team-pool.service';
@@ -19,6 +14,10 @@ import { WeeklyGoalService } from '../weekly-goal/weekly-goal.service';
 import { CreateTrainingLogDto } from './dto/create-training-log.dto';
 import { TrainingLogEntry } from './entities/training-log-entry.entity';
 import { EvidenceTier, pointsForTrainingLog } from './points.util';
+import {
+  assertConsentApproved,
+  assertTeamJoinApproved,
+} from '../players/player-access.util';
 import {
   VideoClip,
   VideoClipStatus,
@@ -278,19 +277,5 @@ export class TrainingLogsService {
       },
       goalBonus,
     };
-  }
-}
-
-function assertConsentApproved(status: ParentalConsentStatus): void {
-  if (status !== ParentalConsentStatus.APPROVED) {
-    throw new ConsentRequiredException();
-  }
-}
-
-// Added 2026-07-27 — a second, independent gate alongside
-// assertConsentApproved above (see TeamJoinApprovalRequiredException).
-function assertTeamJoinApproved(status: TeamJoinStatus): void {
-  if (status !== TeamJoinStatus.APPROVED) {
-    throw new TeamJoinApprovalRequiredException();
   }
 }

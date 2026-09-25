@@ -453,6 +453,18 @@ export class AccountErasureService {
     teamId: string,
     batchRows: AccountErasureRequest[],
   ): Promise<void> {
+    // A team cascade deletes the whole team, so one still-due request is
+    // the minimum justification for it. If every request in this batch
+    // was cancelled after the run began, there is nothing to execute —
+    // and deleting the team anyway would erase families who never asked.
+    const stillDue: AccountErasureRequest[] = [];
+    for (const row of batchRows) {
+      if (await this.stillDueOrSkip(row.id, 'team cascade')) {
+        stillDue.push(row);
+      }
+    }
+    if (stillDue.length === 0) return;
+
     const clips = await this.videoClipRepository.find({ where: { teamId } });
     for (const clip of clips) {
       await this.objectStorageService.deleteObjectIfExists(clip.storageKey);
@@ -460,15 +472,34 @@ export class AccountErasureService {
 
     await this.dataSource.transaction(async (manager) => {
       await manager.getRepository(Team).delete({ id: teamId });
-      await manager
-        .getRepository(AccountErasureRequest)
-        .update(
-          { id: In(batchRows.map((row) => row.id)) },
-          { status: AccountErasureStatus.EXECUTED, executedAt: new Date() },
+      // Conditional on grace_period, not keyed on id alone. A row a
+      // family cancelled mid-run must never be relabelled `executed`:
+      // that would destroy the only record that a cancellation was ever
+      // made, on the one flow whose history Art. 7(1) requires be
+      // demonstrable.
+      const marked = await manager.getRepository(AccountErasureRequest).update(
+        {
+          id: In(stillDue.map((row) => row.id)),
+          status: AccountErasureStatus.GRACE_PERIOD,
+        },
+        { status: AccountErasureStatus.EXECUTED, executedAt: new Date() },
+      );
+      if ((marked?.affected ?? 0) !== stillDue.length) {
+        // A cancellation won the race after the pre-check. The data is
+        // already gone, so this is an incident rather than a retry:
+        // say so loudly instead of leaving it to be inferred.
+        this.logger.error(
+          `Team cascade for team ${teamId} marked ${marked?.affected ?? 0} of ` +
+            `${stillDue.length} request(s) executed. The remainder were ` +
+            `cancelled after this run began and their data has already ` +
+            `been deleted — investigate before replying to the family.`,
         );
+      }
     });
 
-    for (const row of batchRows) {
+    // stillDue, not batchRows: a player whose family cancelled is still
+    // on this team and must keep their leaderboard entry.
+    for (const row of stillDue) {
       await this.redisService.removeFromLeaderboard(teamId, row.playerId);
     }
   }
@@ -502,10 +533,57 @@ export class AccountErasureService {
    * player's `isCaptain` is already false on the next attempt, so
    * applyDeferredCaptainHandoff is simply not called again.
    */
+  /**
+   * Re-reads a due request immediately before anything irreversible
+   * happens, and refuses to proceed unless it is still in the grace
+   * period.
+   *
+   * **Why this exists.** `AccountErasureSweepService` reads the due rows
+   * once per run and then carries them, detached, through the whole
+   * batch. Nothing re-checked them. A family who clicked the mailed
+   * cancel link — or tapped cancel in the app — after that read but
+   * before their own row was processed got `{cancelled: true}`, and the
+   * sweep then deleted the account anyway. Because the final status
+   * write was keyed on `id` alone, it also overwrote `cancelled` with
+   * `executed`, so the audit trail showed a completed erasure and no
+   * trace that anyone had ever cancelled.
+   *
+   * The window was not microseconds: teams are processed sequentially
+   * and each row does one S3 round-trip per clip, so for any batch after
+   * the first it spanned most of the run.
+   *
+   * This is the same conditional-write discipline
+   * `PublicSharingConsentService` already applies, and for the same
+   * stated reason: `save(row)` on a stale entity silently undoes a
+   * decision a family was told had been taken.
+   */
+  private async stillDueOrSkip(
+    requestId: string,
+    context: string,
+  ): Promise<boolean> {
+    const fresh = await this.accountErasureRequestRepository.findOne({
+      where: { id: requestId },
+      select: { id: true, status: true },
+    });
+    if (fresh?.status === AccountErasureStatus.GRACE_PERIOD) {
+      return true;
+    }
+    this.logger.log(
+      `Skipping ${context} for erasure request ${requestId}: status is now ` +
+        `${fresh?.status ?? 'gone'}, not grace_period. A cancellation ` +
+        `landed after this run's due-row read — nothing was deleted.`,
+    );
+    return false;
+  }
+
   async executeSingleErasure(
     row: AccountErasureRequest,
     excludeFromFallback: string[],
   ): Promise<void> {
+    // Before the first irreversible act — the S3 deletes below cannot be
+    // undone by a transaction rollback.
+    if (!(await this.stillDueOrSkip(row.id, 'erasure'))) return;
+
     const clips = await this.videoClipRepository.find({
       where: { uploaderPlayerId: row.playerId },
     });
@@ -561,12 +639,21 @@ export class AccountErasureService {
 
       await manager.getRepository(Player).delete({ id: row.playerId });
 
-      await manager
+      // Conditional, for the reason spelled out in executeTeamCascade.
+      const marked = await manager
         .getRepository(AccountErasureRequest)
         .update(
-          { id: row.id },
+          { id: row.id, status: AccountErasureStatus.GRACE_PERIOD },
           { status: AccountErasureStatus.EXECUTED, executedAt: new Date() },
         );
+      if ((marked?.affected ?? 0) === 0) {
+        this.logger.error(
+          `Erasure request ${row.id} was cancelled after this run began, ` +
+            `but its data has already been deleted. The request row keeps ` +
+            `its cancelled status deliberately — investigate before ` +
+            `replying to the family.`,
+        );
+      }
     });
 
     await this.redisService.removeFromLeaderboard(row.teamId, row.playerId);

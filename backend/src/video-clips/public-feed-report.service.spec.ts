@@ -1,6 +1,7 @@
 import { ClipNotFoundException } from '../common/errors/exceptions';
 import { ClipReportReason } from './entities/clip-report.entity';
 import { PublicFeedService } from './public-feed.service';
+import { PublicClipReviewStatus } from './entities/video-clip.entity';
 
 /**
  * Screen F3 — what reporting a stranger's public clip is allowed to do,
@@ -56,14 +57,24 @@ describe('PublicFeedService.reportPublicClip', () => {
 
     expect(clips.update).toHaveBeenCalledWith(
       { id: CLIP },
-      { publishedPubliclyAt: null },
+      {
+        publishedPubliclyAt: null,
+        // 2026-09-24: a report also sends the clip back to PENDING
+        // review. Without it, publish() preserved an APPROVED status
+        // across a re-publish, so a child could put a reported clip
+        // straight back in front of strangers with no person ever
+        // having looked at it.
+        publicReviewStatus: PublicClipReviewStatus.PENDING,
+      },
     );
   });
 
   it('does NOT hide the clip from its own team', async () => {
     // The asymmetry this whole file exists for. `status` must not appear
     // in the update at all — a stranger's report ends public visibility,
-    // never the team's access to their own teammate's clip.
+    // never the team's access to their own teammate's clip. That is also
+    // why a report does NOT set HIDDEN: it would hand a stranger the
+    // power to remove a child's clip from their own team's feed.
     const { service, clips } = build();
 
     await service.reportPublicClip(VIEWER, CLIP, ClipReportReason.BULLYING);
@@ -72,7 +83,11 @@ describe('PublicFeedService.reportPublicClip', () => {
       [unknown, Record<string, unknown>]
     >;
     const patch = calls[0][1];
-    expect(Object.keys(patch)).toEqual(['publishedPubliclyAt']);
+    expect(Object.keys(patch).sort()).toEqual([
+      'publicReviewStatus',
+      'publishedPubliclyAt',
+    ]);
+    expect(patch).not.toHaveProperty('status');
     expect(patch).not.toHaveProperty('status');
   });
 

@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import {
   DataSource,
   EntityManager,
+  In,
   LessThanOrEqual,
   Repository,
 } from 'typeorm';
@@ -166,7 +167,17 @@ export class PublicSharingConsentService {
    * which is a conversation for the family rather than a status chip.
    */
   async statusFor(playerId: string): Promise<'none' | 'pending' | 'active'> {
-    const row = await this.consents.findOne({ where: { playerId } });
+    // The live row, not "the" row: completed cycles accumulate behind it
+    // and must not be mistaken for the current state.
+    const row = await this.consents.findOne({
+      where: {
+        playerId,
+        status: In([
+          PublicSharingConsentStatus.PENDING_REVIEW,
+          PublicSharingConsentStatus.ACTIVE,
+        ]),
+      },
+    });
     if (row?.status === PublicSharingConsentStatus.ACTIVE) return 'active';
     if (
       row?.status === PublicSharingConsentStatus.PENDING_REVIEW &&
@@ -178,8 +189,14 @@ export class PublicSharingConsentService {
   }
 
   async isActiveFor(playerId: string): Promise<boolean> {
-    const row = await this.consents.findOne({ where: { playerId } });
-    return row?.status === PublicSharingConsentStatus.ACTIVE;
+    // Ask for the active row directly rather than fetching "the" row and
+    // comparing: with history rows present, the latter would depend on
+    // which row Postgres happened to return first.
+    const row = await this.consents.findOne({
+      where: { playerId, status: PublicSharingConsentStatus.ACTIVE },
+      select: { id: true },
+    });
+    return row !== null;
   }
 
   /**
@@ -194,7 +211,18 @@ export class PublicSharingConsentService {
   async request(
     playerId: string,
   ): Promise<{ requested: true; expiresAt: Date }> {
-    const existing = await this.consents.findOne({ where: { playerId } });
+    // The live row only. Since 2026-09-24 a player may have several
+    // consent rows — one per completed cycle — and the partial unique
+    // index guarantees at most one of them is pending or active.
+    const existing = await this.consents.findOne({
+      where: {
+        playerId,
+        status: In([
+          PublicSharingConsentStatus.PENDING_REVIEW,
+          PublicSharingConsentStatus.ACTIVE,
+        ]),
+      },
+    });
 
     // Finding 7. An active consent is ended deliberately, never replaced
     // by a new request. Overwriting it in place skipped `deactivate()` —
@@ -248,7 +276,22 @@ export class PublicSharingConsentService {
     }
 
     const { code, expiresAt } = generateHumanCode(REVIEW_CODE_TTL_MS);
+    // `existing` can only be PENDING_REVIEW here — ACTIVE threw above,
+    // and terminal rows are no longer matched by the query. Refreshing a
+    // pending row destroys nothing (it holds no grant and no
+    // withdrawal); a terminal row is a finished cycle and gets a NEW row
+    // instead, which is the whole point of this change.
+    //
+    // Before 2026-09-24 a full unique index on player_id forced reuse,
+    // so "ask again" after a revoke overwrote approved_at, revoked_at
+    // and revoked_reason with NULL — deleting the only evidence that a
+    // parent had granted and then withdrawn consent, on the one flow
+    // Art. 7(1) requires be demonstrable, and the exact records
+    // ADR-0030 Decision 9's monthly review reads.
     const row = existing ?? this.consents.create({ playerId });
+    if (!existing) {
+      row.requestedAt = new Date();
+    }
 
     row.status = PublicSharingConsentStatus.PENDING_REVIEW;
     row.reviewCode = code;
