@@ -6,9 +6,12 @@ import { RedisModule } from '../redis/redis.module';
 import { TeamPoolModule } from '../team-pool/team-pool.module';
 import { WeeklyGoalModule } from '../weekly-goal/weekly-goal.module';
 import { TrainingLogEntry } from './entities/training-log-entry.entity';
+import { TrainingTimer } from './entities/training-timer.entity';
 import { VideoClip } from '../video-clips/entities/video-clip.entity';
 import { TrainingLogsController } from './training-logs.controller';
 import { TrainingLogsService } from './training-logs.service';
+import { TrainingTimersController } from './training-timers.controller';
+import { TrainingTimersService } from './training-timers.service';
 
 @Module({
   imports: [
@@ -18,7 +21,7 @@ import { TrainingLogsService } from './training-logs.service';
     // hand the training-log path the ability to mint upload URLs and
     // publish clips, which it has no business doing. Same technique
     // UsageMetricsModule and AdminModule already use for read-only access.
-    TypeOrmModule.forFeature([TrainingLogEntry, VideoClip]),
+    TypeOrmModule.forFeature([TrainingLogEntry, TrainingTimer, VideoClip]),
     AuthModule,
     PlayersModule,
     TeamPoolModule,
@@ -27,7 +30,10 @@ import { TrainingLogsService } from './training-logs.service';
     // this module's own transaction — see TrainingLogsService.logTraining.
     WeeklyGoalModule,
   ],
-  controllers: [TrainingLogsController],
-  providers: [TrainingLogsService],
+  // TrainingTimers (docs/adr/0038) live here rather than in a module of
+  // their own: a timer exists only to be consumed by a training log, inside
+  // TrainingLogsService's own transaction.
+  controllers: [TrainingLogsController, TrainingTimersController],
+  providers: [TrainingLogsService, TrainingTimersService],
 })
 export class TrainingLogsModule {}

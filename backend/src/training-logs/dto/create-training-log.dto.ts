@@ -10,8 +10,9 @@ import {
 import { ActivityType } from '../activity-type.enum';
 
 // Loose upper bound — a sanity check against fat-fingered/garbage input,
-// not a product rule about max session length.
-const MAX_DURATION_MINUTES = 8 * 60;
+// not a product rule about max session length. Shared with
+// StartTrainingTimerDto's plannedMinutes (ADR-0038).
+export const MAX_DURATION_MINUTES = 8 * 60;
 
 export class CreateTrainingLogDto {
   @IsEnum(ActivityType)
@@ -47,4 +48,15 @@ export class CreateTrainingLogDto {
   @IsOptional()
   @IsBoolean()
   sharedWithTeam?: boolean;
+
+  /**
+   * docs/adr/0038 Decision 2 — a timer started via `POST
+   * /training-timers`. Credits `min(durationMinutes, plannedMinutes, whole
+   * minutes elapsed since startedAt)` and sets the tier to `timed` unless a
+   * clip is also attached, in which case the clip sets the tier and the
+   * timer still fixes the minutes (Decision 5). Consumed by this log.
+   */
+  @IsOptional()
+  @IsUUID()
+  timerId?: string;
 }

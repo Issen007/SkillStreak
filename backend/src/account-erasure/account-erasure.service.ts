@@ -637,6 +637,8 @@ export class AccountErasureService {
         .getRepository(VideoClip)
         .delete({ uploaderPlayerId: row.playerId });
 
+      // FK ON DELETE CASCADE from player takes the player's
+      // training_log_entry and training_timer rows (ADR-0038) with it.
       await manager.getRepository(Player).delete({ id: row.playerId });
 
       // Conditional, for the reason spelled out in executeTeamCascade.
