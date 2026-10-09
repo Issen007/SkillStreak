@@ -99,8 +99,8 @@ to reach the demo instead.
 Everything above describes the public cluster (context `skillstreak`),
 which only ever runs what `main` builds. There's a second, separate deployment: a
 microk8s cluster on `ubuntu01` (`192.168.55.x`, LAN-only, no public
-DNS/TLS), namespace `skillstreak` there too, with its own Postgres/Redis/
-MinIO — a real test database, not shared with production. It exists so
+DNS/TLS), namespace `skillstreak` there too, with its own Postgres/Redis
+and its own Safespring test bucket — a real test database, not shared with production. It exists so
 `review` work can be exercised end-to-end before it ever reaches
 `main`, per the root `CLAUDE.md`'s git workflow rule.
 
@@ -142,15 +142,12 @@ numbers aren't worth emailing anywhere.
 |---|---|
 | `namespace.yaml` | The `skillstreak` namespace everything else lives in. |
 | `configmap.yaml` | Non-secret API config (`NODE_ENV`, `PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `JWT_EXPIRES_IN`, SMTP host/port/from, `APP_PUBLIC_URL`, since Fas 3 `MINIO_ENDPOINT`/`MINIO_BUCKET`/`CLIP_RETENTION_DAYS`/`CLIP_PENDING_UPLOAD_TTL_MINUTES`, and since Fas 5 `USAGE_REPORT_CRON`/`USAGE_REPORT_MIN_TEAMS_PER_BUCKET`). |
-| `secret.yaml.example` | Template for the real Secret — copy to `secret.yaml` and fill in. `secret.yaml` itself is git-ignored and must never be committed. Since Fas 3, also holds `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`; since Fas 5, the optional `USAGE_REPORT_RECIPIENT_EMAIL`. |
+| `secret.yaml.example` | Template for the real Secret — copy to `secret.yaml` and fill in. `secret.yaml` itself is git-ignored and must never be committed. Since Fas 3, also holds the clips bucket keys; since Fas 5, the optional `USAGE_REPORT_RECIPIENT_EMAIL`. |
 | `postgres-pvc.yaml` | PersistentVolumeClaim so Postgres data survives pod restarts. |
 | `postgres-deployment.yaml` | Postgres 16-alpine, single replica, `Recreate` rollout strategy (safe for a ReadWriteOnce PVC). |
 | `postgres-service.yaml` | ClusterIP only — never expose Postgres externally (no LoadBalancer/NodePort/Ingress for it, matching the compose setup's `127.0.0.1`-only binding). |
 | `redis-deployment.yaml` | Redis 7-alpine, single replica, deliberately no PVC (cache/accelerator over Postgres per ADR-0002 — safe to lose and rebuild). |
 | `redis-service.yaml` | ClusterIP only, same reasoning as Postgres's Service. |
-| `minio-pvc.yaml` | PersistentVolumeClaim so video-clip bytes survive pod restarts (docs/adr/0010-video-storage-and-serving.md Decision 1) — sized larger than Postgres's (20Gi) since this holds actual video, not just rows. |
-| `minio-deployment.yaml` | MinIO (self-hosted S3-API object store), single replica, `Recreate` rollout strategy — the *identical* Deployment+PVC+ClusterIP shape as Postgres, per ADR-0010's explicit "no new deployment paradigm" framing. |
-| `minio-service.yaml` | ClusterIP only, same reasoning as Postgres's/Redis's Service — never an Ingress/NodePort/LoadBalancer for it (ADR-0010 Decision 2: the bucket has zero public/anonymous read access, and a public MinIO endpoint would defeat that boundary entirely). |
 | `api-deployment.yaml` | The NestJS API. Ships with a blank placeholder `image:` — `.github/workflows/ci-cd.yml`'s deploy job builds/pushes the real image and `sed`-fills this field at deploy time; the committed file is never updated with a real tag. Reads config from the ConfigMap + Secret; `/health` for readiness/liveness. |
 | `api-service.yaml` | ClusterIP for the api Pods — the real external entry point is the Gateway (`gateway.yaml`/`httproute.yaml`), not this Service directly. |
 | `cluster-issuer.yaml` | Two cert-manager `ClusterIssuer`s (`letsencrypt-staging`, `letsencrypt-prod`). **DNS01 via Cloudflare since 2026-08-20** — previously HTTP01 through `skillstreak-gateway`, which could not coexist with an HTTP->HTTPS redirect on the same listener (see the TLS section below). Cluster-scoped, apply once. |
@@ -175,7 +172,6 @@ kubectl apply -f k8s/secret.yaml       # copied from secret.yaml.example, real v
 kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/postgres-pvc.yaml -f k8s/postgres-deployment.yaml -f k8s/postgres-service.yaml
 kubectl apply -f k8s/redis-deployment.yaml -f k8s/redis-service.yaml
-kubectl apply -f k8s/minio-pvc.yaml -f k8s/minio-deployment.yaml -f k8s/minio-service.yaml
 kubectl apply -f k8s/api-deployment.yaml -f k8s/api-service.yaml
 kubectl apply -f k8s/site-deployment.yaml -f k8s/site-service.yaml
 
@@ -194,54 +190,16 @@ these manifests don't strictly depend on apply ordering — Kubernetes will
 retry until dependencies like the Secret/ConfigMap exist — but applying in
 the order above is easier to reason about and debug on a first attempt.)
 
-## MinIO scoped credentials (`MINIO_CLIPS_ACCESS_KEY`/`SECRET_KEY`)
+## Clip storage credentials (`MINIO_CLIPS_ACCESS_KEY`/`SECRET_KEY`)
 
-Added 2026-07-30, closing a security-review finding: the `api` Deployment
-no longer authenticates to MinIO with the root user/password — a
-compromised `api` process previously had full MinIO admin access (every
-team's clips, plus bucket/user/policy management), not just the `clips`
-bucket it actually needs. It now uses a dedicated, non-root user with a
-custom least-privilege policy. Recreate this if the cluster is ever
-rebuilt from scratch, or to rotate the key:
-
-```bash
-# From a pod that can reach the in-cluster MinIO Service (e.g. a
-# temporary `kubectl run mc-admin --image=minio/mc:latest --command --
-# sleep 600` pod, `kubectl exec`'d into):
-mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-
-mc admin policy create local clips-rw - <<'EOF'
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
-      "Resource": ["arn:aws:s3:::clips"]
-    },
-    {
-      "Effect": "Allow",
-      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
-      "Resource": ["arn:aws:s3:::clips/*"]
-    }
-  ]
-}
-EOF
-
-mc admin user add local <new-access-key> <new-secret-key>
-mc admin policy attach local clips-rw --user <new-access-key>
-```
-
-Then `gh secret set MINIO_CLIPS_ACCESS_KEY`/`MINIO_CLIPS_SECRET_KEY` (so
-the next CI deploy picks it up) and, for immediate effect on the running
-cluster, `kubectl patch secret skillstreak-secret` with the new values
-followed by `kubectl rollout restart deployment/api`. Verify the new key
-can read/write `clips/*` but gets `Access Denied` on `mc admin info`/`mc
-mb` — proves it's scoped, not another root-equivalent key.
-
-`MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` still exist (`minio-deployment.yaml`
-needs them to boot the server itself, and the recreate steps above need
-them once) — just nothing application-facing uses them anymore.
+Clips live in Safespring S3 (`MINIO_ENDPOINT` in `configmap.yaml`); the
+variable names are left over from the self-hosted MinIO this cluster ran
+until 2026-07-31 (removed from the repo 2026-10-09, when its image stopped
+being pullable from any registry). Use a key scoped to the one bucket.
+To rotate: create the new key at Safespring, `gh secret set
+MINIO_CLIPS_ACCESS_KEY`/`MINIO_CLIPS_SECRET_KEY`, then either run the
+deploy workflow or `kubectl patch secret skillstreak-secret` followed by
+`kubectl rollout restart deployment/api`.
 
 ## Known gaps / deliberate TODOs
 
