@@ -96,18 +96,25 @@ export interface CreateTrainingLogRequest {
   /** Whether that clip was shared with the team — the difference between
    * tier 3 and tier 4. Ignored without an `evidenceClipId`. */
   sharedWithTeam?: boolean;
+  /** docs/adr/0038 Decision 2 — the server-side countdown timer this
+   * session ran under. The server credits `min(durationMinutes,
+   * plannedMinutes, whole minutes elapsed)`; the client never claims the
+   * tier, it only supplies the proof. Combines with `evidenceClipId`
+   * (Decision 5): the timer fixes the minutes, the clip sets the tier. */
+  timerId?: string;
 }
 
 /** What the player chose to offer as proof, before any clip exists yet.
  * docs/adr/0025 Decision 1: the multiplier is shown for each of these
  * BEFORE the choice is made, never applied afterwards. */
-export type EvidenceChoice = 'none' | 'video' | 'video_shared';
+export type EvidenceChoice = 'none' | 'timer' | 'video' | 'video_shared';
 
 /** Kept in lockstep with backend/src/training-logs/points.util.ts. A
  * mismatch would show a child one number and pay another, which is worse
- * than showing no number at all. */
+ * than showing no number at all. `timer` is ADR-0038's TIMED tier. */
 export const EVIDENCE_MULTIPLIER: Record<EvidenceChoice, number> = {
   none: 0.1,
+  timer: 1,
   video: 1.2,
   video_shared: 1.4,
 };
@@ -117,12 +124,48 @@ export const EVIDENCE_MULTIPLIER: Record<EvidenceChoice, number> = {
  * below 1. Duplicated rather than fetched because the picker has to show a
  * number *before* anything is sent, and it must be the number that will
  * actually be paid: 15 minutes unproven is 1.5, shown and paid as 2.
+ *
+ * The one exception to the floor is ADR-0038 Decision 4: once this week's
+ * click-only allowance is used up, a click-only log pays 0. Pass
+ * `clickOnlyUsedUp` so the picker shows that 0 *before* the choice
+ * (ADR-0025 Decision 1) rather than surprising the child afterwards.
  */
 export function evidencePointsPreview(
   durationMinutes: number,
   choice: EvidenceChoice,
+  clickOnlyUsedUp = false,
 ): number {
+  if (choice === 'none' && clickOnlyUsedUp) return 0;
   return Math.max(1, Math.round(durationMinutes * EVIDENCE_MULTIPLIER[choice]));
+}
+
+/** docs/adr/0038 Decision 4 — `GET /training-logs/click-only-allowance`,
+ * also echoed on every training-log response. `resetsOn` is the Monday
+ * (Europe/Stockholm) the count starts over, as YYYY-MM-DD. */
+export interface ClickOnlyAllowance {
+  used: number;
+  limit: number;
+  resetsOn: string;
+}
+
+export function isClickOnlyUsedUp(allowance: ClickOnlyAllowance | null): boolean {
+  return allowance !== null && allowance.used >= allowance.limit;
+}
+
+// --- POST /training-timers (docs/adr/0038 Decision 2) ------------------------
+
+export interface CreateTrainingTimerRequest {
+  activityType: ActivityType;
+  plannedMinutes: number;
+}
+
+/** All timestamps are the server's clock — the countdown is computed from
+ * `endsAt`, never from a counter on the phone. */
+export interface TrainingTimerResponse {
+  timerId: string;
+  startedAt: string;
+  plannedMinutes: number;
+  endsAt: string;
 }
 
 export interface TrainingLogResponse {
@@ -153,6 +196,11 @@ export interface TrainingLogResponse {
   // active weekly goal's target for the first (and only) time. See Screen
   // G2 (docs/design/phase2-flows.md Part 3).
   goalBonus: { awardedPoints: number } | null;
+  /** docs/adr/0038 — what this exact log paid. 0 only for a click-only log
+   * past the weekly allowance, so the app can explain it rather than show a
+   * silent zero. */
+  pointsAwarded: number;
+  clickOnlyAllowance: ClickOnlyAllowance;
 }
 
 // --- 4. GET /players/me ------------------------------------------------------

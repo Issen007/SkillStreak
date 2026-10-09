@@ -14,10 +14,12 @@
   },
   "homeScreen": {
     "loadError": "Kunde inte hämta din data. Kolla din uppkoppling.",
-    "extraLogToast": "Grymt jobbat! +{{minutes}} min till lagets pott 🥇",
     "consentRequiredToast": "Vi behöver fortfarande godkännande innan du kan logga. Vi uppdaterar sidan åt dig.",
     "successBanner": "🔥 Snyggt jobbat! {{count}} dagar i rad.",
-    "successFloatingText": "+{{minutes}} min till laget"
+    "successFloatingPoints": "+{{points}} poäng till laget",
+    "successFloatingNoPoints": "Räknas för din streak 🔥",
+    "extraLogPointsToast": "Grymt jobbat! +{{points}} poäng till lagets pott 🥇",
+    "zeroPointsToast": "Passet är sparat och räknas för din streak 🔥 Du har använt veckans {{limit}} snabbloggningar, så det blev 0 poäng den här gången. Testa timern nästa gång — då får laget poäng!"
   },
   "activitySheet": {
     "heading": "Vad tränade du?",
@@ -41,8 +43,12 @@
     "evidence": {
       "none": "Bara logga",
       "video": "Med video",
-      "videoShared": "Med video — dela med laget"
-    }
+      "videoShared": "Med video — dela med laget",
+      "timer": "Med timer"
+    },
+    "submitTimer": "Starta timern",
+    "clickOnlyRemaining": "{{remaining}} av {{limit}} snabbloggningar kvar denna vecka",
+    "clickOnlyUsedUp": "Veckans snabbloggningar är slut. Passet räknas ändå för din streak, men ger 0 poäng fram till måndag. Timern ger poäng!"
   },
   "goalBonusTakeover": {
     "headline": "Laget nådde veckans mål!",
@@ -297,5 +303,28 @@
     "offToast": "Påminnelsen är av.",
     "notifTitle": "Dags att träna",
     "notifBody": "10–15 minuter räcker. Din streak väntar!"
+  },
+  "trainingTimer": {
+    "heading": "Kör hårt! 💪",
+    "explainer": "Timern visar att tiden gick. Du kan låsa telefonen — klockan fortsätter ändå.",
+    "ofMinutes": "av {{minutes}} min",
+    "remainingA11y": "{{time}} kvar",
+    "stop": "Avsluta",
+    "stopConfirm": "Avsluta nu? Du får poäng för {{minutes}} min.",
+    "stopConfirmYes": "Ja, avsluta och logga",
+    "keepGoing": "Fortsätt träna",
+    "tooShort": "Det har gått mindre än en minut, så det finns inget att logga än. Kör en stund till, eller avbryt timern.",
+    "discard": "Avbryt timern",
+    "doneHeading": "Tiden är ute! 🎉",
+    "doneBody": "{{minutes}} min klara. Snyggt jobbat!",
+    "logIt": "Logga passet",
+    "finishHeading": "Hur vill du logga passet?",
+    "finishHelp": "Timern räknar {{minutes}} min. Vill du ge laget ännu mer kan du lägga till en video.",
+    "evidenceTimer": "Bara timern",
+    "submit": "Logga",
+    "back": "Tillbaka",
+    "notifTitle": "Tiden är ute! ⏱️",
+    "notifBody": "Bra kämpat! Öppna appen och logga ditt pass.",
+    "rejected": "Timern gick inte att använda den här gången. Avbryt timern och logga passet som vanligt i stället — det räknas ändå."
   }
 }

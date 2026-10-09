@@ -14,10 +14,12 @@
   },
   "homeScreen": {
     "loadError": "Impossible de charger tes données. Vérifie ta connexion.",
-    "extraLogToast": "Bravo ! +{{minutes}} min pour la cagnotte de l'équipe 🥇",
     "consentRequiredToast": "Il nous faut encore une autorisation avant que tu puisses enregistrer un entraînement. On rafraîchit la page pour toi.",
     "successBanner": "🔥 Bien joué ! {{count}} jours d'affilée.",
-    "successFloatingText": "+{{minutes}} min pour l'équipe"
+    "successFloatingPoints": "+{{points}} points pour l'équipe",
+    "successFloatingNoPoints": "Compte pour ta série 🔥",
+    "extraLogPointsToast": "Super boulot ! +{{points}} points pour la cagnotte de l'équipe 🥇",
+    "zeroPointsToast": "Ta séance est enregistrée et compte pour ta série 🔥 Tu as utilisé les {{limit}} enregistrements rapides de la semaine, donc celle-ci a rapporté 0 point. Essaie le minuteur la prochaine fois — l'équipe gagnera des points !"
   },
   "activitySheet": {
     "heading": "Qu'est-ce que tu as entraîné ?",
@@ -41,8 +43,12 @@
     "evidence": {
       "none": "Juste enregistrer",
       "video": "Avec une vidéo",
-      "videoShared": "Avec une vidéo — partager avec l'équipe"
-    }
+      "videoShared": "Avec une vidéo — partager avec l'équipe",
+      "timer": "Avec le minuteur"
+    },
+    "submitTimer": "Lancer le minuteur",
+    "clickOnlyRemaining": "Encore {{remaining}} sur {{limit}} enregistrements rapides cette semaine",
+    "clickOnlyUsedUp": "Tu as utilisé les enregistrements rapides de la semaine. Ça compte quand même pour ta série, mais ça rapporte 0 point jusqu'à lundi. Le minuteur rapporte des points !"
   },
   "goalBonusTakeover": {
     "headline": "L'équipe a atteint l'objectif de la semaine !",
@@ -297,5 +303,28 @@
     "offToast": "Le rappel est désactivé.",
     "notifTitle": "C'est l'heure de t'entraîner",
     "notifBody": "10 à 15 minutes suffisent. Ta série t'attend !"
+  },
+  "trainingTimer": {
+    "heading": "À fond ! 💪",
+    "explainer": "Le minuteur montre que le temps est passé. Tu peux verrouiller ton téléphone — l'horloge continue.",
+    "ofMinutes": "sur {{minutes}} min",
+    "remainingA11y": "Encore {{time}}",
+    "stop": "Terminer",
+    "stopConfirm": "Terminer maintenant ? Tu gagnes des points pour {{minutes}} min.",
+    "stopConfirmYes": "Oui, terminer et enregistrer",
+    "keepGoing": "Continuer l'entraînement",
+    "tooShort": "Il s'est passé moins d'une minute, donc il n'y a encore rien à enregistrer. Continue encore un peu, ou annule le minuteur.",
+    "discard": "Annuler le minuteur",
+    "doneHeading": "C'est l'heure ! 🎉",
+    "doneBody": "{{minutes}} min faites. Bien joué !",
+    "logIt": "Enregistrer la séance",
+    "finishHeading": "Comment veux-tu enregistrer la séance ?",
+    "finishHelp": "Le minuteur compte {{minutes}} min. Si tu veux donner encore plus à l'équipe, ajoute une vidéo.",
+    "evidenceTimer": "Juste le minuteur",
+    "submit": "Enregistrer",
+    "back": "Retour",
+    "notifTitle": "C'est l'heure ! ⏱️",
+    "notifBody": "Bel effort ! Ouvre l'appli pour enregistrer ta séance.",
+    "rejected": "Le minuteur n'a pas pu être utilisé cette fois. Annule le minuteur et enregistre ta séance normalement — elle compte quand même."
   }
 }

@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { secureGetItem, secureSetItem } from './secureStorage';
+import { TIMER_NOTIFICATION_ID } from './trainingTimer';
 
 /**
  * ADR-0033 — the daily "time to train" reminder.
@@ -78,15 +79,29 @@ async function ensurePermission(): Promise<boolean> {
   return asked.granted;
 }
 
+/**
+ * Cancels every scheduled reminder — and nothing else.
+ *
+ * This used to be `cancelAllScheduledNotificationsAsync()`, back when the
+ * reminder was the only notification this app ever scheduled. ADR-0038's
+ * countdown timer added a second one, and `rearmReminder` runs on every
+ * app open: a blanket cancel there would silently delete the "time's up"
+ * notification of a timer that is still running.
+ */
 async function cancelAll(): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduled
+      .filter((n) => n.identifier !== TIMER_NOTIFICATION_ID)
+      .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
+  );
 }
 
 /**
  * Schedules the single daily reminder, replacing any existing one.
  *
- * `cancelAll` first is deliberate: this app schedules exactly one
- * notification ever, so "cancel everything then schedule one" cannot leave
+ * `cancelAll` first is deliberate: the reminder is only ever one
+ * notification, so "cancel every reminder then schedule one" cannot leave
  * a duplicate behind — which is the failure mode that turns one calm
  * reminder into several.
  */

@@ -14,10 +14,12 @@
   },
   "homeScreen": {
     "loadError": "Deine Daten konnten nicht geladen werden. Prüf deine Verbindung.",
-    "extraLogToast": "Stark gemacht! +{{minutes}} Min. in den Team-Topf 🥇",
     "consentRequiredToast": "Wir brauchen noch eine Freigabe, bevor du Training eintragen kannst. Wir aktualisieren die Seite für dich.",
     "successBanner": "🔥 Klasse gemacht! {{count}} Tage in Folge.",
-    "successFloatingText": "+{{minutes}} Min. fürs Team"
+    "successFloatingPoints": "+{{points}} Punkte fürs Team",
+    "successFloatingNoPoints": "Zählt für deine Serie 🔥",
+    "extraLogPointsToast": "Starke Leistung! +{{points}} Punkte für den Team-Topf 🥇",
+    "zeroPointsToast": "Dein Training ist gespeichert und zählt für deine Serie 🔥 Du hast die {{limit}} Schnelleinträge dieser Woche benutzt, deshalb gab es diesmal 0 Punkte. Probier nächstes Mal den Timer — dann bekommt dein Team Punkte!"
   },
   "activitySheet": {
     "heading": "Was hast du trainiert?",
@@ -41,8 +43,12 @@
     "evidence": {
       "none": "Nur eintragen",
       "video": "Mit Video",
-      "videoShared": "Mit Video — mit dem Team teilen"
-    }
+      "videoShared": "Mit Video — mit dem Team teilen",
+      "timer": "Mit Timer"
+    },
+    "submitTimer": "Timer starten",
+    "clickOnlyRemaining": "Noch {{remaining}} von {{limit}} Schnelleinträgen diese Woche",
+    "clickOnlyUsedUp": "Die Schnelleinträge dieser Woche sind aufgebraucht. Das Training zählt trotzdem für deine Serie, bringt aber bis Montag 0 Punkte. Der Timer bringt Punkte!"
   },
   "goalBonusTakeover": {
     "headline": "Das Team hat das Wochenziel erreicht!",
@@ -297,5 +303,28 @@
     "offToast": "Erinnerung ist aus.",
     "notifTitle": "Zeit zu trainieren",
     "notifBody": "10–15 Minuten reichen. Deine Serie wartet!"
+  },
+  "trainingTimer": {
+    "heading": "Gib alles! 💪",
+    "explainer": "Der Timer zeigt, dass die Zeit vergangen ist. Du kannst das Handy sperren — die Uhr läuft weiter.",
+    "ofMinutes": "von {{minutes}} Min.",
+    "remainingA11y": "Noch {{time}}",
+    "stop": "Beenden",
+    "stopConfirm": "Jetzt beenden? Du bekommst Punkte für {{minutes}} Min.",
+    "stopConfirmYes": "Ja, beenden und eintragen",
+    "keepGoing": "Weiter trainieren",
+    "tooShort": "Es ist weniger als eine Minute vergangen, also gibt es noch nichts einzutragen. Mach noch etwas weiter oder brich den Timer ab.",
+    "discard": "Timer abbrechen",
+    "doneHeading": "Die Zeit ist um! 🎉",
+    "doneBody": "{{minutes}} Min. geschafft. Super gemacht!",
+    "logIt": "Training eintragen",
+    "finishHeading": "Wie willst du das Training eintragen?",
+    "finishHelp": "Der Timer zählt {{minutes}} Min. Wenn du deinem Team noch mehr geben willst, füge ein Video hinzu.",
+    "evidenceTimer": "Nur der Timer",
+    "submit": "Eintragen",
+    "back": "Zurück",
+    "notifTitle": "Die Zeit ist um! ⏱️",
+    "notifBody": "Stark gekämpft! Öffne die App und trag dein Training ein.",
+    "rejected": "Der Timer konnte diesmal nicht verwendet werden. Brich den Timer ab und trag dein Training stattdessen ganz normal ein — es zählt trotzdem."
   }
 }

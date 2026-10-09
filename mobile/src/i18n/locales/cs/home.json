@@ -14,10 +14,12 @@
   },
   "homeScreen": {
     "loadError": "Nepodařilo se načíst tvoje data. Zkontroluj připojení.",
-    "extraLogToast": "Skvělá práce! +{{minutes}} min do týmové kasy 🥇",
     "consentRequiredToast": "Ještě potřebujeme souhlas, než budeš moct zapisovat trénink. Stránku ti teď obnovíme.",
     "successBanner": "🔥 Skvělá práce! {{count}} dní v řadě.",
-    "successFloatingText": "+{{minutes}} min pro tým"
+    "successFloatingPoints": "+{{points}} bodů pro tým",
+    "successFloatingNoPoints": "Počítá se do tvé série 🔥",
+    "extraLogPointsToast": "Skvělá práce! +{{points}} bodů do týmového banku 🥇",
+    "zeroPointsToast": "Trénink je uložený a počítá se do tvé série 🔥 Využil(a) jsi {{limit}} rychlé zápisy na tento týden, takže tentokrát to bylo 0 bodů. Příště zkus časovač — tým pak dostane body!"
   },
   "activitySheet": {
     "heading": "Co jsi trénoval/a?",
@@ -41,8 +43,12 @@
     "evidence": {
       "none": "Jen zapsat",
       "video": "S videem",
-      "videoShared": "S videem — sdílet s týmem"
-    }
+      "videoShared": "S videem — sdílet s týmem",
+      "timer": "S časovačem"
+    },
+    "submitTimer": "Spustit časovač",
+    "clickOnlyRemaining": "Zbývá {{remaining}} z {{limit}} rychlých zápisů tento týden",
+    "clickOnlyUsedUp": "Rychlé zápisy na tento týden jsou vyčerpané. Trénink se ti pořád počítá do série, ale do pondělí dává 0 bodů. Časovač body dává!"
   },
   "goalBonusTakeover": {
     "headline": "Tým splnil týdenní cíl!",
@@ -297,5 +303,28 @@
     "offToast": "Připomenutí je vypnuté.",
     "notifTitle": "Čas trénovat",
     "notifBody": "Stačí 10–15 minut. Tvoje série čeká!"
+  },
+  "trainingTimer": {
+    "heading": "Do toho! 💪",
+    "explainer": "Časovač ukazuje, že čas uběhl. Můžeš zamknout telefon — hodiny běží dál.",
+    "ofMinutes": "z {{minutes}} min",
+    "remainingA11y": "Zbývá {{time}}",
+    "stop": "Ukončit",
+    "stopConfirm": "Ukončit teď? Dostaneš body za {{minutes}} min.",
+    "stopConfirmYes": "Ano, ukončit a zapsat",
+    "keepGoing": "Trénovat dál",
+    "tooShort": "Uběhla méně než minuta, takže zatím není co zapsat. Pokračuj ještě chvíli, nebo časovač zruš.",
+    "discard": "Zrušit časovač",
+    "doneHeading": "Čas vypršel! 🎉",
+    "doneBody": "{{minutes}} min hotovo. Skvělá práce!",
+    "logIt": "Zapsat trénink",
+    "finishHeading": "Jak chceš trénink zapsat?",
+    "finishHelp": "Časovač počítá {{minutes}} min. Jestli chceš dát týmu ještě víc, přidej video.",
+    "evidenceTimer": "Jen časovač",
+    "submit": "Zapsat",
+    "back": "Zpět",
+    "notifTitle": "Čas vypršel! ⏱️",
+    "notifBody": "Pěkná dřina! Otevři aplikaci a zapiš svůj trénink.",
+    "rejected": "Časovač se tentokrát nedal použít. Zruš ho a zapiš trénink normálně — pořád se počítá."
   }
 }

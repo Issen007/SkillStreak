@@ -68,6 +68,15 @@ export class TrainingLogEntry {
   })
   evidenceTier!: EvidenceTier;
 
+  /**
+   * docs/adr/0038 Decision 5 — the server-held timer that fixed this log's
+   * minutes, if any. Stored alongside `evidenceTier` so a timed session
+   * that also attached a clip stays auditable as both. Unique (partial
+   * index): one timer verifies one log.
+   */
+  @Column({ name: 'timer_id', type: 'uuid', nullable: true })
+  timerId!: string | null;
+
   @Column({ name: 'challenge_id', type: 'uuid', nullable: true })
   challengeId!: string | null;
 

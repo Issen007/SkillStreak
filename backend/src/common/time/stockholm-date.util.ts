@@ -58,3 +58,33 @@ export function daysBetweenExclusive(
   const end = Date.UTC(endYear, endMonth - 1, endDay);
   return Math.round((end - start) / MS_PER_DAY) - 1;
 }
+
+function addDays(dateString: string, days: number): string {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const asUtcMidnight = new Date(Date.UTC(year, month - 1, day));
+  asUtcMidnight.setUTCDate(asUtcMidnight.getUTCDate() + days);
+  return asUtcMidnight.toISOString().slice(0, 10);
+}
+
+/**
+ * The Monday–Sunday week containing a 'YYYY-MM-DD' Stockholm calendar
+ * date, plus the following Monday. Added for docs/adr/0038 Decision 4's
+ * weekly click-only cap, which counts on "the weekly-goal week". Same pure
+ * calendar arithmetic as `previousDateString` — pass it a value already
+ * produced by `stockholmDateString`, never a raw instant.
+ */
+export function stockholmWeekBounds(dateString: string): {
+  weekStart: string;
+  weekEnd: string;
+  nextWeekStart: string;
+} {
+  const [year, month, day] = dateString.split('-').map(Number);
+  // getUTCDay(): 0 = Sunday. Weeks start on Monday, so Sunday is day 7.
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay() || 7;
+  const weekStart = addDays(dateString, -(weekday - 1));
+  return {
+    weekStart,
+    weekEnd: addDays(weekStart, 6),
+    nextWeekStart: addDays(weekStart, 7),
+  };
+}
