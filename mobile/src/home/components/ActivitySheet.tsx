@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/fonts';
-import { evidencePointsPreview } from '../../api/types';
-import type { ActivityType, EvidenceChoice } from '../../api/types';
+import { evidencePointsPreview, isClickOnlyUsedUp } from '../../api/types';
+import type { ActivityType, ClickOnlyAllowance, EvidenceChoice } from '../../api/types';
 
 interface ActivityOption {
   activityType: ActivityType;
@@ -32,6 +32,10 @@ interface ActivitySheetProps {
   visible: boolean;
   loading: boolean;
   errorText?: string | null;
+  /** docs/adr/0038 Decision 4 — this week's click-only allowance, or null
+   * while unknown (not fetched yet, or the fetch failed). Unknown shows no
+   * allowance line rather than a guess. */
+  clickOnlyAllowance: ClickOnlyAllowance | null;
   onClose: () => void;
   onSubmit: (
     activityType: ActivityType,
@@ -48,6 +52,7 @@ export function ActivitySheet({
   visible,
   loading,
   errorText,
+  clickOnlyAllowance,
   onClose,
   onSubmit,
 }: ActivitySheetProps) {
@@ -90,9 +95,28 @@ export function ActivitySheet({
    */
   const EVIDENCE_OPTIONS = [
     { choice: 'none', labelKey: 'none' },
+    // docs/adr/0038 Decision 1 — the countdown timer, ×1, no media at all.
+    { choice: 'timer', labelKey: 'timer' },
     { choice: 'video', labelKey: 'video' },
     { choice: 'video_shared', labelKey: 'videoShared' },
   ] as const satisfies readonly { choice: EvidenceChoice; labelKey: string }[];
+
+  /*
+   * docs/adr/0038 Decision 4 — click-only stays selectable even when the
+   * week's paid allowance is used up. Hiding or disabling it would cost a
+   * child who trained without the app open their streak; instead the row
+   * says plainly that it still counts for the streak, pays 0, and that the
+   * timer pays.
+   */
+  const clickOnlyUsedUp = isClickOnlyUsedUp(clickOnlyAllowance);
+  const clickOnlyNote = clickOnlyAllowance
+    ? clickOnlyUsedUp
+      ? t('activitySheet.clickOnlyUsedUp')
+      : t('activitySheet.clickOnlyRemaining', {
+          remaining: clickOnlyAllowance.limit - clickOnlyAllowance.used,
+          limit: clickOnlyAllowance.limit,
+        })
+    : null;
 
   return (
     <Modal
@@ -151,7 +175,12 @@ export function ActivitySheet({
             <Text style={styles.evidenceHelp}>{t('activitySheet.evidenceHelp')}</Text>
             {EVIDENCE_OPTIONS.map((option) => {
               const selected = option.choice === evidence;
-              const points = evidencePointsPreview(durationMinutes, option.choice);
+              const points = evidencePointsPreview(
+                durationMinutes,
+                option.choice,
+                clickOnlyUsedUp,
+              );
+              const note = option.choice === 'none' ? clickOnlyNote : null;
               return (
                 <Pressable
                   key={option.choice}
@@ -160,9 +189,12 @@ export function ActivitySheet({
                   onPress={() => setEvidence(option.choice)}
                   style={[styles.evidenceRow, selected && styles.evidenceRowSelected]}
                 >
-                  <Text style={styles.evidenceLabel}>
-                    {t(`activitySheet.evidence.${option.labelKey}`)}
-                  </Text>
+                  <View style={styles.evidenceText}>
+                    <Text style={styles.evidenceLabel}>
+                      {t(`activitySheet.evidence.${option.labelKey}`)}
+                    </Text>
+                    {note ? <Text style={styles.evidenceNote}>{note}</Text> : null}
+                  </View>
                   <Text style={styles.evidencePoints}>
                     {t('activitySheet.evidencePoints', { count: points })}
                   </Text>
@@ -175,7 +207,9 @@ export function ActivitySheet({
         {errorText ? <Text style={styles.error}>{errorText}</Text> : null}
 
         <PrimaryButton
-          label={t('activitySheet.submit')}
+          label={
+            evidence === 'timer' ? t('activitySheet.submitTimer') : t('activitySheet.submit')
+          }
           disabled={!canSubmit}
           loading={loading}
           onPress={() => {
@@ -211,11 +245,20 @@ const styles = StyleSheet.create({
     borderColor: colors.flame,
     backgroundColor: colors.pendingBg,
   },
-  evidenceLabel: {
+  evidenceText: {
     flex: 1,
+    paddingRight: 8,
+    gap: 2,
+  },
+  evidenceLabel: {
     fontFamily: fonts.body,
     fontSize: 14,
     color: colors.ink,
+  },
+  evidenceNote: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.textMuted,
   },
   evidencePoints: {
     fontFamily: fonts.bodyBold,

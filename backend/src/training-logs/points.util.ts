@@ -18,6 +18,13 @@ export enum EvidenceTier {
   CLICK_ONLY = 'click_only',
   /** Reserved, not yet reachable — see above. */
   SELFIE = 'selfie',
+  /**
+   * docs/adr/0038 Decision 1 — a server-held countdown timer ran for the
+   * session. Takes the x1 slot SELFIE reserved, with no media at all:
+   * nothing of the child leaves the device. Proves time passed between
+   * starting and logging, not that the child trained.
+   */
+  TIMED = 'timed',
   /** A real clip attached to the session. */
   VIDEO = 'video',
   /** A clip attached and shared with the team. */
@@ -49,6 +56,7 @@ export enum EvidenceTier {
 const MULTIPLIER_BY_TIER: Record<EvidenceTier, number> = {
   [EvidenceTier.CLICK_ONLY]: 0.1,
   [EvidenceTier.SELFIE]: 1,
+  [EvidenceTier.TIMED]: 1,
   [EvidenceTier.VIDEO]: 1.2,
   [EvidenceTier.VIDEO_SHARED_WITH_TEAM]: 1.4,
 };
@@ -69,6 +77,16 @@ function toWholePoints(raw: number): number {
 }
 
 /**
+ * docs/adr/0038 Decision 4 — a player's first 3 click-only logs in a
+ * Monday–Sunday Europe/Stockholm week pay x0.1; from the 4th they still
+ * save, still count for the streak and for weekly-goal minutes/sessions,
+ * and pay **0** — the one exception to the floor of 1 above. Blocking the
+ * log instead was rejected: a child who trained without the app open
+ * would lose their streak to a points rule.
+ */
+export const CLICK_ONLY_WEEKLY_LIMIT = 3;
+
+/**
  * Points for one training log.
  *
  * The Phase 1 comment this replaces called the flat per-minute rate "an
@@ -81,11 +99,22 @@ function toWholePoints(raw: number): number {
  * VM-Guld pot threshold is tuned against the old numbers and needs
  * retuning; ADR-0005's weekly goals do NOT — they count minutes and
  * sessions, never points.
+ *
+ * `priorClickOnlyLogsThisWeek` is how many click-only logs the player had
+ * already made this week *before* this one (ADR-0038 Decision 4). It only
+ * matters for CLICK_ONLY; every other tier ignores it.
  */
 export function pointsForTrainingLog(
   durationMinutes: number,
   tier: EvidenceTier = EvidenceTier.CLICK_ONLY,
+  priorClickOnlyLogsThisWeek = 0,
 ): number {
+  if (
+    tier === EvidenceTier.CLICK_ONLY &&
+    priorClickOnlyLogsThisWeek >= CLICK_ONLY_WEEKLY_LIMIT
+  ) {
+    return 0;
+  }
   return toWholePoints(durationMinutes * MULTIPLIER_BY_TIER[tier]);
 }
 

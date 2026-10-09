@@ -14,10 +14,12 @@
   },
   "homeScreen": {
     "loadError": "Fikk ikke hentet dataene dine. Sjekk internettforbindelsen.",
-    "extraLogToast": "Kjempebra jobba! +{{minutes}} min til lagets potte 🥇",
     "consentRequiredToast": "Vi trenger fortsatt godkjenning før du kan logge trening. Vi oppdaterer siden for deg.",
     "successBanner": "🔥 Bra jobba! {{count}} dager på rad.",
-    "successFloatingText": "+{{minutes}} min til laget"
+    "successFloatingPoints": "+{{points}} poeng til laget",
+    "successFloatingNoPoints": "Teller for streaken din 🔥",
+    "extraLogPointsToast": "Rått jobba! +{{points}} poeng til lagets pott 🥇",
+    "zeroPointsToast": "Økta er lagret og teller for streaken din 🔥 Du har brukt ukas {{limit}} hurtiglogginger, så det ble 0 poeng denne gangen. Prøv timeren neste gang — da får laget poeng!"
   },
   "activitySheet": {
     "heading": "Hva trente du?",
@@ -41,8 +43,12 @@
     "evidence": {
       "none": "Bare logg",
       "video": "Med video",
-      "videoShared": "Med video — del med laget"
-    }
+      "videoShared": "Med video — del med laget",
+      "timer": "Med timer"
+    },
+    "submitTimer": "Start timeren",
+    "clickOnlyRemaining": "{{remaining}} av {{limit}} hurtiglogginger igjen denne uka",
+    "clickOnlyUsedUp": "Ukas hurtiglogginger er brukt opp. Økta teller fortsatt for streaken din, men gir 0 poeng fram til mandag. Timeren gir poeng!"
   },
   "goalBonusTakeover": {
     "headline": "Laget nådde ukens mål!",
@@ -297,5 +303,28 @@
     "offToast": "Påminnelsen er av.",
     "notifTitle": "På tide å trene",
     "notifBody": "10–15 minutter holder. Streaken din venter!"
+  },
+  "trainingTimer": {
+    "heading": "Stå på! 💪",
+    "explainer": "Timeren viser at tiden gikk. Du kan låse telefonen — klokka går likevel.",
+    "ofMinutes": "av {{minutes}} min",
+    "remainingA11y": "{{time}} igjen",
+    "stop": "Avslutt",
+    "stopConfirm": "Avslutte nå? Du får poeng for {{minutes}} min.",
+    "stopConfirmYes": "Ja, avslutt og logg",
+    "keepGoing": "Fortsett å trene",
+    "tooShort": "Det har gått mindre enn ett minutt, så det er ingenting å logge ennå. Hold på litt til, eller avbryt timeren.",
+    "discard": "Avbryt timeren",
+    "doneHeading": "Tiden er ute! 🎉",
+    "doneBody": "{{minutes}} min ferdig. Bra jobba!",
+    "logIt": "Logg økta",
+    "finishHeading": "Hvordan vil du logge økta?",
+    "finishHelp": "Timeren teller {{minutes}} min. Vil du gi laget enda mer, kan du legge til en video.",
+    "evidenceTimer": "Bare timeren",
+    "submit": "Logg",
+    "back": "Tilbake",
+    "notifTitle": "Tiden er ute! ⏱️",
+    "notifBody": "Bra kjempa! Åpne appen og logg økta di.",
+    "rejected": "Timeren kunne ikke brukes denne gangen. Avbryt timeren og logg økta som vanlig i stedet — den teller likevel."
   }
 }

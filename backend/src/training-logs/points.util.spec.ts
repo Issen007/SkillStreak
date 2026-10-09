@@ -1,4 +1,5 @@
 import {
+  CLICK_ONLY_WEEKLY_LIMIT,
   EvidenceTier,
   evidenceMultiplier,
   pointsForTrainingLog,
@@ -40,6 +41,7 @@ describe('pointsForTrainingLog', () => {
     // rule necessary at all.
     [EvidenceTier.CLICK_ONLY, 2],
     [EvidenceTier.SELFIE, 15],
+    [EvidenceTier.TIMED, 15],
     [EvidenceTier.VIDEO, 18],
     [EvidenceTier.VIDEO_SHARED_WITH_TEAM, 21],
   ])(
@@ -101,5 +103,47 @@ describe('pointsForTrainingLog', () => {
   // pipeline behind it, not an accident.
   it('defines the selfie tier without the app being able to produce one yet', () => {
     expect(evidenceMultiplier(EvidenceTier.SELFIE)).toBe(1);
+  });
+
+  // docs/adr/0038 Decision 1 — the timer takes the x1 slot; the ladder from
+  // a bare tap up to a shared clip still climbs strictly.
+  it('pays a timed session x1, between a tap and a clip', () => {
+    expect(evidenceMultiplier(EvidenceTier.TIMED)).toBe(1);
+    const ladder = [
+      EvidenceTier.CLICK_ONLY,
+      EvidenceTier.TIMED,
+      EvidenceTier.VIDEO,
+      EvidenceTier.VIDEO_SHARED_WITH_TEAM,
+    ].map((tier) => pointsForTrainingLog(30, tier));
+    expect(ladder).toEqual([3, 30, 36, 42]);
+  });
+});
+
+// docs/adr/0038 Decision 4 — 3 paid click-only logs per week.
+describe('pointsForTrainingLog — weekly click-only cap', () => {
+  it('is 3 per week', () => {
+    expect(CLICK_ONLY_WEEKLY_LIMIT).toBe(3);
+  });
+
+  it('pays the 1st to 3rd click-only log of the week and 0 from the 4th', () => {
+    expect(pointsForTrainingLog(20, EvidenceTier.CLICK_ONLY, 0)).toBe(2);
+    expect(pointsForTrainingLog(20, EvidenceTier.CLICK_ONLY, 1)).toBe(2);
+    expect(pointsForTrainingLog(20, EvidenceTier.CLICK_ONLY, 2)).toBe(2);
+    expect(pointsForTrainingLog(20, EvidenceTier.CLICK_ONLY, 3)).toBe(0);
+    expect(pointsForTrainingLog(20, EvidenceTier.CLICK_ONLY, 7)).toBe(0);
+  });
+
+  // The zero is the only exception to the floor of 1, and only for an
+  // over-cap tap — a short session under the cap still floors to 1.
+  it('keeps the floor of 1 under the cap', () => {
+    expect(pointsForTrainingLog(1, EvidenceTier.CLICK_ONLY, 2)).toBe(1);
+  });
+
+  it('never caps a timed or video log, however many taps came before', () => {
+    expect(pointsForTrainingLog(20, EvidenceTier.TIMED, 10)).toBe(20);
+    expect(pointsForTrainingLog(20, EvidenceTier.VIDEO, 10)).toBe(24);
+    expect(
+      pointsForTrainingLog(20, EvidenceTier.VIDEO_SHARED_WITH_TEAM, 10),
+    ).toBe(28);
   });
 });

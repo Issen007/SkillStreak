@@ -14,10 +14,12 @@
   },
   "homeScreen": {
     "loadError": "Kunne ikke hente dine data. Tjek din forbindelse.",
-    "extraLogToast": "Flot klaret! +{{minutes}} min til holdets pulje 🥇",
     "consentRequiredToast": "Vi mangler stadig godkendelse, før du kan logge træning. Vi opdaterer siden for dig.",
     "successBanner": "🔥 Flot klaret! {{count}} dage i træk.",
-    "successFloatingText": "+{{minutes}} min til holdet"
+    "successFloatingPoints": "+{{points}} point til holdet",
+    "successFloatingNoPoints": "Tæller for din streak 🔥",
+    "extraLogPointsToast": "Sejt arbejde! +{{points}} point til holdets pulje 🥇",
+    "zeroPointsToast": "Passet er gemt og tæller for din streak 🔥 Du har brugt ugens {{limit}} hurtiglogninger, så det gav 0 point denne gang. Prøv timeren næste gang — så får holdet point!"
   },
   "activitySheet": {
     "heading": "Hvad trænede du?",
@@ -41,8 +43,12 @@
     "evidence": {
       "none": "Bare log det",
       "video": "Med video",
-      "videoShared": "Med video — del med holdet"
-    }
+      "videoShared": "Med video — del med holdet",
+      "timer": "Med timer"
+    },
+    "submitTimer": "Start timeren",
+    "clickOnlyRemaining": "{{remaining}} af {{limit}} hurtiglogninger tilbage denne uge",
+    "clickOnlyUsedUp": "Ugens hurtiglogninger er brugt. Passet tæller stadig for din streak, men giver 0 point indtil mandag. Timeren giver point!"
   },
   "goalBonusTakeover": {
     "headline": "Holdet nåede ugens mål!",
@@ -297,5 +303,28 @@
     "offToast": "Påmindelsen er slået fra.",
     "notifTitle": "Tid til at træne",
     "notifBody": "10–15 minutter er nok. Din streak venter!"
+  },
+  "trainingTimer": {
+    "heading": "Giv den gas! 💪",
+    "explainer": "Timeren viser, at tiden gik. Du kan låse telefonen — uret kører videre.",
+    "ofMinutes": "af {{minutes}} min",
+    "remainingA11y": "{{time}} tilbage",
+    "stop": "Afslut",
+    "stopConfirm": "Afslut nu? Du får point for {{minutes}} min.",
+    "stopConfirmYes": "Ja, afslut og log",
+    "keepGoing": "Træn videre",
+    "tooShort": "Der er gået mindre end et minut, så der er intet at logge endnu. Fortsæt lidt endnu, eller annullér timeren.",
+    "discard": "Annullér timeren",
+    "doneHeading": "Tiden er gået! 🎉",
+    "doneBody": "{{minutes}} min klaret. Godt gået!",
+    "logIt": "Log passet",
+    "finishHeading": "Hvordan vil du logge passet?",
+    "finishHelp": "Timeren tæller {{minutes}} min. Vil du give holdet endnu mere, kan du tilføje en video.",
+    "evidenceTimer": "Kun timeren",
+    "submit": "Log",
+    "back": "Tilbage",
+    "notifTitle": "Tiden er gået! ⏱️",
+    "notifBody": "Godt kæmpet! Åbn appen og log dit pas.",
+    "rejected": "Timeren kunne ikke bruges denne gang. Annullér timeren og log passet som normalt i stedet — det tæller stadig."
   }
 }

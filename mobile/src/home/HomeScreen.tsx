@@ -12,19 +12,35 @@ import { WaitingCard } from './components/WaitingCard';
 import { TrainedButton } from './components/TrainedButton';
 import { ActivitySheet } from './components/ActivitySheet';
 import { EvidenceFallbackSheet } from './components/EvidenceFallbackSheet';
+import { TimerCountdownScreen } from './components/TimerCountdownScreen';
+import type { TimerLogChoice } from './components/TimerCountdownScreen';
 import { SuccessOverlay } from './components/SuccessOverlay';
 import { GoalBonusTakeover } from './components/GoalBonusTakeover';
 import { Toast } from '../components/Toast';
 import { LoadingOrRetry } from '../components/LoadingOrRetry';
 import { LeaderboardScreen } from '../leaderboard/LeaderboardScreen';
-import { getMe, postTrainingLog } from '../api/endpoints';
+import {
+  getClickOnlyAllowance,
+  getMe,
+  postTrainingLog,
+  postTrainingTimer,
+} from '../api/endpoints';
 import { ApiError, isConsentRequiredError } from '../api/ApiError';
 import { clearSessionToken } from '../api/authStorage';
 import { skipRemainderOfToday } from '../api/trainingReminder';
+import {
+  activeTimerFromResponse,
+  clearActiveTimer,
+  loadActiveTimer,
+  saveActiveTimer,
+  scheduleTimerEndNotification,
+} from '../api/trainingTimer';
+import type { ActiveTimer } from '../api/trainingTimer';
 import { colors } from '../theme/colors';
 import { UploadFlow } from '../clips/upload/UploadFlow';
 import type {
   ActivityType,
+  ClickOnlyAllowance,
   CreateTrainingLogRequest,
   EvidenceChoice,
   PlayerMeResponse,
@@ -44,9 +60,9 @@ interface HomeScreenProps {
   onGoalBonusTriggered?: () => void;
 }
 
-type SuccessMoment =
-  | { kind: 'first-log'; streakCount: number; durationMinutes: number }
-  | { kind: 'extra-log'; durationMinutes: number };
+/** `pointsAwarded` is null only if the server predates ADR-0038 and did
+ * not send it — then no number is shown rather than a wrong one. */
+type SuccessMoment = { kind: 'first-log'; streakCount: number; pointsAwarded: number | null };
 
 /** The real home screen — H1/H3/H4 states driven by `GET /players/me`,
  * H2's activity sheet, and H5/H6's success moments after
@@ -107,13 +123,36 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
      * points instead of 28, with nothing saying the choice had changed.
      */
     evidence: EvidenceChoice;
+    /** ADR-0038 Decision 5 — a timed session whose clip did not finish
+     * still has its timer, so "log anyway" lands at ×1, not ×0.1. */
+    timerId?: string;
   } | null>(null);
 
   const [pendingEvidenceLog, setPendingEvidenceLog] = useState<{
     activityType: ActivityType;
     durationMinutes: number;
     evidence: EvidenceChoice;
+    timerId?: string;
   } | null>(null);
+
+  /*
+   * docs/adr/0038 — the running countdown timer. Its own state, separate
+   * from the sheet's: the timer outlives the sheet, the app being
+   * backgrounded and the app being killed (persisted in trainingTimer.ts
+   * and restored below), and a log written from it reports its errors on
+   * the countdown screen, which is what is on screen at that moment.
+   */
+  const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
+  const [timerLoading, setTimerLoading] = useState(false);
+  const [timerError, setTimerError] = useState<string | null>(null);
+  /** Hides the countdown while a timed session's clip is being uploaded
+   * and logged, so it does not flash back mid-way. */
+  const [timerHidden, setTimerHidden] = useState(false);
+  // ADR-0038 Decision 4 — shown in the picker before the choice. null =
+  // unknown, and the picker then shows no allowance line at all.
+  const [clickOnlyAllowance, setClickOnlyAllowance] = useState<ClickOnlyAllowance | null>(
+    null,
+  );
   // docs/design/streak-savers-ui.md §3 — the "streak saved!" celebration,
   // triggered once from a training-log response's `streak.streakSaverSpent
   // > 0`, inserted into the same mutually-exclusive overlay chain as
@@ -123,6 +162,8 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
     bankedStreakSaverCount: number;
   } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Longer messages (the 0-points explanation) need longer to read.
+  const [toastDurationMs, setToastDurationMs] = useState<number | undefined>(undefined);
   // Screen LB1/LB2 (Fas 2.7) — a local view toggle to reach the full
   // leaderboard, same lightweight "no navigation library" pattern
   // GoalScreen/TeamScreen already use for their own sub-views. 'profile'
@@ -180,6 +221,30 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
     return () => subscription.remove();
   }, [fetchMe]);
 
+  /*
+   * Restore a timer that was running when the app was last closed. The
+   * countdown recomputes from the stored server `endsAt`, so a timer that
+   * finished while the app was dead simply shows as finished. Re-arming
+   * the notification is idempotent (fixed identifier) and covers an OS
+   * that dropped it; it never asks for permission.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    void loadActiveTimer().then((timer) => {
+      if (cancelled || !timer) return;
+      setActiveTimer(timer);
+      void scheduleTimerEndNotification(timer, {
+        title: t('trainingTimer.notifTitle'),
+        body: t('trainingTimer.notifBody'),
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Mount-only: `t` changing language must not re-restore the timer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleManualRefresh = () => {
     setManualRefreshing(true);
     void fetchMe();
@@ -188,6 +253,73 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
   const handleOpenSheet = () => {
     setSheetError(null);
     setSheetOpen(true);
+    // Fresh every open: the week may have rolled over, or another device
+    // may have logged. A failure leaves the last known value (or none).
+    getClickOnlyAllowance()
+      .then(setClickOnlyAllowance)
+      .catch(() => undefined);
+  };
+
+  const discardTimer = () => {
+    setActiveTimer(null);
+    setTimerError(null);
+    setTimerHidden(false);
+    void clearActiveTimer();
+  };
+
+  /** docs/adr/0038 Decision 2 — the server starts the clock; the phone
+   * only displays it. */
+  const startTimer = async (activityType: ActivityType, plannedMinutes: number) => {
+    setSheetLoading(true);
+    setSheetError(null);
+    try {
+      const response = await postTrainingTimer({ activityType, plannedMinutes });
+      const timer = activeTimerFromResponse(response, activityType);
+      await saveActiveTimer(timer);
+      void scheduleTimerEndNotification(timer, {
+        title: t('trainingTimer.notifTitle'),
+        body: t('trainingTimer.notifBody'),
+      });
+      setTimerError(null);
+      setTimerHidden(false);
+      setActiveTimer(timer);
+      setSheetOpen(false);
+      setSheetLoading(false);
+    } catch (err) {
+      setSheetLoading(false);
+      if (err instanceof ApiError && err.status === 401) {
+        setSheetOpen(false);
+        await clearSessionToken();
+        onSessionInvalid();
+        return;
+      }
+      if (isConsentRequiredError(err)) {
+        setSheetOpen(false);
+        setToastDurationMs(undefined);
+        setToastMessage(t('homeScreen.consentRequiredToast'));
+        void fetchMe();
+      } else {
+        setSheetError(t('shared.genericErrorTryAgain'));
+      }
+    }
+  };
+
+  /** From the countdown's finish step. A clip goes through the same
+   * upload-then-log path as an untimed video log, carrying the timer. */
+  const handleTimerLog = (minutesDone: number, choice: TimerLogChoice) => {
+    if (!activeTimer) return;
+    const base = {
+      activityType: activeTimer.activityType,
+      durationMinutes: minutesDone,
+      timerId: activeTimer.timerId,
+    };
+    if (choice === 'timer') {
+      void writeTrainingLog(base);
+      return;
+    }
+    setTimerError(null);
+    setTimerHidden(true);
+    setPendingEvidenceLog({ ...base, evidence: choice });
   };
 
   /**
@@ -208,6 +340,10 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
     durationMinutes: number,
     evidence: EvidenceChoice,
   ) => {
+    if (evidence === 'timer') {
+      await startTimer(activityType, durationMinutes);
+      return;
+    }
     if (evidence !== 'none') {
       setSheetOpen(false);
       setPendingEvidenceLog({ activityType, durationMinutes, evidence });
@@ -217,13 +353,28 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
   };
 
   const writeTrainingLog = async (body: CreateTrainingLogRequest) => {
-    const { durationMinutes } = body;
-    setSheetLoading(true);
-    setSheetError(null);
+    // A timed log is written from the countdown screen, so its loading and
+    // error states belong there; everything else reports on the sheet.
+    const fromTimer = body.timerId !== undefined;
+    const setLoadingFor = fromTimer ? setTimerLoading : setSheetLoading;
+    const setErrorFor = fromTimer ? setTimerError : setSheetError;
+    setLoadingFor(true);
+    setErrorFor(null);
     try {
       const response = await postTrainingLog(body);
       setSheetOpen(false);
-      setSheetLoading(false);
+      setLoadingFor(false);
+      if (fromTimer) {
+        // A timer verifies one log and is then consumed (ADR-0038).
+        setActiveTimer(null);
+        setTimerHidden(false);
+        void clearActiveTimer();
+      }
+      if (response.clickOnlyAllowance) {
+        setClickOnlyAllowance(response.clickOnlyAllowance);
+      }
+      const pointsAwarded =
+        typeof response.pointsAwarded === 'number' ? response.pointsAwarded : null;
       // ADR-0033 Decision 2: nothing is sent on a day already logged.
       // Fire-and-forget — a reminder that fails to reschedule is a small
       // annoyance, and it must never turn a successful log into an error.
@@ -291,28 +442,78 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
         setSuccessMoment({
           kind: 'first-log',
           streakCount: response.streak.currentStreakCount,
-          durationMinutes,
+          pointsAwarded,
         });
-      } else {
+      } else if (pointsAwarded !== 0) {
         // An additional same-day log — State H6.
-        setToastMessage(t('homeScreen.extraLogToast', { minutes: durationMinutes }));
+        setToastDurationMs(undefined);
+        setToastMessage(
+          pointsAwarded === null
+            ? t('homeScreen.successFloatingNoPoints')
+            : t('homeScreen.extraLogPointsToast', { points: pointsAwarded }),
+        );
+      }
+
+      /*
+       * ADR-0038 Decision 4 — a click-only log past the weekly allowance
+       * pays 0. Say why, kindly, whichever celebration is showing: the
+       * session is saved and the streak counts, and the timer is how to
+       * earn points again. A silent zero would read as the app being
+       * broken or as a punishment, and this audience is 9–13.
+       */
+      if (pointsAwarded === 0) {
+        setToastDurationMs(6000);
+        setToastMessage(
+          t('homeScreen.zeroPointsToast', {
+            limit: response.clickOnlyAllowance?.limit ?? 3,
+          }),
+        );
       }
     } catch (err) {
-      setSheetLoading(false);
+      setLoadingFor(false);
       if (err instanceof ApiError && err.status === 401) {
         // Same recovery as fetchMe: a mid-session token invalidation
         // shouldn't become a dead end that only killing the app can escape.
         setSheetOpen(false);
+        if (fromTimer) discardTimer();
         await clearSessionToken();
         onSessionInvalid();
         return;
       }
-      if (isConsentRequiredError(err)) {
+      // Whatever went wrong, the countdown comes back so the error is seen.
+      setTimerHidden(false);
+      if (fromTimer && isConsentRequiredError(err)) {
+        // The countdown covers the screen, so a toast would be hidden.
+        setTimerError(t('homeScreen.consentRequiredToast'));
+        void fetchMe();
+      } else if (
+        fromTimer &&
+        err instanceof ApiError &&
+        err.code === 'training_timer_too_short'
+      ) {
+        // The one timer failure the child can fix by carrying on: the
+        // server keeps the timer open. Only reachable if this phone's
+        // clock disagrees with the server's about the first minute.
+        setTimerError(t('trainingTimer.tooShort'));
+      } else if (
+        fromTimer &&
+        err instanceof ApiError &&
+        err.status >= 400 &&
+        err.status < 500
+      ) {
+        // Too old, already used, or replaced by a timer started on another
+        // device. The training still happened — the copy points to logging
+        // it the ordinary way.
+        setTimerError(t('trainingTimer.rejected'));
+      } else if (fromTimer) {
+        setTimerError(t('shared.genericErrorTryAgain'));
+      } else if (isConsentRequiredError(err)) {
         // Stale-state edge case (Part 1 of the flow doc): the server is
         // the real gate, client state was stale. Close the sheet, toast
         // an explanation, and re-fetch to land back on the accurate
         // waiting/paused state.
         setSheetOpen(false);
+        setToastDurationMs(undefined);
         setToastMessage(t('homeScreen.consentRequiredToast'));
         void fetchMe();
       } else {
@@ -400,6 +601,8 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
         }}
         onConsentRevoked={() => {
           setPendingEvidenceLog(null);
+          // A timed session keeps its timer; the countdown comes back.
+          setTimerHidden(false);
           void fetchMe();
         }}
         onPublished={(clipId) => {
@@ -411,6 +614,7 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
             durationMinutes: pending.durationMinutes,
             evidenceClipId: clipId,
             sharedWithTeam: pending.evidence === 'video_shared',
+            timerId: pending.timerId,
           });
         }}
       />
@@ -440,9 +644,13 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
         ) : successMoment?.kind === 'first-log' ? (
           <SuccessOverlay
             bannerText={t('homeScreen.successBanner', { count: successMoment.streakCount })}
-            floatingText={t('homeScreen.successFloatingText', {
-              minutes: successMoment.durationMinutes,
-            })}
+            floatingText={
+              successMoment.pointsAwarded === null || successMoment.pointsAwarded === 0
+                ? t('homeScreen.successFloatingNoPoints')
+                : t('homeScreen.successFloatingPoints', {
+                    points: successMoment.pointsAwarded,
+                  })
+            }
             onDismiss={() => setSuccessMoment(null)}
           />
         ) : null}
@@ -502,6 +710,16 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
           const fallback = abandonedEvidenceLog;
           setAbandonedEvidenceLog(null);
           if (!fallback) return;
+          if (fallback.timerId) {
+            // Timed session: logs at ×1 with the timer, and any error shows
+            // on the countdown screen, which comes back for it.
+            void writeTrainingLog({
+              activityType: fallback.activityType,
+              durationMinutes: fallback.durationMinutes,
+              timerId: fallback.timerId,
+            });
+            return;
+          }
           // Reopen the sheet so writeTrainingLog's error has somewhere to
           // land. Its failure path writes to `sheetError`, which only
           // ActivitySheet renders and only while it is open — and the
@@ -516,21 +734,40 @@ export function HomeScreen({ onSessionInvalid, onGoalBonusTriggered }: HomeScree
             durationMinutes: fallback.durationMinutes,
           });
         }}
-        onDismiss={() => setAbandonedEvidenceLog(null)}
+        onDismiss={() => {
+          setAbandonedEvidenceLog(null);
+          setTimerHidden(false);
+        }}
       />
 
       <ActivitySheet
         visible={sheetOpen}
         loading={sheetLoading}
         errorText={sheetError}
+        clickOnlyAllowance={clickOnlyAllowance}
         onClose={() => {
           if (!sheetLoading) setSheetOpen(false);
         }}
         onSubmit={handleSubmitLog}
       />
 
+      {activeTimer ? (
+        <TimerCountdownScreen
+          visible={!timerHidden && abandonedEvidenceLog === null}
+          timer={activeTimer}
+          loading={timerLoading}
+          errorText={timerError}
+          onLog={handleTimerLog}
+          onDiscard={discardTimer}
+        />
+      ) : null}
+
       {toastMessage ? (
-        <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+        <Toast
+          message={toastMessage}
+          durationMs={toastDurationMs}
+          onDismiss={() => setToastMessage(null)}
+        />
       ) : null}
     </View>
   );

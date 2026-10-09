@@ -14,10 +14,12 @@
   },
   "homeScreen": {
     "loadError": "No se pudieron cargar tus datos. Revisa tu conexión.",
-    "extraLogToast": "¡Genial! +{{minutes}} min para el bote del equipo 🥇",
     "consentRequiredToast": "Seguimos necesitando la autorización para que puedas registrar entrenamientos. Vamos a actualizar esto.",
     "successBanner": "🔥 ¡Muy bien! {{count}} días seguidos.",
-    "successFloatingText": "+{{minutes}} min para el equipo"
+    "successFloatingPoints": "+{{points}} puntos para el equipo",
+    "successFloatingNoPoints": "Cuenta para tu racha 🔥",
+    "extraLogPointsToast": "¡Buen trabajo! +{{points}} puntos para el bote del equipo 🥇",
+    "zeroPointsToast": "Tu sesión está guardada y cuenta para tu racha 🔥 Ya has usado los {{limit}} registros rápidos de esta semana, así que esta dio 0 puntos. Prueba el temporizador la próxima vez: ¡así el equipo gana puntos!"
   },
   "activitySheet": {
     "heading": "¿Qué has entrenado?",
@@ -41,8 +43,12 @@
     "evidence": {
       "none": "Solo registrarlo",
       "video": "Con un vídeo",
-      "videoShared": "Con un vídeo: compartir con el equipo"
-    }
+      "videoShared": "Con un vídeo: compartir con el equipo",
+      "timer": "Con el temporizador"
+    },
+    "submitTimer": "Iniciar el temporizador",
+    "clickOnlyRemaining": "Te quedan {{remaining}} de {{limit}} registros rápidos esta semana",
+    "clickOnlyUsedUp": "Ya has usado los registros rápidos de esta semana. Sigue contando para tu racha, pero da 0 puntos hasta el lunes. ¡El temporizador da puntos!"
   },
   "goalBonusTakeover": {
     "headline": "¡El equipo ha logrado el objetivo de esta semana!",
@@ -297,5 +303,28 @@
     "offToast": "El recordatorio está desactivado.",
     "notifTitle": "Hora de entrenar",
     "notifBody": "Con 10–15 minutos basta. ¡Tu racha te espera!"
+  },
+  "trainingTimer": {
+    "heading": "¡A tope! 💪",
+    "explainer": "El temporizador muestra que el tiempo pasó. Puedes bloquear el móvil: el reloj sigue.",
+    "ofMinutes": "de {{minutes}} min",
+    "remainingA11y": "Quedan {{time}}",
+    "stop": "Terminar",
+    "stopConfirm": "¿Terminar ahora? Consigues puntos por {{minutes}} min.",
+    "stopConfirmYes": "Sí, terminar y registrar",
+    "keepGoing": "Seguir entrenando",
+    "tooShort": "Ha pasado menos de un minuto, así que aún no hay nada que registrar. Sigue un poco más o cancela el temporizador.",
+    "discard": "Cancelar el temporizador",
+    "doneHeading": "¡Se acabó el tiempo! 🎉",
+    "doneBody": "{{minutes}} min hechos. ¡Buen trabajo!",
+    "logIt": "Registrar la sesión",
+    "finishHeading": "¿Cómo quieres registrar la sesión?",
+    "finishHelp": "El temporizador cuenta {{minutes}} min. Si quieres darle aún más al equipo, añade un vídeo.",
+    "evidenceTimer": "Solo el temporizador",
+    "submit": "Registrar",
+    "back": "Volver",
+    "notifTitle": "¡Se acabó el tiempo! ⏱️",
+    "notifBody": "¡Buen esfuerzo! Abre la app para registrar tu sesión.",
+    "rejected": "Esta vez no se pudo usar el temporizador. Cancélalo y registra tu sesión de la forma normal: cuenta igual."
   }
 }

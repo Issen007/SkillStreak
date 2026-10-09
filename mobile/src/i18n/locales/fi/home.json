@@ -14,10 +14,12 @@
   },
   "homeScreen": {
     "loadError": "Tietojasi ei saatu ladattua. Tarkista verkkoyhteytesi.",
-    "extraLogToast": "Mahtavaa työtä! +{{minutes}} min joukkueen pottiin 🥇",
     "consentRequiredToast": "Tarvitsemme vielä luvan ennen kuin voit kirjata harjoituksia. Päivitämme sivun sinulle.",
     "successBanner": "🔥 Hienoa työtä! {{count}} päivää putkeen.",
-    "successFloatingText": "+{{minutes}} min joukkueelle"
+    "successFloatingPoints": "+{{points}} pistettä joukkueelle",
+    "successFloatingNoPoints": "Lasketaan putkeesi 🔥",
+    "extraLogPointsToast": "Mahtavaa työtä! +{{points}} pistettä joukkueen pottiin 🥇",
+    "zeroPointsToast": "Harjoitus on tallennettu ja lasketaan putkeesi 🔥 Olet käyttänyt tämän viikon {{limit}} pikakirjausta, joten tästä tuli 0 pistettä. Kokeile ensi kerralla ajastinta — silloin joukkue saa pisteitä!"
   },
   "activitySheet": {
     "heading": "Mitä harjoittelit?",
@@ -41,8 +43,12 @@
     "evidence": {
       "none": "Vain kirjaa",
       "video": "Videon kanssa",
-      "videoShared": "Videon kanssa — jaa joukkueelle"
-    }
+      "videoShared": "Videon kanssa — jaa joukkueelle",
+      "timer": "Ajastimella"
+    },
+    "submitTimer": "Käynnistä ajastin",
+    "clickOnlyRemaining": "{{remaining}}/{{limit}} pikakirjausta jäljellä tällä viikolla",
+    "clickOnlyUsedUp": "Tämän viikon pikakirjaukset on käytetty. Harjoitus lasketaan silti putkeesi, mutta siitä saa 0 pistettä maanantaihin asti. Ajastimella saa pisteitä!"
   },
   "goalBonusTakeover": {
     "headline": "Joukkue saavutti viikon tavoitteen!",
@@ -297,5 +303,28 @@
     "offToast": "Muistutus on pois päältä.",
     "notifTitle": "Aika harjoitella",
     "notifBody": "10–15 minuuttia riittää. Putkesi odottaa!"
+  },
+  "trainingTimer": {
+    "heading": "Anna palaa! 💪",
+    "explainer": "Ajastin näyttää, että aika kului. Voit lukita puhelimen — kello käy silti.",
+    "ofMinutes": "/ {{minutes}} min",
+    "remainingA11y": "{{time}} jäljellä",
+    "stop": "Lopeta",
+    "stopConfirm": "Lopetetaanko nyt? Saat pisteet {{minutes}} minuutista.",
+    "stopConfirmYes": "Kyllä, lopeta ja kirjaa",
+    "keepGoing": "Jatka harjoittelua",
+    "tooShort": "Aikaa on kulunut alle minuutti, joten kirjattavaa ei vielä ole. Jatka vielä hetki tai peru ajastin.",
+    "discard": "Peru ajastin",
+    "doneHeading": "Aika loppui! 🎉",
+    "doneBody": "{{minutes}} min tehty. Hienoa työtä!",
+    "logIt": "Kirjaa harjoitus",
+    "finishHeading": "Miten haluat kirjata harjoituksen?",
+    "finishHelp": "Ajastin laskee {{minutes}} min. Jos haluat antaa joukkueelle vielä enemmän, lisää video.",
+    "evidenceTimer": "Pelkkä ajastin",
+    "submit": "Kirjaa",
+    "back": "Takaisin",
+    "notifTitle": "Aika loppui! ⏱️",
+    "notifBody": "Hienosti taisteltu! Avaa sovellus ja kirjaa harjoituksesi.",
+    "rejected": "Ajastinta ei voitu käyttää tällä kertaa. Peru ajastin ja kirjaa harjoitus tavalliseen tapaan — se lasketaan silti."
   }
 }

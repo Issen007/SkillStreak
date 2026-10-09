@@ -14,10 +14,12 @@
   },
   "homeScreen": {
     "loadError": "Couldn't load your data. Check your connection.",
-    "extraLogToast": "Awesome work! +{{minutes}} min to the team pot 🥇",
     "consentRequiredToast": "We still need approval before you can log training. We're refreshing this for you.",
     "successBanner": "🔥 Nice work! {{count}} days in a row.",
-    "successFloatingText": "+{{minutes}} min to the team"
+    "successFloatingPoints": "+{{points}} points to the team",
+    "successFloatingNoPoints": "Counts for your streak 🔥",
+    "extraLogPointsToast": "Awesome work! +{{points}} points to the team pot 🥇",
+    "zeroPointsToast": "Your session is saved and counts for your streak 🔥 You've used this week's {{limit}} quick logs, so this one gave 0 points. Try the timer next time — it gives the team points!"
   },
   "activitySheet": {
     "heading": "What did you train?",
@@ -41,8 +43,12 @@
     "evidence": {
       "none": "Just log it",
       "video": "With a video",
-      "videoShared": "With a video — share with the team"
-    }
+      "videoShared": "With a video — share with the team",
+      "timer": "With the timer"
+    },
+    "submitTimer": "Start the timer",
+    "clickOnlyRemaining": "{{remaining}} of {{limit}} quick logs left this week",
+    "clickOnlyUsedUp": "You've used this week's quick logs. It still counts for your streak, but gives 0 points until Monday. The timer gives points!"
   },
   "goalBonusTakeover": {
     "headline": "The team hit this week's goal!",
@@ -297,5 +303,28 @@
     "offToast": "Reminder is off.",
     "notifTitle": "Time to train",
     "notifBody": "10–15 minutes is enough. Your streak is waiting!"
+  },
+  "trainingTimer": {
+    "heading": "Go for it! 💪",
+    "explainer": "The timer shows that the time passed. You can lock your phone — the clock keeps going.",
+    "ofMinutes": "of {{minutes}} min",
+    "remainingA11y": "{{time}} left",
+    "stop": "Finish",
+    "stopConfirm": "Finish now? You get points for {{minutes}} min.",
+    "stopConfirmYes": "Yes, finish and log it",
+    "keepGoing": "Keep training",
+    "tooShort": "Less than a minute has passed, so there's nothing to log yet. Keep going a bit longer, or cancel the timer.",
+    "discard": "Cancel the timer",
+    "doneHeading": "Time's up! 🎉",
+    "doneBody": "{{minutes}} min done. Nice work!",
+    "logIt": "Log the session",
+    "finishHeading": "How do you want to log it?",
+    "finishHelp": "The timer counts {{minutes}} min. If you want to give the team even more, add a video.",
+    "evidenceTimer": "Just the timer",
+    "submit": "Log it",
+    "back": "Back",
+    "notifTitle": "Time's up! ⏱️",
+    "notifBody": "Great effort! Open the app to log your session.",
+    "rejected": "The timer couldn't be used this time. Cancel the timer and log your session the normal way instead — it still counts."
   }
 }

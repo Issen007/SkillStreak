@@ -2,6 +2,7 @@ import {
   daysBetweenExclusive,
   previousDateString,
   stockholmDateString,
+  stockholmWeekBounds,
 } from './stockholm-date.util';
 
 describe('stockholmDateString', () => {
@@ -66,5 +67,28 @@ describe('daysBetweenExclusive', () => {
 
   it('handles a month rollover', () => {
     expect(daysBetweenExclusive('2026-06-28', '2026-07-02')).toBe(3);
+  });
+});
+
+// docs/adr/0038 Decision 4 — the click-only cap's week.
+describe('stockholmWeekBounds', () => {
+  it.each([
+    ['2026-10-05'], // Monday
+    ['2026-10-09'], // Friday
+    ['2026-10-11'], // Sunday — still the same week, not the next one
+  ])('puts %s in the week of Monday 2026-10-05', (date) => {
+    expect(stockholmWeekBounds(date)).toEqual({
+      weekStart: '2026-10-05',
+      weekEnd: '2026-10-11',
+      nextWeekStart: '2026-10-12',
+    });
+  });
+
+  it('handles a year rollover', () => {
+    expect(stockholmWeekBounds('2027-01-03')).toEqual({
+      weekStart: '2026-12-28',
+      weekEnd: '2027-01-03',
+      nextWeekStart: '2027-01-04',
+    });
   });
 });

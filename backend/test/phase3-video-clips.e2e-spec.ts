@@ -135,12 +135,11 @@ async function readFormatTags(bytes: Buffer): Promise<Record<string, string>> {
 }
 
 // Exercises docs/api/phase3-contract.md's five endpoints end-to-end against
-// real Postgres + Redis + MinIO, mirroring phase2.6b-team-chat.e2e-spec.ts's
+// real Postgres + Redis + S3, mirroring phase2.6b-team-chat.e2e-spec.ts's
 // fixture-creation conventions. Requires ffmpeg/ffprobe (see
 // ffmpegAvailable() — the same real-binary posture as
-// video-processing.service.spec.ts) and a real MinIO instance reachable at
-// MINIO_ENDPOINT (docker-compose.yml's `minio` service / CI's bitnami/minio
-// service container) — this suite is the one place a genuinely-real upload
+// video-processing.service.spec.ts) and a real S3 bucket reachable at
+// MINIO_ENDPOINT (CI's Safespring test bucket, or your own) — this suite is the one place a genuinely-real upload
 // -> remux -> playback round trip is proven, not just each layer in
 // isolation.
 describe('Fas 3: video clips & the team feed (e2e)', () => {
