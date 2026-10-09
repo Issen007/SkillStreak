@@ -46,25 +46,14 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-    # Fas 3's video-clip e2e suite exercises a real MinIO instance (the
+    # Fas 3's video-clip e2e suite exercises real S3 object storage (the
     # object-storage/metadata-stripping path is the whole point of that
-    # suite, not something to stub out) — started as a manual `docker run`
-    # step below, not a `services:` entry like postgres/redis above.
-    #
-    # HISTORY: this originally used `bitnami/minio:latest` as a `services:`
-    # entry, since GitHub Actions job "services" can't override a
-    # container's command/args and bitnami's image was designed to boot the
-    # server from env vars alone. That broke every CI run once Bitnami
-    # pulled its free-tier images off Docker Hub (`bitnami/minio` now
-    # resolves zero tags at all — confirmed via Docker Hub's own API, not
-    # just this run's failure). The official `minio/minio` image doesn't
-    # have the same env-vars-only boot behavior (its default `Cmd` is bare
-    # `["minio"]`, not `["minio","server","/data"]` — confirmed by pulling
-    # and inspecting it directly), so it can't be a drop-in `services:`
-    # replacement either. Running it as an explicit step instead sidesteps
-    # the command-override limitation entirely: `docker run` can pass
-    # `server /data` directly, the same command k8s/minio-deployment.yaml
-    # and docker-compose.yml already use for the official image.
+    # suite, not something to stub out). It uses a dedicated CI bucket at
+    # Safespring, the same provider production uses. Self-hosted MinIO was
+    # dropped on 2026-10-09: Bitnami, then Docker Hub, then quay.io each
+    # stopped serving its image to anonymous pulls, and every outage
+    # blocked every merge in the repo. Test objects are synthetic; the
+    # bucket should carry a short expiry lifecycle rule.
     env:
       DATABASE_URL: postgres://app:app@localhost:5432/app_dev
       REDIS_URL: redis://localhost:6379
@@ -81,10 +70,10 @@ jobs:
       # three-provider OAuth testing" decision — see StaffAuthService's
       # unit tests instead, which mock the OIDC client entirely.
       STAFF_JWT_SECRET: ci-only-test-secret
-      MINIO_ENDPOINT: http://localhost:9000
-      MINIO_ACCESS_KEY: ci-minio-user
-      MINIO_SECRET_KEY: ci-minio-password
-      MINIO_BUCKET: clips
+      MINIO_ENDPOINT: https://s3a4.sto2.safedc.net
+      MINIO_ACCESS_KEY: ${{ secrets.CI_S3_ACCESS_KEY }}
+      MINIO_SECRET_KEY: ${{ secrets.CI_S3_SECRET_KEY }}
+      MINIO_BUCKET: ${{ vars.CI_S3_BUCKET }}
     steps:
       - uses: actions/checkout@v4
 
@@ -185,24 +174,6 @@ jobs:
           done
 
           command -v ffmpeg && command -v ffprobe && ffmpeg -version | head -1
-
-      - name: Start MinIO (official image, manual run — see comment above)
-        run: |
-          docker run -d --name minio-ci \
-            -e MINIO_ROOT_USER=ci-minio-user \
-            -e MINIO_ROOT_PASSWORD=ci-minio-password \
-            -p 9000:9000 \
-            quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e server /data
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:9000/minio/health/live; then
-              echo "MinIO is healthy"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "MinIO did not become healthy in time"
-          docker logs minio-ci
-          exit 1
 
       - uses: pnpm/action-setup@v4
         with:
@@ -667,6 +638,10 @@ jobs:
         run: cp .env.example .env
 
       - name: Start stack
+        env:
+          MINIO_ACCESS_KEY: ${{ secrets.CI_S3_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.CI_S3_SECRET_KEY }}
+          MINIO_BUCKET: ${{ vars.CI_S3_BUCKET }}
         run: docker compose up -d --build
 
       - name: Wait for API health check
@@ -839,8 +814,6 @@ jobs:
           PII_ENCRYPTION_KEY: ${{ secrets.PII_ENCRYPTION_KEY }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
-          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
           MINIO_CLIPS_ACCESS_KEY: ${{ secrets.MINIO_CLIPS_ACCESS_KEY }}
           MINIO_CLIPS_SECRET_KEY: ${{ secrets.MINIO_CLIPS_SECRET_KEY }}
           # docs/adr/0023-pt-role-and-staff-sso-rbac.md Part B.
@@ -911,8 +884,6 @@ jobs:
             --from-literal=PII_ENCRYPTION_KEY="$PII_ENCRYPTION_KEY" \
             --from-literal=SMTP_USER="$SMTP_USER" \
             --from-literal=SMTP_PASSWORD="$SMTP_PASSWORD" \
-            --from-literal=MINIO_ROOT_USER="$MINIO_ROOT_USER" \
-            --from-literal=MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
             --from-literal=MINIO_CLIPS_ACCESS_KEY="$MINIO_CLIPS_ACCESS_KEY" \
             --from-literal=MINIO_CLIPS_SECRET_KEY="$MINIO_CLIPS_SECRET_KEY" \
             --from-literal=STAFF_JWT_SECRET="$STAFF_JWT_SECRET" \
@@ -1038,17 +1009,12 @@ jobs:
           kubectl apply -f k8s/postgres-pvc.yaml
           kubectl apply -f k8s/postgres-service.yaml
           kubectl apply -f k8s/redis-service.yaml
-          # Fas 3 (docs/adr/0010-video-storage-and-serving.md) — MinIO gets
-          # the identical Deployment+PVC+ClusterIP treatment as Postgres.
-          kubectl apply -f k8s/minio-pvc.yaml
-          kubectl apply -f k8s/minio-service.yaml
           kubectl apply -f k8s/api-service.yaml
           kubectl apply -f k8s/site-service.yaml
           kubectl apply -f k8s/httproute.yaml
           kubectl apply -f k8s/certificate.yaml
           kubectl apply -f k8s/postgres-deployment.yaml
           kubectl apply -f k8s/redis-deployment.yaml
-          kubectl apply -f k8s/minio-deployment.yaml
           kubectl apply -f k8s/api-deployment.yaml
           kubectl apply -f k8s/site-deployment.yaml
 
@@ -1077,7 +1043,7 @@ jobs:
       # than two, so the cost is nothing. On a config-only deploy it is
       # the entire point.
       #
-      # Only api and site: postgres, redis and minio read no application
+      # Only api and site: postgres and redis read no application
       # config and restarting a database to no purpose is how a quiet
       # deploy becomes an incident.
       - name: Roll api and site so config changes take effect
@@ -1089,7 +1055,6 @@ jobs:
         run: |
           kubectl rollout status deployment/postgres -n skillstreak
           kubectl rollout status deployment/redis -n skillstreak
-          kubectl rollout status deployment/minio -n skillstreak
           kubectl rollout status deployment/api -n skillstreak
           kubectl rollout status deployment/site -n skillstreak
 
